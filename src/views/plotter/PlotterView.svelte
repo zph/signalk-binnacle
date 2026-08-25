@@ -19,6 +19,7 @@ import type { WaypointsStore } from '$entities/waypoint';
 import type { WeatherStore } from '$entities/weather';
 import {
   AIS_OVERLAY_ID,
+  type AisMotionSelection,
   type AisVesselKindMode,
   loadAisDisplaySettings,
 } from '$features/ais-layer';
@@ -491,6 +492,7 @@ const {
   arrivalMuted,
 } = $derived(services);
 let aisDisplaySettingsOpen = $state(false);
+let aisMotionById = $state<ReadonlyMap<string, AisMotionSelection>>(new Map());
 const insecureTransport = $derived(isInsecureTransportOrigin(origin));
 const {
   anchorController,
@@ -811,6 +813,7 @@ $effect(() => {
     {aisTargets}
     {selectedAisId}
     aisKindMode={() => aisIconMode.value}
+    onAisMotionUpdate={(motionById) => (aisMotionById = motionById)}
     onAisSelect={(id) => onAisSelect(id)}
     onWaypointSelect={(id) => onWaypointSelect(id)}
     {anchor}
@@ -1416,6 +1419,9 @@ $effect(() => {
               {vessel}
               {clock}
               {collision}
+              calculatedSogMps={selectedAisId
+                ? aisMotionById.get(selectedAisId)?.observed?.sogMps
+                : undefined}
               selectedId={selectedAisId}
               onSelect={onAisSelect}
               connectionPhase={store.connection.phase}

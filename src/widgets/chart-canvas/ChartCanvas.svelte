@@ -16,7 +16,7 @@ import type { UnitsStore } from '$entities/units';
 import type { UserCharts } from '$entities/user-charts';
 import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
-import type { AisVesselKindMode } from '$features/ais-layer';
+import type { AisMotionUpdate, AisVesselKindMode } from '$features/ais-layer';
 import { BOUNDARY_SOURCES, createBoundaryOverlay } from '$features/boundaries-overlay';
 import { fetchCharts } from '$features/charts';
 import {
@@ -93,6 +93,7 @@ interface Props {
   selectedAisId?: string;
   onAisSelect?: (id: string) => void;
   aisKindMode?: () => AisVesselKindMode;
+  onAisMotionUpdate?: AisMotionUpdate;
   // A waypoint marker tapped on the chart, by resource id.
   onWaypointSelect?: (id: string) => void;
   // The anchor watch, drawn as the swing circle, rode line, and draggable drop-point marker.
@@ -204,6 +205,7 @@ const {
   selectedAisId,
   onAisSelect,
   aisKindMode,
+  onAisMotionUpdate,
   onWaypointSelect,
   anchor,
   mob,
@@ -573,6 +575,7 @@ onMount(async () => {
         aisTargets,
         selectedAisId: () => selectedAisId,
         aisKindMode,
+        onAisMotionUpdate,
         onAisSelect: (id) => {
           if (markerInteractionsAllowed()) onAisSelect?.(id);
         },

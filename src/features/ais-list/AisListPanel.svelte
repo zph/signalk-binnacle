@@ -28,6 +28,7 @@ interface Props {
   collision: CollisionAssessment;
   units: UnitsStore;
   connectionPhase: ConnectionPhase;
+  calculatedSogMps?: number;
   selectedId?: string;
   onSelect: (id: string | undefined) => void;
   // Fly the chart to a tapped target.
@@ -43,6 +44,7 @@ const {
   collision,
   units,
   connectionPhase,
+  calculatedSogMps,
   selectedId,
   onSelect,
   onLocate,
@@ -128,6 +130,7 @@ $effect(() => {
       row={selectedRow}
       {units}
       {connectionPhase}
+      {calculatedSogMps}
       onBack={() => onSelect(undefined)}
       {onLocate}
     />

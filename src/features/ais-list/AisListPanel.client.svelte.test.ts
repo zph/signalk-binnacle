@@ -27,6 +27,7 @@ function mountPanel(options: {
   targets: Record<string, Record<string, unknown>>;
   contacts?: DangerContact[];
   selectedId?: string;
+  calculatedSogMps?: number;
   connectionPhase?: ConnectionPhase;
   noOwnPosition?: boolean;
 }) {
@@ -54,6 +55,7 @@ function mountPanel(options: {
         units: { mode: 'metric' } as UnitsStore,
         connectionPhase: options.connectionPhase ?? 'open',
         selectedId: options.selectedId,
+        calculatedSogMps: options.calculatedSogMps,
         onSelect,
         onLocate,
         onClose,
@@ -152,10 +154,12 @@ describe('AisListPanel interactions', () => {
     const id = 'vessels.urn:mrn:imo:mmsi:333333333';
     const panel = mountPanel({
       selectedId: id,
+      calculatedSogMps: 6,
       targets: {
         [id]: {
           name: 'FREIGHTER',
           'navigation.position': { latitude: 42.01, longitude: -83 },
+          'navigation.speedOverGround': 4,
           'design.aisShipType': { id: 70 },
         },
       },
@@ -163,6 +167,9 @@ describe('AisListPanel interactions', () => {
 
     expect(panel.target.querySelectorAll('.slide-over')).toHaveLength(1);
     expect(panel.target.textContent).toContain('Cargo ship (70)');
+    const detail = panel.target.textContent?.replace(/\s+/g, ' ');
+    expect(detail).toContain('Calculated speed over ground 11.7 kn');
+    expect(detail).toContain('Reported speed over ground 7.8 kn');
     panel.button('Show on chart').click();
     expect(panel.onLocate).toHaveBeenCalledWith({ latitude: 42.01, longitude: -83 });
     panel.target

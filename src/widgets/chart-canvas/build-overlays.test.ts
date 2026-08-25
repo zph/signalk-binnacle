@@ -97,6 +97,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     onAnchorMoved: vi.fn(),
     aisTrailsAvailable: vi.fn(() => true),
     historyProviders: vi.fn(() => ({ providers: [] })),
+    onAisMotionUpdate: vi.fn(),
     timeTravel: { name: 'time-travel', active: false },
     marineRadarLayer,
   };
@@ -190,6 +191,8 @@ describe('buildDynamicOverlays', () => {
     expect(factories.createAisVectorsOverlay).toHaveBeenCalledWith(
       deps.aisTargets,
       expect.any(Function),
+      Date.now,
+      deps.onAisMotionUpdate,
     );
     const collisionAssessment = factories.createAisVectorsOverlay.mock.calls[0]?.[1];
     expect(collisionAssessment?.()).toBe(deps.collision.assessment);

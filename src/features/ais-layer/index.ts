@@ -1,7 +1,8 @@
+export type { AisMotion, AisMotionSelection } from './ais-motion-estimator';
 export type { AisOverlayOptions, AisVesselKindMode } from './ais-overlay';
 export { AIS_OVERLAY_ID, createAisOverlay } from './ais-overlay';
 export { createAisTrailsOverlay } from './ais-trails-overlay';
-export { createAisVectorsOverlay } from './ais-vectors-overlay';
+export { type AisMotionUpdate, createAisVectorsOverlay } from './ais-vectors-overlay';
 
 import { createRetryableLazyUiLoader } from '$shared/lib';
 

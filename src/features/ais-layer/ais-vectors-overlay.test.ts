@@ -195,7 +195,13 @@ describe('createAisVectorsOverlay', () => {
     let t = 0;
     const origin = { latitude: 10, longitude: 20 };
     const targets = makeTargets([movingTarget({ position: origin })]);
-    const overlay = createAisVectorsOverlay(targets as never, emptyAssessment, () => t);
+    const onMotionUpdate = vi.fn();
+    const overlay = createAisVectorsOverlay(
+      targets as never,
+      emptyAssessment,
+      () => t,
+      onMotionUpdate,
+    );
     const map = createFakeMap();
     const ctx = fakeOverlayContext(map);
     await overlay.add(ctx);
@@ -228,6 +234,8 @@ describe('createAisVectorsOverlay', () => {
     }
     expect(observed.properties).toMatchObject({ motionBasis: 'observed' });
     expect(reported.properties).toMatchObject({ motionBasis: 'reported' });
+    const latestMotion = onMotionUpdate.mock.calls.at(-1)?.[0];
+    expect(latestMotion?.get('target-1')?.observed?.sogMps).toBeCloseTo(8, 1);
     const observedCoordinates = observed.geometry.coordinates;
     const reportedCoordinates = reported.geometry.coordinates;
     expect(observedCoordinates[1][0]).toBeGreaterThan(observedCoordinates[0][0]);

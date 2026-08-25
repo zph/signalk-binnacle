@@ -31,6 +31,9 @@ export interface AisMotion {
 export interface AisMotionSelection {
   primary: AisMotion;
   basis: 'reported' | 'observed';
+  // The qualified position-derived motion, retained even when it agrees with the AIS report and
+  // therefore does not replace the reported projection.
+  observed?: AisMotion;
   reportedComparison?: AisMotion;
 }
 
@@ -159,10 +162,11 @@ export class AisMotionEstimator {
         selections.set(target.id, {
           primary: observed,
           basis: 'observed',
+          observed,
           reportedComparison: reported,
         });
       } else if (reported) {
-        selections.set(target.id, { primary: reported, basis: 'reported' });
+        selections.set(target.id, { primary: reported, basis: 'reported', observed });
       }
     }
     for (const id of this.#history.keys()) {

@@ -23,11 +23,26 @@ function detail(
     tcpaSeconds: 300,
   } as AisListRow;
   return render(AisTargetDetail, {
-    props: { row, units: new UnitsStore(), connectionPhase, onBack: vi.fn(), onLocate: vi.fn() },
+    props: {
+      row,
+      units: new UnitsStore(),
+      connectionPhase,
+      calculatedSogMps: 6,
+      onBack: vi.fn(),
+      onLocate: vi.fn(),
+    },
   }).body;
 }
 
 describe('AisTargetDetail', () => {
+  it('shows calculated and reported speed over ground separately', () => {
+    const html = detail(undefined).replace(/\s+/g, ' ');
+    expect(html).toContain('Calculated speed over ground');
+    expect(html).toContain('11.7 kn');
+    expect(html).toContain('Reported speed over ground');
+    expect(html).toContain('7.8 kn');
+  });
+
   // The banner is server-raised safety state, not a response to anything the navigator did in this
   // panel, so an assistive-technology user has to hear it with the urgency a sighted one sees.
   it('announces a collision-risk banner as an alert, matching its alarm styling', () => {

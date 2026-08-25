@@ -95,6 +95,8 @@ export interface AisVectorsOverlay extends OverlayModule {
   sync(ctx: OverlayContext): void;
 }
 
+export type AisMotionUpdate = (motionById: ReadonlyMap<string, AisMotionSelection>) => void;
+
 // True when the contacts carry a different id-to-severity mapping than the map holds. Assessment
 // recomputes mint a fresh contacts array on every AIS flush while any contact is active, so the
 // repaint-now decision must compare the rendered content, not the array identity.
@@ -113,6 +115,7 @@ export function createAisVectorsOverlay(
   targets: AisTargets,
   assessment: () => Assessment,
   now: () => number = Date.now,
+  onMotionUpdate?: AisMotionUpdate,
 ): AisVectorsOverlay {
   let paint = mapThemePaint('day');
   let visible = true;
@@ -132,6 +135,7 @@ export function createAisVectorsOverlay(
     add(ctx) {
       gate.reset();
       motionEstimator.reset();
+      onMotionUpdate?.(new Map());
       lastContacts = undefined;
       severityById.clear();
       ensureGeoJsonSource(ctx.map, SOURCE_ID);
@@ -168,9 +172,6 @@ export function createAisVectorsOverlay(
       }
     },
     sync(ctx) {
-      // Hidden pays nothing: skip the rebuild entirely. The dirty check still fires on re-show,
-      // since the version or the severities advance while hidden and no longer match.
-      if (!visible) return;
       const contacts = assessment().contacts;
       let severitiesChanged = false;
       if (contacts !== lastContacts) {
@@ -182,16 +183,16 @@ export function createAisVectorsOverlay(
         }
       }
       if (!gate.shouldRefresh(severitiesChanged)) return;
+      const targetList = targets.list();
+      const motionById = motionEstimator.update(targetList, now());
+      onMotionUpdate?.(motionById);
+      // A hidden vector layer still maintains the estimator for the AIS detail panel, but avoids
+      // rebuilding GeoJSON or touching MapLibre until it becomes visible again.
+      if (!visible) return;
       setSourceData(
         ctx.map,
         SOURCE_ID,
-        featureCollection(
-          buildFeatures(
-            targets.list(),
-            severityById,
-            motionEstimator.update(targets.list(), now()),
-          ),
-        ),
+        featureCollection(buildFeatures(targetList, severityById, motionById)),
       );
     },
     // Guarded on getLayer: a theme or opacity change can land before add() attaches the layer, and
@@ -222,6 +223,7 @@ export function createAisVectorsOverlay(
       }
     },
     remove(ctx) {
+      onMotionUpdate?.(new Map());
       removeLayersAndSources(ctx.map, [LAYER_ID, REPORTED_LAYER_ID], [SOURCE_ID]);
     },
   };

@@ -59,6 +59,7 @@ describe('AisMotionEstimator', () => {
     expect(selection?.basis).toBe('observed');
     expect(selection?.primary.sogMps).toBeCloseTo(8, 1);
     expect(selection?.primary.cogRad).toBeCloseTo(Math.PI / 2, 2);
+    expect(selection?.observed?.sogMps).toBeCloseTo(8, 1);
     expect(selection?.reportedComparison).toEqual({ cogRad: 0, sogMps: 5 });
   });
 
@@ -72,7 +73,9 @@ describe('AisMotionEstimator', () => {
         .get('target-1');
     }
 
-    expect(selection).toEqual({ primary: { cogRad: 0, sogMps: 5 }, basis: 'reported' });
+    expect(selection?.basis).toBe('reported');
+    expect(selection?.primary).toEqual({ cogRad: 0, sogMps: 5 });
+    expect(selection?.observed?.sogMps).toBeCloseTo(5.2, 1);
   });
 
   it('follows a sustained turn after the preceding minute leaves the window', () => {
@@ -104,6 +107,7 @@ describe('AisMotionEstimator', () => {
 
     expect(selection?.basis).toBe('observed');
     expect(selection?.primary.sogMps).toBe(0);
+    expect(selection?.observed?.sogMps).toBe(0);
     expect(selection?.reportedComparison).toEqual({ cogRad: 0, sogMps: 5 });
   });
 
@@ -156,6 +160,7 @@ describe('AisMotionEstimator', () => {
     expect(selection?.basis).toBe('observed');
     expect(selection?.primary.sogMps).toBeCloseTo(8, 1);
     expect(selection?.primary.cogRad).toBeCloseTo(Math.PI / 2, 2);
+    expect(selection?.observed?.sogMps).toBeCloseTo(8, 1);
     expect(selection?.reportedComparison).toBeUndefined();
   });
 

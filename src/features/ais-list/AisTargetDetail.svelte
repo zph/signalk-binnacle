@@ -24,11 +24,12 @@ interface Props {
   row: AisListRow;
   units: UnitsStore;
   connectionPhase: ConnectionPhase;
+  calculatedSogMps?: number;
   onBack: () => void;
   onLocate: (position: LatLon) => void;
 }
 
-const { row, units, connectionPhase, onBack, onLocate }: Props = $props();
+const { row, units, connectionPhase, calculatedSogMps, onBack, onLocate }: Props = $props();
 </script>
 
 <SubViewHeader title={row.label} backLabel="Back to nearby vessels" {onBack} />
@@ -76,7 +77,11 @@ const { row, units, connectionPhase, onBack, onLocate }: Props = $props();
       <dd>{formatBearingOr(row.bearingRad)}&deg;T</dd>
     </div>
     <div class="item">
-      <dt>Speed</dt>
+      <dt>Calculated speed over ground</dt>
+      <dd>{formatKnotsOr(calculatedSogMps)} kn</dd>
+    </div>
+    <div class="item">
+      <dt>Reported speed over ground</dt>
       <dd>{formatKnotsOr(row.sogMps)} kn</dd>
     </div>
     {#if row.cogRad !== undefined}
