@@ -1,5 +1,5 @@
 import { flushSync, mount, unmount } from 'svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LayerListItem } from '$shared/map';
 import LayerRow from './LayerRow.svelte';
 import type { LayersView } from './layers-view.svelte';
@@ -8,7 +8,7 @@ const mounted: Array<() => void> = [];
 const noop = (): void => {};
 const view = { toggle: noop, setOpacity: noop } as unknown as LayersView;
 
-function mountRow(overrides: Partial<LayerListItem> = {}): HTMLElement {
+function mountRow(overrides: Partial<LayerListItem> = {}, rowView: LayersView = view): HTMLElement {
   const target = document.createElement('div');
   document.body.append(target);
   const item: LayerListItem = {
@@ -28,7 +28,7 @@ function mountRow(overrides: Partial<LayerListItem> = {}): HTMLElement {
       target,
       props: {
         item,
-        view,
+        view: rowView,
         index: 0,
         count: 1,
         dragging: false,
@@ -76,5 +76,26 @@ describe('LayerRow opacity popover', () => {
 
     const slider = target.querySelector('input[type="range"]');
     expect(slider?.getAttribute('aria-valuetext')).toBe('85%');
+  });
+
+  it('keeps slider input transient and persists only the committed change', () => {
+    const setOpacity = vi.fn();
+    const rowView = { toggle: noop, setOpacity } as unknown as LayersView;
+    const target = mountRow({}, rowView);
+    openOpacity(target);
+    const slider = target.querySelector<HTMLInputElement>('input[type="range"]');
+    if (!slider) throw new Error('no opacity slider');
+
+    slider.value = '0.8';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    slider.value = '0.75';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    slider.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(setOpacity.mock.calls).toEqual([
+      ['depth', 0.8, false],
+      ['depth', 0.75, false],
+      ['depth', 0.75],
+    ]);
   });
 });

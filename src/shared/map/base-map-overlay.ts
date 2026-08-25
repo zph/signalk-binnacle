@@ -15,7 +15,7 @@ const BASE_MAP_OVERLAY_ID = 'basemap';
 interface OpacityProperty {
   property: string;
   base: unknown;
-  themeFactor: (paint: MapThemePaint) => number;
+  channel: OpacityChannel;
 }
 
 interface BaseMapLayerSnapshot {
@@ -24,39 +24,53 @@ interface BaseMapLayerSnapshot {
   opacity: OpacityProperty[];
 }
 
-const FULL_OPACITY = (_paint: MapThemePaint) => 1;
+type OpacityChannel = 'base' | 'icon' | 'circle' | 'raster';
+
+interface BaseOpacityState {
+  base: number;
+  icon: number;
+  circle: number;
+  raster: number;
+}
+
+// Every base-style opacity expression refers to one global-state object. A slider tick changes that
+// object once, so MapLibre batches the affected GPU paint evaluation into one style update instead
+// of receiving more than one hundred independent setPaintProperty calls.
+const BASE_OPACITY_STATE_KEY = 'binnacle-custom-basemap-opacity';
 
 function opacityProperties(layer: BaseLayer): Array<{
   property: string;
-  themeFactor: (paint: MapThemePaint) => number;
+  channel: OpacityChannel;
 }> {
   switch (layer.type) {
     case 'background':
-      return [{ property: 'background-opacity', themeFactor: FULL_OPACITY }];
+      return [{ property: 'background-opacity', channel: 'base' }];
     case 'fill':
       // The layer-wide form composites overlapping features once and leaves any data-driven
       // fill-opacity expression intact. MapLibre 6 supports the same primitive for lines.
-      return [{ property: 'fill-layer-opacity', themeFactor: FULL_OPACITY }];
+      return [{ property: 'fill-layer-opacity', channel: 'base' }];
     case 'line':
-      return [{ property: 'line-layer-opacity', themeFactor: FULL_OPACITY }];
+      return [{ property: 'line-layer-opacity', channel: 'base' }];
     case 'fill-extrusion':
-      return [{ property: 'fill-extrusion-opacity', themeFactor: FULL_OPACITY }];
+      return [{ property: 'fill-extrusion-opacity', channel: 'base' }];
     case 'circle':
       return [
-        { property: 'circle-opacity', themeFactor: baseCircleThemeOpacity },
-        { property: 'circle-stroke-opacity', themeFactor: baseCircleThemeOpacity },
+        { property: 'circle-opacity', channel: 'circle' },
+        { property: 'circle-stroke-opacity', channel: 'circle' },
       ];
     case 'symbol': {
-      const properties = [{ property: 'text-opacity', themeFactor: FULL_OPACITY }];
+      const properties: Array<{ property: string; channel: OpacityChannel }> = [
+        { property: 'text-opacity', channel: 'base' },
+      ];
       if (layer.layout?.['icon-image']) {
-        properties.push({ property: 'icon-opacity', themeFactor: baseIconThemeOpacity });
+        properties.push({ property: 'icon-opacity', channel: 'icon' });
       }
       return properties;
     }
     case 'raster':
-      return [{ property: 'raster-opacity', themeFactor: baseRasterThemeOpacity }];
+      return [{ property: 'raster-opacity', channel: 'raster' }];
     case 'heatmap':
-      return [{ property: 'heatmap-opacity', themeFactor: FULL_OPACITY }];
+      return [{ property: 'heatmap-opacity', channel: 'base' }];
     default:
       return [];
   }
@@ -66,9 +80,9 @@ function capture(map: MapLibreMap): BaseMapLayerSnapshot[] {
   return themableBaseLayers(map).map((layer) => ({
     id: layer.id,
     visibility: map.getLayoutProperty(layer.id, 'visibility') as 'visible' | 'none' | undefined,
-    opacity: opacityProperties(layer).flatMap(({ property, themeFactor }) => {
+    opacity: opacityProperties(layer).flatMap(({ property, channel }) => {
       try {
-        return [{ property, base: getPaintProp(map, layer.id, property), themeFactor }];
+        return [{ property, base: getPaintProp(map, layer.id, property), channel }];
       } catch {
         return [];
       }
@@ -76,16 +90,22 @@ function capture(map: MapLibreMap): BaseMapLayerSnapshot[] {
   }));
 }
 
-function scaledOpacity(base: unknown, factor: number): unknown {
-  if (factor === 1) return base;
-  if (factor === 0 || base === undefined) return factor;
-  if (typeof base === 'number') return base * factor;
-  // MapLibre expressions remain on the GPU: wrapping one in multiplication preserves its
-  // feature/zoom behavior while applying the user's single scalar without rebuilding tile data.
-  if (Array.isArray(base)) return ['*', base, factor];
+function controlledOpacity(base: unknown, channel: OpacityChannel): unknown {
+  const factor = ['number', ['get', channel, ['global-state', BASE_OPACITY_STATE_KEY]]] as const;
+  if (base === undefined || base === 1) return factor;
+  if (typeof base === 'number' || Array.isArray(base)) return ['*', base, factor];
   // Legacy function objects are not valid expression operands. They are absent from the current
   // OpenFreeMap style; preserving one unchanged is safer than replacing its data-driven behavior.
   return base;
+}
+
+function opacityState(opacity: number, paint: MapThemePaint): BaseOpacityState {
+  return {
+    base: opacity,
+    icon: opacity * baseIconThemeOpacity(paint),
+    circle: opacity * baseCircleThemeOpacity(paint),
+    raster: opacity * baseRasterThemeOpacity(paint),
+  };
 }
 
 /** A listed control for the existing OpenFreeMap style. It owns no sources or draw layers. */
@@ -102,14 +122,23 @@ export function createBaseMapOverlay(): OverlayModule {
     }
   };
 
-  const applyOpacity = (map: MapLibreMap): void => {
+  const installOpacityControl = (map: MapLibreMap): void => {
+    map.setGlobalStateProperty(BASE_OPACITY_STATE_KEY, opacityState(opacity, paint));
     for (const layer of snapshot) {
       if (!map.getLayer(layer.id)) continue;
       for (const property of layer.opacity) {
-        const factor = opacity * property.themeFactor(paint);
-        setPaintProp(map, layer.id, property.property, scaledOpacity(property.base, factor));
+        setPaintProp(
+          map,
+          layer.id,
+          property.property,
+          controlledOpacity(property.base, property.channel),
+        );
       }
     }
+  };
+
+  const applyOpacity = (map: MapLibreMap): void => {
+    map.setGlobalStateProperty(BASE_OPACITY_STATE_KEY, opacityState(opacity, paint));
   };
 
   const restore = (map: MapLibreMap): void => {
@@ -120,6 +149,7 @@ export function createBaseMapOverlay(): OverlayModule {
         setPaintProp(map, layer.id, property.property, property.base);
       }
     }
+    map.setGlobalStateProperty(BASE_OPACITY_STATE_KEY, null);
   };
 
   return {
@@ -138,6 +168,7 @@ export function createBaseMapOverlay(): OverlayModule {
     layerIds: [],
     add(ctx) {
       snapshot = capture(ctx.map);
+      installOpacityControl(ctx.map);
     },
     remove(ctx) {
       restore(ctx.map);
@@ -156,13 +187,14 @@ export function createBaseMapOverlay(): OverlayModule {
       // baseline, then restore the persisted control state onto it.
       snapshot = capture(ctx.map);
       applyVisibility(ctx.map);
-      applyOpacity(ctx.map);
+      installOpacityControl(ctx.map);
     },
     applyTheme(ctx, nextPaint) {
       paint = nextPaint;
-      // createThemedMap applies the theme's own icon/raster visibility first; this final pass
-      // composes the user's opacity with the same factors from the unmodified source snapshot.
-      applyOpacity(ctx.map);
+      // createThemedMap applies the theme's icon, circle, and raster visibility first. Those passes
+      // write numeric paint values, so reinstall the expressions they replace, using the unchanged
+      // source snapshot as the baseline.
+      installOpacityControl(ctx.map);
     },
   };
 }

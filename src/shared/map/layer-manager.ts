@@ -449,13 +449,15 @@ export class LayerManager {
     }
   }
 
-  setOpacity(id: string, opacity: number): void {
+  setOpacity(id: string, opacity: number, persist = true): void {
     const module = this.#modules.get(id);
     const state = this.#state.get(id);
     if (!module || !state) return;
-    state.opacity = opacity;
-    module.setOpacity?.(this.#ctx, opacity);
-    this.#persist();
+    if (state.opacity !== opacity) {
+      state.opacity = opacity;
+      module.setOpacity?.(this.#ctx, opacity);
+    }
+    if (persist) this.#persist();
   }
 
   // Move a non-pinned overlay to a new index in the non-pinned, top-to-bottom display order

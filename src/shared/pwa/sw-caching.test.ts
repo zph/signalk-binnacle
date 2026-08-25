@@ -169,13 +169,16 @@ describe('service worker route matchers', () => {
     }
   });
 
-  it('keeps the base style cached at least as long as the tiles it references', () => {
-    // A style expiring before its tiles blanks the base map on a long offline stretch even though
-    // the tiles are still cached; revalidation already bounds online staleness.
-    const ageOf = (pattern: unknown): number =>
-      runtimeCaching.find((e) => e.urlPattern === pattern)?.options.expiration.maxAgeSeconds ?? 0;
-    expect(ageOf(isBasemapStyle)).toBeGreaterThan(0);
-    expect(ageOf(isBasemapStyle)).toBeGreaterThanOrEqual(ageOf(isBasemapAsset));
+  it('gives the base style and its assets the same 90-day offline window', () => {
+    const routeFor = (pattern: unknown) =>
+      runtimeCaching.find((entry) => entry.urlPattern === pattern);
+    const style = routeFor(isBasemapStyle);
+    const assets = routeFor(isBasemapAsset);
+
+    expect(style?.handler).toBe('StaleWhileRevalidate');
+    expect(assets?.handler).toBe('CacheFirst');
+    expect(style?.options.expiration.maxAgeSeconds).toBe(90 * 24 * 60 * 60);
+    expect(assets?.options.expiration.maxAgeSeconds).toBe(90 * 24 * 60 * 60);
   });
 
   it('lists every runtime cache in the privacy erase inventory', () => {

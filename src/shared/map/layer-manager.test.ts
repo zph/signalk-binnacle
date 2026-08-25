@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { LayerManager, type LayerManagerOptions } from './layer-manager';
 import type { OverlayContext, OverlayModule, ZBand } from './types';
@@ -82,6 +82,22 @@ describe('LayerManager', () => {
     await manager.register(overlay);
     manager.setOpacity('ais', 0.4);
     expect(overlay.events.at(-1)).toBe('opacity:0.4');
+  });
+
+  it('applies transient opacity updates, then persists the committed value once', async () => {
+    const onChange = vi.fn();
+    const overlay = fakeOverlay('ais');
+    const manager = new LayerManager(fakeCtx(), { onChange });
+    await manager.register(overlay);
+    overlay.events.length = 0;
+
+    manager.setOpacity('ais', 0.8, false);
+    manager.setOpacity('ais', 0.6, false);
+    manager.setOpacity('ais', 0.6);
+
+    expect(overlay.events).toEqual(['opacity:0.8', 'opacity:0.6']);
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith({ ais: { visible: true, opacity: 0.6 } });
   });
 
   it('unregister removes the overlay', async () => {

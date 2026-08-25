@@ -171,7 +171,8 @@ $effect(() => {
               aria-label={`${item.title} opacity`}
               aria-valuetext={`${percent}%`}
               bind:this={tuneControl}
-              oninput={(e) => view.setOpacity(item.id, Number(e.currentTarget.value))}
+              oninput={(e) => view.setOpacity(item.id, Number(e.currentTarget.value), false)}
+              onchange={(e) => view.setOpacity(item.id, Number(e.currentTarget.value))}
             >
             <span class="num tune-val">{percent}%</span>
             <button

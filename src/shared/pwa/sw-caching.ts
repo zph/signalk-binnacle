@@ -133,28 +133,29 @@ export const isRadarTile = ({ url }: MatchContext): boolean =>
 // IndexedDB by the pmtiles protocol layer instead, which also covers plain-http contexts.
 export const runtimeCaching: readonly RuntimeCacheRoute[] = [
   {
-    // The base style document: serve the last one instantly, refresh behind. Revalidation on every
-    // online use, not expiry, is what keeps a rotated OpenFreeMap planet build from pinning a stale
-    // style, so the age cap matches the tile cache below: a style expiring sooner blanks the base
-    // map on a long offline stretch while its tiles are still cached, and a stale style over
-    // equally stale tiles renders fine.
+    // The base style document: serve a cached response immediately, then refresh it online. The
+    // 90-day expiration cap matches the assets below so one does not intentionally outlive the
+    // other. It is an upper bound, not a promise to serve older data offline: ExpirationPlugin can
+    // reject an expired response before this strategy attempts the network.
     urlPattern: isBasemapStyle,
     handler: 'StaleWhileRevalidate',
     options: {
       cacheName: 'binnacle-custom-basemap-style',
-      expiration: { maxEntries: 4, maxAgeSeconds: 30 * DAY_SECONDS },
+      expiration: { maxEntries: 4, maxAgeSeconds: 90 * DAY_SECONDS },
       cacheableResponse: { statuses: [200] },
     },
   },
   {
-    // The online vector base map (tiles, glyphs, sprite): cache what the navigator has viewed.
+    // The online vector base map (tiles, glyphs, sprite): cache viewed assets for up to 90 days.
+    // CacheFirst makes a retained response the offline fallback, but expired or evicted responses
+    // still require the network.
     urlPattern: isBasemapAsset,
     handler: 'CacheFirst',
     options: {
       cacheName: 'binnacle-custom-basemap',
       expiration: {
         maxEntries: 4000,
-        maxAgeSeconds: 30 * DAY_SECONDS,
+        maxAgeSeconds: 90 * DAY_SECONDS,
         purgeOnQuotaError: true,
       },
       cacheableResponse: { statuses: [200] },

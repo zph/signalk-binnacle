@@ -24,8 +24,8 @@ export class LayersView {
     this.refresh();
   }
 
-  setOpacity(id: string, opacity: number): void {
-    this.#manager.setOpacity(id, opacity);
+  setOpacity(id: string, opacity: number, persist = true): void {
+    this.#manager.setOpacity(id, opacity, persist);
     // Mutate the item inside `this.items` (the reactive $state array) in place, so the displayed
     // percentage updates without rebuilding the whole list on every slider tick. `find` returns the
     // reactive element; a plain-Map cache of raw objects would bypass reactivity and freeze the readout.

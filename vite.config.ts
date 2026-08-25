@@ -79,6 +79,10 @@ export default defineConfig({
           // so a shared dependency is not silently pulled into a vendor chunk.
           includeDependenciesRecursively: false,
           groups: [
+            // Keep the shared Svelte client runtime in a stable vendor chunk. Without an explicit
+            // name, adding a lazy Svelte panel can rename it to index-client-*, which both harms
+            // long-lived browser cache reuse and makes it collide with the app-entry size glob.
+            { name: 'svelte-runtime', test: /node_modules\/(?:svelte|clsx)\// },
             // Path-segment anchored (a slash on both sides), not a bare substring match: a bare
             // 'maplibre-gl' test would also catch terra-draw-maplibre-gl-adapter's own path (its
             // package name contains that substring), silently merging the adapter into the far
