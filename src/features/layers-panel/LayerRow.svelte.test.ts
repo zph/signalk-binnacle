@@ -137,3 +137,22 @@ describe('LayerRow opacity focus', () => {
     expect(trigger.focus).toHaveBeenCalledWith({ preventScroll: true });
   });
 });
+
+describe('LayerRow child-layer caret', () => {
+  it('renders an active collapsed caret for a row with child layers', () => {
+    const html = body(layer('enc', { title: 'NOAA ENC California' }), [
+      layer('enc:facet:depth', { title: 'Depth areas', parent: 'enc' }),
+    ]);
+
+    expect(html).toContain('aria-label="Show NOAA ENC California chart layers"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('role="group" aria-label="NOAA ENC California chart layers" hidden=""');
+  });
+
+  it('keeps the caret slot disabled when a row has no child layers', () => {
+    const html = body(layer('plain', { title: 'Open Maps' }), []);
+
+    expect(html).toContain('aria-label="No child layers for Open Maps"');
+    expect(html).toMatch(/<button[^>]*class="facet-caret[^"]*"[^>]*disabled=""/);
+  });
+});

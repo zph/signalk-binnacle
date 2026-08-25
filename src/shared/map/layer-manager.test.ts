@@ -677,6 +677,179 @@ describe('LayerManager', () => {
     expect(shownOnMap(manager, 'coverage')).toBe(false);
   });
 
+  it('materializes declarative facets with independent persisted state', async () => {
+    const onChange = vi.fn();
+    const depthEvents: string[] = [];
+    const chart: OverlayModule = {
+      ...fakeOverlay('chart', 'bathymetry'),
+      layerIds: ['depth-fill', 'sounding-label'],
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: true,
+          layerIds: ['depth-fill'],
+          setVisible: (_ctx, visible) => depthEvents.push(`visible:${visible}`),
+          setOpacity: (_ctx, opacity) => depthEvents.push(`opacity:${opacity}`),
+        },
+      ],
+    };
+    const manager = new LayerManager(fakeCtx(), { onChange });
+
+    await manager.register(chart);
+    expect(manager.layers().find((layer) => layer.id === 'chart:facet:depth')).toMatchObject({
+      parent: 'chart',
+      visible: true,
+      opacity: 1,
+      supportsOpacity: true,
+    });
+
+    manager.toggle('chart:facet:depth', false);
+    manager.setOpacity('chart:facet:depth', 0.4);
+    expect(depthEvents).toContain('visible:false');
+    expect(depthEvents.at(-1)).toBe('opacity:0.4');
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        'chart:facet:depth': { visible: false, opacity: 0.4 },
+      }),
+    );
+  });
+
+  it('keeps a deliberately hidden virtual facet hidden across a parent off-on round trip', async () => {
+    const depthEvents: string[] = [];
+    const manager = new LayerManager(fakeCtx());
+    await manager.register({
+      ...fakeOverlay('chart', 'bathymetry'),
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: false,
+          layerIds: ['chart-layer'],
+          setVisible: (_ctx, visible) => depthEvents.push(`visible:${visible}`),
+        },
+      ],
+    });
+
+    manager.toggle('chart:facet:depth', false);
+    manager.toggle('chart', false);
+    manager.toggle('chart', true);
+
+    expect(depthEvents.at(-1)).toBe('visible:false');
+    expect(shownOnMap(manager, 'chart:facet:depth')).toBe(false);
+  });
+
+  it('resynchronizes a virtual facet when its parent provider availability changes', async () => {
+    let available = false;
+    const depthEvents: string[] = [];
+    const manager = new LayerManager(fakeCtx());
+    await manager.register({
+      ...fakeOverlay('chart', 'bathymetry'),
+      available: () => available,
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: false,
+          layerIds: ['chart-layer'],
+          setVisible: (_ctx, visible) => depthEvents.push(`visible:${visible}`),
+        },
+      ],
+    });
+    expect(depthEvents.at(-1)).toBe('visible:false');
+
+    available = true;
+    manager.layers();
+
+    expect(depthEvents.at(-1)).toBe('visible:true');
+  });
+
+  it('restores a facet snapshot applied before its chart registers', async () => {
+    const depthEvents: string[] = [];
+    const manager = new LayerManager(fakeCtx());
+    manager.applySnapshot(
+      {
+        chart: { visible: false, opacity: 0.8 },
+        'chart:facet:depth': { visible: true, opacity: 0.35 },
+      },
+      ['chart'],
+    );
+
+    await manager.register({
+      ...fakeOverlay('chart', 'bathymetry'),
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: true,
+          layerIds: ['chart-layer'],
+          setVisible: (_ctx, visible) => depthEvents.push(`visible:${visible}`),
+          setOpacity: (_ctx, opacity) => depthEvents.push(`opacity:${opacity}`),
+        },
+      ],
+    });
+
+    expect(manager.layers().find((layer) => layer.id === 'chart:facet:depth')).toMatchObject({
+      opacity: 0.35,
+    });
+    // Its desired state is on, but the saved parent is off, so it remains hidden on the map.
+    expect(depthEvents).toContain('visible:false');
+    expect(depthEvents).toContain('opacity:0.35');
+  });
+
+  it('unregistering a parent removes its virtual facets and persisted settings', async () => {
+    const onChange = vi.fn();
+    const manager = new LayerManager(fakeCtx(), { onChange });
+    await manager.register({
+      ...fakeOverlay('chart', 'bathymetry'),
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: false,
+          layerIds: ['chart-layer'],
+          setVisible: () => {},
+        },
+      ],
+    });
+
+    manager.unregister('chart');
+
+    expect(manager.layers()).toEqual([]);
+    expect(onChange).toHaveBeenLastCalledWith({});
+  });
+
+  it('moves shared facet layer ids only once when restacking their parent', async () => {
+    const ctx = fakeCtx();
+    const map = ctx.map as unknown as ReturnType<typeof createFakeMap>;
+    const manager = new LayerManager(ctx, { savedOrder: ['chart'] });
+    await manager.register({
+      ...fakeOverlay('chart', 'bathymetry'),
+      layerIds: ['depth-fill', 'sounding-label'],
+      add: (overlayCtx) => {
+        overlayCtx.map.addLayer({ id: 'depth-fill', type: 'background' });
+        overlayCtx.map.addLayer({ id: 'sounding-label', type: 'background' });
+      },
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: false,
+          layerIds: ['depth-fill'],
+          setVisible: () => {},
+        },
+      ],
+    });
+
+    expect(map.moveLayer.mock.calls.map(([id]) => id)).toEqual(['sounding-label', 'depth-fill']);
+  });
+
   it('applySnapshot drives setVisible and setOpacity for known layers', async () => {
     const a = fakeOverlay('a');
     const b = fakeOverlay('b');

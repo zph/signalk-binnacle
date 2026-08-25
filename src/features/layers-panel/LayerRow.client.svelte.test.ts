@@ -8,7 +8,11 @@ const mounted: Array<() => void> = [];
 const noop = (): void => {};
 const view = { toggle: noop, setOpacity: noop } as unknown as LayersView;
 
-function mountRow(overrides: Partial<LayerListItem> = {}, rowView: LayersView = view): HTMLElement {
+function mountRow(
+  overrides: Partial<LayerListItem> = {},
+  rowView: LayersView = view,
+  subLayers: LayerListItem[] = [],
+): HTMLElement {
   const target = document.createElement('div');
   document.body.append(target);
   const item: LayerListItem = {
@@ -36,6 +40,7 @@ function mountRow(overrides: Partial<LayerListItem> = {}, rowView: LayersView = 
         dropAfter: false,
         onHandlePointerDown: noop,
         onHandleKeydown: noop,
+        subLayers,
       },
     });
   });
@@ -97,5 +102,61 @@ describe('LayerRow opacity popover', () => {
       ['depth', 0.75, false],
       ['depth', 0.75],
     ]);
+  });
+});
+
+describe('LayerRow child-layer disclosure', () => {
+  it('opens from the caret and commits opacity to the selected child id', () => {
+    const setOpacity = vi.fn();
+    const rowView = { toggle: noop, setOpacity } as unknown as LayersView;
+    const target = mountRow({ title: 'NOAA ENC California' }, rowView, [
+      {
+        id: 'depth:facet:soundings',
+        title: 'Soundings and contours',
+        visible: true,
+        opacity: 0.75,
+        supportsOpacity: true,
+        pinned: false,
+        band: 'basemap',
+        parent: 'depth',
+        available: true,
+      },
+    ]);
+    const caret = target.querySelector<HTMLButtonElement>(
+      '[aria-label="Show NOAA ENC California chart layers"]',
+    );
+    if (!caret) throw new Error('no chart-layer caret');
+    const childGroup = target.querySelector<HTMLElement>(
+      '[aria-label="NOAA ENC California chart layers"]',
+    );
+    expect(childGroup?.hidden).toBe(true);
+
+    caret.click();
+    flushSync();
+
+    expect(childGroup?.hidden).toBe(false);
+    const opacity = target.querySelector<HTMLButtonElement>(
+      '[aria-label="Adjust Soundings and contours opacity"]',
+    );
+    if (!opacity) throw new Error('no child opacity control');
+    opacity.click();
+    flushSync();
+    const slider = target.querySelector<HTMLInputElement>(
+      'input[aria-label="Soundings and contours opacity"]',
+    );
+    if (!slider) throw new Error('no child opacity slider');
+    slider.value = '0.6';
+    slider.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(setOpacity).toHaveBeenCalledWith('depth:facet:soundings', 0.6);
+  });
+
+  it('shows a disabled caret for a row without child layers', () => {
+    const target = mountRow({ title: 'Open Maps' });
+    const caret = target.querySelector<HTMLButtonElement>(
+      '[aria-label="No child layers for Open Maps"]',
+    );
+
+    expect(caret?.disabled).toBe(true);
   });
 });

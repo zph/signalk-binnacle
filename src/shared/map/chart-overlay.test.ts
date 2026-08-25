@@ -16,6 +16,15 @@ vi.mock('./s57-symbols', async (importOriginal) => {
 });
 
 describe('chart overlay', () => {
+  const s57Chart = () => ({
+    identifier: 'california-enc',
+    name: 'NOAA ENC California',
+    type: 'S-57' as const,
+    format: 'pbf',
+    tilemapUrl: '/charts/california-enc/{z}/{x}/{y}',
+    layers: ['DEPARE', 'DEPCNT', 'SOUNDG', 'BOYLAT', 'WRECKS'],
+  });
+
   it('lists a style-document chart as explicitly unsupported without touching the map', async () => {
     const overlay = createChartOverlay(
       {
@@ -189,6 +198,87 @@ describe('chart overlay', () => {
       mapThemePaint('night-red'),
       expect.any(Function),
     );
+  });
+
+  it('derives stable child facets from the S-57 layers that are actually rendered', () => {
+    const overlay = createChartOverlay(s57Chart(), 'http://pi.local');
+
+    expect(overlay.facets?.map((facet) => facet.id)).toEqual([
+      'chart-california-enc:facet:depth-areas',
+      'chart-california-enc:facet:soundings-contours',
+      'chart-california-enc:facet:navigation-aids',
+      'chart-california-enc:facet:hazards',
+    ]);
+    for (const facet of overlay.facets ?? []) {
+      expect(facet).toMatchObject({
+        supportsOpacity: true,
+        defaultVisible: true,
+        defaultOpacity: 1,
+      });
+      expect(facet.layerIds.length).toBeGreaterThan(0);
+      expect(facet.layerIds.every((id) => overlay.layerIds.includes(id))).toBe(true);
+    }
+    expect(overlay.facets?.flatMap((facet) => facet.layerIds)).toContain(
+      'chart-california-enc-depare-shallow',
+    );
+    expect(overlay.facets?.flatMap((facet) => facet.layerIds)).toContain(
+      'chart-california-enc-s57-symbol-boylat',
+    );
+  });
+
+  it('scopes facet visibility and preserves it across parent visibility changes', async () => {
+    const overlay = createChartOverlay(s57Chart(), 'http://pi.local');
+    const depth = overlay.facets?.find((facet) => facet.id.endsWith(':depth-areas'));
+    const navigation = overlay.facets?.find((facet) => facet.id.endsWith(':navigation-aids'));
+    if (!depth || !navigation) throw new Error('expected S-57 facets');
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    const lastVisibility = (id: string): unknown =>
+      map.setLayoutProperty.mock.calls.findLast(
+        ([layerId, property]) => layerId === id && property === 'visibility',
+      )?.[2];
+
+    depth.setVisible(ctx, false);
+    for (const id of depth.layerIds) expect(lastVisibility(id)).toBe('none');
+    for (const id of navigation.layerIds) expect(lastVisibility(id)).toBeUndefined();
+
+    overlay.setVisible(ctx, false);
+    overlay.setVisible(ctx, true);
+    for (const id of depth.layerIds) expect(lastVisibility(id)).toBe('none');
+    for (const id of navigation.layerIds) expect(lastVisibility(id)).toBe('visible');
+
+    overlay.setVisible(ctx, false);
+    depth.setVisible(ctx, true);
+    for (const id of depth.layerIds) expect(lastVisibility(id)).toBe('none');
+    overlay.setVisible(ctx, true);
+    for (const id of depth.layerIds) expect(lastVisibility(id)).toBe('visible');
+  });
+
+  it('multiplies parent and facet opacity without setter-order dependence', async () => {
+    const overlay = createChartOverlay(s57Chart(), 'http://pi.local');
+    const depth = overlay.facets?.find((facet) => facet.id.endsWith(':depth-areas'));
+    const soundings = overlay.facets?.find((facet) => facet.id.endsWith(':soundings-contours'));
+    if (!depth?.setOpacity || !soundings?.setOpacity) throw new Error('expected S-57 facets');
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    const lastOpacity = (id: string, property: string): unknown =>
+      map.setPaintProperty.mock.calls.findLast(
+        ([layerId, paintProperty]) => layerId === id && paintProperty === property,
+      )?.[2];
+
+    overlay.setOpacity?.(ctx, 0.5);
+    depth.setOpacity(ctx, 0.4);
+    expect(lastOpacity('chart-california-enc-depare-shallow', 'fill-opacity')).toBeCloseTo(0.2);
+    expect(lastOpacity('chart-california-enc-soundg-safe', 'text-opacity')).toBeCloseTo(0.5);
+
+    depth.setOpacity(ctx, 0.25);
+    overlay.setOpacity?.(ctx, 0.8);
+    expect(lastOpacity('chart-california-enc-depare-shallow', 'fill-opacity')).toBeCloseTo(0.2);
+    expect(lastOpacity('chart-california-enc-soundg-safe', 'text-opacity')).toBeCloseTo(0.8);
   });
 
   it('registers a PMTiles archive on add and unregisters it on remove', async () => {

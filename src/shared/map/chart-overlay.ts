@@ -10,6 +10,7 @@ import type { SignalKChart } from './chart-types';
 import { applyRasterTheme, colorProperty, DAY_PAINT, type MapColorKey } from './map-theme';
 import { removeLayersAndSources, setLayersVisibility, setPaintProp } from './overlay-helpers';
 import { registerPmtilesArchive, unregisterPmtilesArchive } from './pmtiles';
+import { s57FacetLayerGroups } from './s57-chart-facets';
 import {
   S57_THEME_PAINT_KEY,
   type S57StyleOptions,
@@ -17,7 +18,7 @@ import {
   s57ThemeColor,
 } from './s57-chart-style';
 import { registerS57Symbols } from './s57-symbols';
-import type { ChartLayerInfo, OverlayModule, ZBand } from './types';
+import type { ChartLayerInfo, OverlayFacet, OverlayModule, ZBand } from './types';
 
 // How far past a raster or generic chart's native max zoom its layers keep drawing before they hand
 // off to the base map. S-57 ENC is deliberately exempt: MapLibre can overzoom its last vector tile
@@ -122,6 +123,7 @@ export function createChartOverlay(
     };
   });
   const layerIds = layers.map((layer) => layer.id);
+  const chartId = chartSourceId(chart.identifier);
   const chartSource = sourceIds[0];
   // The bare http urls of this chart's PMTiles archives, registered with the protocol on add and
   // unregistered on remove so a deleted chart does not leak its archive instance (for a blob: url,
@@ -147,6 +149,59 @@ export function createChartOverlay(
     chart.description ??
     (source === 'user' ? 'User-added chart source' : 'Chart source from the Signal K server');
   const isS57 = chart.type === 'S-57';
+  let parentVisible = true;
+  let parentOpacity = 1;
+  const visibilityByFacet = new Map<string, boolean>();
+  const opacityByFacet = new Map<string, number>();
+  const facetIdByLayer = new Map<string, string>();
+  const layerById = new Map(layers.map((layer) => [layer.id, layer]));
+  const applyLayerVisibility = (
+    ctx: Parameters<OverlayModule['setVisible']>[0],
+    layerId: string,
+  ) => {
+    const facetId = facetIdByLayer.get(layerId);
+    const facetVisible = facetId ? (visibilityByFacet.get(facetId) ?? true) : true;
+    setLayersVisibility(ctx.map, [layerId], parentVisible && facetVisible);
+  };
+  const applyLayerOpacity = (ctx: Parameters<OverlayModule['setVisible']>[0], layerId: string) => {
+    const layer = layerById.get(layerId);
+    if (!layer || !ctx.map.getLayer(layer.id)) return;
+    const facetId = facetIdByLayer.get(layer.id);
+    const facetOpacity = facetId ? (opacityByFacet.get(facetId) ?? 1) : 1;
+    for (const property of layer.opacity) {
+      setPaintProp(
+        ctx.map,
+        layer.id,
+        property.property,
+        property.base * parentOpacity * facetOpacity,
+      );
+    }
+  };
+  const facets: OverlayFacet[] = isS57
+    ? s57FacetLayerGroups(specs.layers).map((group) => {
+        const id = `${chartId}:facet:${group.key}`;
+        visibilityByFacet.set(id, true);
+        opacityByFacet.set(id, 1);
+        for (const layerId of group.layerIds) facetIdByLayer.set(layerId, id);
+        return {
+          id,
+          title: group.title,
+          description: group.description,
+          supportsOpacity: true,
+          defaultVisible: true,
+          defaultOpacity: 1,
+          layerIds: group.layerIds,
+          setVisible(ctx, visible) {
+            visibilityByFacet.set(id, visible);
+            for (const layerId of group.layerIds) applyLayerVisibility(ctx, layerId);
+          },
+          setOpacity(ctx, opacity) {
+            opacityByFacet.set(id, opacity);
+            for (const layerId of group.layerIds) applyLayerOpacity(ctx, layerId);
+          },
+        };
+      })
+    : [];
   let symbolGeneration = 0;
 
   // The native max zoom lives in the source's TileJSON, which a PMTiles archive reports
@@ -168,12 +223,13 @@ export function createChartOverlay(
   };
 
   return {
-    id: chartSourceId(chart.identifier),
+    id: chartId,
     title: chart.name,
     description,
     band,
     supportsOpacity: true,
     layerIds,
+    facets,
     chart: {
       identifier: chart.identifier,
       source,
@@ -246,18 +302,12 @@ export function createChartOverlay(
       }
     },
     setVisible(ctx, visible) {
-      setLayersVisibility(ctx.map, layerIds, visible);
+      parentVisible = visible;
+      for (const layerId of layerIds) applyLayerVisibility(ctx, layerId);
     },
     setOpacity(ctx, opacity) {
-      for (const layer of layers) {
-        // Guard on getLayer, matching setLayersVisibility: setPaintProperty throws on a layer that is
-        // not present, for example if the slider moves during the window after a base-style reload and
-        // before the overlay reattaches.
-        if (!ctx.map.getLayer(layer.id)) continue;
-        for (const property of layer.opacity) {
-          setPaintProp(ctx.map, layer.id, property.property, property.base * opacity);
-        }
-      }
+      parentOpacity = opacity;
+      for (const layer of layers) applyLayerOpacity(ctx, layer.id);
     },
     applyTheme(ctx, paint) {
       if (isS57) {

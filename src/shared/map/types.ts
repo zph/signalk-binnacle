@@ -50,6 +50,21 @@ export interface ChartLayerInfo {
   format?: string;
 }
 
+// A semantic child of one rendered overlay. The parent owns source creation, tile loading, theme
+// changes, and stacking; a facet controls only a stable subset of the parent's existing WebGL
+// layers. LayerManager materializes these as nested, persisted rows without adding another source.
+export interface OverlayFacet {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly supportsOpacity: boolean;
+  readonly defaultVisible?: boolean;
+  readonly defaultOpacity?: number;
+  readonly layerIds: readonly string[];
+  setVisible(ctx: OverlayContext, visible: boolean): void;
+  setOpacity?(ctx: OverlayContext, opacity: number): void;
+}
+
 export interface OverlayModule {
   readonly id: string;
   readonly title: string;
@@ -93,6 +108,9 @@ export interface OverlayModule {
   // The MapLibre layer ids this overlay manages, bottom to top, so the LayerManager can
   // restack the whole overlay group when the user reorders layers.
   readonly layerIds: readonly string[];
+  // Optional child controls over subsets of layerIds. Facets share this module's sources and
+  // lifecycle, but LayerManager gives each one its own profile-owned visibility and opacity.
+  readonly facets?: readonly OverlayFacet[];
   add(ctx: OverlayContext): void | Promise<void>;
   remove(ctx: OverlayContext): void;
   setVisible(ctx: OverlayContext, visible: boolean): void;

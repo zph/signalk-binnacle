@@ -99,6 +99,7 @@ export class LayerManager {
   // Provider availability is runtime-only. Keep it separate from the desired, persisted visibility
   // in #state so an unavailable overlay is hidden on the map without losing the user's preference.
   #availability = new Map<string, boolean>();
+  #renderedVisibility = new Map<string, boolean>();
   // An async add can be canceled by unregister before it finishes. Keep its identity and completion
   // task separate from the public module map so a same-id replacement waits for the canceled add's
   // final cleanup, and a stale catch cannot delete the replacement's state.
@@ -131,7 +132,7 @@ export class LayerManager {
   }
 
   async register(module: OverlayModule): Promise<void> {
-    await this.#addModule(module);
+    await this.#addModuleTree(module);
     this.#applyOrder();
   }
 
@@ -149,10 +150,17 @@ export class LayerManager {
       await this.register(module);
       return;
     }
-    const previousState = this.#state.get(module.id);
-    const retainedState: OverlayState = previousState
-      ? { ...previousState }
-      : { visible: previous.defaultVisible ?? true, opacity: previous.defaultOpacity ?? 1 };
+    const retainedStates = new Map<string, OverlayState>();
+    for (const id of [module.id, ...this.#childrenOf(module.id)]) {
+      const current = this.#state.get(id);
+      if (current) retainedStates.set(id, { ...current });
+    }
+    if (!retainedStates.has(module.id)) {
+      retainedStates.set(module.id, {
+        visible: previous.defaultVisible ?? true,
+        opacity: previous.defaultOpacity ?? 1,
+      });
+    }
 
     try {
       previous.remove(this.#ctx);
@@ -161,46 +169,26 @@ export class LayerManager {
         cause: error,
       });
     }
+    for (const childId of this.#childrenOf(module.id).reverse()) this.#removeModule(childId);
     this.#registrations.delete(module.id);
     this.#modules.delete(module.id);
     this.#state.delete(module.id);
     this.#availability.delete(module.id);
+    this.#renderedVisibility.delete(module.id);
 
     try {
-      await this.#addModule(module, retainedState);
+      await this.#addModuleTree(module, retainedStates);
       this.#applyOrder();
     } catch (replacementError) {
-      let replacementCleanupError: unknown;
-      if (this.#modules.get(module.id) === module) {
-        try {
-          module.remove(this.#ctx);
-        } catch (error) {
-          replacementCleanupError = error;
-        }
-        if (this.#registrations.get(module.id)?.module === module) {
-          this.#registrations.delete(module.id);
-        }
-        this.#modules.delete(module.id);
-        this.#state.delete(module.id);
-        this.#availability.delete(module.id);
-      }
+      for (const childId of this.#childrenOf(module.id).reverse()) this.#removeModule(childId);
+      this.#removeModule(module.id);
       try {
-        await this.#addModule(previous, retainedState);
+        await this.#addModuleTree(previous, retainedStates);
         this.#applyOrder();
       } catch (restoreError) {
         throw new AggregateError(
-          [
-            replacementError,
-            ...(replacementCleanupError ? [replacementCleanupError] : []),
-            restoreError,
-          ],
+          [replacementError, restoreError],
           `Could not replace or restore overlay "${module.id}".`,
-        );
-      }
-      if (replacementCleanupError) {
-        throw new AggregateError(
-          [replacementError, replacementCleanupError],
-          `Could not cleanly replace overlay "${module.id}".`,
         );
       }
       throw replacementError;
@@ -233,7 +221,7 @@ export class LayerManager {
     const results: LayerRegistrationResult[] = [];
     for (const module of modules) {
       try {
-        await this.#addModule(module);
+        await this.#addModuleTree(module);
         results.push({ id: module.id, status: 'registered' });
       } catch (error) {
         results.push({ id: module.id, status: 'failed', error });
@@ -241,6 +229,54 @@ export class LayerManager {
     }
     this.#applyOrder();
     return results;
+  }
+
+  // Register a parent and its declarative facets as one logical unit. Facets are lightweight
+  // virtual modules: they share the parent's sources and add/remove lifecycle, but retain their own
+  // persisted visibility and opacity. A failed child rolls the whole tree back.
+  async #addModuleTree(
+    module: OverlayModule,
+    retainedStates: ReadonlyMap<string, OverlayState> = new Map(),
+  ): Promise<void> {
+    const facetModules = this.#facetModules(module);
+    const ids = [module.id, ...facetModules.map((facet) => facet.id)];
+    if (new Set(ids).size !== ids.length) {
+      throw new Error(`duplicate overlay facet id under: ${module.id}`);
+    }
+    const added: string[] = [];
+    try {
+      await this.#addModule(module, retainedStates.get(module.id));
+      added.push(module.id);
+      for (const facet of facetModules) {
+        await this.#addModule(facet, retainedStates.get(facet.id));
+        added.push(facet.id);
+      }
+    } catch (error) {
+      for (const id of added.reverse()) this.#removeModule(id);
+      throw error;
+    }
+  }
+
+  #facetModules(parent: OverlayModule): OverlayModule[] {
+    return (parent.facets ?? []).map((facet) => ({
+      id: facet.id,
+      title: facet.title,
+      description: facet.description,
+      band: parent.band,
+      parent: parent.id,
+      group: parent.group,
+      category: parent.category,
+      region: parent.region,
+      listed: parent.listed,
+      supportsOpacity: facet.supportsOpacity,
+      defaultVisible: facet.defaultVisible,
+      defaultOpacity: facet.defaultOpacity,
+      layerIds: facet.layerIds,
+      add() {},
+      remove() {},
+      setVisible: facet.setVisible,
+      setOpacity: facet.setOpacity,
+    }));
   }
 
   // Add a single module (state restore, exclusion enforcement, add, visibility, and opacity)
@@ -332,12 +368,28 @@ export class LayerManager {
         this.#modules.delete(module.id);
         this.#state.delete(module.id);
         this.#availability.delete(module.id);
+        this.#renderedVisibility.delete(module.id);
       }
       throw error;
     }
   }
 
   unregister(id: string): void {
+    const childIds = this.#childrenOf(id);
+    for (const childId of childIds.reverse()) this.#removeModule(childId);
+    this.#removeModule(id);
+    for (const removedId of [id, ...childIds]) delete this.#saved[removedId];
+    this.#suppressedChildren.delete(id);
+    // Drop the state and order entries too, and persist, so a deleted overlay (a removed user
+    // chart) does not live on in the saved snapshot forever.
+    if (this.#explicitOrder.includes(id)) {
+      this.#explicitOrder = this.#explicitOrder.filter((other) => other !== id);
+      this.#onOrderChange?.([...this.#explicitOrder]);
+    }
+    this.#persist();
+  }
+
+  #removeModule(id: string): void {
     const registration = this.#registrations.get(id);
     const module = registration?.module ?? this.#modules.get(id);
     if (!module) return;
@@ -352,16 +404,16 @@ export class LayerManager {
       this.#modules.delete(id);
       this.#state.delete(id);
       this.#availability.delete(id);
+      this.#renderedVisibility.delete(id);
     }
     this.#suppressedChildren.delete(id);
     if (module.parent !== undefined) this.#suppressedChildren.get(module.parent)?.delete(id);
-    // Drop the state and order entries too, and persist, so a deleted overlay (a removed user
-    // chart) does not live on in the saved snapshot forever.
-    if (this.#explicitOrder.includes(id)) {
-      this.#explicitOrder = this.#explicitOrder.filter((other) => other !== id);
-      this.#onOrderChange?.([...this.#explicitOrder]);
-    }
-    this.#persist();
+  }
+
+  #childrenOf(id: string): string[] {
+    return [...this.#modules]
+      .filter(([, module]) => module.parent === id)
+      .map(([childId]) => childId);
   }
 
   // Tear down every registered module before the owning MapLibre instance is removed. Reverse
@@ -376,6 +428,7 @@ export class LayerManager {
     this.#modules.clear();
     this.#state.clear();
     this.#availability.clear();
+    this.#renderedVisibility.clear();
     this.#suppressedChildren.clear();
     for (const module of modules) {
       try {
@@ -412,7 +465,16 @@ export class LayerManager {
     if (module.parent !== undefined) this.#suppressedChildren.get(module.parent)?.delete(id);
     if (visible) this.#restoreChildren(id);
     else this.#suppressChildren(id);
+    this.#syncChildren(id);
     this.#persist();
+  }
+
+  #syncChildren(id: string): void {
+    for (const childId of this.#childrenOf(id)) {
+      const child = this.#modules.get(childId);
+      const childState = this.#state.get(childId);
+      if (child && childState) this.#syncVisibility(child, childState, true);
+    }
   }
 
   // Turning a parent off hides its sub-layers, so a facet (the data-quality overlay) never lingers
@@ -485,6 +547,9 @@ export class LayerManager {
   // when it was captured, so re-enforcing here could suppress a layer the saved profile kept on.
   applySnapshot(settings: LayerSettings, order: string[]): void {
     if (this.#disposed) return;
+    this.#saved = Object.fromEntries(
+      Object.entries(settings).map(([id, state]) => [id, { ...state }]),
+    );
     for (const [id, module] of this.#modules) {
       // Same filter as #persist: an id left behind by a build that did persist these must not be
       // able to reapply itself to a transient overlay.
@@ -523,13 +588,16 @@ export class LayerManager {
   // devices. Nothing can toggle them from the panel, so the entries were pure noise in a record
   // that is supposed to describe the navigator's choices.
   #persist(): void {
-    if (!this.#onChange) return;
     const snapshot: LayerSettings = {};
     for (const [id, state] of this.#state) {
       if (this.#modules.get(id)?.listed === false) continue;
       snapshot[id] = { visible: state.visible, opacity: state.opacity };
     }
-    this.#onChange(snapshot);
+    // Keep the manager's restore source current even without a persistence callback. A profile can
+    // be applied before an asynchronously discovered chart registers; its facet settings must still
+    // be available when that chart family arrives later.
+    this.#saved = { ...this.#saved, ...snapshot };
+    this.#onChange?.(snapshot);
   }
 
   #isChild(id: string): boolean {
@@ -556,9 +624,18 @@ export class LayerManager {
   // user's choice while the map and disabled panel control remain aligned.
   #syncVisibility(module: OverlayModule, state: OverlayState, force = false): boolean {
     const available = module.available?.() ?? true;
-    if (force || this.#availability.get(module.id) !== available) {
-      module.setVisible(this.#ctx, available && state.visible);
+    const parentState = module.parent ? this.#state.get(module.parent) : undefined;
+    const parentAvailable = module.parent ? (this.#availability.get(module.parent) ?? true) : true;
+    const parentVisible = parentState ? parentAvailable && parentState.visible : true;
+    const renderedVisible = available && state.visible && parentVisible;
+    if (
+      force ||
+      this.#availability.get(module.id) !== available ||
+      this.#renderedVisibility.get(module.id) !== renderedVisible
+    ) {
+      module.setVisible(this.#ctx, renderedVisible);
       this.#availability.set(module.id, available);
+      this.#renderedVisibility.set(module.id, renderedVisible);
     }
     return available;
   }
@@ -636,11 +713,15 @@ export class LayerManager {
     // order or a pin makes the desired order differ from the plain band sequence.
     if (!this.#explicitOrder.length && !this.#pinned.size) return;
     const desired: string[] = [];
+    const seen = new Set<string>();
     for (const id of order) {
       const module = this.#modules.get(id);
       if (!module) continue;
       for (const layerId of module.layerIds) {
-        if (this.#ctx.map.getLayer(layerId)) desired.push(layerId);
+        if (!seen.has(layerId) && this.#ctx.map.getLayer(layerId)) {
+          seen.add(layerId);
+          desired.push(layerId);
+        }
       }
     }
     const anchor = sentinelId('overlay-top');

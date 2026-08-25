@@ -18,6 +18,7 @@ export function restoreLayerOpacityFocus(
 </script>
 
 <script lang="ts">
+import ChevronRight from '@lucide/svelte/icons/chevron-right';
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 import Settings2 from '@lucide/svelte/icons/settings-2';
@@ -41,9 +42,9 @@ interface Props {
   manageLabel?: string;
   draggable?: boolean;
   // Sub-layers of this row (a chart facet, for example NOAA ENC data quality). When present, the row
-  // renders as a facet group: one handle moves the group, the parent and child toggles share one
-  // aligned column, and the tune control adjusts the whole group's opacity. Each child is a toggle
-  // only, disabled while this row is off, so a facet never renders without the chart it annotates.
+  // renders as a facet group: one handle moves the group, and a collapsed disclosure exposes each
+  // child's independent visibility and opacity. Children stay disabled while this row is off, so a
+  // facet never renders without the chart it belongs to.
   subLayers?: LayerListItem[];
   // Set when this row is the top-level facet of a named group (NOAA ENC). The visible group title is
   // drawn by the panel above the card; here it names the listitem so a screen reader speaks the group
@@ -71,11 +72,6 @@ const {
 // A layer at zero opacity while its toggle stays checked is a silent failure for safety layers
 // (AIS, anchor ring), so the slider floor keeps them faintly visible.
 const MIN_LAYER_OPACITY = 0.15;
-const percent = $derived(Math.round(item.opacity * 100));
-// The opacity control shows only when the layer is on and can be dimmed, and it lights when the layer
-// is below full so a faded layer is visible at a glance without opening the popover.
-const canTune = $derived(item.supportsOpacity && item.visible && item.available);
-const dimmed = $derived(item.opacity < 1);
 // A row only counts as a facet group when it actually has sub-layers nested under it: a row that
 // merely shares a group id with something it is not the parent of (for example a plain sibling row
 // tagged with the same group for display grouping alone) keeps its own title.
@@ -83,11 +79,19 @@ const isFacetGroup = $derived(subLayers.length > 0);
 // The drag handle moves the whole row, so for a facet group it names the group, otherwise the layer.
 const handleLabel = $derived(isFacetGroup ? (groupTitle ?? item.title) : item.title);
 
-let tuneOpen = $state(false);
+let tuneId = $state<string>();
 let tuneTrigger = $state<HTMLButtonElement>();
 let tuneControl = $state<HTMLInputElement>();
 let wasTuneOpen = false;
+let facetsExpanded = $state(false);
+const componentId = $props.id();
 const itemUnavailableId = $derived(`layer-${item.id}-unavailable`);
+const facetPanelId = `${componentId}-chart-layers`;
+
+function canTuneLayer(layer: LayerListItem): boolean {
+  const parentAllows = layer.parent === undefined || (item.visible && item.available);
+  return layer.supportsOpacity && layer.visible && layer.available && parentAllows;
+}
 
 // A facet child's accessible description points at whichever hint explains why it is disabled: its
 // own provider-absent hint when the child is unavailable, otherwise the parent's hint when only the
@@ -100,10 +104,11 @@ function childDescribedBy(sub: LayerListItem, subUnavailableId: string): string 
 // Close the popover if the layer is hidden while it is open: the popover lives inside the canTune
 // block, so without this re-showing the layer would pop it back open unprompted.
 $effect(() => {
-  if (!canTune) tuneOpen = false;
+  const active = tuneId === item.id ? item : subLayers.find((layer) => layer.id === tuneId);
+  if (!active || !canTuneLayer(active)) tuneId = undefined;
 });
 $effect(() => {
-  if (tuneOpen) {
+  if (tuneId) {
     wasTuneOpen = true;
     let focusFrame = 0;
     const positionFrame = requestAnimationFrame(() => {
@@ -134,59 +139,84 @@ $effect(() => {
   </button>
 {/snippet}
 
+{#snippet facetCaret()}
+  <button
+    type="button"
+    class="facet-caret"
+    class:is-open={facetsExpanded}
+    disabled={!isFacetGroup}
+    aria-label={isFacetGroup ? `${facetsExpanded ? 'Hide' : 'Show'} ${item.title} chart layers` : `No child layers for ${item.title}`}
+    aria-expanded={isFacetGroup ? facetsExpanded : undefined}
+    aria-controls={isFacetGroup ? facetPanelId : undefined}
+    onclick={() => (facetsExpanded = !facetsExpanded)}
+  >
+    <ChevronRight size={18} aria-hidden="true" />
+  </button>
+{/snippet}
+
+{#snippet opacityControl(layer: LayerListItem)}
+  {#if canTuneLayer(layer)}
+    <div class="tune-anchor">
+      <button
+        type="button"
+        class="icon-btn"
+        class:icon-btn--accent={layer.opacity < 1}
+        aria-label={`Adjust ${layer.title} opacity`}
+        aria-expanded={tuneId === layer.id}
+        onclick={(event) => {
+          tuneTrigger = event.currentTarget;
+          tuneId = tuneId === layer.id ? undefined : layer.id;
+        }}
+      >
+        <SlidersHorizontal size={18} aria-hidden="true" />
+      </button>
+      <AnchoredMenu
+        open={tuneId === layer.id}
+        onClose={() => {
+          if (tuneId === layer.id) tuneId = undefined;
+        }}
+        backdropLabel={`Close ${layer.title} opacity`}
+        ariaLabel={`${layer.title} opacity`}
+        surfaceClass="popover-card tune-pop"
+        anchor={tuneTrigger}
+        preferredPlacement="below"
+        anchorAlign="end"
+        onFocusLeft={() => {
+          if (tuneId === layer.id) tuneId = undefined;
+        }}
+      >
+        <div class="tune-body">
+          <input
+            class="range"
+            type="range"
+            min={MIN_LAYER_OPACITY}
+            max="1"
+            step="0.05"
+            value={layer.opacity}
+            aria-label={`${layer.title} opacity`}
+            aria-valuetext={`${Math.round(layer.opacity * 100)}%`}
+            bind:this={tuneControl}
+            oninput={(e) => view.setOpacity(layer.id, Number(e.currentTarget.value), false)}
+            onchange={(e) => view.setOpacity(layer.id, Number(e.currentTarget.value))}
+          >
+          <span class="num tune-val">{Math.round(layer.opacity * 100)}%</span>
+          <button
+            type="button"
+            class="icon-btn"
+            aria-label="Reset opacity"
+            onclick={() => view.setOpacity(layer.id, 1)}
+          >
+            <RotateCcw size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </AnchoredMenu>
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet trailing()}
   <div class="trail">
-    {#if canTune}
-      <div class="tune-anchor">
-        <button
-          type="button"
-          class="icon-btn"
-          bind:this={tuneTrigger}
-          class:icon-btn--accent={dimmed}
-          aria-label={`Adjust ${item.title} opacity`}
-          aria-expanded={tuneOpen}
-          onclick={() => (tuneOpen = !tuneOpen)}
-        >
-          <SlidersHorizontal size={18} aria-hidden="true" />
-        </button>
-        <AnchoredMenu
-          open={tuneOpen}
-          onClose={() => (tuneOpen = false)}
-          backdropLabel={`Close ${item.title} opacity`}
-          ariaLabel={`${item.title} opacity`}
-          surfaceClass="popover-card tune-pop"
-          anchor={tuneTrigger}
-          preferredPlacement="below"
-          anchorAlign="end"
-          onFocusLeft={() => (tuneOpen = false)}
-        >
-          <div class="tune-body">
-            <input
-              class="range"
-              type="range"
-              min={MIN_LAYER_OPACITY}
-              max="1"
-              step="0.05"
-              value={item.opacity}
-              aria-label={`${item.title} opacity`}
-              aria-valuetext={`${percent}%`}
-              bind:this={tuneControl}
-              oninput={(e) => view.setOpacity(item.id, Number(e.currentTarget.value), false)}
-              onchange={(e) => view.setOpacity(item.id, Number(e.currentTarget.value))}
-            >
-            <span class="num tune-val">{percent}%</span>
-            <button
-              type="button"
-              class="icon-btn"
-              aria-label="Reset opacity"
-              onclick={() => view.setOpacity(item.id, 1)}
-            >
-              <RotateCcw size={16} aria-hidden="true" />
-            </button>
-          </div>
-        </AnchoredMenu>
-      </div>
-    {/if}
+    {@render opacityControl(item)}
     {#if onManage}
       <button
         type="button"
@@ -236,31 +266,41 @@ $effect(() => {
             disabled={!item.available}
             describedBy={!item.available && item.unavailableHint ? itemUnavailableId : undefined}
             onToggle={(visible) => view.toggle(item.id, visible)}
+            afterCheckbox={facetCaret}
           />
           {@render regionTag()}
           {@render trailing()}
         </div>
-        {#each subLayers as sub (sub.id)}
-          {@const subUnavailableId = `layer-${sub.id}-unavailable`}
-          <div
-            class="facet-line facet-child"
-            class:unavailable={!sub.available}
-            title={sub.available ? undefined : sub.unavailableHint}
-          >
-            <UnavailableHint
-              id={subUnavailableId}
-              hint={sub.available ? undefined : sub.unavailableHint}
-            />
-            <LayerToggle
-              label={sub.title}
-              description={sub.description}
-              visible={sub.visible}
-              disabled={!item.available || !item.visible || !sub.available}
-              describedBy={childDescribedBy(sub, subUnavailableId)}
-              onToggle={(visible) => view.toggle(sub.id, visible)}
-            />
-          </div>
-        {/each}
+        <div
+          class="facet-disclosure"
+          id={facetPanelId}
+          role="group"
+          aria-label={`${item.title} chart layers`}
+          hidden={!facetsExpanded}
+        >
+          {#each subLayers as sub (sub.id)}
+            {@const subUnavailableId = `layer-${sub.id}-unavailable`}
+            <div
+              class="facet-line facet-child"
+              class:unavailable={!sub.available}
+              title={sub.available ? undefined : sub.unavailableHint}
+            >
+              <UnavailableHint
+                id={subUnavailableId}
+                hint={sub.available ? undefined : sub.unavailableHint}
+              />
+              <LayerToggle
+                label={sub.title}
+                description={sub.description}
+                visible={sub.visible}
+                disabled={!item.available || !item.visible || !sub.available}
+                describedBy={childDescribedBy(sub, subUnavailableId)}
+                onToggle={(visible) => view.toggle(sub.id, visible)}
+              />
+              {@render opacityControl(sub)}
+            </div>
+          {/each}
+        </div>
       </div>
     </div>
   {:else}
@@ -275,6 +315,7 @@ $effect(() => {
         disabled={!item.available}
         describedBy={!item.available && item.unavailableHint ? itemUnavailableId : undefined}
         onToggle={(visible) => view.toggle(item.id, visible)}
+        afterCheckbox={facetCaret}
       />
       {@render regionTag()}
       {@render trailing()}
@@ -355,11 +396,34 @@ $effect(() => {
   display: flex;
   flex-direction: column;
 }
+.facet-disclosure {
+  padding-inline-start: var(--space-3);
+}
+.facet-disclosure[hidden] {
+  display: none;
+}
+.facet-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.facet-caret :global(svg) {
+  transition: rotate var(--transition-fast);
+}
+.facet-caret.is-open :global(svg) {
+  rotate: 90deg;
+}
+.facet-caret:disabled {
+  opacity: var(--disabled-opacity);
+}
 .facet-child {
   /* A nested child toggle is secondary, so it runs at the denser row-size line rather than the full
      control-size of a primary row, indented under the parent's title column. */
   min-block-size: var(--row-size);
-  padding-inline-start: var(--space-3);
 }
 /* The region tag: a quiet bordered pill (US, EU, Global) so a navigator sees at a glance which waters an
    overlay covers. It is metadata, not a control, so it stays muted and sits before the action rail. */
