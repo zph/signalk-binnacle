@@ -67,7 +67,7 @@ describe('mapThemePaint', () => {
     expect(aisWarning.g).toBeGreaterThan(aisTarget.g);
   });
 
-  it('uses cobalt, amber, and red for day and dusk AIS grades', () => {
+  it('uses bright blue, amber, and red for day and dusk AIS grades', () => {
     for (const theme of ['day', 'dusk'] as const) {
       const { aisTarget, aisWarning, aisDanger } = mapThemePaint(theme);
       expect(aisTarget.b).toBeGreaterThan(aisTarget.r);

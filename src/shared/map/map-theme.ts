@@ -60,7 +60,7 @@ export interface MapThemePaint {
   scrubMarker: string;
   ownVessel: Rgba;
   // AIS target and 10-minute projection colors share this three-step collision ladder. Day and
-  // dusk keep clear traffic cobalt, warning traffic amber, and danger traffic red. Night-red keeps
+  // dusk keep clear traffic bright blue, warning traffic amber, and danger traffic red. Night-red keeps
   // all three steps in the red band for dark adaptation.
   aisTarget: Rgba;
   aisWarning: Rgba;
@@ -106,7 +106,7 @@ const PAINT: Record<Theme, Omit<MapThemePaint, 'theme'>> = {
     trackSolid: '#1f6fb2',
     scrubMarker: '#ff7a18',
     ownVessel: { r: 0x1f, g: 0x6f, b: 0xb2, a: 0xff },
-    aisTarget: { r: 0x17, g: 0x3f, b: 0x6f, a: 0xff },
+    aisTarget: { r: 0x26, g: 0x79, b: 0xc9, a: 0xff },
     aisWarning: { r: 0xb7, g: 0x79, b: 0x1f, a: 0xff },
     aisDanger: { r: 0xb5, g: 0x2d, b: 0x20, a: 0xff },
     rasterSaturation: 0,
@@ -137,7 +137,7 @@ const PAINT: Record<Theme, Omit<MapThemePaint, 'theme'>> = {
     trackSolid: '#4f9fd8',
     scrubMarker: '#ff8a3a',
     ownVessel: { r: 0x4f, g: 0x9f, b: 0xd8, a: 0xff },
-    aisTarget: { r: 0x31, g: 0x5f, b: 0x8c, a: 0xff },
+    aisTarget: { r: 0x4a, g: 0x95, b: 0xd9, a: 0xff },
     aisWarning: { r: 0xb4, g: 0x7b, b: 0x2b, a: 0xff },
     aisDanger: { r: 0xcf, g: 0x51, b: 0x35, a: 0xff },
     rasterSaturation: 0,

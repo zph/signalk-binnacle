@@ -201,7 +201,7 @@ export function createAisOverlay(
     id: AIS_OVERLAY_ID,
     title: 'AIS targets',
     description:
-      'Other vessels broadcasting over AIS. Cobalt is clear, amber is warning, and red is danger at the configured CPA and TCPA thresholds. A faint ghost estimates position between fixes.',
+      'Other vessels broadcasting over AIS. Blue is clear, amber is warning, and red is danger at the configured CPA and TCPA thresholds. A faint ghost estimates position between fixes.',
     band: 'traffic',
     sourceId: SOURCE_ID,
     layerId: LAYER_ID,
