@@ -39,7 +39,11 @@ const REPORTED_VECTOR_OPACITY = 0.5;
 const REPORTED_VECTOR_WIDTH = 1.5;
 
 function lineColor(paint: MapThemePaint): ExpressionSpecification {
-  return severityMatchExpression(paint.danger, paint.warning, rgbaCss(paint.aisTarget));
+  return severityMatchExpression(
+    rgbaCss(paint.aisDanger),
+    rgbaCss(paint.aisWarning),
+    rgbaCss(paint.aisTarget),
+  );
 }
 
 export function buildFeatures(

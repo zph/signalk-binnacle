@@ -180,6 +180,14 @@ export function createFakeMap() {
     getCanvas: () => canvas,
     getZoom: () => 10,
     getCenter: () => ({ lng: 0, lat: 0 }),
+    // A deterministic CSS-pixel projection for overlays whose visibility depends on apparent
+    // displacement. Individual tests can replace it with a scale tailored to their geometry.
+    project: (coordinate: [number, number] | { lng: number; lat: number }) => {
+      const [longitude, latitude] = Array.isArray(coordinate)
+        ? coordinate
+        : [coordinate.lng, coordinate.lat];
+      return { x: longitude * 10, y: latitude * -10 };
+    },
     getBounds: () => ({
       getWest: () => -1,
       getSouth: () => -1,

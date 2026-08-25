@@ -1,4 +1,5 @@
 import type { AisVesselKind } from '$entities/ais';
+import type { Severity } from '$entities/collision';
 
 export const AIS_ICON_IDS = {
   ship: 'binnacle-ais-icon-ship',
@@ -13,6 +14,21 @@ export const AIS_ICON_IDS = {
 } as const satisfies Record<AisVesselKind, string>;
 
 export const AIS_ICON_KINDS = Object.keys(AIS_ICON_IDS) as AisVesselKind[];
+
+export const AIS_ICON_SEVERITIES = [
+  'clear',
+  'warning',
+  'danger',
+] as const satisfies readonly Severity[];
+
+export function aisIconId(kind: AisVesselKind, severity: Severity): string {
+  const baseId = AIS_ICON_IDS[kind];
+  return severity === 'clear' ? baseId : `${baseId}-${severity}`;
+}
+
+export const AIS_ICON_IMAGE_IDS = AIS_ICON_KINDS.flatMap((kind) =>
+  AIS_ICON_SEVERITIES.map((severity) => aisIconId(kind, severity)),
+);
 
 export const AIS_ICON_PIXEL_RATIO = 4;
 

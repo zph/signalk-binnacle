@@ -218,6 +218,16 @@ export class AisTargets {
     return this.#index.get(id);
   }
 
+  // The rendered view deliberately ignores identical republishes so an anchored fleet does not
+  // churn every consumer. Dead reckoning is the exception: a repeated position is still a fresh
+  // fix and must reset its projection clock, so expose the live per-path epoch without rebuilding
+  // the memoized view or advancing aisVersion.
+  positionEpochMs(id: string): number | undefined {
+    const target = this.#store.aisTargets.get(id);
+    if (target?.generations.get(SK_PATHS.position) !== this.#store.generation) return undefined;
+    return target.epochs.get(SK_PATHS.position);
+  }
+
   #numField(value: unknown, key: string): number | undefined {
     return isRecord(value) ? asNumber(value[key]) : undefined;
   }

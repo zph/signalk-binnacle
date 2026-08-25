@@ -39,11 +39,13 @@ describe('mapThemePaint', () => {
     expect(mapThemePaint('night-red').background).toBe('#000000');
   });
 
-  it('carries an opaque symbol color for the own vessel and AIS in each theme', () => {
+  it('carries opaque symbol colors for the own vessel and AIS in each theme', () => {
     for (const theme of ['day', 'dusk', 'night-red'] as const) {
       const paint = mapThemePaint(theme);
       expect(paint.ownVessel.a).toBe(0xff);
       expect(paint.aisTarget.a).toBe(0xff);
+      expect(paint.aisWarning.a).toBe(0xff);
+      expect(paint.aisDanger.a).toBe(0xff);
     }
   });
 
@@ -55,11 +57,25 @@ describe('mapThemePaint', () => {
     expect(ownVessel.b).toBe(0);
   });
 
-  it('keeps the night-red AIS target in the red band, with zero blue and no green spike', () => {
-    const { aisTarget } = mapThemePaint('night-red');
-    expect(aisTarget.r).toBeGreaterThan(aisTarget.g);
-    expect(aisTarget.g).toBeLessThan(0x50);
-    expect(aisTarget.b).toBe(0);
+  it('keeps every night-red AIS grade in the red band, with zero blue', () => {
+    const { aisTarget, aisWarning, aisDanger } = mapThemePaint('night-red');
+    for (const color of [aisTarget, aisWarning, aisDanger]) {
+      expect(color.r).toBeGreaterThan(color.g);
+      expect(color.b).toBe(0);
+    }
+    expect(aisDanger.r).toBeGreaterThan(aisWarning.r);
+    expect(aisWarning.g).toBeGreaterThan(aisTarget.g);
+  });
+
+  it('uses cobalt, amber, and red for day and dusk AIS grades', () => {
+    for (const theme of ['day', 'dusk'] as const) {
+      const { aisTarget, aisWarning, aisDanger } = mapThemePaint(theme);
+      expect(aisTarget.b).toBeGreaterThan(aisTarget.r);
+      expect(aisWarning.r).toBeGreaterThan(aisWarning.b);
+      expect(aisWarning.g).toBeGreaterThan(aisWarning.b);
+      expect(aisDanger.r).toBeGreaterThan(aisDanger.g);
+      expect(aisDanger.r).toBeGreaterThan(aisDanger.b);
+    }
   });
 });
 

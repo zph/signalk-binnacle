@@ -304,6 +304,7 @@ describe('AisTargets view memoization', () => {
     now = 2_000;
     store.applyFrame(frame({ 'vessels.a': at(36) }, now));
     expect(ais.list()[0]).toBe(first);
+    expect(ais.positionEpochMs('vessels.a')).toBe(now);
   });
 
   it('drops the memo for a pruned vessel rather than holding it for the session', () => {

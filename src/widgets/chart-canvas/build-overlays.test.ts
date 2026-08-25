@@ -4,7 +4,9 @@ import { buildDynamicOverlays } from './build-overlays';
 const factories = vi.hoisted(() => {
   const marker = (id: string) => ({ id });
   return {
-    createAisOverlay: vi.fn(() => marker('ais')),
+    createAisOverlay: vi.fn((_targets: unknown, _options: { assessment?: () => unknown }) =>
+      marker('ais'),
+    ),
     createAisTrailsOverlay: vi.fn(
       (
         _origin: string,
@@ -197,11 +199,14 @@ describe('buildDynamicOverlays', () => {
     const collisionAssessment = factories.createAisVectorsOverlay.mock.calls[0]?.[1];
     expect(collisionAssessment?.()).toBe(deps.collision.assessment);
     expect(factories.createAisOverlay).toHaveBeenCalledWith(deps.aisTargets, {
+      assessment: expect.any(Function),
       onSelect: deps.onAisSelect,
       selectedId: deps.selectedAisId,
       kindMode: deps.aisKindMode,
       interactionsAllowed: deps.interactionsAllowed,
     });
+    const iconAssessment = factories.createAisOverlay.mock.calls[0]?.[1]?.assessment;
+    expect(iconAssessment?.()).toBe(deps.collision.assessment);
     expect(factories.createHistoryTrackOverlay).toHaveBeenCalledWith(
       deps.origin,
       deps.getToken,
@@ -240,6 +245,7 @@ describe('buildDynamicOverlays', () => {
       interactionsAllowed,
     );
     expect(factories.createAisOverlay).toHaveBeenCalledWith(deps.aisTargets, {
+      assessment: expect.any(Function),
       onSelect: deps.onAisSelect,
       selectedId: deps.selectedAisId,
       kindMode: deps.aisKindMode,

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AisTargets, type AisTargetView } from '$entities/ais';
 import type { Assessment, Severity } from '$entities/collision';
-import { mapThemePaint } from '$shared/map';
+import { mapThemePaint, rgbaCss } from '$shared/map';
 import { geodesicDestination } from '$shared/nav';
 import { SignalKStore } from '$shared/signalk';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
@@ -398,7 +398,17 @@ describe('createAisVectorsOverlay', () => {
     const calls = vi.mocked(map.setPaintProperty).mock.calls;
     const recolor = calls.find(([, prop]) => prop === 'line-color');
     expect(recolor).toBeDefined();
-    expect(calls).toContainEqual([REPORTED_LAYER_ID, 'line-color', expect.any(Array)]);
+    const expected = [
+      'match',
+      ['get', 'severity'],
+      'danger',
+      rgbaCss(paint.aisDanger),
+      'warning',
+      rgbaCss(paint.aisWarning),
+      rgbaCss(paint.aisTarget),
+    ];
+    expect(calls).toContainEqual([LAYER_ID, 'line-color', expected]);
+    expect(calls).toContainEqual([REPORTED_LAYER_ID, 'line-color', expected]);
   });
 
   it('setOpacity scales the base opacity', async () => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AisTargets } from '$entities/ais';
-import { mapThemePaint } from '$shared/map';
+import type { Assessment } from '$entities/collision';
+import { mapThemePaint, rgbaCss } from '$shared/map';
 import { SignalKStore, type SKFrame } from '$shared/signalk';
 import {
   createFakeMap,
@@ -8,7 +9,7 @@ import {
   fakeOverlayContext,
   sourceFeatures,
 } from '$shared/testing';
-import { AIS_ICON_IDS } from './ais-icon';
+import { AIS_ICON_IDS, AIS_ICON_IMAGE_IDS, aisIconId } from './ais-icon';
 import { createAisOverlay } from './ais-overlay';
 
 // Seeded from the wall clock: AIS freshness is judged against real time, so a tiny epoch would
@@ -36,7 +37,7 @@ beforeEach(() => vi.stubGlobal('ImageData', FakeImageData));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('ais overlay', () => {
-  it('adds vessel images, a source, a symbol, a selection ring, and a scaled hit layer', async () => {
+  it('adds vessel images, sources, projection layers, a selection ring, and a scaled hit layer', async () => {
     const store = new SignalKStore();
     const overlay = createAisOverlay(new AisTargets(store));
     const map = createFakeMap();
@@ -44,9 +45,22 @@ describe('ais overlay', () => {
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('traffic');
     expect(overlay.manageable).toBe(true);
-    expect(map.images.size).toBe(9);
-    expect(map.sources.size).toBe(1);
-    expect(map.layers.size).toBe(3);
+    expect(map.images.size).toBe(27);
+    expect(map.sources.size).toBe(2);
+    expect(map.layers.size).toBe(5);
+    expect(map.layers.get('binnacle-ais-position-projection-connector')).toMatchObject({
+      type: 'line',
+      paint: {
+        'line-dasharray': [1, 2],
+        'line-opacity': ['*', 1, 0.22, ['coalesce', ['get', 'confidence'], 0]],
+      },
+    });
+    expect(map.layers.get('binnacle-ais-position-projection-ghost')).toMatchObject({
+      type: 'symbol',
+      paint: {
+        'icon-opacity': ['*', 1, 0.3, ['coalesce', ['get', 'confidence'], 0]],
+      },
+    });
     expect(addLayer).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'binnacle-ais-selected' }),
       'binnacle-ais-symbol',
@@ -166,6 +180,171 @@ describe('ais overlay', () => {
     kindMode = 'type-specific';
     overlay.sync(ctx);
     expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.iconImage).toBe(AIS_ICON_IDS.tanker);
+  });
+
+  it('colors target icons from the live CPA assessment and refreshes when a grade changes', async () => {
+    const store = new SignalKStore();
+    const targets = new AisTargets(store);
+    store.applyFrame(
+      positionFrame({
+        'vessels.danger': { latitude: 1, longitude: 2 },
+        'vessels.warning': { latitude: 3, longitude: 4 },
+        'vessels.clear': { latitude: 5, longitude: 6 },
+      }),
+    );
+    let assessment: Assessment = {
+      contacts: [
+        {
+          id: 'vessels.danger',
+          position: { latitude: 1, longitude: 2 },
+          cpaMeters: 100,
+          tcpaSeconds: 60,
+          severity: 'danger',
+          source: 'provider',
+        },
+        {
+          id: 'vessels.warning',
+          position: { latitude: 3, longitude: 4 },
+          cpaMeters: 1_000,
+          tcpaSeconds: 600,
+          severity: 'warning',
+          source: 'provider',
+        },
+      ],
+      worst: 'danger',
+      unassessed: [],
+    };
+    const overlay = createAisOverlay(targets, { assessment: () => assessment });
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    const featuresById = () =>
+      Object.fromEntries(
+        sourceFeatures(map, 'binnacle-ais').map((feature) => [feature.properties?.id, feature]),
+      );
+    expect(featuresById()['vessels.danger'].properties).toMatchObject({
+      severity: 'danger',
+      iconImage: aisIconId('ship', 'danger'),
+    });
+    expect(featuresById()['vessels.warning'].properties).toMatchObject({
+      severity: 'warning',
+      iconImage: aisIconId('ship', 'warning'),
+    });
+    expect(featuresById()['vessels.clear'].properties).toMatchObject({
+      severity: 'clear',
+      iconImage: aisIconId('ship', 'clear'),
+    });
+
+    assessment = { contacts: [], worst: 'clear', unassessed: [] };
+    overlay.sync(ctx);
+    expect(featuresById()['vessels.danger'].properties).toMatchObject({
+      severity: 'clear',
+      iconImage: aisIconId('ship', 'clear'),
+    });
+  });
+
+  it('projects between fixes and reconciles immediately to a new reported position', async () => {
+    let now = 10_000;
+    const store = new SignalKStore();
+    const targets = new AisTargets(store, () => now);
+    const overlay = createAisOverlay(targets, { now: () => now });
+    const map = createFakeMap();
+    map.project = (coordinate) => {
+      const [longitude, latitude] = Array.isArray(coordinate)
+        ? coordinate
+        : [coordinate.lng, coordinate.lat];
+      return { x: longitude * 111_320, y: latitude * -111_320 };
+    };
+    const ctx = fakeOverlayContext(map);
+    const moving = (longitude: number): SKFrame => ({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.moving',
+          new Map<string, unknown>([
+            ['navigation.position', { latitude: 0, longitude }],
+            ['navigation.courseOverGroundTrue', Math.PI / 2],
+            ['navigation.speedOverGround', 5],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: now,
+    });
+
+    store.applyFrame(moving(0));
+    await overlay.add(ctx);
+    expect(sourceFeatures(map, 'binnacle-ais-position-projection')).toEqual([]);
+
+    now += 2_000;
+    overlay.sync(ctx);
+    const projected = sourceFeatures(map, 'binnacle-ais-position-projection');
+    expect(projected).toHaveLength(2);
+    expect(
+      projected.find((feature) => feature.properties?.projectionPart === 'ghost')?.geometry,
+    ).toMatchObject({ type: 'Point' });
+
+    // The authoritative source deliberately coalesces steady position churn to 1 Hz. Advance to
+    // that bounded paint tick, where the received fix replaces the estimate and resets its clock.
+    now += 1_000;
+    store.applyFrame(moving(0.001));
+    overlay.sync(ctx);
+    expect(sourceFeatures(map, 'binnacle-ais-position-projection')).toEqual([]);
+    expect((sourceFeatures(map, 'binnacle-ais')[0].geometry as GeoJSON.Point).coordinates[0]).toBe(
+      0.001,
+    );
+
+    now += 2_000;
+    overlay.sync(ctx);
+    const connector = sourceFeatures(map, 'binnacle-ais-position-projection').find(
+      (feature) => feature.properties?.projectionPart === 'connector',
+    );
+    expect(connector).toBeDefined();
+    expect((connector?.geometry as GeoJSON.LineString | undefined)?.coordinates[0][0]).toBe(0.001);
+  });
+
+  it('resets the projection clock when an identical position is republished', async () => {
+    let now = 20_000;
+    const store = new SignalKStore();
+    const targets = new AisTargets(store, () => now);
+    const overlay = createAisOverlay(targets, { now: () => now });
+    const map = createFakeMap();
+    map.project = (coordinate) => {
+      const [longitude, latitude] = Array.isArray(coordinate)
+        ? coordinate
+        : [coordinate.lng, coordinate.lat];
+      return { x: longitude * 111_320, y: latitude * -111_320 };
+    };
+    const ctx = fakeOverlayContext(map);
+    const frameAtNow = (): SKFrame => ({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.same',
+          new Map<string, unknown>([
+            ['navigation.position', { latitude: 0, longitude: 0 }],
+            ['navigation.courseOverGroundTrue', Math.PI / 2],
+            ['navigation.speedOverGround', 5],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: now,
+    });
+
+    store.applyFrame(frameAtNow());
+    await overlay.add(ctx);
+    now += 2_000;
+    overlay.sync(ctx);
+    expect(sourceFeatures(map, 'binnacle-ais-position-projection')).toHaveLength(2);
+    const version = targets.version;
+
+    now += 1_000;
+    store.applyFrame(frameAtNow());
+    expect(targets.version).toBe(version);
+    overlay.sync(ctx);
+    expect(sourceFeatures(map, 'binnacle-ais-position-projection')).toEqual([]);
   });
 
   it('syncs one feature per positioned target', async () => {
@@ -384,7 +563,12 @@ describe('ais overlay', () => {
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     overlay.applyTheme?.(fakeOverlayContext(map), mapThemePaint('night-red'));
-    expect(map.updatedImages).toEqual(expect.arrayContaining(Object.values(AIS_ICON_IDS)));
+    expect(map.updatedImages).toEqual(expect.arrayContaining(AIS_ICON_IMAGE_IDS));
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'binnacle-ais-position-projection-connector',
+      'line-color',
+      rgbaCss(mapThemePaint('night-red').aisTarget),
+    );
   });
 
   it('dispatches only current target ids and tears down hit handlers idempotently', async () => {
@@ -439,6 +623,8 @@ describe('ais overlay', () => {
     expect(map.handlerCount('click', 'binnacle-ais-hit')).toBe(0);
     expect(map.getCanvas().style.cursor).toBe('');
     expect(map.images.size).toBe(0);
+    expect(map.sources.size).toBe(0);
+    expect(map.layers.size).toBe(0);
   });
 
   it('preserves the chart-tool cursor and blocks selection while interactions are owned', async () => {

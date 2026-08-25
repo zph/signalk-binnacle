@@ -134,6 +134,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     createAisTrailsOverlay(origin, getToken, aisTrailsAvailable, () => store.selfContext),
     createAisVectorsOverlay(aisTargets, () => collision.assessment, Date.now, onAisMotionUpdate),
     createAisOverlay(aisTargets, {
+      assessment: () => collision.assessment,
       onSelect: onAisSelect,
       selectedId: selectedAisId,
       kindMode: aisKindMode,

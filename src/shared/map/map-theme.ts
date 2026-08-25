@@ -59,7 +59,12 @@ export interface MapThemePaint {
   // contract. The marker is drawn as a hollow ring, so shape also separates it from the filled icons.
   scrubMarker: string;
   ownVessel: Rgba;
+  // AIS target and 10-minute projection colors share this three-step collision ladder. Day and
+  // dusk keep clear traffic cobalt, warning traffic amber, and danger traffic red. Night-red keeps
+  // all three steps in the red band for dark adaptation.
   aisTarget: Rgba;
+  aisWarning: Rgba;
+  aisDanger: Rgba;
   // Raster depth and chart layers cannot be recolored, so each theme adjusts them instead: day
   // and dusk show them as served, night-red desaturates and dims them so they carry no blue and
   // keep the brightest pixel low. This is an approximation, not true night-red color.
@@ -101,7 +106,9 @@ const PAINT: Record<Theme, Omit<MapThemePaint, 'theme'>> = {
     trackSolid: '#1f6fb2',
     scrubMarker: '#ff7a18',
     ownVessel: { r: 0x1f, g: 0x6f, b: 0xb2, a: 0xff },
-    aisTarget: { r: 0xe0, g: 0xa0, b: 0x20, a: 0xff },
+    aisTarget: { r: 0x17, g: 0x3f, b: 0x6f, a: 0xff },
+    aisWarning: { r: 0xb7, g: 0x79, b: 0x1f, a: 0xff },
+    aisDanger: { r: 0xb5, g: 0x2d, b: 0x20, a: 0xff },
     rasterSaturation: 0,
     rasterBrightnessMax: 1,
   },
@@ -130,7 +137,9 @@ const PAINT: Record<Theme, Omit<MapThemePaint, 'theme'>> = {
     trackSolid: '#4f9fd8',
     scrubMarker: '#ff8a3a',
     ownVessel: { r: 0x4f, g: 0x9f, b: 0xd8, a: 0xff },
-    aisTarget: { r: 0xd9, g: 0xa4, b: 0x41, a: 0xff },
+    aisTarget: { r: 0x31, g: 0x5f, b: 0x8c, a: 0xff },
+    aisWarning: { r: 0xb4, g: 0x7b, b: 0x2b, a: 0xff },
+    aisDanger: { r: 0xcf, g: 0x51, b: 0x35, a: 0xff },
     rasterSaturation: 0,
     rasterBrightnessMax: 1,
   },
@@ -162,6 +171,8 @@ const PAINT: Record<Theme, Omit<MapThemePaint, 'theme'>> = {
     // Brightness ladder holds: below danger and scrubMarker, above the road and label tiers.
     ownVessel: { r: 0xe0, g: 0x42, b: 0x00, a: 0xff },
     aisTarget: { r: 0xb0, g: 0x2e, b: 0x00, a: 0xff },
+    aisWarning: { r: 0xb0, g: 0x3b, b: 0x00, a: 0xff },
+    aisDanger: { r: 0xff, g: 0x6e, b: 0x00, a: 0xff },
     rasterSaturation: -1,
     rasterBrightnessMax: 0.45,
   },
