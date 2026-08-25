@@ -2,8 +2,7 @@ import type { AisTargetView } from '$entities/ais';
 import { DEG_TO_RAD } from '$shared/lib';
 import { METERS_PER_DEG, normalizeLonDeltaDeg } from '$shared/nav';
 
-const HISTORY_MS = 120_000;
-const MIN_OBSERVATION_MS = 60_000;
+const OBSERVATION_WINDOW_MS = 60_000;
 const MAX_SAMPLE_GAP_MS = 45_000;
 const MIN_SAMPLES = 4;
 const MIN_COURSE_SPEED_MPS = 0.5;
@@ -83,7 +82,7 @@ function observedMotion(samples: PositionSample[]): AisMotion | undefined {
   if (samples.length < MIN_SAMPLES) return undefined;
   const first = samples[0];
   const last = samples.at(-1);
-  if (!last || last.at - first.at < MIN_OBSERVATION_MS) return undefined;
+  if (!last || last.at - first.at < OBSERVATION_WINDOW_MS) return undefined;
   for (let i = 1; i < samples.length; i += 1) {
     if (samples[i].at - samples[i - 1].at > MAX_SAMPLE_GAP_MS) return undefined;
   }
@@ -150,7 +149,9 @@ export class AisMotionEstimator {
         });
       }
       history.lastView = target;
-      history.samples = history.samples.filter((sample) => now - sample.at <= HISTORY_MS);
+      history.samples = history.samples.filter(
+        (sample) => now - sample.at <= OBSERVATION_WINDOW_MS,
+      );
 
       const reported = reportedMotion(target);
       const observed = observedMotion(history.samples);

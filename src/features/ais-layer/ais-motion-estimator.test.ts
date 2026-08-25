@@ -75,6 +75,25 @@ describe('AisMotionEstimator', () => {
     expect(selection).toEqual({ primary: { cogRad: 0, sogMps: 5 }, basis: 'reported' });
   });
 
+  it('follows a sustained turn after the preceding minute leaves the window', () => {
+    const estimator = new AisMotionEstimator();
+    const origin = { latitude: 10, longitude: 20 };
+    for (let seconds = 0; seconds <= 60; seconds += 10) {
+      estimator.update([target(positionAfter(origin, Math.PI / 2, 8, seconds))], seconds * 1000);
+    }
+    const turnPosition = positionAfter(origin, Math.PI / 2, 8, 60);
+    let selection: AisMotionSelection | undefined;
+    for (let seconds = 70; seconds <= 130; seconds += 10) {
+      selection = estimator
+        .update([target(positionAfter(turnPosition, 0, 8, seconds - 60))], seconds * 1000)
+        .get('target-1');
+    }
+
+    expect(selection?.basis).toBe('observed');
+    expect(selection?.primary.cogRad).toBeCloseTo(0, 2);
+    expect(selection?.primary.sogMps).toBeCloseTo(8, 1);
+  });
+
   it('can infer a stopped target from repeated unchanged positions', () => {
     const estimator = new AisMotionEstimator();
     const origin = { latitude: 10, longitude: 20 };
