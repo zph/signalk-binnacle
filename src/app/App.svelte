@@ -61,6 +61,8 @@ import { createUserChartsController } from '$features/charts';
 import { NOAA_ENC_SOURCE_ID, shouldOfferNoaaEnc } from '$features/depth-charts';
 import { createHandoffClient, createHandoffController } from '$features/handoff';
 import {
+  BINNACLE_INSTRUMENT_PLUGIN,
+  createInstrumentRegistry,
   createInstrumentsController,
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
@@ -750,6 +752,8 @@ function commitInstrumentDockWidth(width: number): void {
   instrumentDockWidth = width;
   instrumentDockWidthStore.set(width);
 }
+const instrumentRegistry = createInstrumentRegistry();
+instrumentRegistry.register(BINNACLE_INSTRUMENT_PLUGIN);
 const instruments = createInstrumentsController({
   store,
   origin,
@@ -760,6 +764,7 @@ const instruments = createInstrumentsController({
   unsubscribe: (paths) => void client.raw.unsubscribe(paths),
   tilesStore: instrumentTiles,
   openStore: instrumentsOpen,
+  registry: instrumentRegistry,
 });
 const trends = createTrendsController({
   store,

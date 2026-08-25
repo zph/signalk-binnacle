@@ -10,7 +10,7 @@ import InstrumentDockResize from './InstrumentDockResize.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import NumericTile from './NumericTile.svelte';
-import { staleAgeText, type TileDeps, tileById } from './tile-catalog';
+import { staleAgeText, type TileDeps } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
@@ -47,7 +47,7 @@ const {
   emergencyAction,
 }: Props = $props();
 
-const depthDef = tileById('depth');
+const depthDef = $derived(controller.resolve('depth'));
 
 let customizing = $state(false);
 let detailId = $state<string | undefined>();

@@ -21,6 +21,50 @@ function selfFrame(self: Record<string, unknown>): SKFrame {
 describe('createInstrumentsController', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('registers external Signal K instrument plugins in the shared catalog', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.endsWith('/signalk/v2/api/resources/binnacleInstruments/_providers')) {
+          return jsonResponse(200, ['engine-pack']);
+        }
+        if (url.endsWith('/signalk/v2/api/resources/binnacleInstruments')) {
+          return jsonResponse(200, {
+            engine: {
+              apiVersion: 1,
+              id: 'engine-pack',
+              name: 'Engine instruments',
+              instruments: [
+                {
+                  id: 'boost',
+                  label: 'Boost pressure',
+                  description: 'Main engine intake pressure.',
+                  category: 'propulsion',
+                  path: 'propulsion.main.intakeManifoldPressure',
+                  format: 'pressure',
+                },
+              ],
+            },
+          });
+        }
+        return jsonResponse(404, {});
+      }),
+    );
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.setOpen(true);
+    await flushPromises();
+    await flushPromises();
+
+    expect(ctrl.pluginStatus).toBe('ready');
+    expect(ctrl.externalPluginCount).toBe(1);
+    expect(ctrl.catalog.some((def) => def.id === 'plugin:engine-pack:boost')).toBe(true);
+    expect(ctrl.pluginName('plugin:engine-pack:boost')).toBe('Engine instruments');
+
+    ctrl.dispose();
+  });
+
   // Step 1 tests (written before implementation: RED phase)
 
   it('calls ensureCells with ALL_CATALOG_PATHS at construction, does not subscribe', () => {
@@ -280,6 +324,7 @@ describe('createInstrumentsController', () => {
       unsubscribe: vi.fn(),
       tilesStore,
       openStore,
+      registry: makeDeps().registry,
     });
 
     // Malformed JSON → falls back to DEFAULT_TILES.

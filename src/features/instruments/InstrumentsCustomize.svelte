@@ -52,6 +52,11 @@ function optionTitle(def: TileDef): string {
   return optionLabels.get(def.id) ?? def.label;
 }
 
+function optionDescription(def: TileDef): string {
+  const plugin = controller.pluginName(def.id);
+  return plugin ? `${def.description} Provided by ${plugin}.` : def.description;
+}
+
 function neverReported(paths: string[]): boolean {
   return paths.length > 0 && paths.every((p) => deps.store.cell(p).epoch === 0);
 }
@@ -71,6 +76,21 @@ const HISTORY_STATUS_MESSAGES: Partial<Record<string, string>> = {
   unavailable: 'No history provider is available. Showing live instruments.',
 };
 const historyStatusMessage = $derived(HISTORY_STATUS_MESSAGES[controller.historyStatus] ?? '');
+const pluginStatusMessage = $derived.by(() => {
+  if (controller.pluginStatus === 'absent') {
+    return 'No external instrument plugins are registered. Built-in instruments remain available.';
+  }
+  if (controller.pluginStatus === 'failed') {
+    return 'External instrument plugins could not be checked. Built-in instruments remain available.';
+  }
+  if (controller.pluginStatus === 'partial') {
+    return `${controller.externalPluginCount} external instrument plugins loaded. Some invalid definitions were ignored.`;
+  }
+  if (controller.pluginStatus === 'ready' && controller.externalPluginCount > 0) {
+    return `${controller.externalPluginCount} external instrument plugins loaded.`;
+  }
+  return '';
+});
 </script>
 
 <!-- The reorder controller measures rows and listens for scroll on this element, so it is the one
@@ -92,7 +112,7 @@ const historyStatusMessage = $derived(HISTORY_STATUS_MESSAGES[controller.history
       >
         <LayerToggle
           label={title}
-          description={def.description}
+          description={optionDescription(def)}
           visible={true}
           onToggle={() => controller.toggleTile(def.id)}
           describedBy={hintId}
@@ -137,6 +157,9 @@ const historyStatusMessage = $derived(HISTORY_STATUS_MESSAGES[controller.history
       {historyStatusMessage}
     </p>
   {/if}
+  {#if pluginStatusMessage}
+    <p class="muted-note scan-status plugin-status" role="status">{pluginStatusMessage}</p>
+  {/if}
   {#if availableGroups.length > 0}
     {#each availableGroups as group (group.id)}
       <CustomizeCategory id={`instrument-category-${group.id}`} label={group.title}>
@@ -158,7 +181,7 @@ const historyStatusMessage = $derived(HISTORY_STATUS_MESSAGES[controller.history
             >
               <LayerToggle
                 label={title}
-                description={def.description}
+                description={optionDescription(def)}
                 visible={false}
                 onToggle={() => controller.toggleTile(def.id)}
                 describedBy={hintId}

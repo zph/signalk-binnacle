@@ -16,6 +16,15 @@ import {
   discoverInstrumentInstances,
   type InstrumentInstances,
 } from './instance-discovery';
+import {
+  discoverInstrumentPlugins,
+  type InstrumentPluginLoadState,
+} from './instrument-plugin-manifest';
+import {
+  INSTRUMENT_PLUGIN_API_VERSION,
+  type InstrumentRegistry,
+  SIGNALK_INSTRUMENT_PLUGIN_SCOPE,
+} from './instrument-registry.svelte';
 
 type InstrumentHistoryStatus =
   | 'idle'
@@ -27,7 +36,6 @@ type InstrumentHistoryStatus =
   | 'failed';
 
 import {
-  ALL_CATALOG_PATHS,
   batteryDefsFor,
   CLIENT_DEFAULT_ZONES,
   DEFAULT_TILES,
@@ -35,10 +43,8 @@ import {
   minPeriodFor,
   propulsionDefsFor,
   solarDefsFor,
-  TILE_CATALOG,
   type TileDef,
   tankDefsFor,
-  tileById,
   trendDescriptorFor,
 } from './tile-catalog';
 
@@ -52,6 +58,7 @@ export interface InstrumentsDeps {
   unsubscribe: (paths: string[]) => void;
   tilesStore: PersistedValue<string[]>;
   openStore: PersistedValue<boolean>;
+  registry: InstrumentRegistry;
 }
 
 export interface InstrumentsController {
@@ -62,6 +69,8 @@ export interface InstrumentsController {
   readonly catalog: TileDef[];
   readonly discovering: boolean;
   readonly historyStatus: InstrumentHistoryStatus;
+  readonly pluginStatus: InstrumentPluginLoadState | 'idle';
+  readonly externalPluginCount: number;
   readonly trendCatalog: readonly InstrumentTrendDescriptor[];
   isHistoricalOnly(id: string): boolean;
   isLiveDiscovered(id: string): boolean;
@@ -73,6 +82,8 @@ export interface InstrumentsController {
   reorderTile(id: string, slot: number): void;
   refreshCatalog(): void;
   refreshLiveCatalog(): void;
+  resolve(id: string): TileDef | undefined;
+  pluginName(id: string): string | undefined;
   // The name to show for a tile: the server's meta displayName when it is usable, else the catalog label.
   resolvedLabel(def: TileDef): string;
   zoneState(def: TileDef, value: number | undefined): ZoneState;
@@ -82,9 +93,10 @@ export interface InstrumentsController {
 
 export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsController {
   const MAX_SELECTED_TILES = 100;
-  deps.store.ensureCells(ALL_CATALOG_PATHS);
+  const initialCatalogPaths = [...new Set(deps.registry.catalog.flatMap((def) => def.paths))];
+  deps.store.ensureCells(initialCatalogPaths);
   // Every instrument path is watch-critical: trace source handoffs for the detail's source cue.
-  deps.store.traceSources(ALL_CATALOG_PATHS);
+  deps.store.traceSources(initialCatalogPaths);
 
   // Handing the store in lets meta settling carry each path's declared staleness window onto its
   // cell, so grade() honors a legitimately slow sensor's own meta.timeout instead of the
@@ -100,11 +112,14 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   let historicalOnlyIds = $state.raw<Set<string>>(new Set());
   let liveDiscoveredIds = $state.raw<Set<string>>(new Set());
   let historyStatus = $state<InstrumentHistoryStatus>('idle');
+  let pluginStatus = $state<InstrumentPluginLoadState | 'idle'>('idle');
   let discoveryDone = false;
   let liveDiscovering = $state(false);
   let historyDiscovering = $state(false);
+  let pluginDiscovering = $state(false);
   let liveDiscoveryGeneration = 0;
   let historyDiscoveryGeneration = 0;
+  let pluginDiscoveryGeneration = 0;
   let historyDiscoveryAbort: AbortController | undefined;
   // A history scan asked for while the provider probe was still in flight. Plain, not $state: the
   // probe watcher below reads it untracked, so it must not enlarge that effect's dependency set.
@@ -122,7 +137,8 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     const seen = new Set<string>();
     const valid: string[] = [];
     for (const id of raw) {
-      if (typeof id !== 'string' || seen.has(id) || tileById(id) === undefined) continue;
+      if (typeof id !== 'string' || seen.has(id) || deps.registry.resolve(id) === undefined)
+        continue;
       seen.add(id);
       valid.push(id);
       if (valid.length >= MAX_SELECTED_TILES) break;
@@ -132,7 +148,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
 
   function resolveTiles(): TileDef[] {
     return resolveSelectedIds().flatMap((id) => {
-      const def = tileById(id);
+      const def = deps.registry.resolve(id);
       return def ? [def] : [];
     });
   }
@@ -143,7 +159,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   const selectedIds = $derived.by<readonly string[]>(() => resolveSelectedIds());
   const tiles = $derived.by<TileDef[]>(() =>
     selectedIds.flatMap((id) => {
-      const def = tileById(id);
+      const def = deps.registry.resolve(id);
       return def ? [def] : [];
     }),
   );
@@ -215,6 +231,39 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     const dynamicPaths = dynamicCatalog.flatMap((def) => def.paths);
     deps.store.ensureCells(dynamicPaths);
     deps.store.traceSources(dynamicPaths);
+    deps.registry.replaceScope('binnacle-discovered-instruments', [
+      {
+        apiVersion: INSTRUMENT_PLUGIN_API_VERSION,
+        id: 'binnacle.discovered',
+        name: 'Binnacle discovered instruments',
+        instruments: dynamicCatalog,
+      },
+    ]);
+  }
+
+  function discoverPlugins(): void {
+    const generation = ++pluginDiscoveryGeneration;
+    pluginDiscovering = true;
+    void discoverInstrumentPlugins(deps.origin, deps.getToken())
+      .then((result) => {
+        if (disposed || generation !== pluginDiscoveryGeneration) return;
+        pluginStatus = result.state;
+        // Keep the last accepted set on a transient failure. An answered empty provider list is
+        // authoritative and removes providers that were disabled on the server.
+        if (result.state !== 'failed') {
+          deps.registry.replaceScope(SIGNALK_INSTRUMENT_PLUGIN_SCOPE, result.plugins);
+          const paths = result.plugins.flatMap((plugin) =>
+            plugin.instruments.flatMap((instrument) => instrument.paths),
+          );
+          deps.store.ensureCells(paths);
+          deps.store.traceSources(paths);
+          syncSubscriptions();
+          if (deps.openStore.value === true) fetchMetaForSelected();
+        }
+      })
+      .finally(() => {
+        if (!disposed && generation === pluginDiscoveryGeneration) pluginDiscovering = false;
+      });
   }
 
   function familyForDef(def: TileDef): keyof Omit<InstrumentInstances, 'paths'> | undefined {
@@ -248,6 +297,8 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
       .finally(() => {
         if (!disposed && liveGeneration === liveDiscoveryGeneration) liveDiscovering = false;
       });
+
+    discoverPlugins();
 
     if (includeHistory) scanHistory();
   }
@@ -337,7 +388,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   }
 
   function toggleTile(id: string): void {
-    const def = tileById(id);
+    const def = deps.registry.resolve(id);
     if (!def) return;
     // Create the cells here, in event context, before the tile's first template read: a cell
     // whose $state is created during that read is untracked and never re-renders (the dynamic
@@ -380,10 +431,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   }
 
   function availableTrendDef(id: string): TileDef | undefined {
-    return (
-      TILE_CATALOG.find((entry) => entry.id === id) ??
-      dynamicCatalog.find((entry) => entry.id === id)
-    );
+    return deps.registry.catalog.find((entry) => entry.id === id);
   }
 
   function trendDescriptor(id: string): InstrumentTrendDescriptor | undefined {
@@ -437,8 +485,11 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     stopProbeWatch();
     liveDiscoveryGeneration += 1;
     historyDiscoveryGeneration += 1;
+    pluginDiscoveryGeneration += 1;
     historyDiscoveryAbort?.abort();
     historyDiscoveryAbort = undefined;
+    deps.registry.replaceScope('binnacle-discovered-instruments', []);
+    deps.registry.replaceScope(SIGNALK_INSTRUMENT_PLUGIN_SCOPE, []);
     if (subscribedPaths.size > 0) {
       deps.unsubscribe([...subscribedPaths]);
       subscribedPaths.clear();
@@ -469,7 +520,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   // reactive change, and each read otherwise allocated a fresh array of the whole catalog (and, for
   // the trend list, re-resolved every label). $derived.by recomputes only when dynamicCatalog or a
   // label input actually changes.
-  const catalog = $derived.by(() => [...TILE_CATALOG, ...dynamicCatalog]);
+  const catalog = $derived.by(() => [...deps.registry.catalog]);
   const trendCatalog = $derived.by(() =>
     catalog.flatMap((def) => {
       if (!def.trend) return [];
@@ -492,10 +543,16 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
       return catalog;
     },
     get discovering() {
-      return liveDiscovering || historyDiscovering;
+      return liveDiscovering || historyDiscovering || pluginDiscovering;
     },
     get historyStatus() {
       return historyStatus;
+    },
+    get pluginStatus() {
+      return pluginStatus;
+    },
+    get externalPluginCount() {
+      return deps.registry.plugins.filter((plugin) => plugin.external).length;
     },
     get trendCatalog() {
       return trendCatalog;
@@ -514,6 +571,11 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     reorderTile,
     refreshCatalog,
     refreshLiveCatalog,
+    resolve: (id) => deps.registry.resolve(id),
+    pluginName(id) {
+      const plugin = deps.registry.pluginFor(id);
+      return plugin?.external ? plugin.name : undefined;
+    },
     resolvedLabel,
     zoneState,
     resubscribe,

@@ -457,6 +457,9 @@ Development targets Node 22.18 or newer and npm 11.6 or newer. The recommended n
 11.19.0. `.node-version` and `packageManager` record the project defaults, while `devEngines`
 enforces the supported minimums. All tools use repository-local dependencies.
 
+Signal K plugin authors can add declarative instruments through the
+[instrument plugin contract](https://github.com/NearlCrews/signalk-binnacle/blob/main/docs/instrument-plugins.md).
+
 ```bash
 git clone https://github.com/NearlCrews/signalk-binnacle.git
 cd signalk-binnacle

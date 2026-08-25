@@ -3,6 +3,8 @@ import { binnacleStorageKey } from '$shared/persistence';
 import { PersistedValue } from '$shared/settings';
 import { SignalKStore } from '$shared/signalk';
 import { createFakeStorage } from '$shared/testing';
+import { BINNACLE_INSTRUMENT_PLUGIN } from './builtin-instrument-plugin';
+import { createInstrumentRegistry } from './instrument-registry.svelte';
 import { DEFAULT_TILES, tileById } from './tile-catalog';
 
 // Test-only fixtures shared by the instruments controller suites. Imported by *.test.ts files,
@@ -15,6 +17,8 @@ export function mustTile(id: string) {
 }
 
 export function makeDeps(opts: { tiles?: string[] } = {}) {
+  const registry = createInstrumentRegistry();
+  registry.register(BINNACLE_INSTRUMENT_PLUGIN);
   return {
     store: new SignalKStore(),
     origin: 'http://sk',
@@ -33,6 +37,7 @@ export function makeDeps(opts: { tiles?: string[] } = {}) {
       false,
       createFakeStorage(),
     ),
+    registry,
   };
 }
 
