@@ -309,12 +309,13 @@ source, and surrounding traffic before relying on it.
 
 ## Toolbar and status strip
 
-- The bottom toolbar carries pinned actions, chosen by tapping tiles while customizing. The
-  default set is Menu, Center, Follow, and AIS: the Menu opener sits in the bar because on a phone
-  the top-bar hamburger is a cross-screen reach, and AIS keeps one Safety action thumb-reachable
-  with its live collision-risk count. Pinning Menu hides the top-bar hamburger, so exactly one
-  control named Menu exists at a time. Menu renders as a launcher tile only while customizing,
-  since tapping a tile is the pin control.
+- The bottom toolbar carries pinned actions, chosen by tapping tiles while customizing, followed by
+  the fixed Man overboard key. The key is not customizable and requires confirmation before it marks
+  the position and raises the alarm. The default pinned set is Menu, Center, Follow, and AIS: the Menu
+  opener sits in the bar because on a phone the top-bar hamburger is a cross-screen reach, and AIS
+  keeps one Safety action thumb-reachable with its live collision-risk count. Pinning Menu hides the
+  top-bar hamburger, so exactly one control named Menu exists at a time. Menu renders as a launcher
+  tile only while customizing, since tapping a tile is the pin control.
 - Degraded status-strip chips explain themselves on touch: tapping the connection dot, the AIS
   chip, the depth chip, a radar-trouble chip, or either alarm-audio chip shows its explanation as a
   transient note above the strip. Waiting for GPS carries a Help action, and the anchor chip opens

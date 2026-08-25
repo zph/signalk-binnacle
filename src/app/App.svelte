@@ -2738,12 +2738,6 @@ const plotterActions = {
       />
       <span class="brand">Binnacle Custom <span class="version">v{__APP_VERSION__}</span></span>
     </span>
-    <MobButton
-      {mob}
-      onTrigger={mobController.onTrigger}
-      onLocate={flyToPosition}
-      writeBlocked={auth.writeBlocked}
-    />
     <span class="topbar-actions">
       {#if collisionMute.active}
         <button
@@ -2992,6 +2986,17 @@ const plotterActions = {
     {/await}
   {/if}
 
+  {#snippet statusStripMobAction()}
+    <!-- The fixed emergency key shares the bottom action row but stays outside customization, so
+         it is always reachable and retains its dedicated confirm-before-marking flow. -->
+    <MobButton
+      {mob}
+      onTrigger={mobController.onTrigger}
+      onLocate={flyToPosition}
+      writeBlocked={auth.writeBlocked}
+    />
+  {/snippet}
+
   <StatusStrip
     {connectionLabel}
     {connectionTitle}
@@ -3015,6 +3020,7 @@ const plotterActions = {
       : undefined}
     onResetOrientation={() => chartOrientation.set('north')}
     pinnedActions={resolvedPinned}
+    emergencyAction={statusStripMobAction}
     editing={menuEditing}
     {clock}
     onOpenHelp={() => openPanel('help')}
@@ -3146,14 +3152,14 @@ const plotterActions = {
   background: var(--surface);
   color: var(--text);
 }
-/* Three columns so the MOB button sits dead center regardless of how wide the brand and the
-   action cluster are; the flanks are 1fr each so the center cannot drift. Includes Window Controls
-   Overlay (WCO) support to merge seamlessly into native PWA desktop title bars. */
+/* The brand and menu stay at the start, while status controls sit at the end. The dedicated MOB
+   key lives in the bottom action row. Includes Window Controls Overlay (WCO) support to merge
+   seamlessly into native PWA desktop title bars. */
 .topbar {
   grid-row: 1;
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: var(--space-2);
 

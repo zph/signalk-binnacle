@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onDestroy } from 'svelte';
+import { onDestroy, type Snippet } from 'svelte';
 import type { AnchorWatch } from '$entities/anchor';
 import type { UnitsStore } from '$entities/units';
 import {
@@ -50,6 +50,7 @@ let {
   onReconnect,
   onOpenHelp = undefined,
   onOpenAnchor = undefined,
+  emergencyAction = undefined,
 }: {
   connectionLabel: string;
   // The fuller diagnosis behind the conn chip's short label, shown on hover and on a chip tap.
@@ -90,6 +91,9 @@ let {
   onOpenHelp?: () => void;
   // Opens the Anchor watch panel: overnight the chip is the monitoring surface, so it is a door.
   onOpenAnchor?: () => void;
+  // Keeps the dedicated helm emergency control in the thumb-reachable bottom action row without
+  // folding it into the customizable pinned-action registry.
+  emergencyAction?: Snippet;
 } = $props();
 
 // COG is meaningless while the boat is stationary; under this speed the readout dashes.
@@ -353,7 +357,12 @@ const depthWatchPaused = $derived(
     {/if}
   </div>
   <TransientNote message={chipNote.message} noteClass="chip-note" />
-  <PinnedActions actions={pinnedActions} />
+  <div class="strip-actions">
+    <PinnedActions actions={pinnedActions} />
+    {#if emergencyAction}
+      {@render emergencyAction()}
+    {/if}
+  </div>
   <div class="center-cluster">
     {#if retainedFix}
       <!-- A stale fix never wears current-position styling: the label says what the coordinates
@@ -424,6 +433,13 @@ const depthWatchPaused = $derived(
   gap: var(--space-3);
   min-inline-size: 0;
 }
+.strip-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
 /* The vessel position reads as one group at the trailing edge; the Position instrument tile
    covers the same value on demand, so this is the first thing dropped once space is tight.
    justify-content pins it to the far edge of its now-equal-share column (the true-centering grid
@@ -473,6 +489,9 @@ const depthWatchPaused = $derived(
   }
   .strip-start {
     gap: var(--space-2);
+  }
+  .strip-actions {
+    gap: var(--space-1);
   }
 }
 .offline {

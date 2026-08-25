@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'svelte';
+import { type ComponentProps, createRawSnippet } from 'svelte';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import { AnchorWatch } from '$entities/anchor';
@@ -45,6 +45,21 @@ function body(props: ComponentProps<typeof StatusStrip>): string {
 }
 
 describe('StatusStrip depth alarm', () => {
+  it('renders the fixed emergency action beside the customizable bottom-bar actions', () => {
+    const html = body({
+      ...baseProps(),
+      emergencyAction: createRawSnippet(() => ({
+        render: () => '<button type="button">MOB</button>',
+      })),
+    });
+    const actionsStart = html.indexOf('strip-actions');
+    const actions = html.slice(actionsStart, html.indexOf('center-cluster', actionsStart));
+
+    expect(actionsStart).toBeGreaterThanOrEqual(0);
+    expect(actions).toContain('pinned-actions');
+    expect(actions).toContain('>MOB</button>');
+  });
+
   it('carries no alarm-audio chip: a browser-permission condition is not a helm readout', () => {
     // The Alarms and Anchor panels state the grade instead, so the readout row is not spent on a
     // silence that a boat with nothing audible armed could not have anyway.

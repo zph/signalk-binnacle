@@ -610,8 +610,10 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   (a native `<dialog class="modal-card">` opened via the `dialog` action, which calls `showModal()`),
   used for the waypoint editor and the MOB confirm.
 - The bottom bar renders the pinned `MenuItem`s in stored order (using `shortLabel`) plus a More
-  overflow. The app menu's toolbar edit mode owns membership, order, reset, and the live reorder
-  announcement; the bar only renders the resolved list.
+  overflow, followed by the fixed MOB key. MOB stays outside toolbar customization, remains in the
+  thumb-reachable action row, and opens its confirmation dialog before marking. The app menu's
+  toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar only
+  renders the resolved list.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
   sources, opens chart detail from the row gear, shows bounds when known, and keeps "Add a chart" for
   user PMTiles URLs. Every query-bearing URL defaults to device-only, displays redact all query
