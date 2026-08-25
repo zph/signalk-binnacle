@@ -61,7 +61,7 @@ describe('AIS between-fix position projection', () => {
     expect(ghost.properties).toMatchObject({
       confidence: 1,
       iconImage: AIS_ICON_IDS.tanker,
-      iconScale: 1.6,
+      iconScale: 1.8,
     });
     expect((ghost.geometry as GeoJSON.Point).coordinates[0]).toBeGreaterThan(0);
   });

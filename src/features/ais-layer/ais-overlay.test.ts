@@ -135,11 +135,11 @@ describe('ais overlay', () => {
 
     expect(byId['vessels.tanker'].properties).toMatchObject({
       iconImage: AIS_ICON_IDS.tanker,
-      iconScale: 1.6,
+      iconScale: 1.8,
     });
     expect(byId['vessels.tug'].properties).toMatchObject({
       iconImage: AIS_ICON_IDS.tug,
-      iconScale: 1,
+      iconScale: 1.1,
     });
     expect(byId['vessels.motorboat'].properties?.iconImage).toBe(AIS_ICON_IDS.motorboat);
     expect(byId['vessels.motorboat'].properties?.iconScale).toBeLessThan(1);

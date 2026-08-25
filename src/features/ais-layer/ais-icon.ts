@@ -33,13 +33,13 @@ export const AIS_ICON_IMAGE_IDS = AIS_ICON_KINDS.flatMap((kind) =>
 export const AIS_ICON_PIXEL_RATIO = 4;
 
 const LENGTH_SCALE_STOPS = [
-  [5, 0.7],
-  [15, 0.85],
-  [30, 1],
-  [60, 1.15],
+  [5, 0.9],
+  [15, 1],
+  [30, 1.1],
+  [60, 1.2],
   [120, 1.35],
-  [250, 1.6],
-  [400, 1.8],
+  [250, 1.8],
+  [400, 2.7],
 ] as const;
 
 export function aisVesselIconScale(lengthMeters: number | undefined): number {

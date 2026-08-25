@@ -52,10 +52,18 @@ describe('AIS vessel icons', () => {
 
 describe('aisVesselIconScale', () => {
   it('scales reported lengths monotonically and clamps extreme values', () => {
-    expect(aisVesselIconScale(2)).toBe(0.7);
-    expect(aisVesselIconScale(30)).toBe(1);
+    expect(aisVesselIconScale(2)).toBe(0.9);
+    expect(aisVesselIconScale(30)).toBe(1.1);
     expect(aisVesselIconScale(120)).toBe(1.35);
-    expect(aisVesselIconScale(1_000)).toBe(1.8);
+    expect(aisVesselIconScale(250)).toBe(1.8);
+    expect(aisVesselIconScale(1_000)).toBe(2.7);
+  });
+
+  it('keeps ordinary vessels within 50 percent and extremes within a three-to-one range', () => {
+    const minimum = aisVesselIconScale(2);
+    expect(aisVesselIconScale(120) / minimum).toBe(1.5);
+    expect(aisVesselIconScale(250) / minimum).toBe(2);
+    expect(aisVesselIconScale(1_000) / minimum).toBe(3);
   });
 
   it('uses the standard scale when length is absent or invalid', () => {
