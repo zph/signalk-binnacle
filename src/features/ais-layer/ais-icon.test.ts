@@ -30,13 +30,23 @@ describe('AIS vessel icons', () => {
     expect(new Set(images.map((image) => image.data.join(','))).size).toBe(AIS_ICON_KINDS.length);
   });
 
-  it('uses only the supplied target color and the neutral dark halo', () => {
-    const image = aisIconImage('sailboat', { r: 176, g: 46, b: 0, a: 255 });
+  it('uses only the supplied target color and an opaque black border', () => {
+    const target = { r: 176, g: 46, b: 0, a: 255 };
+    const targetChannels = [target.r, target.g, target.b, target.a];
+    const image = aisIconImage('sailboat', target);
+    let borderPixels = 0;
     for (let index = 0; index < image.data.length; index += 4) {
       const alpha = image.data[index + 3];
       if (alpha === 0) continue;
-      expect(image.data[index + 2]).toBe(0);
+      const color = Array.from(image.data.slice(index, index + 4));
+      const isTarget = color.every(
+        (channel, channelIndex) => channel === targetChannels[channelIndex],
+      );
+      const isBlackBorder = color[0] === 0 && color[1] === 0 && color[2] === 0 && color[3] === 255;
+      expect(isTarget || isBlackBorder).toBe(true);
+      if (isBlackBorder) borderPixels += 1;
     }
+    expect(borderPixels).toBeGreaterThan(0);
   });
 });
 

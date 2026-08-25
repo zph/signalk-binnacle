@@ -1,11 +1,12 @@
 import type { AisVesselKind } from '$entities/ais';
-import { DARK_SCRIM, type Rgba, rasterIconColored } from '$shared/map';
+import { type Rgba, rasterIconColored } from '$shared/map';
 
 const DESIGN_SIZE = 56;
 const RASTER_SCALE = 2;
 const SIZE = DESIGN_SIZE * RASTER_SCALE;
 const STROKE_RADIUS = 2.1;
-const HALO_RADIUS = 2 * RASTER_SCALE;
+const BORDER_RADIUS = 2 * RASTER_SCALE;
+const BLACK_BORDER: Rgba = { r: 0, g: 0, b: 0, a: 0xff };
 
 type Segment = readonly [x1: number, y1: number, x2: number, y2: number];
 
@@ -157,8 +158,8 @@ export function aisIconImage(kind: AisVesselKind, color: Rgba): ImageData {
   }
   return rasterIconColored(SIZE, (x, y) => {
     if (shape[y * SIZE + x] === 1) return color;
-    for (let dy = -HALO_RADIUS; dy <= HALO_RADIUS; dy += 1) {
-      for (let dx = -HALO_RADIUS; dx <= HALO_RADIUS; dx += 1) {
+    for (let dy = -BORDER_RADIUS; dy <= BORDER_RADIUS; dy += 1) {
+      for (let dx = -BORDER_RADIUS; dx <= BORDER_RADIUS; dx += 1) {
         const neighborX = x + dx;
         const neighborY = y + dy;
         if (
@@ -166,10 +167,10 @@ export function aisIconImage(kind: AisVesselKind, color: Rgba): ImageData {
           neighborX < SIZE &&
           neighborY >= 0 &&
           neighborY < SIZE &&
-          dx * dx + dy * dy <= HALO_RADIUS * HALO_RADIUS &&
+          dx * dx + dy * dy <= BORDER_RADIUS * BORDER_RADIUS &&
           shape[neighborY * SIZE + neighborX] === 1
         ) {
-          return DARK_SCRIM;
+          return BLACK_BORDER;
         }
       }
     }
