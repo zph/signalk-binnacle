@@ -1,12 +1,18 @@
 <script lang="ts">
 import { type Snippet, untrack } from 'svelte';
 import { CustomizeToggle, dialog, PanelHeader, trapFocus } from '$shared/ui';
+import AttitudeTile from './AttitudeTile.svelte';
+import CompassTile from './CompassTile.svelte';
+import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
+import HeelTile from './HeelTile.svelte';
 import InstrumentDetail from './InstrumentDetail.svelte';
+import InstrumentDockResize from './InstrumentDockResize.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import NumericTile from './NumericTile.svelte';
-import { staleAgeText, type TileDeps } from './tile-catalog';
+import { staleAgeText, type TileDeps, tileById } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
+import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
 
 interface Props {
@@ -17,6 +23,9 @@ interface Props {
   onViewTrend?: (id: string) => void;
   onTrendFocusRestored?: () => void;
   fullscreen?: boolean;
+  dockWidth?: number;
+  onDockResize?: (width: number) => void;
+  onDockResizeCommit?: (width: number) => void;
   // The emergency action the shell injects (the MOB trigger): while the panel is a full-screen
   // modal, aria-modal removes the topbar from the accessibility tree, so the trigger must live
   // inside the dialog subtree. Injected rather than imported so instruments never reaches into
@@ -32,8 +41,13 @@ const {
   onViewTrend,
   onTrendFocusRestored,
   fullscreen = false,
+  dockWidth = DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
+  onDockResize = () => {},
+  onDockResizeCommit = () => {},
   emergencyAction,
 }: Props = $props();
+
+const depthDef = tileById('depth');
 
 let customizing = $state(false);
 let detailId = $state<string | undefined>();
@@ -78,6 +92,9 @@ $effect(() => {
   use:dialog={() => controller.setOpen(false)}
   use:trapFocus={fullscreen}
 >
+  {#if !fullscreen}
+    <InstrumentDockResize width={dockWidth} onResize={onDockResize} onCommit={onDockResizeCommit} />
+  {/if}
   <PanelHeader
     title="Instruments"
     closeLabel={fullscreen ? 'Close instruments, return to chart' : 'Close instruments dock'}
@@ -130,7 +147,21 @@ $effect(() => {
         {@const reading = def.read(deps)}
         {@const zone = controller.zoneState(def, reading.siValue)}
         {@const staleAge = staleAgeText(deps, def, reading)}
-        {#if def.kind === 'wind'}
+        {#if def.kind === 'wind-rose'}
+          {@const depthZone =
+            depthDef && reading.windRose
+              ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
+              : 'normal'}
+          <WindRoseTile
+            label={controller.resolvedLabel(def)}
+            {reading}
+            {zone}
+            {depthZone}
+            sensorGloss={def.sensorGloss}
+            staleAgeText={staleAge}
+            onOpen={() => (detailId = def.id)}
+          />
+        {:else if def.kind === 'wind'}
           <WindTile
             label={controller.resolvedLabel(def)}
             {reading}
@@ -138,6 +169,33 @@ $effect(() => {
             sensorGloss={def.sensorGloss}
             kind={def.kind}
             abbr={def.abbr}
+            staleAgeText={staleAge}
+            onOpen={() => (detailId = def.id)}
+          />
+        {:else if def.kind === 'compass'}
+          <CompassTile
+            label={controller.resolvedLabel(def)}
+            {reading}
+            {zone}
+            sensorGloss={def.sensorGloss}
+            staleAgeText={staleAge}
+            onOpen={() => (detailId = def.id)}
+          />
+        {:else if def.kind === 'heel'}
+          <HeelTile
+            label={controller.resolvedLabel(def)}
+            {reading}
+            {zone}
+            sensorGloss={def.sensorGloss}
+            staleAgeText={staleAge}
+            onOpen={() => (detailId = def.id)}
+          />
+        {:else if def.kind === 'attitude'}
+          <AttitudeTile
+            label={controller.resolvedLabel(def)}
+            {reading}
+            {zone}
+            sensorGloss={def.sensorGloss}
             staleAgeText={staleAge}
             onOpen={() => (detailId = def.id)}
           />

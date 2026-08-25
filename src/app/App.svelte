@@ -62,10 +62,13 @@ import { NOAA_ENC_SOURCE_ID, shouldOfferNoaaEnc } from '$features/depth-charts';
 import { createHandoffClient, createHandoffController } from '$features/handoff';
 import {
   createInstrumentsController,
+  DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
   detectKip,
   KIP_URL,
   loadInstrumentsPanel,
+  MAX_INSTRUMENT_DOCK_WIDTH_PX,
+  MIN_INSTRUMENT_DOCK_WIDTH_PX,
 } from '$features/instruments';
 import type { LayersView } from '$features/layers-panel';
 import {
@@ -176,6 +179,7 @@ import { OnlineStatus, registerPwa } from '$shared/pwa';
 import {
   booleanPersistedCodec,
   booleanRecordPersistedCodec,
+  boundedNumberPersistedCodec,
   CHART_ORIENTATION_MODES,
   type ChartOrientationMode,
   createMapView,
@@ -730,6 +734,22 @@ const instrumentsOpen = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
+const instrumentDockWidthStore = new PersistedValue<number>(
+  binnacleStorageKey('instrumentDockWidth'),
+  DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
+  undefined,
+  boundedNumberPersistedCodec(MIN_INSTRUMENT_DOCK_WIDTH_PX, MAX_INSTRUMENT_DOCK_WIDTH_PX),
+);
+let instrumentDockWidth = $state(untrack(() => instrumentDockWidthStore.value));
+
+function resizeInstrumentDock(width: number): void {
+  instrumentDockWidth = width;
+}
+
+function commitInstrumentDockWidth(width: number): void {
+  instrumentDockWidth = width;
+  instrumentDockWidthStore.set(width);
+}
 const instruments = createInstrumentsController({
   store,
   origin,
@@ -2715,7 +2735,11 @@ const plotterActions = {
 
 <!-- The measured safety-rail clearance rides the shell root so App-level overlays the rail can
      float over (the full-screen instrument dock) inherit it; 0px while no alerts are up. -->
-<main class="binnacle-shell" style:--rail-clearance={safetyRailClearance}>
+<main
+  class="binnacle-shell"
+  style:--rail-clearance={safetyRailClearance}
+  style:--instrument-dock-width={`${instrumentDockWidth}px`}
+>
   <LiveRegions
     safety={safetyAnnunciator.assertive}
     safetyQueue={safetyAnnunciator.polite}
@@ -2968,6 +2992,9 @@ const plotterActions = {
           controller={instruments}
           deps={{ vessel, store, units, clock, course: courseGuidance }}
           fullscreen={instrumentsFullScreen}
+          dockWidth={instrumentDockWidth}
+          onDockResize={resizeInstrumentDock}
+          onDockResizeCommit={commitInstrumentDockWidth}
           emergencyAction={instrumentsMobAction}
           initialDetailId={trendReturnInstrumentId}
           restoreTrendFocusId={trendReturnInstrumentId}
@@ -3244,7 +3271,8 @@ const plotterActions = {
   grid-column: 2;
   display: flex;
   flex-direction: column;
-  inline-size: clamp(20rem, 28vw, 24rem);
+  position: relative;
+  inline-size: clamp(20rem, var(--instrument-dock-width), calc(100dvw - 20rem));
   border-inline-start: 1px solid var(--border);
   /* The dock scrolls its own tiles; without this a long tile list would stretch the shell row. */
   min-block-size: 0;

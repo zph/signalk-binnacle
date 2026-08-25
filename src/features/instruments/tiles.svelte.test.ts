@@ -1,8 +1,12 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { ZoneState } from '$shared/signalk';
+import AttitudeTile from './AttitudeTile.svelte';
+import CompassTile from './CompassTile.svelte';
+import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
 import type { TileReading } from './tile-catalog';
+import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
 
 // SSR-only suite (node environment, no DOM). Assertions are substring checks on the rendered body.
@@ -224,5 +228,115 @@ describe('WindTile', () => {
     const speedOnly: TileReading = { state: 'live', value: '10.0', unit: 'kn', siValue: 5.1 };
     const html = windBody({ label: 'AWS', reading: speedOnly, zone: normal, sensorGloss: GLOSS });
     expect(html).not.toContain('class="needle"');
+  });
+});
+
+describe('purpose-built instrument faces', () => {
+  it('renders a rotating compass card', () => {
+    const html = render(CompassTile, {
+      props: {
+        label: 'Heading compass',
+        reading: { ...LIVE, value: '090°', unit: '', siValue: Math.PI / 2 },
+        zone: normal,
+        sensorGloss: 'No heading data',
+      },
+    }).body;
+    expect(html).toContain('rotate(-90');
+    expect(html).toContain('Heading compass, 090°');
+  });
+
+  it('renders heel on the correct side of the dial', () => {
+    const html = render(HeelTile, {
+      props: {
+        label: 'Heel',
+        reading: {
+          state: 'live',
+          value: '12.0',
+          unit: '°',
+          siValue: -Math.PI / 15,
+          rollRad: -Math.PI / 15,
+          secondary: 'Port',
+        },
+        zone: normal,
+        sensorGloss: 'No heel data',
+      },
+    }).body;
+    expect(html).toContain('rotate(-12');
+    expect(html).toContain('Port');
+  });
+
+  it('renders a pitch-and-roll horizon', () => {
+    const html = render(AttitudeTile, {
+      props: {
+        label: 'Pitch and roll',
+        reading: {
+          state: 'live',
+          value: '5.7° / -11.5°',
+          unit: '',
+          pitchRad: 0.1,
+          rollRad: -0.2,
+        },
+        zone: normal,
+        sensorGloss: 'No attitude data',
+      },
+    }).body;
+    expect(html).toContain('class="attitude ');
+    expect(html).toMatch(/P\s+5\.7°/);
+    expect(html).toMatch(/R\s+11\.5°/);
+  });
+
+  it('shows SOG and zone-colored depth in the wind rose corners', () => {
+    const reading: TileReading = {
+      state: 'live',
+      value: '12.0',
+      unit: 'kn',
+      siValue: 6.2,
+      windRose: {
+        apparent: {
+          state: 'live',
+          value: '12.0',
+          unit: 'kn',
+          siValue: 6.2,
+          angleRad: -0.5,
+        },
+        trueWind: {
+          state: 'live',
+          value: '10.0',
+          unit: 'kn',
+          siValue: 5.1,
+          angleRad: 0.7,
+        },
+        speedOverGround: { state: 'live', value: '6.4', unit: 'kn', siValue: 3.3 },
+        depth: { state: 'live', value: '1.8', unit: 'm', siValue: 1.8 },
+      },
+    };
+    const html = render(WindRoseTile, {
+      props: {
+        label: 'Wind rose',
+        reading,
+        zone: normal,
+        depthZone: 'warning',
+        sensorGloss: 'No wind data',
+      },
+    }).body;
+    expect(html).toContain('SOG');
+    expect(html).toContain('6.4');
+    expect(html).toContain('Depth');
+    expect(html).toContain('1.8');
+    expect(html).toContain('corner--warning');
+    expect(html).toContain('Warning');
+    expect(html).toContain('Speed over ground 6.4 kn');
+
+    const alarmHtml = render(WindRoseTile, {
+      props: {
+        label: 'Wind rose',
+        reading,
+        zone: normal,
+        depthZone: 'alarm',
+        sensorGloss: 'No wind data',
+      },
+    }).body;
+    expect(alarmHtml).toContain('corner--alarm');
+    expect(alarmHtml).toContain('Alarm');
   });
 });

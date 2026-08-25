@@ -59,8 +59,10 @@ function makeDeps(clock: ReactiveClock, mode: UnitsMode = 'metric') {
     SK_PATHS.windAngleApparent,
     SK_PATHS.windSpeedTrue,
     SK_PATHS.windAngleTrueWater,
+    SK_PATHS.windAngleTrueGround,
     SK_PATHS.windSpeedOverGround,
     SK_PATHS.windDirectionTrue,
+    SK_PATHS.attitude,
   ]);
   // PersistedValue uses fallback when no storage is available (Node test env).
   const local = new PersistedValue<UnitsMode>('binnacle-custom:units', mode);
@@ -117,6 +119,7 @@ describe('tile catalog structure', () => {
     expect(all.has(SK_PATHS.headingMagnetic)).toBe(true);
     expect(all.has(SK_PATHS.windSpeedOverGround)).toBe(true);
     expect(all.has(SK_PATHS.windDirectionTrue)).toBe(true);
+    expect(all.has(SK_PATHS.attitude)).toBe(true);
   });
 });
 
@@ -341,6 +344,16 @@ describe('heading tile fallback chain', () => {
   });
 });
 
+describe('heading compass tile', () => {
+  it('uses the same resolved heading and reference as the numeric heading tile', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    deps.store.applyFrame(skFrame({ [SK_PATHS.headingMagnetic]: Math.PI / 3 }, 1000));
+    expect(readTile('heading-compass', deps)).toEqual(readTile('heading', deps));
+    expect(tileById('heading-compass')?.kind).toBe('compass');
+  });
+});
+
 describe('wind-apparent tile', () => {
   it('returns live state, knots speed, signed angleRad, and m/s siValue', () => {
     const clock = { now: 1000 };
@@ -455,6 +468,80 @@ describe('wind-true tile', () => {
     expect(reading.unit).toBe('kn');
     expect(reading.siValue).toBeCloseTo(6.0);
     expect(reading.angleRad).toBeCloseTo(0.8);
+  });
+
+  it('falls back to ground-referenced true wind angle and labels it', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    deps.store.applyFrame(
+      skFrame({ [SK_PATHS.windSpeedTrue]: 6.0, [SK_PATHS.windAngleTrueGround]: -0.4 }, 1000),
+    );
+    const reading = readTile('wind-true', deps);
+    expect(reading.angleRad).toBeCloseTo(-0.4);
+    expect(reading.referenceLabel).toBe('GND');
+  });
+});
+
+describe('wind rose tile', () => {
+  it('combines apparent wind, true wind, speed over ground, and resolved depth', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock, 'metric');
+    deps.store.applyFrame(
+      skFrame(
+        {
+          [SK_PATHS.windSpeedApparent]: 5,
+          [SK_PATHS.windAngleApparent]: -0.5,
+          [SK_PATHS.windSpeedTrue]: 4,
+          [SK_PATHS.windAngleTrueWater]: 0.7,
+          [SK_PATHS.speedOverGround]: 3,
+          [SK_PATHS.depthBelowKeel]: 1.8,
+        },
+        1000,
+      ),
+    );
+    const reading = readTile('wind-rose', deps);
+    expect(reading.state).toBe('live');
+    expect(reading.windRose?.apparent.angleRad).toBeCloseTo(-0.5);
+    expect(reading.windRose?.trueWind.angleRad).toBeCloseTo(0.7);
+    expect(reading.windRose?.speedOverGround.siValue).toBe(3);
+    expect(reading.windRose?.depth.value).toBe('1.8');
+    expect(reading.windRose?.depth.referenceLabel).toBe('Keel');
+  });
+
+  it('stays live when only true wind is available', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    deps.store.applyFrame(
+      skFrame({ [SK_PATHS.windSpeedTrue]: 4, [SK_PATHS.windAngleTrueWater]: 0.7 }, 1000),
+    );
+    const reading = readTile('wind-rose', deps);
+    expect(reading.state).toBe('live');
+    expect(reading.siValue).toBe(4);
+  });
+});
+
+describe('attitude instruments', () => {
+  it('reads heel from the roll field of navigation.attitude', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    deps.store.applyFrame(
+      skFrame({ [SK_PATHS.attitude]: { pitch: 0.1, roll: -Math.PI / 12 } }, 1000),
+    );
+    const reading = readTile('heel', deps);
+    expect(reading.state).toBe('live');
+    expect(reading.value).toBe('15.0');
+    expect(reading.secondary).toBe('Port');
+    expect(reading.rollRad).toBeCloseTo(-Math.PI / 12);
+  });
+
+  it('keeps pitch and roll in radians while formatting the paired display', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    deps.store.applyFrame(skFrame({ [SK_PATHS.attitude]: { pitch: 0.1, roll: -0.2 } }, 1000));
+    const reading = readTile('pitch-roll', deps);
+    expect(reading.pitchRad).toBe(0.1);
+    expect(reading.rollRad).toBe(-0.2);
+    expect(reading.value).toContain('° /');
   });
 });
 

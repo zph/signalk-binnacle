@@ -34,6 +34,7 @@ const BINNACLE_STORAGE_KEYS = {
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },
   trendInstruments: { key: 'binnacle-custom:trend-instruments', scope: 'profile' },
   instrumentsOpen: { key: 'binnacle-custom:instruments-open', scope: 'device' },
+  instrumentDockWidth: { key: 'binnacle-custom:instrument-dock-width', scope: 'device' },
   layerCategories: { key: 'binnacle-custom:layer-categories', scope: 'device' },
   userCharts: { key: 'binnacle-custom:user-charts', scope: 'server-resource' },
   anchorWatch: { key: 'binnacle-custom:anchor-watch', scope: 'safety' },

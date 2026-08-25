@@ -5,6 +5,7 @@ import type { PersistedValue } from '$shared/settings';
 import {
   createPathMetaCache,
   type HistoryProviders,
+  notificationState,
   type SignalKStore,
   type SubscribeEntry,
   type ZoneState,
@@ -171,7 +172,10 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   }
 
   function fetchMetaForSelected(): void {
-    for (const def of resolveTiles()) metaCache.load(def.zonesPath);
+    for (const def of resolveTiles()) {
+      metaCache.load(def.zonesPath);
+      for (const path of def.additionalZonePaths ?? []) metaCache.load(path);
+    }
   }
 
   // Runs once per controller construction when the dock is first opened and remains user-refreshable.
@@ -369,6 +373,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     // Read the version counter first so a reactive caller re-evaluates once a fetch resolves; the
     // meta cache itself is a plain Map.
     void metaCache.version;
+    if (def.useMetaDisplayName === false) return def.label;
     const name = metaCache.get(def.zonesPath)?.displayName?.trim();
     if (!name || name.length > MAX_LABEL_LENGTH || hasControlCharacters(name)) return def.label;
     return name;
@@ -402,7 +407,9 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     void metaCache.version;
     void deps.store.notificationsVersion;
     const notification = deps.store.notifications.get(`notifications.${def.zonesPath}`);
-    if (notification !== undefined) return 'alarm';
+    const raisedState = notificationState(notification);
+    if (raisedState === 'alarm' || raisedState === 'emergency') return 'alarm';
+    if (raisedState === 'warn' || raisedState === 'alert') return 'warning';
     const cached = metaCache.get(def.zonesPath);
     if (cached?.zones?.length) return zoneStateFor(value, cached.zones);
     // Server zones win whenever they are known. In every other state, never fetched, in flight,

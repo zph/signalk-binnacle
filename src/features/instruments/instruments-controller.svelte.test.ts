@@ -213,6 +213,45 @@ describe('createInstrumentsController', () => {
     ctrl.dispose();
   });
 
+  it('maps raised depth warn and alert notifications to the warning display state', () => {
+    const deps = makeDeps();
+    deps.tilesStore.set(['depth']);
+    const ctrl = createInstrumentsController(deps);
+    const depthDef = mustTile('depth');
+
+    for (const state of ['warn', 'alert']) {
+      deps.store.applyFrame(
+        selfFrame({
+          [`notifications.${depthDef.zonesPath}`]: { state, message: 'Shallow' },
+        }),
+      );
+      expect(ctrl.zoneState(depthDef, 100)).toBe('warning');
+    }
+
+    ctrl.dispose();
+  });
+
+  it('loads depth zones when the combined wind rose is selected', async () => {
+    const serverZones = [{ upper: 1, state: 'alarm' }];
+    const fetchMock = vi.fn(async (url: string) =>
+      (url as string).includes('belowKeel')
+        ? jsonResponse(200, { zones: serverZones })
+        : jsonResponse(200, {}),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const deps = makeDeps();
+    deps.tilesStore.set(['wind-rose']);
+    const ctrl = createInstrumentsController(deps);
+    ctrl.setOpen(true);
+    await flushPromises();
+
+    expect(fetchMock.mock.calls.some(([url]: [string]) => url.includes('belowKeel'))).toBe(true);
+    expect(ctrl.zoneState(mustTile('depth'), 1.5)).toBe('normal');
+
+    ctrl.dispose();
+  });
+
   it('selection persists to tilesStore; malformed stored value falls back to DEFAULT_TILES', () => {
     const map = new Map<string, string>([['binnacle-custom:instrument-tiles', '"not-an-array"']]);
     const storage = {

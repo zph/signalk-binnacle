@@ -19,6 +19,7 @@ export const SK_PATHS = {
   outsideTemperature: 'environment.outside.temperature',
   gnssSatellites: 'navigation.gnss.satellites',
   rateOfTurn: 'navigation.rateOfTurn',
+  attitude: 'navigation.attitude',
   anchorPosition: 'navigation.anchor.position',
   anchorMaxRadius: 'navigation.anchor.maxRadius',
   anchorNotification: 'notifications.navigation.anchor',
@@ -46,6 +47,7 @@ export const SK_PATHS = {
   windAngleApparent: 'environment.wind.angleApparent',
   windSpeedTrue: 'environment.wind.speedTrue',
   windAngleTrueWater: 'environment.wind.angleTrueWater',
+  windAngleTrueGround: 'environment.wind.angleTrueGround',
   windSpeedOverGround: 'environment.wind.speedOverGround',
   windDirectionTrue: 'environment.wind.directionTrue',
 } as const satisfies Record<string, Path>;

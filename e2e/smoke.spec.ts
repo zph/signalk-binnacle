@@ -1011,6 +1011,64 @@ test('instrument dock opens beside a still-present chart and closes from its hea
   await expect(dock).not.toBeVisible();
 });
 
+test('instrument dock offers the combined wind rose with SOG and depth corners', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await openMenuItem(page, 'Instrument dock');
+  const dock = page.getByRole('complementary', { name: 'Instruments' });
+  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await dock.getByRole('checkbox', { name: 'Wind rose', exact: true }).check();
+  await dock.getByRole('button', { name: 'Done' }).click();
+
+  const rose = dock.locator('.tile--wind-rose');
+  await expect(rose).toBeVisible();
+  await expect(rose.getByText('SOG', { exact: true })).toBeVisible();
+  await expect(rose.getByText('Depth', { exact: true })).toBeVisible();
+  await expect(rose.locator('svg.rose')).toBeVisible();
+});
+
+test('instrument dock resizes horizontally and restores its device-local width', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('binnacle-custom:resize-test-ready') !== 'true') {
+      localStorage.removeItem('binnacle-custom:instrument-dock-width');
+      sessionStorage.setItem('binnacle-custom:resize-test-ready', 'true');
+    }
+  });
+  await page.goto('/');
+  await openMenuItem(page, 'Instrument dock');
+  let dock = page.getByRole('complementary', { name: 'Instruments' });
+  const handle = dock.getByRole('slider', { name: 'Resize instruments dock' });
+  const initial = await dock.boundingBox();
+  const handleBox = await handle.boundingBox();
+  if (!initial || !handleBox) throw new Error('Instrument dock resize control did not lay out.');
+
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x - 112, handleBox.y + handleBox.height / 2, { steps: 4 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await dock.boundingBox())?.width ?? 0)
+    .toBeGreaterThan(initial.width + 90);
+  const widened = (await dock.boundingBox())?.width ?? 0;
+  await expect
+    .poll(() =>
+      page.evaluate(() => Number(localStorage.getItem('binnacle-custom:instrument-dock-width'))),
+    )
+    .toBeGreaterThan(initial.width + 90);
+
+  await page.reload();
+  dock = page.getByRole('complementary', { name: 'Instruments' });
+  await expect(dock).toBeVisible();
+  await expect.poll(async () => (await dock.boundingBox())?.width ?? 0).toBeCloseTo(widened, 0);
+  await dock.getByRole('slider', { name: 'Resize instruments dock' }).press('ArrowRight');
+  await expect.poll(async () => (await dock.boundingBox())?.width ?? 0).toBeLessThan(widened);
+});
+
 test('data trends discovers instruments independently and enforces the profile selection limit', async ({
   page,
 }) => {

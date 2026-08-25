@@ -109,6 +109,22 @@ describe('InstrumentsPanel', () => {
     expect(body).toContain('Customize instruments');
   });
 
+  it('renders an accessible horizontal resize control in dock mode', () => {
+    const { body } = render(InstrumentsPanel, {
+      props: { controller: makeController(), deps: makeDeps(), dockWidth: 420 },
+    });
+    expect(body).toContain('role="slider"');
+    expect(body).toContain('aria-label="Resize instruments dock"');
+    expect(body).toContain('aria-valuenow="420"');
+  });
+
+  it('omits the resize control in full-screen mode', () => {
+    const { body } = render(InstrumentsPanel, {
+      props: { controller: makeController(), deps: makeDeps(), fullscreen: true },
+    });
+    expect(body).not.toContain('Resize instruments dock');
+  });
+
   it('offers a full-width recent-trend action for an eligible detail', () => {
     const depth = tileById('depth');
     if (!depth) throw new Error('Missing depth tile');

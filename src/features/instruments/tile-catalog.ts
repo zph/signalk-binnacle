@@ -23,6 +23,7 @@ import {
   formatPercent,
   formatPressureOr,
   formatTemperatureOr,
+  isRecord,
   JOULES_PER_KWH,
   lengthUnit,
   PLACEHOLDER,
@@ -58,6 +59,24 @@ export interface TileReading {
   // The Signal K path this reading actually resolved on a fallback-chain tile, so the detail view
   // names the path, source, and age of the value shown rather than the first populated path.
   activePath?: string;
+  windRose?: {
+    apparent: InstrumentMetric;
+    trueWind: InstrumentMetric;
+    speedOverGround: InstrumentMetric;
+    depth: InstrumentMetric;
+  };
+  pitchRad?: number;
+  rollRad?: number;
+}
+
+export interface InstrumentMetric {
+  state: TileValueState;
+  value: string;
+  unit: string;
+  siValue?: number;
+  angleRad?: number;
+  angleState?: 'stale' | 'unavailable';
+  referenceLabel?: string;
 }
 
 export type TileCategory =
@@ -78,8 +97,10 @@ export interface TileDef {
   sensorGloss: string;
   paths: string[];
   zonesPath: string;
+  additionalZonePaths?: string[];
+  useMetaDisplayName?: boolean;
   category: TileCategory;
-  kind: 'numeric' | 'wind' | 'position';
+  kind: 'numeric' | 'wind' | 'position' | 'wind-rose' | 'compass' | 'heel' | 'attitude';
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
   viz?: 'spark' | 'battery' | 'rot';
   trend?: {
@@ -273,6 +294,18 @@ function angleFreshness(
   return grade(cell, clock) === 'stale' ? 'stale' : 'unavailable';
 }
 
+function instrumentMetric(reading: TileReading): InstrumentMetric {
+  return {
+    state: reading.state,
+    value: reading.value,
+    unit: reading.unit,
+    siValue: reading.siValue,
+    angleRad: reading.angleRad,
+    angleState: reading.angleState,
+    referenceLabel: reading.referenceLabel,
+  };
+}
+
 const SOG_DEF: TileDef = {
   id: 'sog',
   label: 'Speed',
@@ -347,6 +380,15 @@ const HDG_DEF: TileDef = {
       activePath,
     };
   },
+};
+
+const HEADING_COMPASS_DEF: TileDef = {
+  ...HDG_DEF,
+  id: 'heading-compass',
+  label: 'Heading compass',
+  description: 'A rotating compass card showing the direction the bow points.',
+  sensorGloss: 'No heading data',
+  kind: 'compass',
 };
 
 const DEPTH_DEF: TileDef = {
@@ -520,7 +562,7 @@ const WIND_TRUE_DEF: TileDef = {
   abbr: 'TWS',
   description: "True wind (TWS): the real wind, with the boat's own motion removed.",
   sensorGloss: 'No true wind data',
-  paths: [SK_PATHS.windSpeedTrue, SK_PATHS.windAngleTrueWater],
+  paths: [SK_PATHS.windSpeedTrue, SK_PATHS.windAngleTrueWater, SK_PATHS.windAngleTrueGround],
   zonesPath: SK_PATHS.windSpeedTrue,
   category: 'wind',
   kind: 'wind',
@@ -530,10 +572,67 @@ const WIND_TRUE_DEF: TileDef = {
     const cell = store.cell(SK_PATHS.windSpeedTrue);
     const state = grade(cell, clock);
     const mps = asNumber(cell.value);
-    const angleCell = store.cell(SK_PATHS.windAngleTrueWater);
+    const waterAngleCell = store.cell(SK_PATHS.windAngleTrueWater);
+    const groundAngleCell = store.cell(SK_PATHS.windAngleTrueGround);
+    const angleCell = waterAngleCell.epoch > 0 ? waterAngleCell : groundAngleCell;
     const angleRad = grade(angleCell, clock) === 'live' ? asNumber(angleCell.value) : undefined;
     const angleState = angleFreshness(angleCell, clock, angleRad);
-    return { state, value: formatKnotsOr(mps), unit: 'kn', siValue: mps, angleRad, angleState };
+    return {
+      state,
+      value: formatKnotsOr(mps),
+      unit: 'kn',
+      siValue: mps,
+      angleRad,
+      angleState,
+      referenceLabel: angleCell === groundAngleCell ? 'GND' : undefined,
+    };
+  },
+};
+
+const WIND_ROSE_DEF: TileDef = {
+  id: 'wind-rose',
+  label: 'Wind rose',
+  abbr: 'WIND',
+  description:
+    'Apparent and true wind on one bow-up rose, with speed over ground and depth in the lower corners.',
+  sensorGloss: 'No wind data',
+  paths: [
+    ...new Set([
+      ...WIND_APPARENT_DEF.paths,
+      ...WIND_TRUE_DEF.paths,
+      ...SOG_DEF.paths,
+      ...DEPTH_DEF.paths,
+    ]),
+  ],
+  zonesPath: SK_PATHS.windSpeedApparent,
+  additionalZonePaths: [DEPTH_DEF.zonesPath],
+  useMetaDisplayName: false,
+  category: 'wind',
+  kind: 'wind-rose',
+  read(deps) {
+    const apparent = WIND_APPARENT_DEF.read(deps);
+    const trueWind = WIND_TRUE_DEF.read(deps);
+    const speedOverGround = SOG_DEF.read(deps);
+    const depth = DEPTH_DEF.read(deps);
+    const windStates = [apparent.state, trueWind.state];
+    const state: TileValueState = windStates.includes('live')
+      ? 'live'
+      : windStates.includes('stale')
+        ? 'stale'
+        : windStates.includes('placeholder')
+          ? 'placeholder'
+          : 'never';
+    const primary = apparent.state === 'never' ? trueWind : apparent;
+    return {
+      ...primary,
+      state,
+      windRose: {
+        apparent: instrumentMetric(apparent),
+        trueWind: instrumentMetric(trueWind),
+        speedOverGround: instrumentMetric(speedOverGround),
+        depth: instrumentMetric(depth),
+      },
+    };
   },
 };
 
@@ -787,13 +886,95 @@ const ROT_DEF: TileDef = {
   },
 };
 
+function attitudeAngles(value: unknown): { pitchRad?: number; rollRad?: number } {
+  if (!isRecord(value)) return {};
+  return {
+    pitchRad: asNumber(value.pitch),
+    rollRad: asNumber(value.roll),
+  };
+}
+
+function formatAttitudeSample(value: unknown): string {
+  const { pitchRad, rollRad } = attitudeAngles(value);
+  if (pitchRad === undefined && rollRad === undefined) return PLACEHOLDER;
+  const pitch = pitchRad === undefined ? PLACEHOLDER : `${formatFixed(pitchRad * RAD_TO_DEG, 1)}°`;
+  const roll = rollRad === undefined ? PLACEHOLDER : `${formatFixed(rollRad * RAD_TO_DEG, 1)}°`;
+  return `Pitch ${pitch}, roll ${roll}`;
+}
+
+const HEEL_DEF: TileDef = {
+  id: 'heel',
+  label: 'Heel',
+  description: 'Heel angle from vessel attitude, showing port or starboard lean.',
+  sensorGloss: 'No heel data',
+  paths: [SK_PATHS.attitude],
+  zonesPath: SK_PATHS.attitude,
+  useMetaDisplayName: false,
+  category: 'navigation',
+  kind: 'heel',
+  formatSample: formatAttitudeSample,
+  read({ store, clock }) {
+    const cell = store.cell(SK_PATHS.attitude);
+    const rollRad = attitudeAngles(cell.value).rollRad;
+    const state = grade(cell, clock);
+    const degrees = rollRad === undefined ? undefined : Math.abs(rollRad * RAD_TO_DEG);
+    return {
+      state: state === 'live' && rollRad === undefined ? 'placeholder' : state,
+      value: formatFixed(degrees, 1),
+      unit: '°',
+      siValue: rollRad,
+      rollRad,
+      secondary:
+        rollRad === undefined
+          ? undefined
+          : rollRad > 0
+            ? 'Starboard'
+            : rollRad < 0
+              ? 'Port'
+              : 'Level',
+    };
+  },
+};
+
+const ATTITUDE_DEF: TileDef = {
+  id: 'pitch-roll',
+  label: 'Pitch and roll',
+  abbr: 'ATT',
+  description: 'A horizon-style view of the vessel pitch and roll angles.',
+  sensorGloss: 'No attitude data',
+  paths: [SK_PATHS.attitude],
+  zonesPath: SK_PATHS.attitude,
+  useMetaDisplayName: false,
+  category: 'navigation',
+  kind: 'attitude',
+  formatSample: formatAttitudeSample,
+  read({ store, clock }) {
+    const cell = store.cell(SK_PATHS.attitude);
+    const { pitchRad, rollRad } = attitudeAngles(cell.value);
+    const state = grade(cell, clock);
+    const hasAngle = pitchRad !== undefined || rollRad !== undefined;
+    const pitch = pitchRad === undefined ? PLACEHOLDER : formatFixed(pitchRad * RAD_TO_DEG, 1);
+    const roll = rollRad === undefined ? PLACEHOLDER : formatFixed(rollRad * RAD_TO_DEG, 1);
+    return {
+      state: state === 'live' && !hasAngle ? 'placeholder' : state,
+      value: `${pitch}° / ${roll}°`,
+      unit: '',
+      pitchRad,
+      rollRad,
+      secondary: 'Pitch / roll',
+    };
+  },
+};
+
 export const TILE_CATALOG: readonly TileDef[] = [
   SOG_DEF,
   HDG_DEF,
+  HEADING_COMPASS_DEF,
   DEPTH_DEF,
   WIND_APPARENT_DEF,
   STW_DEF,
   WIND_TRUE_DEF,
+  WIND_ROSE_DEF,
   PRESSURE_DEF,
   POSITION_DEF,
   WAYPOINT_DEF,
@@ -804,6 +985,8 @@ export const TILE_CATALOG: readonly TileDef[] = [
   AIR_TEMP_DEF,
   GNSS_DEF,
   ROT_DEF,
+  HEEL_DEF,
+  ATTITUDE_DEF,
 ];
 
 export const DEFAULT_TILES: readonly string[] = ['sog', 'heading', 'depth', 'wind-apparent'];
