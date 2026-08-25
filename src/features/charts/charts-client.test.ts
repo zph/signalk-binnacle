@@ -128,4 +128,33 @@ describe('fetchCharts', () => {
     );
     expect(await fetchCharts('http://pi.local')).toHaveLength(1_000);
   });
+
+  it('accepts the chartLayers field emitted by charts-provider-simple', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        jsonResponse(200, {
+          california: {
+            name: 'NOAA ENC California',
+            type: 'S-57',
+            format: 'pbf',
+            layers: [],
+            chartLayers: ['DEPARE', 'SOUNDG', 'bad\nlayer'],
+            tilemapUrl: '/signalk/v1/api/resources/charts/california/{z}/{x}/{y}',
+          },
+        }),
+      ),
+    );
+
+    expect(await fetchCharts('http://pi.local')).toEqual([
+      {
+        identifier: 'california',
+        name: 'NOAA ENC California',
+        type: 'S-57',
+        format: 'pbf',
+        layers: ['DEPARE', 'SOUNDG'],
+        tilemapUrl: '/signalk/v1/api/resources/charts/california/{z}/{x}/{y}',
+      },
+    ]);
+  });
 });

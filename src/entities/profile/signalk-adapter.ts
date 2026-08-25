@@ -25,7 +25,7 @@ import type {
   ProfileRemoteMutationResult,
 } from './profiles-store.svelte';
 
-const APP_ID = 'signalk-binnacle';
+const APP_ID = 'binnacle-custom';
 const V1 = '1.0.0';
 const V2 = '2.0.0';
 

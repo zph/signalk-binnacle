@@ -58,7 +58,7 @@ async function mockChartLocker(page: Page, regions: unknown[] = []): Promise<voi
 
 test('app shell renders the brand and a connection status', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.brand')).toContainText('Binnacle Chartplotter');
+  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
   await expect(page.locator('.status-strip .conn')).toHaveAttribute(
     'title',
     /Connecting|Connected|Reconnecting|Not connected/,
@@ -83,7 +83,7 @@ test('app shell stays usable and explains when WebGL2 is unavailable', async ({ 
 
   await page.goto('/');
   await expect(page.locator('.chart-start-error')).toContainText('WebGL2');
-  await expect(page.locator('.brand')).toContainText('Binnacle Chartplotter');
+  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
   await expect(page.getByText('SOG')).toBeVisible();
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   await expect(page.locator('#app-menu-launcher')).toBeVisible();
@@ -96,7 +96,7 @@ test('time travel changes bounded ranges, replays history, and retains accepted 
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
@@ -197,7 +197,7 @@ test('time travel changes bounded ranges, replays history, and retains accepted 
 test('time travel can exit while its lazy controls are still loading', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
@@ -241,7 +241,7 @@ test('time travel can exit while its lazy controls are still loading', async ({ 
 test('weather can exit while its lazy view is still loading', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   let releaseChunk = () => {};
@@ -285,7 +285,7 @@ test('weather can exit while its lazy view is still loading', async ({ page }) =
 test('center and follow explain when no GPS fix is available', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   const workerProof = await installMapLibreWorkerProof(page);
@@ -309,7 +309,7 @@ test('menu prioritizes safety and customizes toolbar order without shifting bloc
 }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await page.goto('/');
 
@@ -352,7 +352,7 @@ test('radar discovery opens a hydrated provider-driven controls panel', async ({
   await page.setViewportSize({ width: 320, height: 640 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   const radarWrites: Array<{ pathname: string; body: unknown }> = [];
   await stubVesselsSelf(page);
@@ -668,7 +668,7 @@ test('radar discovery opens a hydrated provider-driven controls panel', async ({
 test('offline charts stays discoverable when Chart Locker is not installed', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
@@ -686,7 +686,7 @@ test('offline area review shows a planning estimate and catalog chart defaults',
 }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await mockChartLocker(page);
 
@@ -728,7 +728,7 @@ test('offline area review shows a planning estimate and catalog chart defaults',
 test('offline areas explain removed chart sources before re-download', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await mockChartLocker(page, [
     {
@@ -766,7 +766,7 @@ test('offline areas explain removed chart sources before re-download', async ({ 
 test('layers and charts opens chart sources before overlay stack controls', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await page.goto('/');
 
@@ -804,7 +804,7 @@ test('style-document charts stay visible and explain that they are unsupported',
 }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   let styleRequests = 0;
   await page.route(/\/signalk\/v2\/api\/resources\/charts\/?$/, (route) =>
@@ -857,9 +857,9 @@ test('saved PMTiles charts expose repair, refresh, and sharing controls', async 
   });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:user-charts',
+      'binnacle-custom:user-charts',
       JSON.stringify([
         {
           id: 'repair-test-chart',
@@ -911,7 +911,7 @@ test('saved PMTiles charts expose repair, refresh, and sharing controls', async 
 test('route editing confirms before discarding plotted changes', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
@@ -942,7 +942,7 @@ test('route editing confirms before discarding plotted changes', async ({ page }
 test('saved route secondary actions use a labeled overflow menu', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   let routeRequests = 0;
@@ -1018,7 +1018,7 @@ test('data trends discovers instruments independently and enforces the profile s
   let batteryRequests = 0;
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, async (route) => {
@@ -1123,7 +1123,7 @@ test('history-only engine readings stay identifiable through selection and detai
     | undefined;
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
@@ -1225,7 +1225,7 @@ test('focused trends return to instrument detail without changing the saved over
 }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
@@ -1274,7 +1274,7 @@ test('trend charts stay scrub-accessible and night-readable on a 320 px phone', 
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   let historyValueRequests = 0;
   await stubVesselsSelf(page);
@@ -1443,9 +1443,9 @@ test('weather remains usable without horizontal overflow on a narrow phone', asy
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:weather-layers',
+      'binnacle-custom:weather-layers',
       JSON.stringify({ 'weather-wind': { visible: true, opacity: 1 } }),
     );
   });
@@ -1501,7 +1501,7 @@ test('weather remains usable without horizontal overflow on a narrow phone', asy
 test('forecast keeps the shown route as read-only context', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/resources\/routes$/, async (route) => {

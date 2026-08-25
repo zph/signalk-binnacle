@@ -7,9 +7,16 @@ import {
   THEME_PAINT_KEY,
 } from './chart-adapter';
 import type { SignalKChart } from './chart-types';
-import { applyRasterTheme, colorProperty, type MapColorKey } from './map-theme';
+import { applyRasterTheme, colorProperty, DAY_PAINT, type MapColorKey } from './map-theme';
 import { removeLayersAndSources, setLayersVisibility, setPaintProp } from './overlay-helpers';
 import { registerPmtilesArchive, unregisterPmtilesArchive } from './pmtiles';
+import {
+  S57_THEME_PAINT_KEY,
+  type S57StyleOptions,
+  type S57ThemePaintMap,
+  s57ThemeColor,
+} from './s57-chart-style';
+import { registerS57Symbols } from './s57-symbols';
 import type { ChartLayerInfo, OverlayModule, ZBand } from './types';
 
 // How far past a chart's native max zoom its layers keep drawing before they hand off
@@ -19,10 +26,12 @@ import type { ChartLayerInfo, OverlayModule, ZBand } from './types';
 // chart's detail, so the chart stays useful and aligned with the base at every zoom.
 const CHART_OVERZOOM_BUDGET = 1;
 
-const OPACITY_PROPERTY = {
-  fill: 'fill-opacity',
-  line: 'line-opacity',
-  raster: 'raster-opacity',
+const OPACITY_PROPERTIES = {
+  circle: ['circle-opacity', 'circle-stroke-opacity'],
+  fill: ['fill-opacity'],
+  line: ['line-opacity'],
+  raster: ['raster-opacity'],
+  symbol: ['icon-opacity', 'text-opacity'],
 } as const;
 const RASTER_FORMATS = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif']);
 const STYLE_CHART_UNAVAILABLE_HINT =
@@ -31,8 +40,8 @@ const STYLE_CHART_UNAVAILABLE_HINT =
 // The opacity paint property for a layer type, or undefined for a type the chart adapter never
 // emits (only fill, line, and raster are produced). setOpacity skips an undefined so an unexpected
 // type is a clear no-op rather than a wrong property silently applied.
-function opacityProperty(layerType: string): string | undefined {
-  return OPACITY_PROPERTY[layerType as keyof typeof OPACITY_PROPERTY];
+function opacityProperties(layerType: string): readonly string[] {
+  return OPACITY_PROPERTIES[layerType as keyof typeof OPACITY_PROPERTIES] ?? [];
 }
 
 function chartKind(chart: SignalKChart): ChartLayerInfo['kind'] {
@@ -87,23 +96,32 @@ export function createChartOverlay(
   serverBase: string,
   band: ZBand = 'basemap',
   getToken?: () => string | undefined,
-  options: { source?: ChartLayerInfo['source'] } = {},
+  options: { source?: ChartLayerInfo['source']; s57Style?: S57StyleOptions } = {},
 ): OverlayModule {
   const source = options.source ?? 'server';
   if (chart.type === 'mapstyleJSON') {
     return createUnsupportedStyleChartOverlay(chart, band, source);
   }
-  const specs = chartToSpecs(chart, serverBase);
+  const specs = chartToSpecs(chart, serverBase, { s57Style: options.s57Style });
   const sourceIds = Object.keys(specs.sources);
   // A lightweight view of just the fields the lifecycle methods touch, derived once from
   // specs.layers. add() works from the full specs, while remove, setVisible, setOpacity, applyTheme,
   // and capToNativeZoom iterate this. It is derived, so it cannot drift from specs.layers.
-  const layers = specs.layers.map((layer) => ({
-    id: layer.id,
-    type: layer.type,
-    minzoom: (layer as { minzoom?: number }).minzoom ?? 0,
-    themePaint: (layer.metadata as Record<string, MapColorKey> | undefined)?.[THEME_PAINT_KEY],
-  }));
+  const layers = specs.layers.map((layer) => {
+    const metadata = layer.metadata as Record<string, unknown> | undefined;
+    const paint = layer.paint as Record<string, unknown> | undefined;
+    return {
+      id: layer.id,
+      type: layer.type,
+      minzoom: (layer as { minzoom?: number }).minzoom ?? 0,
+      themePaint: metadata?.[THEME_PAINT_KEY] as MapColorKey | undefined,
+      s57ThemePaint: metadata?.[S57_THEME_PAINT_KEY] as S57ThemePaintMap | undefined,
+      opacity: opacityProperties(layer.type).map((property) => ({
+        property,
+        base: typeof paint?.[property] === 'number' ? paint[property] : 1,
+      })),
+    };
+  });
   const layerIds = layers.map((layer) => layer.id);
   const chartSource = sourceIds[0];
   // The bare http urls of this chart's PMTiles archives, registered with the protocol on add and
@@ -129,6 +147,8 @@ export function createChartOverlay(
   const description =
     chart.description ??
     (source === 'user' ? 'User-added chart source' : 'Chart source from the Signal K server');
+  const isS57 = chart.type === 'S-57';
+  let symbolGeneration = 0;
 
   // The native max zoom lives in the source's TileJSON, which a PMTiles archive reports
   // only once it has loaded, so this is applied after the source is loaded. Each layer's
@@ -166,7 +186,11 @@ export function createChartOverlay(
       maxzoom: chart.maxzoom,
       format: chart.format,
     },
-    add(ctx) {
+    async add(ctx) {
+      if (isS57) {
+        const generation = ++symbolGeneration;
+        await registerS57Symbols(ctx.map, DAY_PAINT, () => generation === symbolGeneration);
+      }
       // A PMTiles archive registers a no-store source first so MapLibre resolves the
       // pmtiles:// url to it rather than the default cache-writing fetch source.
       for (const url of pmtilesUrls) {
@@ -211,6 +235,7 @@ export function createChartOverlay(
       ctx.map.on('sourcedata', handler);
     },
     remove(ctx) {
+      symbolGeneration += 1;
       stopCapWait(ctx.map);
       removeLayersAndSources(ctx.map, layerIds, sourceIds);
       for (const url of pmtilesUrls) {
@@ -222,15 +247,22 @@ export function createChartOverlay(
     },
     setOpacity(ctx, opacity) {
       for (const layer of layers) {
-        const property = opacityProperty(layer.type);
         // Guard on getLayer, matching setLayersVisibility: setPaintProperty throws on a layer that is
         // not present, for example if the slider moves during the window after a base-style reload and
         // before the overlay reattaches.
-        if (property && ctx.map.getLayer(layer.id))
-          setPaintProp(ctx.map, layer.id, property, opacity);
+        if (!ctx.map.getLayer(layer.id)) continue;
+        for (const property of layer.opacity) {
+          setPaintProp(ctx.map, layer.id, property.property, property.base * opacity);
+        }
       }
     },
     applyTheme(ctx, paint) {
+      if (isS57) {
+        const generation = ++symbolGeneration;
+        registerS57Symbols(ctx.map, paint, () => generation === symbolGeneration).catch((error) =>
+          console.warn('[charts] could not update S-57 symbols', error),
+        );
+      }
       // Recolor this chart's own themed vector draw layers; a raster layer cannot be recolored,
       // so adjust it the way the streaming bathymetry does: night-red desaturates and dims it so
       // it carries no blue and keeps the brightest pixel low.
@@ -239,12 +271,18 @@ export function createChartOverlay(
           applyRasterTheme(ctx.map, layer.id, paint);
           continue;
         }
-        if (!layer.themePaint) continue;
         // Guard on getLayer, matching setLayersVisibility and setOpacity: setPaintProperty throws on a
         // layer absent during the window after a base-style reload and before reattach.
         if (!ctx.map.getLayer(layer.id)) continue;
-        const property = colorProperty(layer.type);
-        ctx.map.setPaintProperty(layer.id, property, paint[layer.themePaint]);
+        if (layer.themePaint) {
+          const property = colorProperty(layer.type);
+          ctx.map.setPaintProperty(layer.id, property, paint[layer.themePaint]);
+        }
+        if (layer.s57ThemePaint) {
+          for (const [property, color] of Object.entries(layer.s57ThemePaint)) {
+            setPaintProp(ctx.map, layer.id, property, s57ThemeColor(paint.theme, color));
+          }
+        }
       }
     },
   };

@@ -16,10 +16,10 @@ describe('adminLoginUrl', () => {
 
   it('falls back when the return path is not a safe same-origin relative URL', () => {
     expect(adminLoginUrl('https://boat.local', '//elsewhere.test')).toBe(
-      'https://boat.local/admin/#/login?redirect=%2Fsignalk-binnacle%2F',
+      'https://boat.local/admin/#/login?redirect=%2Fbinnacle-custom%2F',
     );
     expect(adminLoginUrl('https://boat.local', '/admin/#/login')).toBe(
-      'https://boat.local/admin/#/login?redirect=%2Fsignalk-binnacle%2F',
+      'https://boat.local/admin/#/login?redirect=%2Fbinnacle-custom%2F',
     );
   });
 });

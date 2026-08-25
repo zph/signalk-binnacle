@@ -6,7 +6,11 @@ import type { HandoffClient, HandoffLoadResult } from './handoff-client';
 import { createHandoffController } from './handoff-controller.svelte';
 
 function drafts(): PersistedValue<HandoffSnapshot[]> {
-  return new PersistedValue<HandoffSnapshot[]>('binnacle:handoff-test', [], createFakeStorage());
+  return new PersistedValue<HandoffSnapshot[]>(
+    'binnacle-custom:handoff-test',
+    [],
+    createFakeStorage(),
+  );
 }
 
 function fakeClient(overrides: Partial<HandoffClient> = {}): HandoffClient {

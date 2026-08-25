@@ -8,7 +8,7 @@ import { degradeToMemory, openIdbDatabase, reqPromise, runTransaction } from '$s
 // IndexedDB works in every context, including the plain-http boat LAN where service
 // workers are inert, and serves chart tiles offline once their blocks have been fetched.
 
-const DB_NAME = 'binnacle-pmtiles-blocks';
+const DB_NAME = 'binnacle-custom-pmtiles-blocks';
 const BLOCKS = 'blocks';
 const META = 'meta';
 const ARCHIVES = 'archives';

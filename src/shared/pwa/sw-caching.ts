@@ -141,7 +141,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isBasemapStyle,
     handler: 'StaleWhileRevalidate',
     options: {
-      cacheName: 'binnacle-basemap-style',
+      cacheName: 'binnacle-custom-basemap-style',
       expiration: { maxEntries: 4, maxAgeSeconds: 30 * DAY_SECONDS },
       cacheableResponse: { statuses: [200] },
     },
@@ -151,7 +151,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isBasemapAsset,
     handler: 'CacheFirst',
     options: {
-      cacheName: 'binnacle-basemap',
+      cacheName: 'binnacle-custom-basemap',
       expiration: {
         maxEntries: 4000,
         maxAgeSeconds: 30 * DAY_SECONDS,
@@ -165,7 +165,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isChartTile,
     handler: 'CacheFirst',
     options: {
-      cacheName: 'binnacle-chart-tiles',
+      cacheName: 'binnacle-custom-chart-tiles',
       expiration: {
         maxEntries: 2000,
         maxAgeSeconds: 30 * DAY_SECONDS,
@@ -181,7 +181,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isVolatileOverlayTile,
     handler: 'NetworkFirst',
     options: {
-      cacheName: 'binnacle-volatile-overlays',
+      cacheName: 'binnacle-custom-volatile-overlays',
       networkTimeoutSeconds: 8,
       expiration: { maxEntries: 200, maxAgeSeconds: HOUR_SECONDS, purgeOnQuotaError: true },
       cacheableResponse: { statuses: [200] },
@@ -191,7 +191,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isOverlayTile,
     handler: 'CacheFirst',
     options: {
-      cacheName: 'binnacle-overlay-tiles',
+      cacheName: 'binnacle-custom-overlay-tiles',
       expiration: {
         maxEntries: 1500,
         maxAgeSeconds: 7 * DAY_SECONDS,
@@ -205,7 +205,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isCoopsRequest,
     handler: 'NetworkFirst',
     options: {
-      cacheName: 'binnacle-tides',
+      cacheName: 'binnacle-custom-tides',
       networkTimeoutSeconds: 8,
       expiration: {
         maxEntries: 32,
@@ -220,7 +220,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isRadarIndex,
     handler: 'NetworkFirst',
     options: {
-      cacheName: 'binnacle-radar-index',
+      cacheName: 'binnacle-custom-radar-index',
       networkTimeoutSeconds: 6,
       expiration: { maxEntries: 4, maxAgeSeconds: TWO_HOURS_SECONDS, purgeOnQuotaError: true },
       cacheableResponse: { statuses: [200] },
@@ -232,7 +232,7 @@ export const runtimeCaching: readonly RuntimeCacheRoute[] = [
     urlPattern: isRadarTile,
     handler: 'CacheFirst',
     options: {
-      cacheName: 'binnacle-radar-tiles',
+      cacheName: 'binnacle-custom-radar-tiles',
       expiration: { maxEntries: 600, maxAgeSeconds: TWO_HOURS_SECONDS, purgeOnQuotaError: true },
       cacheableResponse: { statuses: [200] },
     },

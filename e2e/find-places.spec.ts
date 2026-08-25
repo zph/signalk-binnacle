@@ -8,10 +8,13 @@ test('find places enables its layer, searches provider metadata, and keeps selec
 }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:layers',
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }),
+    );
+    localStorage.setItem(
+      'binnacle-custom:layers',
       JSON.stringify({ notes: { visible: false, opacity: 1 } }),
     );
   });
@@ -98,8 +101,11 @@ test('find places explains the chart zoom limit on a narrow screen', async ({ pa
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 4 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+    localStorage.setItem(
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 4 }),
+    );
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
@@ -114,8 +120,11 @@ test('place detail returns to find places on a narrow screen', async ({ page }) 
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+    localStorage.setItem(
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }),
+    );
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/resources\/notes/, async (route) => {
@@ -156,8 +165,11 @@ test('personal notes create, edit, move, and delete through the v2 notes provide
   test.setTimeout(60_000);
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+    localStorage.setItem(
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }),
+    );
   });
   await stubVesselsSelf(page);
 

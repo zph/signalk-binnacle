@@ -67,7 +67,7 @@ describe('units', () => {
 
 describe('formatFixed', () => {
   it('renders a value to the given digit count', () => {
-    expect(formatFixed(3.14159, 2)).toBe('3.14');
+    expect(formatFixed(Math.PI, 2)).toBe('3.14');
   });
 
   it('renders the placeholder for null, undefined, or NaN', () => {

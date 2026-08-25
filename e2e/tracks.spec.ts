@@ -9,7 +9,10 @@ test('tracks loads saved resources without a live stream and fits a narrow scree
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }));
+    localStorage.setItem(
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 42.6, lon: -83.5, zoom: 12 }),
+    );
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/resources\/tracks$/, async (route) => {

@@ -158,7 +158,7 @@ const realDeps: LoaderDeps = {
   forecasts: fetchPointForecastsResult,
   warnings: fetchWeatherWarningsResult,
   now: () => Date.now(),
-  persist: createExpiringStore<ProviderPoint>('binnacle-weather-point', {
+  persist: createExpiringStore<ProviderPoint>('binnacle-custom-weather-point', {
     maxEntries: MAX_POINT_ENTRIES,
   }),
 };

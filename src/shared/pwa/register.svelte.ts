@@ -17,18 +17,18 @@ export interface PwaController {
   readonly status: PwaStatus;
 }
 
-// One-time migration: the old 'binnacle-pmtiles' worker cache was provably inert (PMTiles range
+// One-time migration: the old custom PMTiles worker cache was provably inert (PMTiles range
 // reads answer 206, which the Cache API refuses to store), so any orphan it left is deleted.
 // PMTiles caching lives in the IndexedDB block cache now. cleanupOutdatedCaches only sweeps the
 // precache, so app code owns this deletion.
 function deleteOrphanCaches(): void {
   if (typeof caches === 'undefined') return;
-  caches.delete('binnacle-pmtiles').catch(() => {
+  caches.delete('binnacle-custom-pmtiles').catch(() => {
     // Best-effort: a failure leaves a dead cache behind, nothing more.
   });
 }
 
-const RELOAD_GUARD_KEY = 'binnacle:pwa-reload-at';
+const RELOAD_GUARD_KEY = 'binnacle-custom:pwa-reload-at';
 // One automatic post-update reload per window is the legitimate maximum. Anything faster is a
 // reload storm.
 export const PWA_RELOAD_GUARD_MS = 30_000;

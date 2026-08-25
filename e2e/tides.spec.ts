@@ -112,10 +112,13 @@ async function touchTap(page: Page, point: { x: number; y: number }): Promise<vo
 test('warms Tide controls before a visible station marker is selected', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:layers',
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }),
+    );
+    localStorage.setItem(
+      'binnacle-custom:layers',
       JSON.stringify({ tides: { visible: true, opacity: 1 } }),
     );
   });
@@ -132,8 +135,11 @@ test('opens Tides from a station enabled only through Layers and charts', async 
   await page.setViewportSize({ width: 800, height: 700 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+    localStorage.setItem(
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }),
+    );
   });
   await stubVesselsSelf(page);
   const workerProof = await installMapLibreWorkerProof(page);
@@ -176,10 +182,13 @@ test('opens Tides from a direct chart touch tap', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 700 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:layers',
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }),
+    );
+    localStorage.setItem(
+      'binnacle-custom:layers',
       JSON.stringify({ tides: { visible: true, opacity: 1 } }),
     );
   });
@@ -210,8 +219,11 @@ test('selects stations by keyboard and marker tap on a narrow chart', async ({ p
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
-    localStorage.setItem('binnacle:map-view', JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }));
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+    localStorage.setItem(
+      'binnacle-custom:map-view',
+      JSON.stringify({ lat: 27.7, lon: -82.7, zoom: 10 }),
+    );
   });
   const workerProof = await installMapLibreWorkerProof(page);
   await mockCoops(page);
@@ -277,6 +289,9 @@ test('selects stations by keyboard and marker tap on a narrow chart', async ({ p
   await page.setViewportSize({ width: 320, height: 568 });
 
   await expectNoHorizontalOverflow(page.locator('body'));
+  // Axe must sample the settled panel, not an intermediate opacity from its entrance transition;
+  // blending the accent through that frame can transiently lower the computed contrast ratio.
+  await expect(chartOpenedPanel).toHaveCSS('opacity', '1');
   const accessibility = await new AxeBuilder({ page })
     .include('aside[aria-label="Tides and currents"]')
     .analyze();
@@ -286,7 +301,7 @@ test('selects stations by keyboard and marker tap on a narrow chart', async ({ p
 test('can leave Tides while its controls are still loading', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   let releaseChunk = () => {};

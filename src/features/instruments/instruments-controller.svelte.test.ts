@@ -214,7 +214,7 @@ describe('createInstrumentsController', () => {
   });
 
   it('selection persists to tilesStore; malformed stored value falls back to DEFAULT_TILES', () => {
-    const map = new Map<string, string>([['binnacle:instrument-tiles', '"not-an-array"']]);
+    const map = new Map<string, string>([['binnacle-custom:instrument-tiles', '"not-an-array"']]);
     const storage = {
       getItem: (k: string) => map.get(k) ?? null,
       setItem: (k: string, v: string) => {
@@ -222,11 +222,11 @@ describe('createInstrumentsController', () => {
       },
     };
     const tilesStore = new PersistedValue<string[]>(
-      'binnacle:instrument-tiles',
+      'binnacle-custom:instrument-tiles',
       [...DEFAULT_TILES],
       storage,
     );
-    const openStore = new PersistedValue<boolean>('binnacle:instruments-open', false, {
+    const openStore = new PersistedValue<boolean>('binnacle-custom:instruments-open', false, {
       getItem: () => null,
       setItem: () => {},
     });
@@ -249,7 +249,7 @@ describe('createInstrumentsController', () => {
     // A valid toggle persists the new selection.
     ctrl.toggleTile('stw');
     expect(ctrl.selectedIds).toContain('stw');
-    const stored = JSON.parse(map.get('binnacle:instrument-tiles') ?? '[]') as unknown;
+    const stored = JSON.parse(map.get('binnacle-custom:instrument-tiles') ?? '[]') as unknown;
     expect(stored).toContain('stw');
 
     ctrl.dispose();

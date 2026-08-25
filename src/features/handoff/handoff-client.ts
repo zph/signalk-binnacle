@@ -14,7 +14,7 @@ import { authInit } from '$shared/signalk';
 // stations posting concurrently never touch the same path and there is no shared container whose
 // initialization could race and wipe a sibling's write.
 
-const APP_ID = 'signalk-binnacle';
+const APP_ID = 'binnacle-custom';
 const VERSION = '1.0.0';
 const KEY_PREFIX = 'handoff-';
 const MAX_RESPONSE_BYTES = 2_000_000;

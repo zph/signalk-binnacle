@@ -175,7 +175,7 @@ const realDeps: LoaderDeps = {
   tideEvents: fetchTideEvents,
   currentEvents: fetchCurrentEvents,
   now: () => Date.now(),
-  persist: createExpiringStore<TidesPersistValue>('binnacle-tides-data', {
+  persist: createExpiringStore<TidesPersistValue>('binnacle-custom-tides-data', {
     maxEntries: MAX_PERSIST_ENTRIES,
   }),
   pluginAvailable: () => false,

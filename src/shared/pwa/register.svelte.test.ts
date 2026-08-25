@@ -84,7 +84,7 @@ describe('createReloadCoordinator', () => {
     const coordinator = createReloadCoordinator(() => 1_000, storage, reload);
     coordinator.onNeedReload();
     expect(reload).toHaveBeenCalledTimes(1);
-    expect(storage.data.get('binnacle:pwa-reload-at')).toBe('1000');
+    expect(storage.data.get('binnacle-custom:pwa-reload-at')).toBe('1000');
   });
 
   it('suppresses a second automatic reload inside the guard window and warns instead', () => {
@@ -96,16 +96,16 @@ describe('createReloadCoordinator', () => {
       storage,
       reload,
     );
-    storage.data.set('binnacle:pwa-reload-at', '1000');
+    storage.data.set('binnacle-custom:pwa-reload-at', '1000');
     coordinator.onNeedReload();
     expect(reload).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledOnce();
     // The guard stamp is not refreshed by a suppressed reload, so a storm cannot extend it.
-    expect(storage.data.get('binnacle:pwa-reload-at')).toBe('1000');
+    expect(storage.data.get('binnacle-custom:pwa-reload-at')).toBe('1000');
   });
 
   it('reloads again automatically once the guard window has passed', () => {
-    const storage = createFakeStorage({ 'binnacle:pwa-reload-at': '1000' });
+    const storage = createFakeStorage({ 'binnacle-custom:pwa-reload-at': '1000' });
     const reload = vi.fn();
     const coordinator = createReloadCoordinator(() => 1_000 + PWA_RELOAD_GUARD_MS, storage, reload);
     coordinator.onNeedReload();
@@ -113,7 +113,7 @@ describe('createReloadCoordinator', () => {
   });
 
   it('a user-requested update bypasses the guard when its controller change lands', () => {
-    const storage = createFakeStorage({ 'binnacle:pwa-reload-at': '1000' });
+    const storage = createFakeStorage({ 'binnacle-custom:pwa-reload-at': '1000' });
     const reload = vi.fn();
     const activate = vi.fn();
     const coordinator = createReloadCoordinator(() => 1_001, storage, reload);
@@ -129,7 +129,7 @@ describe('createReloadCoordinator', () => {
     // The Update click's consent lapses after the guard window, so a click whose activation
     // never happened cannot let a much later automatic controller change slip past the guard.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const storage = createFakeStorage({ 'binnacle:pwa-reload-at': '15000' });
+    const storage = createFakeStorage({ 'binnacle-custom:pwa-reload-at': '15000' });
     const reload = vi.fn();
     let at = 1_000;
     const coordinator = createReloadCoordinator(() => at, storage, reload);
@@ -142,7 +142,7 @@ describe('createReloadCoordinator', () => {
 
   it('a click after a suppressed reload reloads directly instead of doing nothing', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const storage = createFakeStorage({ 'binnacle:pwa-reload-at': '1000' });
+    const storage = createFakeStorage({ 'binnacle-custom:pwa-reload-at': '1000' });
     const reload = vi.fn();
     const activate = vi.fn();
     const coordinator = createReloadCoordinator(() => 1_001, storage, reload);

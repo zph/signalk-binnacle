@@ -3,8 +3,8 @@ import { jsonResponse } from '$shared/testing';
 import type { Profile, ProfileServerMutation, ProfileSettings } from './profile-types';
 import { SignalKProfileAdapter } from './signalk-adapter';
 
-const V1_URL = 'http://pi/signalk/v1/applicationData/user/signalk-binnacle/1.0.0';
-const V2_URL = 'http://pi/signalk/v1/applicationData/user/signalk-binnacle/2.0.0';
+const V1_URL = 'http://pi/signalk/v1/applicationData/user/binnacle-custom/1.0.0';
+const V2_URL = 'http://pi/signalk/v1/applicationData/user/binnacle-custom/2.0.0';
 
 function settings(): ProfileSettings {
   return {

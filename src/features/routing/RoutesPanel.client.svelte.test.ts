@@ -50,7 +50,7 @@ function mountPanel(overrides: Partial<ComponentProps<typeof RoutesPanel>> = {})
     onReverse: vi.fn(),
     onExportGpx: vi.fn(),
     onImportGpx: vi.fn(),
-    planningSpeed: new PersistedValue('binnacle:route-speed-test', 5, {
+    planningSpeed: new PersistedValue('binnacle-custom:route-speed-test', 5, {
       getItem: () => null,
       setItem: () => {},
     }),

@@ -2728,9 +2728,7 @@ const plotterActions = {
         {onReorderPinned}
         {onResetPinned}
       />
-      <span class="brand"
-        >Binnacle Chartplotter <span class="version">v{__APP_VERSION__}</span></span
-      >
+      <span class="brand">Binnacle Custom <span class="version">v{__APP_VERSION__}</span></span>
     </span>
     <MobButton
       {mob}

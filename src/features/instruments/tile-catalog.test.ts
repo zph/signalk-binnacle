@@ -63,7 +63,7 @@ function makeDeps(clock: ReactiveClock, mode: UnitsMode = 'metric') {
     SK_PATHS.windDirectionTrue,
   ]);
   // PersistedValue uses fallback when no storage is available (Node test env).
-  const local = new PersistedValue<UnitsMode>('binnacle:units', mode);
+  const local = new PersistedValue<UnitsMode>('binnacle-custom:units', mode);
   const units = new UnitsStore(local);
   return { store, vessel, units, clock, course: inactiveCourse() };
 }

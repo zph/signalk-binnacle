@@ -11,7 +11,7 @@ export interface TrackStore<T> {
   clear(): Promise<void>;
 }
 
-const DB_NAME = 'binnacle';
+const DB_NAME = 'binnacle-custom';
 const STORE = 'track-points';
 
 // The in-RAM fallback log. degradeToMemory mirrors every write here so a mid-session IndexedDB

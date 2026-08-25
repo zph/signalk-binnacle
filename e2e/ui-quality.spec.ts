@@ -7,7 +7,7 @@ test.use({ serviceWorkers: 'block' });
 test('restores night-red before interaction and updates browser chrome', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:theme', 'night-red');
+    localStorage.setItem('binnacle-custom:theme', 'night-red');
   });
   await page.goto('/');
 
@@ -78,7 +78,7 @@ test('constrains a long toolbar More menu on a short display', async ({ page }) 
   await page.addInitScript(() => {
     localStorage.clear();
     localStorage.setItem(
-      'binnacle:pinned-actions',
+      'binnacle-custom:pinned-actions',
       JSON.stringify([
         'center',
         'follow',
@@ -190,7 +190,7 @@ test('keeps long battery readings distinguishable in a night-red tablet dock', a
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:theme', 'night-red');
+    localStorage.setItem('binnacle-custom:theme', 'night-red');
   });
   await page.route(/\/signalk\/v1\/api\/vessels\/self\/electrical\/batteries$/, (route) =>
     route.fulfill({

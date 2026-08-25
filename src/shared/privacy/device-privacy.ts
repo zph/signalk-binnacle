@@ -38,7 +38,7 @@ export interface PrivacyBroadcaster {
   broadcast(event: PrivacyBroadcastEvent): void | Promise<void>;
 }
 
-export const BINNACLE_PRIVACY_CHANNEL = 'binnacle:privacy';
+export const BINNACLE_PRIVACY_CHANNEL = 'binnacle-custom:privacy';
 
 export interface EraseSafetyDecision {
   allowed: boolean;
@@ -180,7 +180,7 @@ export class DevicePrivacyController {
   }
 }
 
-const PRIVACY_ACTIVITY_LOCK = 'binnacle:privacy-activity';
+const PRIVACY_ACTIVITY_LOCK = 'binnacle-custom:privacy-activity';
 
 type PrivacyLockManager = Pick<LockManager, 'request'>;
 
@@ -474,12 +474,12 @@ const BINNACLE_LOCAL_DATA_KEYS = binnacleStorageKeysForScope(
 );
 
 const BINNACLE_INDEXED_DB_NAMES = [
-  'binnacle',
-  'binnacle-pmtiles-blocks',
-  'binnacle-notes',
-  'binnacle-tides-data',
-  'binnacle-weather',
-  'binnacle-weather-point',
+  'binnacle-custom',
+  'binnacle-custom-pmtiles-blocks',
+  'binnacle-custom-notes',
+  'binnacle-custom-tides-data',
+  'binnacle-custom-weather',
+  'binnacle-custom-weather-point',
 ] as const;
 
 // Every runtime cache the service worker declares, mirrored here as a deliberately explicit
@@ -487,15 +487,15 @@ const BINNACLE_INDEXED_DB_NAMES = [
 // seam is pinned from the sw-caching side: its test asserts every declared cacheName appears in
 // this list, so a new route cannot silently escape the privacy erase.
 export const BINNACLE_CACHE_NAMES = [
-  'binnacle-basemap-style',
-  'binnacle-basemap',
-  'binnacle-chart-tiles',
-  'binnacle-volatile-overlays',
-  'binnacle-overlay-tiles',
-  'binnacle-tides',
-  'binnacle-radar-index',
-  'binnacle-radar-tiles',
-  'binnacle-pmtiles',
+  'binnacle-custom-basemap-style',
+  'binnacle-custom-basemap',
+  'binnacle-custom-chart-tiles',
+  'binnacle-custom-volatile-overlays',
+  'binnacle-custom-overlay-tiles',
+  'binnacle-custom-tides',
+  'binnacle-custom-radar-index',
+  'binnacle-custom-radar-tiles',
+  'binnacle-custom-pmtiles',
 ] as const;
 
 export interface BinnaclePrivacyRegistryOptions {
