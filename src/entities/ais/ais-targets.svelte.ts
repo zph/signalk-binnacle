@@ -49,6 +49,7 @@ export interface AisTargetView {
   headingRad?: number;
   sogMps?: number;
   shipTypeId?: number;
+  lengthMeters?: number;
   cpaMeters?: number;
   tcpaSeconds?: number;
   // Signal K's enum: underway, anchored, moored, not under command, aground, and similar. Undefined
@@ -182,6 +183,7 @@ export class AisTargets {
         headingRad: asNumber(current(SK_PATHS.headingTrue, AIS_MOTION_STALE_TTL_MS)),
         sogMps: asNumber(current(SK_PATHS.speedOverGround, AIS_MOTION_STALE_TTL_MS)),
         shipTypeId: this.#numField(current(SK_PATHS.aisShipType), 'id'),
+        lengthMeters: this.#vesselLength(current(SK_PATHS.vesselLength)),
         cpaMeters: approach?.cpa,
         tcpaSeconds: approach?.tcpa,
         navigationState: typeof navState === 'string' ? navState : undefined,
@@ -218,6 +220,15 @@ export class AisTargets {
 
   #numField(value: unknown, key: string): number | undefined {
     return isRecord(value) ? asNumber(value[key]) : undefined;
+  }
+
+  #vesselLength(value: unknown): number | undefined {
+    if (!isRecord(value)) return undefined;
+    for (const key of ['overall', 'hull', 'waterline']) {
+      const length = asNumber(value[key]);
+      if (length !== undefined && length > 0) return length;
+    }
+    return undefined;
   }
 
   #timeToSeconds(approach: unknown): number | undefined {

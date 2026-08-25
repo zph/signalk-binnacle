@@ -88,6 +88,12 @@ const SUBSCRIPTIONS = [
     period: 5000,
   },
   {
+    path: SK_PATHS.vesselLength,
+    context: ALL_VESSELS_CONTEXT,
+    policy: 'fixed' as const,
+    period: 5000,
+  },
+  {
     path: SK_PATHS.closestApproach,
     context: ALL_VESSELS_CONTEXT,
     policy: 'fixed' as const,

@@ -54,6 +54,7 @@ import { cleanUserChartSource, type UserChartSource, UserCharts } from '$entitie
 import { OwnVessel } from '$entities/vessel';
 import { WaypointsStore } from '$entities/waypoint';
 import { WeatherStore } from '$entities/weather';
+import type { AisVesselKindMode } from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
 import { ANCHOR_TONE, createAnchorController } from '$features/anchor-watch';
 import { createUserChartsController } from '$features/charts';
@@ -678,6 +679,12 @@ const layerOrder = new PersistedValue<string[]>(
   [],
   undefined,
   stringArrayPersistedCodec({ maxItems: 512 }),
+);
+const aisIconMode = new PersistedValue<AisVesselKindMode>(
+  binnacleStorageKey('aisIconMode'),
+  'type-specific',
+  undefined,
+  enumPersistedCodec(['type-specific', 'generic'] as const),
 );
 // A one-shot, device-local latch: the first time a radar is discovered, the echo layer is turned on so
 // "if they have radar, the radar layer is enabled". Latched so a later explicit toggle-off is never
@@ -2600,6 +2607,7 @@ const plotterServices = {
   planningSpeedMps,
   thresholds,
   trackSettings,
+  aisIconMode,
   categoriesOpen: layerCategoriesOpen,
   arrivalMuted,
 };

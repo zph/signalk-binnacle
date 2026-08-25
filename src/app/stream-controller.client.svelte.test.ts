@@ -124,6 +124,12 @@ describe('createStreamController', () => {
           policy: 'fixed',
           period: 5000,
         },
+        {
+          path: SK_PATHS.vesselLength,
+          context: 'vessels.*',
+          policy: 'fixed',
+          period: 5000,
+        },
       ]),
     );
     expect(vi.mocked(test.client.connect).mock.invocationCallOrder[0]).toBeLessThan(

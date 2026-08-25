@@ -29,6 +29,7 @@ export const SK_PATHS = {
   mmsi: 'mmsi',
   callsignVhf: 'communication.callsignVhf',
   aisShipType: 'design.aisShipType',
+  vesselLength: 'design.length',
   navigationState: 'navigation.state',
   courseNextPoint: 'navigation.course.nextPoint',
   coursePreviousPoint: 'navigation.course.previousPoint',

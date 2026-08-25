@@ -20,6 +20,30 @@ const EXACT_SHIP_TYPES: Readonly<Record<number, string>> = {
   59: 'Noncombatant ship',
 };
 
+export type AisVesselKind =
+  | 'ship'
+  | 'cargo'
+  | 'tanker'
+  | 'passenger'
+  | 'fishing'
+  | 'service'
+  | 'tug'
+  | 'motorboat'
+  | 'sailboat';
+
+export function aisVesselKind(id: number | undefined): AisVesselKind {
+  if (id === undefined || !Number.isInteger(id) || id < 0 || id > 99) return 'ship';
+  if (id >= 80 && id <= 89) return 'tanker';
+  if (id >= 70 && id <= 79) return 'cargo';
+  if (id >= 60 && id <= 69) return 'passenger';
+  if (id === 31 || id === 32 || id === 52) return 'tug';
+  if (id === 30) return 'fishing';
+  if (id === 36) return 'sailboat';
+  if ((id >= 20 && id <= 29) || id === 37 || (id >= 40 && id <= 49)) return 'motorboat';
+  if ((id >= 33 && id <= 35) || (id >= 50 && id <= 59)) return 'service';
+  return 'ship';
+}
+
 export function aisShipTypeLabel(id: number): string {
   if (!Number.isInteger(id) || id < 0 || id > 99) return 'Unknown ship type';
   const exact = EXACT_SHIP_TYPES[id];

@@ -7,5 +7,6 @@ export {
 } from './ais-staleness';
 export type { AisTargetView } from './ais-targets.svelte';
 export { AisTargets } from './ais-targets.svelte';
-export { aisShipTypeLabel } from './ship-type';
+export type { AisVesselKind } from './ship-type';
+export { aisShipTypeLabel, aisVesselKind } from './ship-type';
 export { shortVesselId, vesselLabel } from './vessel-id';

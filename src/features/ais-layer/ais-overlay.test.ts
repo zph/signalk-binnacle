@@ -8,6 +8,7 @@ import {
   fakeOverlayContext,
   sourceFeatures,
 } from '$shared/testing';
+import { AIS_ICON_IDS } from './ais-icon';
 import { createAisOverlay } from './ais-overlay';
 
 // Seeded from the wall clock: AIS freshness is judged against real time, so a tiny epoch would
@@ -35,23 +36,136 @@ beforeEach(() => vi.stubGlobal('ImageData', FakeImageData));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('ais overlay', () => {
-  it('adds an image, a source, a symbol, a selection ring, and a 44 px hit layer', async () => {
+  it('adds vessel images, a source, a symbol, a selection ring, and a scaled hit layer', async () => {
     const store = new SignalKStore();
     const overlay = createAisOverlay(new AisTargets(store));
     const map = createFakeMap();
     const addLayer = vi.spyOn(map, 'addLayer');
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('traffic');
-    expect(map.images.size).toBe(1);
+    expect(overlay.manageable).toBe(true);
+    expect(map.images.size).toBe(9);
     expect(map.sources.size).toBe(1);
     expect(map.layers.size).toBe(3);
     expect(addLayer).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'binnacle-ais-selected' }),
       'binnacle-ais-symbol',
     );
-    expect(map.layers.get('binnacle-ais-hit')?.paint).toMatchObject({
-      'circle-radius': 22,
+    expect(map.layers.get('binnacle-ais-selected')?.paint).toMatchObject({
+      'circle-radius': ['*', 18, ['coalesce', ['get', 'iconScale'], 1]],
     });
+    expect(map.layers.get('binnacle-ais-hit')?.paint).toMatchObject({
+      'circle-radius': ['max', 22, ['*', 16, ['coalesce', ['get', 'iconScale'], 1]]],
+    });
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('binnacle-ais-symbol', 'icon-image', [
+      'get',
+      'iconImage',
+    ]);
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('binnacle-ais-symbol', 'icon-size', [
+      'coalesce',
+      ['get', 'iconScale'],
+      1,
+    ]);
+  });
+
+  it('chooses vessel symbols from AIS type and scales them from reported length', async () => {
+    const store = new SignalKStore();
+    store.applyFrame(
+      frameFactory(
+        {},
+        {
+          'vessels.tanker': {
+            'navigation.position': { latitude: 1, longitude: 1 },
+            'design.aisShipType': { id: 83 },
+            'design.length': { overall: 250 },
+          },
+          'vessels.tug': {
+            'navigation.position': { latitude: 2, longitude: 2 },
+            'design.aisShipType': { id: 52 },
+            'design.length': { overall: 30 },
+          },
+          'vessels.motorboat': {
+            'navigation.position': { latitude: 3, longitude: 3 },
+            'design.aisShipType': { id: 37 },
+            'design.length': { overall: 8 },
+          },
+          'vessels.sailboat': {
+            'navigation.position': { latitude: 4, longitude: 4 },
+            'design.aisShipType': { id: 36 },
+          },
+          'vessels.cargo': {
+            'navigation.position': { latitude: 5, longitude: 5 },
+            'design.aisShipType': { id: 74 },
+          },
+          'vessels.passenger': {
+            'navigation.position': { latitude: 6, longitude: 6 },
+            'design.aisShipType': { id: 61 },
+          },
+          'vessels.fishing': {
+            'navigation.position': { latitude: 7, longitude: 7 },
+            'design.aisShipType': { id: 30 },
+          },
+          'vessels.service': {
+            'navigation.position': { latitude: 8, longitude: 8 },
+            'design.aisShipType': { id: 50 },
+          },
+        },
+      ),
+    );
+    const overlay = createAisOverlay(new AisTargets(store));
+    const map = createFakeMap();
+    await overlay.add(fakeOverlayContext(map));
+    const byId = Object.fromEntries(
+      sourceFeatures(map, 'binnacle-ais').map((feature) => [feature.properties?.id, feature]),
+    );
+
+    expect(byId['vessels.tanker'].properties).toMatchObject({
+      iconImage: AIS_ICON_IDS.tanker,
+      iconScale: 1.6,
+    });
+    expect(byId['vessels.tug'].properties).toMatchObject({
+      iconImage: AIS_ICON_IDS.tug,
+      iconScale: 1,
+    });
+    expect(byId['vessels.motorboat'].properties?.iconImage).toBe(AIS_ICON_IDS.motorboat);
+    expect(byId['vessels.motorboat'].properties?.iconScale).toBeLessThan(1);
+    expect(byId['vessels.sailboat'].properties).toMatchObject({
+      iconImage: AIS_ICON_IDS.sailboat,
+      iconScale: 1,
+    });
+    expect(byId['vessels.cargo'].properties).toMatchObject({
+      iconImage: AIS_ICON_IDS.cargo,
+      iconScale: 1,
+    });
+    expect(byId['vessels.passenger'].properties?.iconImage).toBe(AIS_ICON_IDS.passenger);
+    expect(byId['vessels.fishing'].properties?.iconImage).toBe(AIS_ICON_IDS.fishing);
+    expect(byId['vessels.service'].properties?.iconImage).toBe(AIS_ICON_IDS.service);
+  });
+
+  it('can render a generic ship for every AIS type and refreshes when the mode changes', async () => {
+    let kindMode: 'type-specific' | 'generic' = 'generic';
+    const store = new SignalKStore();
+    store.applyFrame(
+      frameFactory(
+        {},
+        {
+          'vessels.tanker': {
+            'navigation.position': { latitude: 1, longitude: 1 },
+            'design.aisShipType': { id: 83 },
+          },
+        },
+      ),
+    );
+    const overlay = createAisOverlay(new AisTargets(store), { kindMode: () => kindMode });
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.iconImage).toBe(AIS_ICON_IDS.ship);
+
+    kindMode = 'type-specific';
+    overlay.sync(ctx);
+    expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.iconImage).toBe(AIS_ICON_IDS.tanker);
   });
 
   it('syncs one feature per positioned target', async () => {
@@ -270,7 +384,7 @@ describe('ais overlay', () => {
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     overlay.applyTheme?.(fakeOverlayContext(map), mapThemePaint('night-red'));
-    expect(map.updatedImages).toContain('binnacle-ais-icon');
+    expect(map.updatedImages).toEqual(expect.arrayContaining(Object.values(AIS_ICON_IDS)));
   });
 
   it('dispatches only current target ids and tears down hit handlers idempotently', async () => {
@@ -324,6 +438,7 @@ describe('ais overlay', () => {
     overlay.remove(ctx);
     expect(map.handlerCount('click', 'binnacle-ais-hit')).toBe(0);
     expect(map.getCanvas().style.cursor).toBe('');
+    expect(map.images.size).toBe(0);
   });
 
   it('preserves the chart-tool cursor and blocks selection while interactions are owned', async () => {

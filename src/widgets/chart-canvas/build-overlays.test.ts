@@ -76,6 +76,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     aisTargets: { name: 'ais-targets' },
     onAisSelect: vi.fn(),
     selectedAisId: vi.fn(() => 'vessels.selected'),
+    aisKindMode: vi.fn(() => 'generic' as const),
     onWaypointSelect: vi.fn(),
     anchor: { name: 'anchor' },
     mob: { name: 'mob' },
@@ -195,6 +196,7 @@ describe('buildDynamicOverlays', () => {
     expect(factories.createAisOverlay).toHaveBeenCalledWith(deps.aisTargets, {
       onSelect: deps.onAisSelect,
       selectedId: deps.selectedAisId,
+      kindMode: deps.aisKindMode,
       interactionsAllowed: deps.interactionsAllowed,
     });
     expect(factories.createHistoryTrackOverlay).toHaveBeenCalledWith(
@@ -237,6 +239,7 @@ describe('buildDynamicOverlays', () => {
     expect(factories.createAisOverlay).toHaveBeenCalledWith(deps.aisTargets, {
       onSelect: deps.onAisSelect,
       selectedId: deps.selectedAisId,
+      kindMode: deps.aisKindMode,
       interactionsAllowed,
     });
   });

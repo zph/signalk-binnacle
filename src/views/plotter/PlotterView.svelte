@@ -17,6 +17,11 @@ import type { UserCharts } from '$entities/user-charts';
 import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
 import type { WeatherStore } from '$entities/weather';
+import {
+  AIS_OVERLAY_ID,
+  type AisVesselKindMode,
+  loadAisDisplaySettings,
+} from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
 import { loadAnchorPanel } from '$features/anchor-watch';
 import { AuthBanner } from '$features/auth-banner';
@@ -140,6 +145,7 @@ interface FlatProps {
   pointConditionsLoader: ReturnType<typeof import('$features/weather').createPointConditionsLoader>;
   planningSpeedMps: import('$shared/settings').PersistedValue<number>;
   thresholds: import('$shared/settings').PersistedValue<import('$shared/settings').Thresholds>;
+  aisIconMode: import('$shared/settings').PersistedValue<AisVesselKindMode>;
   routeDistanceToGoMeters: number | undefined;
 
   // Chart state
@@ -303,6 +309,7 @@ type ServiceKey =
   | 'pointConditionsLoader'
   | 'planningSpeedMps'
   | 'thresholds'
+  | 'aisIconMode'
   | 'trackSettings'
   | 'categoriesOpen'
   | 'arrivalMuted';
@@ -478,10 +485,12 @@ const {
   pointConditionsLoader,
   planningSpeedMps,
   thresholds,
+  aisIconMode,
   trackSettings,
   categoriesOpen,
   arrivalMuted,
 } = $derived(services);
+let aisDisplaySettingsOpen = $state(false);
 const insecureTransport = $derived(isInsecureTransportOrigin(origin));
 const {
   anchorController,
@@ -737,6 +746,10 @@ $effect(() => {
 });
 
 $effect(() => {
+  if (activePanel !== 'layers') aisDisplaySettingsOpen = false;
+});
+
+$effect(() => {
   const editing = marineRadar.store.areaDraft?.chartEditing === true;
   if (editing) radarMinimize.collapse();
   else if (radarChartEditing) radarMinimize.expand();
@@ -797,6 +810,7 @@ $effect(() => {
     {vessel}
     {aisTargets}
     {selectedAisId}
+    aisKindMode={() => aisIconMode.value}
     onAisSelect={(id) => onAisSelect(id)}
     onWaypointSelect={(id) => onWaypointSelect(id)}
     {anchor}
@@ -1069,7 +1083,9 @@ $effect(() => {
               onBack={backToMenu}
               {onShowChartBounds}
               onManageLayer={(id) => {
-                if (id === MARINE_RADAR_OVERLAY_ID) {
+                if (id === AIS_OVERLAY_ID) {
+                  aisDisplaySettingsOpen = true;
+                } else if (id === MARINE_RADAR_OVERLAY_ID) {
                   radarOpenedFrom = 'layers';
                   radarControlsOpen = true;
                 }
@@ -1779,6 +1795,40 @@ $effect(() => {
           />
         {/await}
       {/if}
+    </div>
+  {/if}
+  {#if aisDisplaySettingsOpen}
+    <div class="panel-slot">
+      <SlideOver
+        title="AIS display"
+        closeLabel="Close AIS display settings"
+        bodyFlex
+        onClose={() => (aisDisplaySettingsOpen = false)}
+        onBack={() => (aisDisplaySettingsOpen = false)}
+      >
+        {#await forAttempt(loadAisDisplaySettings)}
+          <div class="panel-loading" role="status">Loading AIS display settings…</div>
+        {:then module}
+          <ErrorBoundary>
+            <module.default
+              mode={aisIconMode.value}
+              onModeChange={(mode) => aisIconMode.set(mode)}
+            />
+
+            {#snippet fallback(_error, reset)}
+              <div class="panel-load-error" role="alert">
+                AIS display settings stopped unexpectedly.
+                <button type="button" class="btn btn-ghost" onclick={reset}>Retry</button>
+              </div>
+            {/snippet}
+          </ErrorBoundary>
+        {:catch}
+          <div class="panel-load-error" role="alert">
+            AIS display settings could not load.
+            <button type="button" class="btn btn-ghost" onclick={retryLazyPanel}>Retry</button>
+          </div>
+        {/await}
+      </SlideOver>
     </div>
   {/if}
   {#if radarControlsOpen}

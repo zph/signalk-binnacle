@@ -1,5 +1,6 @@
 import { render } from 'svelte/server';
 import { describe, expect, it, vi } from 'vitest';
+import type { LayerListItem } from '$shared/map';
 import type { AuthController } from '$shared/signalk';
 import LayersPanel from './LayersPanel.svelte';
 import type { LayersView } from './layers-view.svelte';
@@ -10,16 +11,43 @@ function auth(writeBlocked: boolean, upgrading = false): AuthController {
 
 function renderPanel(
   authController: AuthController,
-  items: { visible: boolean; chart?: unknown; chartCoverage?: unknown }[] = [],
+  items: Partial<LayerListItem>[] = [],
+  mode: 'charts' | 'overlays' = 'charts',
 ): string {
   return render(LayersPanel, {
     props: {
       view: { items } as unknown as LayersView,
       auth: authController,
       onClose: vi.fn(),
+      onManageLayer: vi.fn(),
+      request: { mode },
     },
   }).body;
 }
+
+describe('LayersPanel manageable overlays', () => {
+  it('exposes AIS display settings from the AIS row', () => {
+    const body = renderPanel(
+      auth(false),
+      [
+        {
+          id: 'ais',
+          title: 'AIS targets',
+          visible: true,
+          opacity: 1,
+          supportsOpacity: true,
+          pinned: false,
+          band: 'traffic',
+          available: true,
+          manageable: true,
+        },
+      ],
+      'overlays',
+    );
+
+    expect(body).toContain('aria-label="Manage AIS targets"');
+  });
+});
 
 describe('LayersPanel write access', () => {
   it('offers the read/write request beside the chart-sharing block', () => {

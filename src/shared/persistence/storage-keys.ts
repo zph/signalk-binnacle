@@ -28,6 +28,7 @@ const BINNACLE_STORAGE_KEYS = {
   weatherLayers: { key: 'binnacle-custom:weather-layers', scope: 'profile' },
   layers: { key: 'binnacle-custom:layers', scope: 'profile' },
   layerOrder: { key: 'binnacle-custom:layer-order', scope: 'profile' },
+  aisIconMode: { key: 'binnacle-custom:ais-icon-mode', scope: 'device' },
   radarAutoEnabled: { key: 'binnacle-custom:radar-autoenabled', scope: 'device' },
   pinnedActions: { key: 'binnacle-custom:pinned-actions', scope: 'profile' },
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },

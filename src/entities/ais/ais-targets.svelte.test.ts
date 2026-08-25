@@ -130,6 +130,41 @@ describe('AisTargets', () => {
     expect(list.find((t) => t.id === 'vessels.silent')?.navigationState).toBeUndefined();
   });
 
+  it('reads reported vessel length in SI meters', () => {
+    const store = new SignalKStore();
+    const ais = new AisTargets(store);
+    store.applyFrame(
+      frame({
+        'vessels.overall': {
+          'navigation.position': { latitude: 0, longitude: 0 },
+          'design.length': { overall: 42.5 },
+        },
+        'vessels.hull': {
+          'navigation.position': { latitude: 1, longitude: 1 },
+          'design.length': { hull: 12 },
+        },
+      }),
+    );
+
+    expect(ais.find('vessels.overall')?.lengthMeters).toBe(42.5);
+    expect(ais.find('vessels.hull')?.lengthMeters).toBe(12);
+  });
+
+  it('ignores invalid reported vessel lengths', () => {
+    const store = new SignalKStore();
+    const ais = new AisTargets(store);
+    store.applyFrame(
+      frame({
+        'vessels.invalid': {
+          'navigation.position': { latitude: 0, longitude: 0 },
+          'design.length': { overall: 0, hull: -2, waterline: 'long' },
+        },
+      }),
+    );
+
+    expect(ais.list()[0].lengthMeters).toBeUndefined();
+  });
+
   it('expires CPA and TCPA together while retaining the target position', () => {
     let now = 1000;
     const store = new SignalKStore();
