@@ -18,10 +18,12 @@ import {
   severityMatchExpression,
 } from '$shared/map';
 import { geodesicDestination } from '$shared/nav';
+import { AisMotionEstimator, type AisMotionSelection } from './ais-motion-estimator';
 import { createAisRefreshGate } from './ais-refresh';
 
 const SOURCE_ID = 'binnacle-ais-vectors';
 const LAYER_ID = 'binnacle-ais-vectors-line';
+const REPORTED_LAYER_ID = 'binnacle-ais-vectors-reported-line';
 const BAND = 'traffic';
 
 // Project each target 10 minutes along its COG at its SOG.
@@ -33,6 +35,8 @@ const MIN_SOG_MPS = 0.25;
 
 const VECTOR_OPACITY = 0.8;
 const VECTOR_WIDTH = 2;
+const REPORTED_VECTOR_OPACITY = 0.5;
+const REPORTED_VECTOR_WIDTH = 1.5;
 
 function lineColor(paint: MapThemePaint): ExpressionSpecification {
   return severityMatchExpression(paint.danger, paint.warning, rgbaCss(paint.aisTarget));
@@ -41,27 +45,50 @@ function lineColor(paint: MapThemePaint): ExpressionSpecification {
 export function buildFeatures(
   targets: AisTargetView[],
   severityById: Map<string, Severity>,
+  motionById?: ReadonlyMap<string, AisMotionSelection>,
 ): GeoJSON.Feature[] {
   const features: GeoJSON.Feature[] = [];
   for (const target of targets) {
-    if (target.cogRad === undefined) continue;
-    const sog = target.sogMps ?? 0;
-    if (sog < MIN_SOG_MPS) continue;
-    const distanceMeters = sog * VECTOR_SECONDS;
-    const origin: [number, number] = latLonToLonLat(target.position);
-    const tip = geodesicDestination(
-      target.position.latitude,
-      target.position.longitude,
-      target.cogRad,
-      distanceMeters,
-    );
-    features.push({
-      type: 'Feature',
-      geometry: antimeridianLineGeometry([origin, tip]),
-      properties: { severity: severityById.get(target.id) ?? 'clear' },
-    });
+    const selection = motionById?.get(target.id);
+    const primary =
+      selection?.primary ??
+      (target.cogRad !== undefined && target.sogMps !== undefined
+        ? { cogRad: target.cogRad, sogMps: target.sogMps }
+        : undefined);
+    const severity = severityById.get(target.id) ?? 'clear';
+    if (primary && primary.sogMps >= MIN_SOG_MPS) {
+      features.push(
+        vectorFeature(target, primary, severity, 'primary', selection?.basis ?? 'reported'),
+      );
+    }
+    const reported = selection?.reportedComparison;
+    if (reported && reported.sogMps >= MIN_SOG_MPS) {
+      features.push(vectorFeature(target, reported, severity, 'reported-comparison', 'reported'));
+    }
   }
   return features;
+}
+
+function vectorFeature(
+  target: AisTargetView,
+  motion: { cogRad: number; sogMps: number },
+  severity: Severity,
+  lineStyle: 'primary' | 'reported-comparison',
+  motionBasis: 'reported' | 'observed',
+): GeoJSON.Feature {
+  const distanceMeters = motion.sogMps * VECTOR_SECONDS;
+  const origin: [number, number] = latLonToLonLat(target.position);
+  const tip = geodesicDestination(
+    target.position.latitude,
+    target.position.longitude,
+    motion.cogRad,
+    distanceMeters,
+  );
+  return {
+    type: 'Feature',
+    geometry: antimeridianLineGeometry([origin, tip]),
+    properties: { severity, lineStyle, motionBasis },
+  };
 }
 
 export interface AisVectorsOverlay extends OverlayModule {
@@ -90,26 +117,46 @@ export function createAisVectorsOverlay(
   let paint = mapThemePaint('day');
   let visible = true;
   const gate = createAisRefreshGate(targets, now);
+  const motionEstimator = new AisMotionEstimator();
   let lastContacts: Assessment['contacts'] | undefined;
   const severityById = new Map<string, Severity>();
 
   return {
     id: 'ais-vectors',
     title: 'AIS course vectors',
-    description: 'A line ahead of each AIS vessel showing where it is heading and how fast.',
+    description:
+      'Solid line uses reported COG and SOG until repeated positions support differing observed motion. A dashed line retains the report.',
     band: BAND,
     supportsOpacity: true,
-    layerIds: [LAYER_ID],
+    layerIds: [REPORTED_LAYER_ID, LAYER_ID],
     add(ctx) {
       gate.reset();
+      motionEstimator.reset();
       lastContacts = undefined;
       severityById.clear();
       ensureGeoJsonSource(ctx.map, SOURCE_ID);
+      if (!ctx.map.getLayer(REPORTED_LAYER_ID)) {
+        const reportedLayer: LineLayerSpecification = {
+          id: REPORTED_LAYER_ID,
+          type: 'line',
+          source: SOURCE_ID,
+          filter: ['==', ['get', 'lineStyle'], 'reported-comparison'],
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': lineColor(paint),
+            'line-width': REPORTED_VECTOR_WIDTH,
+            'line-opacity': REPORTED_VECTOR_OPACITY,
+            'line-dasharray': [2, 2],
+          },
+        };
+        ctx.map.addLayer(reportedLayer, ctx.beforeIdFor(BAND));
+      }
       if (!ctx.map.getLayer(LAYER_ID)) {
         const layer: LineLayerSpecification = {
           id: LAYER_ID,
           type: 'line',
           source: SOURCE_ID,
+          filter: ['==', ['get', 'lineStyle'], 'primary'],
           layout: { 'line-cap': 'round', 'line-join': 'round' },
           paint: {
             'line-color': lineColor(paint),
@@ -138,7 +185,13 @@ export function createAisVectorsOverlay(
       setSourceData(
         ctx.map,
         SOURCE_ID,
-        featureCollection(buildFeatures(targets.list(), severityById)),
+        featureCollection(
+          buildFeatures(
+            targets.list(),
+            severityById,
+            motionEstimator.update(targets.list(), now()),
+          ),
+        ),
       );
     },
     // Guarded on getLayer: a theme or opacity change can land before add() attaches the layer, and
@@ -148,18 +201,28 @@ export function createAisVectorsOverlay(
       if (ctx.map.getLayer(LAYER_ID)) {
         ctx.map.setPaintProperty(LAYER_ID, 'line-color', lineColor(paint));
       }
+      if (ctx.map.getLayer(REPORTED_LAYER_ID)) {
+        ctx.map.setPaintProperty(REPORTED_LAYER_ID, 'line-color', lineColor(paint));
+      }
     },
     setVisible(ctx, isVisible) {
       visible = isVisible;
-      setLayersVisibility(ctx.map, [LAYER_ID], isVisible);
+      setLayersVisibility(ctx.map, [REPORTED_LAYER_ID, LAYER_ID], isVisible);
     },
     setOpacity(ctx, opacity) {
       if (ctx.map.getLayer(LAYER_ID)) {
         ctx.map.setPaintProperty(LAYER_ID, 'line-opacity', opacity * VECTOR_OPACITY);
       }
+      if (ctx.map.getLayer(REPORTED_LAYER_ID)) {
+        ctx.map.setPaintProperty(
+          REPORTED_LAYER_ID,
+          'line-opacity',
+          opacity * REPORTED_VECTOR_OPACITY,
+        );
+      }
     },
     remove(ctx) {
-      removeLayersAndSources(ctx.map, [LAYER_ID], [SOURCE_ID]);
+      removeLayersAndSources(ctx.map, [LAYER_ID, REPORTED_LAYER_ID], [SOURCE_ID]);
     },
   };
 }

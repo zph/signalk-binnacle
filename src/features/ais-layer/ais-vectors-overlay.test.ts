@@ -9,6 +9,7 @@ import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { buildFeatures, createAisVectorsOverlay } from './ais-vectors-overlay';
 
 const LAYER_ID = 'binnacle-ais-vectors-line';
+const REPORTED_LAYER_ID = 'binnacle-ais-vectors-reported-line';
 const SOURCE_ID = 'binnacle-ais-vectors';
 
 function noSeverity(): Map<string, Severity> {
@@ -168,6 +169,7 @@ describe('createAisVectorsOverlay', () => {
     expect(overlay.band).toBe('traffic');
     expect(overlay.supportsOpacity).toBe(true);
     expect(map.layers.has(LAYER_ID)).toBe(true);
+    expect(map.layers.has(REPORTED_LAYER_ID)).toBe(true);
     expect(map.sources.has(SOURCE_ID)).toBe(true);
   });
 
@@ -180,8 +182,59 @@ describe('createAisVectorsOverlay', () => {
     await overlay.add(ctx);
     overlay.sync(ctx);
     const source = map.sources.get(SOURCE_ID);
-    const fc = source?.data as GeoJSON.FeatureCollection;
+    if (!source) throw new Error(`${SOURCE_ID} not added`);
+    const fc = source.data as GeoJSON.FeatureCollection;
     expect(fc.features).toHaveLength(1);
+    expect(fc.features[0].properties).toMatchObject({
+      lineStyle: 'primary',
+      motionBasis: 'reported',
+    });
+  });
+
+  it('uses observed motion after a minute and keeps reported motion as a dashed comparison', async () => {
+    let t = 0;
+    const origin = { latitude: 10, longitude: 20 };
+    const targets = makeTargets([movingTarget({ position: origin })]);
+    const overlay = createAisVectorsOverlay(targets as never, emptyAssessment, () => t);
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    for (let seconds = 0; seconds <= 70; seconds += 10) {
+      t = seconds * 1000;
+      const [longitude, latitude] = geodesicDestination(
+        origin.latitude,
+        origin.longitude,
+        Math.PI / 2,
+        8 * seconds,
+      );
+      targets.set([movingTarget({ position: { latitude, longitude }, cogRad: 0, sogMps: 5 })]);
+      overlay.sync(ctx);
+    }
+
+    const source = map.sources.get(SOURCE_ID);
+    if (!source) throw new Error(`${SOURCE_ID} not added`);
+    const features = (source.data as GeoJSON.FeatureCollection).features;
+    expect(features).toHaveLength(2);
+    const observed = features.find((feature) => feature.properties?.lineStyle === 'primary');
+    const reported = features.find(
+      (feature) => feature.properties?.lineStyle === 'reported-comparison',
+    );
+    if (observed?.geometry.type !== 'LineString') {
+      throw new Error('observed projection not rendered as a line');
+    }
+    if (reported?.geometry.type !== 'LineString') {
+      throw new Error('reported projection not rendered as a line');
+    }
+    expect(observed.properties).toMatchObject({ motionBasis: 'observed' });
+    expect(reported.properties).toMatchObject({ motionBasis: 'reported' });
+    const observedCoordinates = observed.geometry.coordinates;
+    const reportedCoordinates = reported.geometry.coordinates;
+    expect(observedCoordinates[1][0]).toBeGreaterThan(observedCoordinates[0][0]);
+    expect(reportedCoordinates[1][1]).toBeGreaterThan(reportedCoordinates[0][1]);
+    expect(map.layers.get(REPORTED_LAYER_ID)?.paint).toMatchObject({
+      'line-dasharray': [2, 2],
+    });
   });
 
   it('sync skips rebuild when version and contacts are unchanged', async () => {
@@ -337,6 +390,7 @@ describe('createAisVectorsOverlay', () => {
     const calls = vi.mocked(map.setPaintProperty).mock.calls;
     const recolor = calls.find(([, prop]) => prop === 'line-color');
     expect(recolor).toBeDefined();
+    expect(calls).toContainEqual([REPORTED_LAYER_ID, 'line-color', expect.any(Array)]);
   });
 
   it('setOpacity scales the base opacity', async () => {
@@ -350,6 +404,7 @@ describe('createAisVectorsOverlay', () => {
     const opCall = calls.find(([, prop]) => prop === 'line-opacity') as [string, string, number];
     expect(opCall).toBeDefined();
     expect(opCall[2]).toBeCloseTo(0.5 * 0.8);
+    expect(calls).toContainEqual([REPORTED_LAYER_ID, 'line-opacity', 0.5 * 0.5]);
   });
 
   it('remove cleans up the layer and source', async () => {
@@ -360,6 +415,7 @@ describe('createAisVectorsOverlay', () => {
     await overlay.add(ctx);
     overlay.remove(ctx);
     expect(map.layers.has(LAYER_ID)).toBe(false);
+    expect(map.layers.has(REPORTED_LAYER_ID)).toBe(false);
     expect(map.sources.has(SOURCE_ID)).toBe(false);
   });
 
