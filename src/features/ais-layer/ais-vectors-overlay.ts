@@ -132,7 +132,7 @@ export function createAisVectorsOverlay(
     id: 'ais-vectors',
     title: 'AIS course vectors',
     description:
-      'Solid line uses reported COG and SOG until repeated positions support differing observed motion. A dashed line retains the report.',
+      "Solid line uses reported COG and SOG until repeated positions support differing observed motion. A dashed line retains the report. Both share the target icon's cobalt, amber, or red CPA grade.",
     band: BAND,
     supportsOpacity: true,
     layerIds: [REPORTED_LAYER_ID, LAYER_ID],
