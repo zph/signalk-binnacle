@@ -19,11 +19,10 @@ import {
 import { registerS57Symbols } from './s57-symbols';
 import type { ChartLayerInfo, OverlayModule, ZBand } from './types';
 
-// How far past a chart's native max zoom its layers keep drawing before they hand off
-// to the base map. Zooming past a chart's scale overzooms the top tiles into a blocky,
-// low-detail chart, which is worse than the sharp base underneath. Capping the chart a
-// step beyond its native max lets the base map show through when you zoom in past the
-// chart's detail, so the chart stays useful and aligned with the base at every zoom.
+// How far past a raster or generic chart's native max zoom its layers keep drawing before they hand
+// off to the base map. S-57 ENC is deliberately exempt: MapLibre can overzoom its last vector tile
+// with crisp geometry, and hiding navigation features at close zoom is much worse than retaining
+// them with an explicit "Chart overzoomed" warning from chart-view-status.
 const CHART_OVERZOOM_BUDGET = 1;
 
 const OPACITY_PROPERTIES = {
@@ -209,6 +208,10 @@ export function createChartOverlay(
       // A malformed or future source-free chart has nothing to cap, so skip the listener instead
       // of waiting forever on an undefined source id.
       if (!chartSource) return;
+      // Keep ENC vectors visible through MapLibre's full map zoom range. The source maxzoom still
+      // tells MapLibre to reuse (overzoom) the z16 California tile rather than requesting nonexistent
+      // z17+ tiles, while the chart status badge continues to warn beyond the declared native scale.
+      if (isS57) return;
       // Clear anything left by a prior add (the reattach path) so the handler reference cannot
       // be orphaned.
       stopCapWait(ctx.map);

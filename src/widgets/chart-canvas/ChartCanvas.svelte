@@ -50,6 +50,7 @@ import {
   chartSourceId,
   chartViewCharts,
   chartViewStatus,
+  createBaseMapOverlay,
   createChartOverlay,
   createMapTapRecognizer,
   createThemedMap,
@@ -670,6 +671,7 @@ onMount(async () => {
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local async accumulator
       const serverChartIds = new Set<string>();
       const providerResults = await mgr.registerBatch([
+        createBaseMapOverlay(),
         ...buildBathymetryOverlays({ companionBase: tileBase }),
         ...buildOceanSources().map((source) => createOceanOverlay(source)),
         // Within the safety band, registration order is z, so the seamark navigation aids draw over

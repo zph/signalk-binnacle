@@ -140,13 +140,27 @@ const BASE_ICON_OPACITY: Partial<Record<MapThemePaint['theme'], number>> = {
   dusk: 0.4,
 };
 
+// Export the theme multipliers so the user-controlled base-map opacity module can compose its
+// scalar with these exact same visibility rules instead of overwriting or duplicating them.
+export function baseIconThemeOpacity(paint: MapThemePaint): number {
+  return BASE_ICON_OPACITY[paint.theme] ?? 1;
+}
+
+export function baseCircleThemeOpacity(paint: MapThemePaint): number {
+  return paint.theme === 'night-red' ? 0 : 1;
+}
+
+export function baseRasterThemeOpacity(paint: MapThemePaint): number {
+  return paint.theme === 'night-red' ? 0 : 1;
+}
+
 export function applyBaseIconVisibility(
   map: MapLibreMap,
   paint: MapThemePaint,
   layers?: BaseLayer[],
 ): void {
-  const opacity = BASE_ICON_OPACITY[paint.theme] ?? 1;
-  const circleOpacity = paint.theme === 'night-red' ? 0 : 1;
+  const opacity = baseIconThemeOpacity(paint);
+  const circleOpacity = baseCircleThemeOpacity(paint);
   // Overlay-owned symbol layers (own vessel, AIS, notes) theme themselves and carry user-set
   // opacity, so themableBaseLayers excludes them: they must never be hidden here or forced back to 1.
   for (const layer of layers ?? themableBaseLayers(map)) {
@@ -178,7 +192,7 @@ export function applyBaseRasterVisibility(
   paint: MapThemePaint,
   layers?: BaseLayer[],
 ): void {
-  const opacity = paint.theme === 'night-red' ? 0 : 1;
+  const opacity = baseRasterThemeOpacity(paint);
   for (const layer of layers ?? themableBaseLayers(map)) {
     if (layer.type !== 'raster') continue;
     try {

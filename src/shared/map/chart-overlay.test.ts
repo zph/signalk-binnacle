@@ -241,6 +241,28 @@ describe('chart overlay', () => {
     );
   });
 
+  it('keeps S-57 ENC layers visible beyond native max zoom for MapLibre overzoom', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'california-enc',
+        name: 'California ENC',
+        type: 'S-57',
+        format: 'pbf',
+        tilemapUrl: '/enc/{z}/{x}/{y}',
+        maxzoom: 16,
+        layers: ['DEPARE', 'DEPCNT', 'SOUNDG'],
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    await overlay.add(fakeOverlayContext(map));
+
+    // The vector source retains maxzoom=16, so MapLibre reuses its highest-detail tile at z17+
+    // instead of requesting missing tiles. With no layer zoom cap, the ENC remains drawn up to the
+    // map's own max zoom; chart-view-status separately marks that view as overzoomed.
+    expect(map.setLayerZoomRange).not.toHaveBeenCalled();
+  });
+
   it('caps a TileJSON-backed chart when its metadata arrives before the whole source loads', async () => {
     const overlay = createChartOverlay(
       { identifier: 'noaa', name: 'NOAA', type: 'tilelayer', tilemapUrl: '/t/{z}/{x}/{y}' },

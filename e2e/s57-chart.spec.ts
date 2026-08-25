@@ -141,6 +141,40 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     const row = page.locator(`#layers-panel [data-layer-row="chart-${CHART_ID}"]`);
     await expect(row).toBeVisible();
     await expect(row.getByRole('checkbox', { name: 'Fixture NOAA ENC' })).toBeChecked();
+    const baseRow = page.locator('#layers-panel [data-layer-row="basemap"]');
+    await expect(baseRow).toBeVisible();
+    await expect(baseRow.getByRole('checkbox', { name: 'OpenFreeMap base' })).toBeChecked();
+    await baseRow.getByRole('button', { name: 'Adjust OpenFreeMap base opacity' }).click();
+    const baseOpacity = page.getByRole('slider', { name: 'OpenFreeMap base opacity' });
+    await baseOpacity.fill('0.5');
+    await expect(baseOpacity).toHaveAttribute('aria-valuetext', '50%');
+
+    await page.getByRole('button', { name: 'Close OpenFreeMap base opacity' }).click();
+    await page.getByRole('button', { name: 'Close layers and charts' }).click();
+    const zoomIn = page.locator('.maplibregl-ctrl-zoom-in');
+    // MapLibre animates control-button zooms. Let each ease finish so rapid clicks do not collapse
+    // into one partial step and leave the test below the declared native maxzoom.
+    for (let step = 0; step < 7; step += 1) {
+      await zoomIn.click();
+      await page.waitForTimeout(350);
+    }
+    await expect(
+      page.getByRole('button', { name: /Zoomed past the chart’s native detail/ }),
+    ).toHaveText('Chart overzoomed');
+    await expect
+      .poll(() => tileRequests.some((path) => path.includes(`/${CHART_ID}/16/`)))
+      .toBe(true);
+    expect(Math.max(...tileRequests.map((path) => Number(path.split('/').at(-3))))).toBe(16);
+
+    // At z19 the provider has no native tile, but the z16 vector tile must remain drawn. Turning
+    // the chart off at that zoom therefore changes the compositor screenshot; the old layer cap at
+    // z17 made this a no-op because the ENC had already vanished.
+    const overzoomedWithChart = await canvas.screenshot();
+    await openMenuItem(page, 'Layers and charts');
+    await row.getByRole('checkbox', { name: 'Fixture NOAA ENC' }).uncheck();
+    await expect
+      .poll(async () => !(await canvas.screenshot()).equals(overzoomedWithChart))
+      .toBe(true);
     expect(tileRequests.every((path) => TILE_PATH.test(path))).toBe(true);
     expect(pageErrors).toEqual([]);
   } finally {
