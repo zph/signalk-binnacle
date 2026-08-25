@@ -1,6 +1,6 @@
 {
-  "name": "Binnacle Chartplotter",
-  "short_name": "Binnacle",
+  "name": "Binnacle Custom",
+  "short_name": "Binnacle Custom",
   "description": "A WebGL chartplotter for Signal K.",
   "start_url": "./",
   "scope": "./",

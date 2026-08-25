@@ -11,7 +11,7 @@ import process from 'node:process';
 import { WebSocketServer } from 'ws';
 
 const PORT = Number(process.env.SIGNALK_FIXTURE_PORT ?? 4174);
-const BASE_PATH = '/signalk-binnacle/';
+const BASE_PATH = '/binnacle-custom/';
 const STREAM_PATH = '/signalk/v1/stream';
 const CONTROL_PREFIX = '/__fixture__/';
 const STATIC_ROOT = resolve('public');
@@ -174,7 +174,7 @@ const server = createServer((request, response) => {
     void handleControl(request, response, pathname);
     return;
   }
-  if (pathname === '/' || pathname === '/signalk-binnacle') {
+  if (pathname === '/' || pathname === '/binnacle-custom') {
     response.writeHead(302, { location: BASE_PATH });
     response.end();
     return;

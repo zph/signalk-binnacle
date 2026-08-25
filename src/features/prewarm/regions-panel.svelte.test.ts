@@ -183,7 +183,11 @@ describe('offline charts home view', () => {
         companionBase: 'http://sk/chart-locker',
         map: {} as MapLibreMap,
         units: new UnitsStore(
-          new PersistedValue<UnitsMode>('binnacle:units-test', 'metric', createFakeStorage()),
+          new PersistedValue<UnitsMode>(
+            'binnacle-custom:units-test',
+            'metric',
+            createFakeStorage(),
+          ),
         ),
         insecureTransport,
         pwaStatus,
@@ -209,7 +213,11 @@ describe('offline charts home view', () => {
         companionBase: 'http://sk/chart-locker',
         map: {} as MapLibreMap,
         units: new UnitsStore(
-          new PersistedValue<UnitsMode>('binnacle:units-test', 'metric', createFakeStorage()),
+          new PersistedValue<UnitsMode>(
+            'binnacle-custom:units-test',
+            'metric',
+            createFakeStorage(),
+          ),
         ),
         insecureTransport: false,
         activeRoute: () => ({

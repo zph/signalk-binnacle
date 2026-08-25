@@ -18,7 +18,7 @@ export function isSameOriginPath(path: string): boolean {
 
 function safeReturnPath(path: string): string {
   // Bouncing the login form back to itself would loop the navigator through login forever.
-  return isSameOriginPath(path) && !path.startsWith('/admin/#/login') ? path : '/signalk-binnacle/';
+  return isSameOriginPath(path) && !path.startsWith('/admin/#/login') ? path : '/binnacle-custom/';
 }
 
 // Signal K's administrator UI owns the login form. Its redirect contract must return to an in-scope

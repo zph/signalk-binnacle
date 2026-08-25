@@ -10,7 +10,7 @@ test('WebKit supports the app shell and a primary panel interaction', async ({ p
   const workerProof = await installMapLibreWorkerProof(page);
   await page.goto('/');
 
-  await expect(page.locator('.brand')).toContainText('Binnacle Chartplotter');
+  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
   await expect(page.locator('.status-strip .conn')).toHaveAttribute(
     'title',
     /Connecting|Connected|Reconnecting|Not connected/,

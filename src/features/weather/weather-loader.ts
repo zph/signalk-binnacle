@@ -91,7 +91,9 @@ const realDeps: LoaderDeps = {
   now: () => Date.now(),
   // Cap the persistent L2 to match the in-memory L1 intent (MAX_GRID_ENTRIES), rather than leaning
   // on the store's larger default, so the two tiers are a deliberate pair on a constrained device.
-  persist: createExpiringStore<WeatherGrid>('binnacle-weather', { maxEntries: MAX_GRID_ENTRIES }),
+  persist: createExpiringStore<WeatherGrid>('binnacle-custom-weather', {
+    maxEntries: MAX_GRID_ENTRIES,
+  }),
 };
 
 // A weather loader with its own in-memory, viewport-keyed cache. Repeat or adjacent views reuse a

@@ -53,7 +53,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'c1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'c1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -228,7 +228,7 @@ describe('AuthController', () => {
 
   it('upgrades a legacy bare-uuid client id, keeping the token', () => {
     const store = storage({
-      'binnacle:signalk-auth': JSON.stringify({ clientId: 'abcd-1234', token: 'keepme' }),
+      'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'abcd-1234', token: 'keepme' }),
     });
     const auth = new AuthController(BASE, {
       fetch: (async () => res(true)) as unknown as typeof fetch,
@@ -236,7 +236,9 @@ describe('AuthController', () => {
       schedule: noSchedule,
     });
     expect(auth.clientId).toMatch(/^binnacle-/);
-    expect(JSON.parse(store.getItem('binnacle:signalk-auth') as string).token).toBe('keepme');
+    expect(JSON.parse(store.getItem('binnacle-custom:signalk-auth') as string).token).toBe(
+      'keepme',
+    );
   });
 
   it('rechecks a pending request and authenticates on approval', async () => {
@@ -291,7 +293,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
       }),
       schedule: (run) => {
         scheduled.push(run);
@@ -318,7 +320,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
       }),
       schedule: (run, ms) => {
         scheduled.push({ run, ms });
@@ -370,7 +372,7 @@ describe('AuthController', () => {
     auth.adoptToken('crosstab');
     expect(auth.status).toBe('authenticated');
     expect(auth.token).toBe('crosstab');
-    expect(store.getItem('binnacle:signalk-auth')).toContain('crosstab');
+    expect(store.getItem('binnacle-custom:signalk-auth')).toContain('crosstab');
   });
 
   it('adopts a complete rotated identity from another tab without writing it back', async () => {
@@ -394,7 +396,7 @@ describe('AuthController', () => {
 
       events.dispatchEvent(
         Object.assign(new Event('storage'), {
-          key: 'binnacle:signalk-auth',
+          key: 'binnacle-custom:signalk-auth',
           newValue: JSON.stringify({ clientId: 'binnacle-new', token: 'rotated-token' }),
         }),
       );
@@ -431,7 +433,7 @@ describe('AuthController', () => {
 
       events.dispatchEvent(
         Object.assign(new Event('storage'), {
-          key: 'binnacle:signalk-auth',
+          key: 'binnacle-custom:signalk-auth',
           newValue: JSON.stringify({ clientId: 'binnacle-reset', token: null }),
         }),
       );
@@ -471,7 +473,7 @@ describe('AuthController', () => {
     expect(auth.token).toBeNull();
     // Assert the persisted record structurally: a substring check on the JSON can collide with
     // the random clientId suffix (a hex clientId containing "bad" failed a run).
-    const persisted = JSON.parse(store.getItem('binnacle:signalk-auth') ?? '{}') as {
+    const persisted = JSON.parse(store.getItem('binnacle-custom:signalk-auth') ?? '{}') as {
       token: string | null;
     };
     expect(persisted.token).toBeNull();
@@ -481,7 +483,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: (async () => res(true)) as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
       }),
       schedule: noSchedule,
     });
@@ -504,7 +506,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
       }),
       schedule: noSchedule,
     });
@@ -526,7 +528,7 @@ describe('AuthController', () => {
           finishProbe = resolve;
         })) as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
       }),
       schedule: noSchedule,
     });
@@ -578,7 +580,7 @@ describe('AuthController', () => {
     });
     try {
       const store = storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-old', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-old', token: 'tok' }),
       });
       const auth = new AuthController(BASE, {
         fetch: (async () => res(true)) as unknown as typeof fetch,
@@ -587,7 +589,7 @@ describe('AuthController', () => {
       });
       auth.watch();
       const event = Object.assign(new Event('storage'), {
-        key: 'binnacle:signalk-auth',
+        key: 'binnacle-custom:signalk-auth',
         newValue: null,
       });
       events.dispatchEvent(event);
@@ -595,7 +597,7 @@ describe('AuthController', () => {
       expect(auth.token).toBeNull();
       expect(auth.status).toBe('unknown');
       expect(auth.clientId).not.toBe('binnacle-old');
-      expect(store.getItem('binnacle:signalk-auth')).toContain('binnacle-old');
+      expect(store.getItem('binnacle-custom:signalk-auth')).toContain('binnacle-old');
       auth.stop();
     } finally {
       Object.defineProperty(globalThis, 'window', {
@@ -628,7 +630,7 @@ describe('AuthController', () => {
 
   it('keeps the stored token on a transport failure and skips the anonymous probe', async () => {
     const store = storage({
-      'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
+      'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
     });
     const fetchFn = vi.fn(async () => {
       throw new Error('network down');
@@ -641,12 +643,14 @@ describe('AuthController', () => {
     await auth.probe();
     expect(fetchFn).toHaveBeenCalledTimes(1);
     expect(auth.status).toBe('unknown');
-    expect(JSON.parse(store.getItem('binnacle:signalk-auth') as string).token).toBe('keepme');
+    expect(JSON.parse(store.getItem('binnacle-custom:signalk-auth') as string).token).toBe(
+      'keepme',
+    );
   });
 
   it('keeps the stored token on a non-auth probe error (500)', async () => {
     const store = storage({
-      'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
+      'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'keepme' }),
     });
     const fetchFn = vi.fn(async () => res(false, {}, 500));
     const auth = new AuthController(BASE, {
@@ -656,12 +660,14 @@ describe('AuthController', () => {
     });
     await auth.probe();
     expect(fetchFn).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(store.getItem('binnacle:signalk-auth') as string).token).toBe('keepme');
+    expect(JSON.parse(store.getItem('binnacle-custom:signalk-auth') as string).token).toBe(
+      'keepme',
+    );
   });
 
   it('clears the stored token on a definite 401 rejection', async () => {
     const store = storage({
-      'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'stale' }),
+      'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'stale' }),
     });
     const fetchFn = vi.fn(async (url: string) => {
       if (url.endsWith('/access/requests')) return res(true, { href: '/signalk/v1/requests/r1' });
@@ -673,7 +679,7 @@ describe('AuthController', () => {
       schedule: noSchedule,
     });
     await auth.probe();
-    expect(JSON.parse(store.getItem('binnacle:signalk-auth') as string).token).toBeNull();
+    expect(JSON.parse(store.getItem('binnacle-custom:signalk-auth') as string).token).toBeNull();
     expect(auth.status).toBe('requesting');
   });
 
@@ -757,7 +763,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -792,7 +798,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
       }),
       schedule: noSchedule,
     });
@@ -825,7 +831,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
       }),
       schedule: noSchedule,
     });
@@ -847,7 +853,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -868,7 +874,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -890,7 +896,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -913,7 +919,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -936,7 +942,7 @@ describe('AuthController', () => {
     const auth = new AuthController(BASE, {
       fetch: fetchFn as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'tok' }),
       }),
       schedule: noSchedule,
     });
@@ -955,7 +961,7 @@ describe('AuthController', () => {
       fetch: (async () =>
         res(true, { href: '/signalk/v1/requests/up1' })) as unknown as typeof fetch,
       storage: storage({
-        'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
+        'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-1', token: 'old' }),
       }),
       schedule: noSchedule,
     });
@@ -985,7 +991,7 @@ describe('AuthController', () => {
 
   it('forgets the local device credentials and rotates the client identity', async () => {
     const store = storage({
-      'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-old', token: 'tok' }),
+      'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-old', token: 'tok' }),
     });
     const auth = new AuthController(BASE, {
       fetch: (async () => res(true)) as unknown as typeof fetch,
@@ -1010,7 +1016,7 @@ describe('AuthController', () => {
 
   it('can reset runtime auth without recreating storage after a privacy erase', () => {
     const store = storage({
-      'binnacle:signalk-auth': JSON.stringify({ clientId: 'binnacle-old', token: 'tok' }),
+      'binnacle-custom:signalk-auth': JSON.stringify({ clientId: 'binnacle-old', token: 'tok' }),
     });
     const auth = new AuthController(BASE, {
       fetch: (async () => res(true)) as unknown as typeof fetch,

@@ -216,7 +216,10 @@ describe('AnchorWatch (client mode)', () => {
 
   it('rejects a corrupted persisted watch', () => {
     const storage = createFakeStorage({
-      'binnacle:anchor-watch': JSON.stringify({ position: { latitude: 'x' }, radiusMeters: -1 }),
+      'binnacle-custom:anchor-watch': JSON.stringify({
+        position: { latitude: 'x' },
+        radiusMeters: -1,
+      }),
     });
     const store = new SignalKStore();
     const anchor = new AnchorWatch(store, new OwnVessel(store), undefined, storage);
@@ -225,7 +228,7 @@ describe('AnchorWatch (client mode)', () => {
 
   it('drops unknown persisted properties instead of re-persisting them forever', () => {
     const storage = createFakeStorage({
-      'binnacle:anchor-watch': JSON.stringify({
+      'binnacle-custom:anchor-watch': JSON.stringify({
         position: { latitude: 1, longitude: 2, altitude: 9 },
         radiusMeters: 60,
         dragging: false,
@@ -235,7 +238,7 @@ describe('AnchorWatch (client mode)', () => {
     const store = new SignalKStore();
     const anchor = new AnchorWatch(store, new OwnVessel(store), undefined, storage);
     anchor.setRadiusLocal(70); // any local change re-persists the watch
-    expect(JSON.parse(storage.data.get('binnacle:anchor-watch') ?? 'null')).toEqual({
+    expect(JSON.parse(storage.data.get('binnacle-custom:anchor-watch') ?? 'null')).toEqual({
       position: { latitude: 1, longitude: 2 },
       radiusMeters: 70,
       dragging: false,

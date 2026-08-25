@@ -172,6 +172,61 @@ describe('chartToSpecs', () => {
     ]);
   });
 
+  it('builds marine portrayal layers for an S-57 chart', () => {
+    const chart: SignalKChart = {
+      identifier: 'california-enc',
+      name: 'NOAA ENC California',
+      type: 'S-57',
+      format: 'pbf',
+      tilemapUrl: '/signalk/v1/api/resources/charts/california-enc/{z}/{x}/{y}',
+      layers: ['DEPARE', 'DEPCNT', 'SOUNDG', 'LNDARE', 'BOYLAT', 'WRECKS'],
+      minzoom: 8,
+      maxzoom: 16,
+    };
+
+    const { sources, layers } = chartToSpecs(chart, base);
+
+    expect(sources['chart-california-enc']).toMatchObject({
+      type: 'vector',
+      tiles: ['http://pi.local/signalk/v1/api/resources/charts/california-enc/{z}/{x}/{y}'],
+      minzoom: 8,
+      maxzoom: 16,
+    });
+    expect(layers.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        'chart-california-enc-depare-shallow',
+        'chart-california-enc-depcnt-safety',
+        'chart-california-enc-soundg-shallow',
+        'chart-california-enc-lndare-outline',
+        'chart-california-enc-s57-symbol-boylat',
+        'chart-california-enc-s57-symbol-wrecks',
+      ]),
+    );
+    expect(layers.every((layer) => !layer.id.includes('-earth'))).toBe(true);
+  });
+
+  it('treats S-57 as vector without relying on a format hint', () => {
+    const chart: SignalKChart = {
+      identifier: 'enc-without-format',
+      name: 'ENC without format',
+      type: 'S-57',
+      tilemapUrl: '/signalk/v1/api/resources/charts/enc-without-format/{z}/{x}/{y}',
+      layers: ['DEPARE', 'SOUNDG'],
+    };
+
+    const { sources, layers } = chartToSpecs(chart, base, { s57Style: { depthUnit: 'ft' } });
+
+    expect(sources['chart-enc-without-format'].type).toBe('vector');
+    expect(layers.map(({ id }) => id)).toContain('chart-enc-without-format-depare-shallow');
+    const sounding = layers.find(({ id }) => id === 'chart-enc-without-format-soundg-safe');
+    expect(sounding?.type).toBe('symbol');
+    if (sounding?.type === 'symbol') {
+      expect(sounding.layout?.['text-field']).toEqual(
+        expect.arrayContaining(['concat', expect.anything(), 'ft']),
+      );
+    }
+  });
+
   it('builds a raster source for a WMS chart', () => {
     const chart: SignalKChart = {
       identifier: 'wms',

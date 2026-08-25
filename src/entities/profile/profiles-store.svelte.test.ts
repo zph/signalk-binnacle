@@ -294,11 +294,11 @@ describe('ProfileStore local behavior', () => {
       const saved = store.save('Split storage', settings());
       store.setActive(saved.id);
 
-      const library = JSON.parse(values.get('binnacle:profiles') ?? '{}') as Record<
+      const library = JSON.parse(values.get('binnacle-custom:profiles') ?? '{}') as Record<
         string,
         unknown
       >;
-      const device = JSON.parse(values.get('binnacle:profile-device') ?? '{}') as Record<
+      const device = JSON.parse(values.get('binnacle-custom:profile-device') ?? '{}') as Record<
         string,
         unknown
       >;
@@ -315,14 +315,14 @@ describe('ProfileStore local behavior', () => {
     const valid = profile('valid', 'Valid library', 1);
     const values = new Map<string, string>([
       [
-        'binnacle:profiles',
+        'binnacle-custom:profiles',
         JSON.stringify({
           schemaVersion: 2,
           profiles: [valid],
           defaultId: valid.id,
         }),
       ],
-      ['binnacle:profile-device', '{invalid json'],
+      ['binnacle-custom:profile-device', '{invalid json'],
     ]);
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
@@ -342,7 +342,7 @@ describe('ProfileStore local behavior', () => {
   it('starts empty rather than trusting a stored library of the wrong shape', () => {
     const values = new Map<string, string>([
       [
-        'binnacle:profiles',
+        'binnacle-custom:profiles',
         JSON.stringify({
           schemaVersion: 'two',
           profiles: 'not an array',
@@ -351,7 +351,7 @@ describe('ProfileStore local behavior', () => {
           pending: 'not a journal',
         }),
       ],
-      ['binnacle:profile-device', JSON.stringify({ activeId: 7, applied: 'not an object' })],
+      ['binnacle-custom:profile-device', JSON.stringify({ activeId: 7, applied: 'not an object' })],
     ]);
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
@@ -373,9 +373,9 @@ describe('ProfileStore local behavior', () => {
   it('reseeds applied settings from the active profile when stored device state is corrupt', () => {
     const valid = profile('valid', 'Valid library', 1);
     const values = new Map<string, string>([
-      ['binnacle:profiles', JSON.stringify({ schemaVersion: 2, profiles: [valid] })],
+      ['binnacle-custom:profiles', JSON.stringify({ schemaVersion: 2, profiles: [valid] })],
       [
-        'binnacle:profile-device',
+        'binnacle-custom:profile-device',
         JSON.stringify({ activeId: valid.id, applied: { profileId: valid.id, settings: 'junk' } }),
       ],
     ]);

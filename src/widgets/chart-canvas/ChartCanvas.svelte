@@ -61,7 +61,13 @@ import {
   type ThemedMapHandle,
 } from '$shared/map';
 import { binnacleStorageKey } from '$shared/persistence';
-import type { MapView, PersistedValue, TrackSettings } from '$shared/settings';
+import {
+  DEFAULT_THRESHOLDS,
+  type MapView,
+  type PersistedValue,
+  type Thresholds,
+  type TrackSettings,
+} from '$shared/settings';
 import type { HistoryProviders, SignalKStore } from '$shared/signalk';
 import type { Theme } from '$shared/ui';
 import { buildBathymetryOverlays } from './build-bathymetry-overlays';
@@ -103,6 +109,8 @@ interface Props {
   tides: TidesStore;
   // The display-unit preference, threaded into the overlays that label distances and heights.
   units: UnitsStore;
+  // The configured shallow-water limit also serves as the ENC safety depth.
+  thresholds: PersistedValue<Thresholds>;
   // Standard server waypoints, drawn as named markers in the routes band.
   waypoints: WaypointsStore;
   // Provided chart symbols (signalk-symbol-manager), empty on a stock server.
@@ -197,6 +205,7 @@ const {
   mob,
   measure,
   units,
+  thresholds,
   waypoints,
   symbols,
   collision,
@@ -737,7 +746,15 @@ onMount(async () => {
         for (const id of serverChartIds) mgr.unregister(chartSourceId(id));
         serverChartIds.clear();
         const results = await mgr.registerBatch(
-          wanted.map((chart) => createChartOverlay(chart, origin, 'basemap', () => chartsToken)),
+          wanted.map((chart) =>
+            createChartOverlay(chart, origin, 'basemap', () => chartsToken, {
+              s57Style: {
+                safetyDepth:
+                  thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
+                depthUnit: units.mode === 'imperial' ? 'ft' : 'm',
+              },
+            }),
+          ),
         );
         if (isDestroyed()) return;
         if (generation !== serverChartsGeneration) {
@@ -798,6 +815,11 @@ onMount(async () => {
             await mgr.register(
               createChartOverlay(chart, origin, 'bathymetry', () => chartsToken, {
                 source: 'user',
+                s57Style: {
+                  safetyDepth:
+                    thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
+                  depthUnit: units.mode === 'imperial' ? 'ft' : 'm',
+                },
               }),
             );
           } catch (error) {
@@ -813,6 +835,11 @@ onMount(async () => {
             await mgr.replace(
               createChartOverlay(chart, origin, 'bathymetry', () => chartsToken, {
                 source: 'user',
+                s57Style: {
+                  safetyDepth:
+                    thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
+                  depthUnit: units.mode === 'imperial' ? 'ft' : 'm',
+                },
               }),
             );
           } catch (error) {

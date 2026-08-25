@@ -79,7 +79,7 @@ describe('service worker route matchers', () => {
         (entry.urlPattern as (c: typeof request) => boolean)(request),
       );
       expect(route?.options.cacheName, `${source.id} is not routed as time-dynamic`).toBe(
-        'binnacle-volatile-overlays',
+        'binnacle-custom-volatile-overlays',
       );
       expect(route?.handler).toBe('NetworkFirst');
       expect(route?.options.expiration.maxAgeSeconds).toBeLessThanOrEqual(60 * 60);

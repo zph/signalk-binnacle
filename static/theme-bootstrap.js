@@ -1,5 +1,5 @@
 try {
-  const theme = localStorage.getItem('binnacle:theme');
+  const theme = localStorage.getItem('binnacle-custom:theme');
   const colors = { day: '#cfe0ec', dusk: '#0f1a24', 'night-red': '#000000' };
   if (theme && Object.hasOwn(colors, theme)) {
     document.documentElement.dataset.theme = theme;

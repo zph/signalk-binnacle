@@ -1,6 +1,8 @@
 import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
 import type { SignalKChart } from './chart-types';
 import { DAY_PAINT, type MapColorKey } from './map-theme';
+import { type S57StyleOptions, s57ChartLayers } from './s57-chart-style';
+import { s57SymbolLayers } from './s57-symbols';
 
 // Stamped on each themed draw layer so the chart overlay can recolor it on a theme
 // change without re-deriving the source-layer to color mapping.
@@ -182,7 +184,7 @@ function isTileTemplate(url: string): boolean {
   return url.includes('{z}');
 }
 
-function vectorSpecs(chart: SignalKChart, base: string): ChartSpecs {
+function vectorSpecs(chart: SignalKChart, base: string, s57Style?: S57StyleOptions): ChartSpecs {
   const sourceId = chartSourceId(chart.identifier);
   // A vector chart's `url` is its TileJSON or .pmtiles document, preferred over the
   // `{z}/{x}/{y}` template in `tilemapUrl`; the raster path prefers them the other way.
@@ -205,7 +207,13 @@ function vectorSpecs(chart: SignalKChart, base: string): ChartSpecs {
     : { type: 'vector', url: pmtiles ?? resolved, ...extent };
   return {
     sources: { [sourceId]: source },
-    layers: vectorDrawLayers(sourceId, chart.layers ?? []),
+    layers:
+      chart.type === 'S-57'
+        ? [
+            ...s57ChartLayers(sourceId, chart.layers ?? [], s57Style),
+            ...s57SymbolLayers(sourceId, chart.layers ?? []),
+          ]
+        : vectorDrawLayers(sourceId, chart.layers ?? []),
   };
 }
 
@@ -215,6 +223,7 @@ function vectorSpecs(chart: SignalKChart, base: string): ChartSpecs {
 const RASTER_FORMATS = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif']);
 
 function isVector(chart: SignalKChart): boolean {
+  if (chart.type === 'S-57') return true;
   if (chart.type === 'tileJSON') return true;
   if (chart.format === 'mvt' || chart.format === 'pbf') return true;
   // An explicit raster format wins over the .pmtiles suffix, so a raster PMTiles is not vector.
@@ -223,9 +232,15 @@ function isVector(chart: SignalKChart): boolean {
   return hasPmtilesPath(candidate);
 }
 
-export function chartToSpecs(chart: SignalKChart, serverBase: string): ChartSpecs {
+export function chartToSpecs(
+  chart: SignalKChart,
+  serverBase: string,
+  options: { s57Style?: S57StyleOptions } = {},
+): ChartSpecs {
   if (chart.type === 'mapstyleJSON') {
     throw new TypeError('Style-document charts cannot be converted to standalone map resources.');
   }
-  return isVector(chart) ? vectorSpecs(chart, serverBase) : rasterSpecs(chart, serverBase);
+  return isVector(chart)
+    ? vectorSpecs(chart, serverBase, options.s57Style)
+    : rasterSpecs(chart, serverBase);
 }

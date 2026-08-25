@@ -65,8 +65,13 @@ function chartFromEntry(id: string, raw: unknown): SignalKChart | undefined {
   if (url) chart.url = url;
   if (tilemapUrl) chart.tilemapUrl = tilemapUrl;
   if (isFiniteNumber(raw.scale) && raw.scale > 0) chart.scale = raw.scale;
-  if (Array.isArray(raw.layers) && raw.layers.length <= MAX_LAYERS) {
-    const layers = raw.layers
+  const canonicalLayers =
+    Array.isArray(raw.layers) && raw.layers.length > 0 ? raw.layers : undefined;
+  const legacyLayers =
+    Array.isArray(raw.chartLayers) && raw.chartLayers.length > 0 ? raw.chartLayers : undefined;
+  const rawLayers = canonicalLayers ?? legacyLayers;
+  if (rawLayers && rawLayers.length <= MAX_LAYERS) {
+    const layers = rawLayers
       .map((layer) => cleanBoundedText(layer, MAX_LAYER_ID_LENGTH))
       .filter((layer): layer is string => layer !== undefined);
     if (layers.length > 0) chart.layers = layers;

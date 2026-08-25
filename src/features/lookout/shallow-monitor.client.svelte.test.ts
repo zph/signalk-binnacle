@@ -39,13 +39,13 @@ function harness(options: Options) {
   let depth = $state(options.depth ?? reading());
   const { control, events } = createFakeAlarmControl();
   const thresholds = new PersistedValue<Thresholds>(
-    'binnacle:thresholds-test',
+    'binnacle-custom:thresholds-test',
     { ...DEFAULT_THRESHOLDS },
     createFakeStorage(),
   );
   const units = new UnitsStore(
     new PersistedValue<UnitsMode>(
-      'binnacle:units-test',
+      'binnacle-custom:units-test',
       options.mode ?? 'metric',
       createFakeStorage(),
     ),

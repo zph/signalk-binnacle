@@ -783,6 +783,7 @@ $effect(() => {
   <ChartCanvas
     {origin}
     {units}
+    {thresholds}
     waypoints={waypointsStore}
     personalNotes={personalNotesStore}
     symbols={symbolsStore}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { binnacleStorageKey, binnacleStorageKeysForScope } from './storage-keys';
 
 const HARDCODED_STORAGE_KEY =
-  /(?:localStorage\.(?:getItem|setItem|removeItem)|new PersistedValue(?:<[^>]+>)?)\s*\(\s*['"`]binnacle:/;
+  /(?:localStorage\.(?:getItem|setItem|removeItem)|new PersistedValue(?:<[^>]+>)?)\s*\(\s*['"`]binnacle-custom:/;
 const productionSources = import.meta.glob('/src/**/*.{ts,svelte}', {
   query: '?raw',
   import: 'default',

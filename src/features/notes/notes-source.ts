@@ -41,7 +41,7 @@ export function createNotesSource(
 ): NotesSource {
   const persist =
     persistStore ??
-    createExpiringStore<NotePoint[]>('binnacle-notes', { maxEntries: MAX_PERSIST_ENTRIES });
+    createExpiringStore<NotePoint[]>('binnacle-custom-notes', { maxEntries: MAX_PERSIST_ENTRIES });
   // A viewport-keyed cache of fetched note sets so panning back, panning a little, or zooming in
   // reuses a recent fetch instead of re-hitting the network (the data depends only on the bbox,
   // not the zoom).

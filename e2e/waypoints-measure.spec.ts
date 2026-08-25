@@ -9,7 +9,7 @@ test('waypoints loads without the stream and confirms navigation on a narrow scr
   await page.setViewportSize({ width: 320, height: 568 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.route(/\/signalk\/v2\/api\/resources\/waypoints$/, async (route) => {
@@ -61,7 +61,7 @@ test('measure edits middle points with pointer and keyboard paths, then restores
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.goto('/');
@@ -105,8 +105,20 @@ test('measure edits middle points with pointer and keyboard paths, then restores
   const middleOffset = await clickChart(0.55, 0.45);
   await expect(strip.getByText('2 points. Tap the chart to add another')).toBeVisible();
   await expect(strip.getByText('Bearing')).toBeVisible();
+  const canvasBeforeThirdPoint = await canvas.screenshot();
   await clickChart(0.72, 0.6);
   await expect(strip.getByText('3 points. Tap the chart to add another')).toBeVisible();
+  // The Svelte readout can commit before MapLibre's worker has painted the updated hit layer. Wait
+  // for that chart frame so the following pointer path selects point 2 instead of adding point 4.
+  await expect
+    .poll(async () => !(await canvas.screenshot()).equals(canvasBeforeThirdPoint))
+    .toBe(true);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
 
   // Project the middle point from the canvas center. A responsive strip resize preserves the map
   // center and zoom, so this remains accurate while the generous 44 px hit target absorbs rounding.
@@ -175,7 +187,7 @@ test('measure and route editing refuse overlapping chart gestures in both direct
 }) => {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
   await stubVesselsSelf(page);
   await page.goto('/');

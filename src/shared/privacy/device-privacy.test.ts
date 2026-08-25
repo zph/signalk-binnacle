@@ -28,8 +28,8 @@ function fakeLocalStorage(initial: Record<string, string>) {
 describe('DevicePrivacyController', () => {
   it('keeps credential forgetting separate from device-data erasure', async () => {
     const local = fakeLocalStorage({
-      'binnacle:signalk-auth': 'token',
-      'binnacle:theme': 'night',
+      'binnacle-custom:signalk-auth': 'token',
+      'binnacle-custom:theme': 'night',
       'another-app:token': 'keep',
     });
     const broadcast = vi.fn();
@@ -42,8 +42,8 @@ describe('DevicePrivacyController', () => {
     const report = await controller.forgetCredentials();
 
     expect(report.status).toBe('completed');
-    expect(local.values.has('binnacle:signalk-auth')).toBe(false);
-    expect(local.values.get('binnacle:theme')).toBe('night');
+    expect(local.values.has('binnacle-custom:signalk-auth')).toBe(false);
+    expect(local.values.get('binnacle-custom:theme')).toBe('night');
     expect(local.values.get('another-app:token')).toBe('keep');
     expect(broadcast).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'credentials-forgotten', status: 'completed' }),
@@ -52,9 +52,9 @@ describe('DevicePrivacyController', () => {
 
   it('erases only Binnacle-owned device data and preserves credentials', async () => {
     const local = fakeLocalStorage({
-      'binnacle:signalk-auth': 'token',
-      'binnacle:theme': 'night',
-      'binnacle:map-view': '{}',
+      'binnacle-custom:signalk-auth': 'token',
+      'binnacle-custom:theme': 'night',
+      'binnacle-custom:map-view': '{}',
       'another-app:theme': 'keep',
     });
     const controller = new DevicePrivacyController({
@@ -65,16 +65,16 @@ describe('DevicePrivacyController', () => {
     const report = await controller.eraseDeviceData();
 
     expect(report.status).toBe('completed');
-    expect(local.values.get('binnacle:signalk-auth')).toBe('token');
-    expect(local.values.has('binnacle:theme')).toBe(false);
-    expect(local.values.has('binnacle:map-view')).toBe(false);
+    expect(local.values.get('binnacle-custom:signalk-auth')).toBe('token');
+    expect(local.values.has('binnacle-custom:theme')).toBe(false);
+    expect(local.values.has('binnacle-custom:map-view')).toBe(false);
     expect(local.values.get('another-app:theme')).toBe('keep');
   });
 
   it('erases device data and credentials through the explicit full-wipe action', async () => {
     const local = fakeLocalStorage({
-      'binnacle:signalk-auth': 'token',
-      'binnacle:theme': 'night',
+      'binnacle-custom:signalk-auth': 'token',
+      'binnacle-custom:theme': 'night',
       'another-app:token': 'keep',
     });
     const controller = new DevicePrivacyController({
@@ -85,8 +85,8 @@ describe('DevicePrivacyController', () => {
     const report = await controller.eraseAllLocalData();
 
     expect(report.status).toBe('completed');
-    expect(local.values.has('binnacle:signalk-auth')).toBe(false);
-    expect(local.values.has('binnacle:theme')).toBe(false);
+    expect(local.values.has('binnacle-custom:signalk-auth')).toBe(false);
+    expect(local.values.has('binnacle-custom:theme')).toBe(false);
     expect(local.values.get('another-app:token')).toBe('keep');
   });
 
@@ -243,10 +243,10 @@ describe('browser privacy owners', () => {
     const deleted: string[] = [];
     const storage = {
       keys: async () => [
-        'binnacle-chart-tiles',
-        'serwist-precache-v2-http://pi/signalk-binnacle/',
+        'binnacle-custom-chart-tiles',
+        'serwist-precache-v2-http://pi/binnacle-custom/',
         'serwist-precache-v2-http://pi/other-app/',
-        'workbox-precache-v2-http://pi/signalk-binnacle/',
+        'workbox-precache-v2-http://pi/binnacle-custom/',
         'workbox-precache-v2-http://pi/other-app/',
       ],
       delete: async (name: string) => {
@@ -257,17 +257,17 @@ describe('browser privacy owners', () => {
     const registry = createBinnaclePrivacyRegistry({
       cacheStorage: storage,
       cachePrefixes: [
-        'serwist-precache-v2-http://pi/signalk-binnacle/',
-        'workbox-precache-v2-http://pi/signalk-binnacle/',
+        'serwist-precache-v2-http://pi/binnacle-custom/',
+        'workbox-precache-v2-http://pi/binnacle-custom/',
       ],
     });
 
     await registry.owners('device-data')[0].clear();
 
     expect(deleted).toEqual([
-      'binnacle-chart-tiles',
-      'serwist-precache-v2-http://pi/signalk-binnacle/',
-      'workbox-precache-v2-http://pi/signalk-binnacle/',
+      'binnacle-custom-chart-tiles',
+      'serwist-precache-v2-http://pi/binnacle-custom/',
+      'workbox-precache-v2-http://pi/binnacle-custom/',
     ]);
   });
 
@@ -357,7 +357,7 @@ describe('browser privacy owners', () => {
           'serwist-expiration',
           new Map([
             [
-              'binnacle-chart-tiles',
+              'binnacle-custom-chart-tiles',
               ['https://boat/charts/a/1/2/3', 'https://boat/charts/a/4/5/6'],
             ],
             ['other-app-cache', ['https://elsewhere/1']],
@@ -378,8 +378,8 @@ describe('browser privacy owners', () => {
     // The absent workbox database is skipped through databases() rather than created by open().
     expect(opened).toEqual(['serwist-expiration']);
     expect(deleted).toEqual([
-      'serwist-expiration|binnacle-chart-tiles|https://boat/charts/a/1/2/3',
-      'serwist-expiration|binnacle-chart-tiles|https://boat/charts/a/4/5/6',
+      'serwist-expiration|binnacle-custom-chart-tiles|https://boat/charts/a/1/2/3',
+      'serwist-expiration|binnacle-custom-chart-tiles|https://boat/charts/a/4/5/6',
     ]);
     expect(factory.deleteDatabase).not.toHaveBeenCalled();
   });
@@ -413,11 +413,13 @@ describe('browser privacy owners', () => {
   it('reports an existing browser cache that the Cache API fails to delete', async () => {
     const registry = createBinnaclePrivacyRegistry({
       cacheStorage: {
-        keys: async () => ['binnacle-chart-tiles'],
+        keys: async () => ['binnacle-custom-chart-tiles'],
         delete: async () => false,
       },
     });
 
-    await expect(registry.owners('device-data')[0].clear()).rejects.toThrow('binnacle-chart-tiles');
+    await expect(registry.owners('device-data')[0].clear()).rejects.toThrow(
+      'binnacle-custom-chart-tiles',
+    );
   });
 });

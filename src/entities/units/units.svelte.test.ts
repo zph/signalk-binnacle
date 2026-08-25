@@ -8,7 +8,7 @@ const metricPreset = { categories: { length: { targetUnit: 'm' } } };
 
 function localSetting(seed?: Record<string, string>) {
   return new PersistedValue<'metric' | 'imperial'>(
-    'binnacle:units',
+    'binnacle-custom:units',
     'metric',
     createFakeStorage(seed),
   );
@@ -61,7 +61,7 @@ describe('UnitsStore', () => {
   });
 
   it('keeps the local setting when the server has no unit preferences (older server)', async () => {
-    const units = new UnitsStore(localSetting({ 'binnacle:units': '"imperial"' }));
+    const units = new UnitsStore(localSetting({ 'binnacle-custom:units': '"imperial"' }));
     await units.syncFromServer('http://pi', fetchStub({}));
     expect(units.mode).toBe('imperial');
     expect(units.source).toBe('local');

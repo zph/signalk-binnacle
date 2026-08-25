@@ -1,5 +1,5 @@
 {
-  "name": "signalk-binnacle",
+  "name": "binnacle-custom",
   "version": "0.21.0",
   "description": "WebGL chartplotter for Signal K",
   "type": "module",
@@ -46,7 +46,7 @@
   "packageManager": "npm@11.19.0",
   "signalk": {
     "appIcon": "./binnacle-icon.svg",
-    "displayName": "Binnacle Chartplotter",
+    "displayName": "Binnacle Custom",
     "screenshots": [
       "./screenshots/01-chart.png",
       "./screenshots/02-instruments.png",

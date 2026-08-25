@@ -32,7 +32,7 @@ test('serves the application shell after the network goes offline', async ({ con
     expect(precachedWorker.contentType).toMatch(/(?:java|ecma)script/i);
 
     await page.goto('./offline-check', { waitUntil: 'domcontentloaded' });
-    await expect(page).toHaveURL(/\/signalk-binnacle\/offline-check$/);
+    await expect(page).toHaveURL(/\/binnacle-custom\/offline-check$/);
     await expect(page).toHaveTitle(/Binnacle/);
     await expect(page.locator('body')).toContainText('Binnacle');
     const precachedAsset = await page.evaluate(async () => {

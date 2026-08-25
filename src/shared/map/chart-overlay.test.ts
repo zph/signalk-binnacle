@@ -1,12 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { createChartOverlay } from './chart-overlay';
+import { mapThemePaint } from './map-theme';
 import { registerPmtilesArchive, unregisterPmtilesArchive } from './pmtiles';
+import { registerS57Symbols } from './s57-symbols';
 
 vi.mock('./pmtiles', () => ({
   registerPmtilesArchive: vi.fn(),
   unregisterPmtilesArchive: vi.fn(),
 }));
+
+vi.mock('./s57-symbols', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./s57-symbols')>();
+  return { ...actual, registerS57Symbols: vi.fn(async () => undefined) };
+});
 
 describe('chart overlay', () => {
   it('lists a style-document chart as explicitly unsupported without touching the map', async () => {
@@ -127,6 +134,61 @@ describe('chart overlay', () => {
     overlay.setOpacity?.(fakeOverlayContext(map), 0.5);
     expect(map.setPaintProperty).toHaveBeenCalledWith('chart-vec-water', 'fill-opacity', 0.5);
     expect(map.setPaintProperty).toHaveBeenCalledWith('chart-vec-roads', 'line-opacity', 0.5);
+  });
+
+  it('registers, themes, and proportionally fades an S-57 portrayal', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'california-enc',
+        name: 'NOAA ENC California',
+        type: 'S-57',
+        format: 'pbf',
+        tilemapUrl: '/charts/california-enc/{z}/{x}/{y}',
+        layers: ['DEPARE', 'ACHARE', 'RESARE', 'SOUNDG'],
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+
+    await overlay.add(ctx);
+    expect(registerS57Symbols).toHaveBeenCalledWith(
+      map,
+      mapThemePaint('day'),
+      expect.any(Function),
+    );
+    expect(map.layers.has('chart-california-enc-depare-shallow')).toBe(true);
+
+    overlay.setOpacity?.(ctx, 0.5);
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-california-enc-achare-fill',
+      'fill-opacity',
+      0.07,
+    );
+    expect(map.layers.has('chart-california-enc-resare-fill')).toBe(false);
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-california-enc-resare-edge-shade',
+      'line-opacity',
+      0.045,
+    );
+    expect(map.layers.has('chart-california-enc-resare-outline')).toBe(true);
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-california-enc-soundg-safe',
+      'text-opacity',
+      0.5,
+    );
+
+    overlay.applyTheme?.(ctx, mapThemePaint('night-red'));
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-california-enc-depare-shallow',
+      'fill-color',
+      '#220600',
+    );
+    expect(registerS57Symbols).toHaveBeenLastCalledWith(
+      map,
+      mapThemePaint('night-red'),
+      expect.any(Function),
+    );
   });
 
   it('registers a PMTiles archive on add and unregisters it on remove', async () => {

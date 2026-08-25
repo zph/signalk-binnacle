@@ -29,7 +29,7 @@ describe('handoff client', () => {
       string,
       RequestInit,
     ];
-    expect(url).toBe('http://sk/signalk/v1/applicationData/global/signalk-binnacle/1.0.0');
+    expect(url).toBe('http://sk/signalk/v1/applicationData/global/binnacle-custom/1.0.0');
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer tok');
   });
 

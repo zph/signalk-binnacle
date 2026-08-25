@@ -86,12 +86,12 @@ describe('MobStore', () => {
   });
 
   it('rejects a corrupted persisted mark', () => {
-    const { mob } = setup({ 'binnacle:mob': JSON.stringify({ position: 7 }) });
+    const { mob } = setup({ 'binnacle-custom:mob': JSON.stringify({ position: 7 }) });
     expect(mob.active).toBe(false);
   });
 
   it('restores a persisted position-less mark', () => {
-    const { mob } = setup({ 'binnacle:mob': JSON.stringify({ epochMs: 5000 }) });
+    const { mob } = setup({ 'binnacle-custom:mob': JSON.stringify({ epochMs: 5000 }) });
     expect(mob.active).toBe(true);
     expect(mob.position).toBeUndefined();
     expect(mob.markEpochMs).toBe(5000);
@@ -101,7 +101,7 @@ describe('MobStore', () => {
     // A persisted mark with stray keys (a legacy field, an extra coordinate) restores as a clean
     // literal, so nothing downstream re-persists or publishes the extras.
     const { mob } = setup({
-      'binnacle:mob': JSON.stringify({
+      'binnacle-custom:mob': JSON.stringify({
         position: { latitude: 1, longitude: 2, altitude: 9 },
         epochMs: 5000,
         legacy: true,

@@ -80,15 +80,15 @@ function applyPatch(document: Record<string, unknown>, patch: JsonPatchOperation
 async function installProfileServer(page: Page, document: Record<string, unknown>): Promise<void> {
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:signalk-auth',
+      'binnacle-custom:signalk-auth',
       JSON.stringify({ clientId: 'binnacle-e2e', token: 'profile-token' }),
     );
   });
   await stubVesselsSelf(page);
   await page.route(
-    /\/signalk\/v1\/applicationData\/user\/signalk-binnacle\/2\.0\.0$/,
+    /\/signalk\/v1\/applicationData\/user\/binnacle-custom\/2\.0\.0$/,
     async (route) => {
       if (route.request().method() === 'POST') {
         applyPatch(document, route.request().postDataJSON() as JsonPatchOperation[]);
@@ -204,9 +204,9 @@ test('a locally cached profile applies at boot without a startup error', async (
   page.on('pageerror', (error) => pageErrors.push(String(error)));
   await page.addInitScript(() => {
     localStorage.clear();
-    localStorage.setItem('binnacle:help-orientation', 'true');
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
-      'binnacle:profiles',
+      'binnacle-custom:profiles',
       JSON.stringify({
         schemaVersion: 2,
         defaultId: 'p1',
@@ -242,7 +242,7 @@ test('a locally cached profile applies at boot without a startup error', async (
     );
   });
   await page.goto('/');
-  await expect(page.locator('.brand')).toContainText('Binnacle Chartplotter');
+  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
   // The local-cache initialize path runs during App setup; give the boot flush a beat before
   // asserting no startup exception surfaced.
   await page.waitForTimeout(500);

@@ -28,7 +28,7 @@ export async function openMenuItem(page: Page, itemName: string): Promise<void> 
 // channel at the server root, so the three cannot desync.
 export const FIXTURE_PORT = 4174;
 export const FIXTURE_SERVER = `http://127.0.0.1:${FIXTURE_PORT}`;
-export const FIXTURE_ORIGIN = `${FIXTURE_SERVER}/signalk-binnacle/`;
+export const FIXTURE_ORIGIN = `${FIXTURE_SERVER}/binnacle-custom/`;
 
 // Assert an element does not scroll horizontally. The one-pixel tolerance absorbs subpixel
 // rounding on fractional layouts, and the poll absorbs a layout that has not settled yet;
@@ -45,16 +45,22 @@ export async function expectNoHorizontalOverflow(surface: Locator): Promise<void
 // they exclude a scrollbar, which a surface pinned to the trailing edge sits inside of.
 export async function expectInsideViewport(surface: Locator, page: Page): Promise<void> {
   await expect(surface).toBeVisible();
-  const [box, viewport] = await Promise.all([
-    surface.boundingBox(),
-    page.evaluate(() => ({
-      width: document.documentElement.clientWidth,
-      height: document.documentElement.clientHeight,
-    })),
-  ]);
-  if (!box) throw new Error('Floating surface did not lay out.');
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
-  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+  await expect
+    .poll(async () => {
+      const [box, viewport] = await Promise.all([
+        surface.boundingBox(),
+        page.evaluate(() => ({
+          width: document.documentElement.clientWidth,
+          height: document.documentElement.clientHeight,
+        })),
+      ]);
+      return (
+        box !== null &&
+        box.x >= 0 &&
+        box.y >= 0 &&
+        box.x + box.width <= viewport.width &&
+        box.y + box.height <= viewport.height
+      );
+    })
+    .toBe(true);
 }
