@@ -18,7 +18,9 @@ import {
   severityMatchExpression,
 } from '$shared/map';
 import { geodesicDestination } from '$shared/nav';
+import type { HistoryProviders } from '$shared/signalk';
 import { AisMotionEstimator, type AisMotionSelection } from './ais-motion-estimator';
+import { fetchAisMotionHistory } from './ais-motion-history';
 import { createAisRefreshGate } from './ais-refresh';
 
 const SOURCE_ID = 'binnacle-ais-vectors';
@@ -101,6 +103,14 @@ export interface AisVectorsOverlay extends OverlayModule {
 
 export type AisMotionUpdate = (motionById: ReadonlyMap<string, AisMotionSelection>) => void;
 
+export interface AisMotionHistoryOptions {
+  origin: string;
+  getToken: () => string | undefined;
+  providers: () => HistoryProviders | undefined;
+  selectedId: () => string | undefined;
+  fetchHistory?: typeof fetchAisMotionHistory;
+}
+
 // True when the contacts carry a different id-to-severity mapping than the map holds. Assessment
 // recomputes mint a fresh contacts array on every AIS flush while any contact is active, so the
 // repaint-now decision must compare the rendered content, not the array identity.
@@ -120,6 +130,7 @@ export function createAisVectorsOverlay(
   assessment: () => Assessment,
   now: () => number = Date.now,
   onMotionUpdate?: AisMotionUpdate,
+  historyOptions?: AisMotionHistoryOptions,
 ): AisVectorsOverlay {
   let paint = mapThemePaint('day');
   let visible = true;
@@ -127,6 +138,72 @@ export function createAisVectorsOverlay(
   const motionEstimator = new AisMotionEstimator();
   let lastContacts: Assessment['contacts'] | undefined;
   const severityById = new Map<string, Severity>();
+  let historyAbort: AbortController | undefined;
+  let historyKey: string | undefined;
+  let lifecycle = 0;
+  let attached = false;
+
+  const publish = (ctx: OverlayContext): void => {
+    const targetList = targets.list();
+    const motionById = motionEstimator.update(targetList, now());
+    onMotionUpdate?.(motionById);
+    if (!visible) return;
+    setSourceData(
+      ctx.map,
+      SOURCE_ID,
+      featureCollection(buildFeatures(targetList, severityById, motionById)),
+    );
+  };
+
+  const cancelHistory = (): void => {
+    historyAbort?.abort();
+    historyAbort = undefined;
+  };
+
+  const bootstrapSelectedHistory = (ctx: OverlayContext): void => {
+    if (!historyOptions) return;
+    const selectedId = historyOptions.selectedId();
+    const providers = historyOptions.providers();
+    if (!selectedId || !targets.find(selectedId) || !providers || providers.ids.length === 0) {
+      if (historyKey !== undefined) cancelHistory();
+      historyKey = undefined;
+      return;
+    }
+    const nextKey = `${selectedId}\u0000${providers.ids.join('\u0000')}`;
+    if (historyKey === nextKey) return;
+    cancelHistory();
+    historyKey = nextKey;
+    const controller = new AbortController();
+    historyAbort = controller;
+    const requestLifecycle = lifecycle;
+    const loadHistory = historyOptions.fetchHistory ?? fetchAisMotionHistory;
+    void (async () => {
+      try {
+        const samples = await loadHistory(
+          historyOptions.origin,
+          historyOptions.getToken(),
+          providers,
+          selectedId,
+          now(),
+          controller.signal,
+        );
+        if (
+          controller.signal.aborted ||
+          !attached ||
+          requestLifecycle !== lifecycle ||
+          historyOptions.selectedId() !== selectedId
+        ) {
+          return;
+        }
+        motionEstimator.seed(selectedId, samples, now());
+        publish(ctx);
+      } catch {
+        // History is an optional accelerator. Live AIS samples continue to populate the estimator.
+      } finally {
+        if (historyAbort === controller) historyAbort = undefined;
+      }
+    })();
+  };
 
   return {
     id: 'ais-vectors',
@@ -137,6 +214,10 @@ export function createAisVectorsOverlay(
     supportsOpacity: true,
     layerIds: [REPORTED_LAYER_ID, LAYER_ID],
     add(ctx) {
+      attached = true;
+      lifecycle += 1;
+      cancelHistory();
+      historyKey = undefined;
       gate.reset();
       motionEstimator.reset();
       onMotionUpdate?.(new Map());
@@ -176,6 +257,7 @@ export function createAisVectorsOverlay(
       }
     },
     sync(ctx) {
+      bootstrapSelectedHistory(ctx);
       const contacts = assessment().contacts;
       let severitiesChanged = false;
       if (contacts !== lastContacts) {
@@ -187,17 +269,9 @@ export function createAisVectorsOverlay(
         }
       }
       if (!gate.shouldRefresh(severitiesChanged)) return;
-      const targetList = targets.list();
-      const motionById = motionEstimator.update(targetList, now());
-      onMotionUpdate?.(motionById);
-      // A hidden vector layer still maintains the estimator for the AIS detail panel, but avoids
-      // rebuilding GeoJSON or touching MapLibre until it becomes visible again.
-      if (!visible) return;
-      setSourceData(
-        ctx.map,
-        SOURCE_ID,
-        featureCollection(buildFeatures(targetList, severityById, motionById)),
-      );
+      // A hidden vector layer still maintains the estimator for the AIS detail panel, while publish
+      // avoids rebuilding GeoJSON or touching MapLibre until it becomes visible again.
+      publish(ctx);
     },
     // Guarded on getLayer: a theme or opacity change can land before add() attaches the layer, and
     // setPaintProperty throws on a missing one. The LayerManager re-applies both once add() resolves.
@@ -227,6 +301,10 @@ export function createAisVectorsOverlay(
       }
     },
     remove(ctx) {
+      attached = false;
+      lifecycle += 1;
+      cancelHistory();
+      historyKey = undefined;
       onMotionUpdate?.(new Map());
       removeLayersAndSources(ctx.map, [LAYER_ID, REPORTED_LAYER_ID], [SOURCE_ID]);
     },

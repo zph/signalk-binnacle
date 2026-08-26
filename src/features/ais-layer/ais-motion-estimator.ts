@@ -3,6 +3,10 @@ import { DEG_TO_RAD } from '$shared/lib';
 import { METERS_PER_DEG, normalizeLonDeltaDeg } from '$shared/nav';
 
 const OBSERVATION_WINDOW_MS = 60_000;
+// Five-second history buckets rarely land on both exact ends of a rolling minute. Accepting 55
+// seconds preserves the live estimator's minute cadence while allowing a recent history query to
+// qualify immediately.
+const MIN_OBSERVATION_SPAN_MS = 55_000;
 const MAX_SAMPLE_GAP_MS = 45_000;
 const MIN_SAMPLES = 4;
 const MIN_COURSE_SPEED_MPS = 0.5;
@@ -12,7 +16,7 @@ const MIN_COURSE_DIFFERENCE_RAD = 15 * DEG_TO_RAD;
 const MIN_RESIDUAL_TOLERANCE_METERS = 15;
 const RESIDUAL_TRAVEL_RATIO = 0.25;
 
-interface PositionSample {
+export interface AisPositionSample {
   at: number;
   latitude: number;
   longitude: number;
@@ -20,7 +24,7 @@ interface PositionSample {
 
 interface TargetHistory {
   lastView?: AisTargetView;
-  samples: PositionSample[];
+  samples: AisPositionSample[];
 }
 
 export interface AisMotion {
@@ -29,12 +33,14 @@ export interface AisMotion {
 }
 
 export interface AisMotionSelection {
-  primary: AisMotion;
-  basis: 'reported' | 'observed';
+  primary?: AisMotion;
+  basis?: 'reported' | 'observed';
   // The qualified position-derived motion, retained even when it agrees with the AIS report and
   // therefore does not replace the reported projection.
   observed?: AisMotion;
   reportedComparison?: AisMotion;
+  sampleCount: number;
+  newestSampleAt?: number;
 }
 
 function reportedMotion(target: AisTargetView): AisMotion | undefined {
@@ -81,11 +87,11 @@ function linearSlope(values: number[], times: number[], meanTime: number): numbe
   return denominator > 0 ? numerator / denominator : 0;
 }
 
-function observedMotion(samples: PositionSample[]): AisMotion | undefined {
+function observedMotion(samples: AisPositionSample[]): AisMotion | undefined {
   if (samples.length < MIN_SAMPLES) return undefined;
   const first = samples[0];
   const last = samples.at(-1);
-  if (!last || last.at - first.at < OBSERVATION_WINDOW_MS) return undefined;
+  if (!last || last.at - first.at < MIN_OBSERVATION_SPAN_MS) return undefined;
   for (let i = 1; i < samples.length; i += 1) {
     if (samples[i].at - samples[i - 1].at > MAX_SAMPLE_GAP_MS) return undefined;
   }
@@ -129,6 +135,30 @@ export class AisMotionEstimator {
     this.#history.clear();
   }
 
+  seed(id: string, samples: readonly AisPositionSample[], now: number): void {
+    const history = this.#history.get(id) ?? { samples: [] };
+    const byTimestamp = new Map<number, AisPositionSample>();
+    for (const sample of [...samples, ...history.samples]) {
+      if (
+        !Number.isFinite(sample.at) ||
+        sample.at > now ||
+        now - sample.at > OBSERVATION_WINDOW_MS ||
+        !Number.isFinite(sample.latitude) ||
+        sample.latitude < -90 ||
+        sample.latitude > 90 ||
+        !Number.isFinite(sample.longitude) ||
+        sample.longitude < -180 ||
+        sample.longitude > 180
+      ) {
+        continue;
+      }
+      // Existing live samples follow the history samples in the merge and win at equal timestamps.
+      byTimestamp.set(sample.at, sample);
+    }
+    history.samples = [...byTimestamp.values()].sort((a, b) => a.at - b.at);
+    this.#history.set(id, history);
+  }
+
   update(targets: AisTargetView[], now: number): Map<string, AisMotionSelection> {
     const selections = new Map<string, AisMotionSelection>();
     const activeIds = new Set<string>();
@@ -158,15 +188,27 @@ export class AisMotionEstimator {
 
       const reported = reportedMotion(target);
       const observed = observedMotion(history.samples);
+      const sampleCount = history.samples.length;
+      const newestSampleAt = history.samples.at(-1)?.at;
       if (observed && (!reported || materiallyDifferent(reported, observed))) {
         selections.set(target.id, {
           primary: observed,
           basis: 'observed',
           observed,
           reportedComparison: reported,
+          sampleCount,
+          newestSampleAt,
         });
       } else if (reported) {
-        selections.set(target.id, { primary: reported, basis: 'reported', observed });
+        selections.set(target.id, {
+          primary: reported,
+          basis: 'reported',
+          observed,
+          sampleCount,
+          newestSampleAt,
+        });
+      } else {
+        selections.set(target.id, { sampleCount, newestSampleAt });
       }
     }
     for (const id of this.#history.keys()) {

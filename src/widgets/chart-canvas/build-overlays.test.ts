@@ -195,6 +195,12 @@ describe('buildDynamicOverlays', () => {
       expect.any(Function),
       Date.now,
       deps.onAisMotionUpdate,
+      {
+        origin: deps.origin,
+        getToken: deps.getToken,
+        providers: deps.historyProviders,
+        selectedId: deps.selectedAisId,
+      },
     );
     const collisionAssessment = factories.createAisVectorsOverlay.mock.calls[0]?.[1];
     expect(collisionAssessment?.()).toBe(deps.collision.assessment);

@@ -29,6 +29,8 @@ interface Props {
   units: UnitsStore;
   connectionPhase: ConnectionPhase;
   calculatedSogMps?: number;
+  calculatedSampleCount?: number;
+  newestCalculatedSampleAt?: number;
   selectedId?: string;
   onSelect: (id: string | undefined) => void;
   // Fly the chart to a tapped target.
@@ -45,6 +47,8 @@ const {
   units,
   connectionPhase,
   calculatedSogMps,
+  calculatedSampleCount,
+  newestCalculatedSampleAt,
   selectedId,
   onSelect,
   onLocate,
@@ -131,6 +135,9 @@ $effect(() => {
       {units}
       {connectionPhase}
       {calculatedSogMps}
+      {calculatedSampleCount}
+      {newestCalculatedSampleAt}
+      sampleNow={clock.now}
       onBack={() => onSelect(undefined)}
       {onLocate}
     />

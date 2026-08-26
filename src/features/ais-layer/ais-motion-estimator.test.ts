@@ -43,7 +43,12 @@ describe('AisMotionEstimator', () => {
         .get('target-1');
     }
 
-    expect(selection).toEqual({ primary: { cogRad: 0, sogMps: 5 }, basis: 'reported' });
+    expect(selection).toEqual({
+      primary: { cogRad: 0, sogMps: 5 },
+      basis: 'reported',
+      sampleCount: 6,
+      newestSampleAt: 50_000,
+    });
   });
 
   it('prefers sustained observed motion and retains reported motion for comparison', () => {
@@ -162,6 +167,61 @@ describe('AisMotionEstimator', () => {
     expect(selection?.primary.cogRad).toBeCloseTo(Math.PI / 2, 2);
     expect(selection?.observed?.sogMps).toBeCloseTo(8, 1);
     expect(selection?.reportedComparison).toBeUndefined();
+  });
+
+  it('merges recent history so observed motion is available without waiting a minute', () => {
+    const estimator = new AisMotionEstimator();
+    const origin = { latitude: 10, longitude: 20 };
+    const now = 60_000;
+    estimator.update([target(positionAfter(origin, Math.PI / 2, 8, 60))], now);
+    estimator.seed(
+      'target-1',
+      Array.from({ length: 12 }, (_, index) => {
+        const seconds = index * 5;
+        return {
+          at: seconds * 1000,
+          ...positionAfter(origin, Math.PI / 2, 8, seconds),
+        };
+      }),
+      now,
+    );
+
+    const selection = estimator
+      .update([target(positionAfter(origin, Math.PI / 2, 8, 60))], now)
+      .get('target-1');
+    expect(selection?.basis).toBe('observed');
+    expect(selection?.observed?.sogMps).toBeCloseTo(8, 1);
+    expect(selection?.sampleCount).toBe(13);
+    expect(selection?.newestSampleAt).toBe(now);
+  });
+
+  it('ignores malformed, future, and stale seed samples', () => {
+    const estimator = new AisMotionEstimator();
+    estimator.seed(
+      'target-1',
+      [
+        { at: 39_999, latitude: 10, longitude: 20 },
+        { at: 100_001, latitude: 10, longitude: 20 },
+        { at: 100_000, latitude: 91, longitude: 20 },
+      ],
+      100_000,
+    );
+    const selection = estimator
+      .update([target({ latitude: 10, longitude: 20 })], 100_000)
+      .get('target-1');
+    expect(selection?.sampleCount).toBe(1);
+    expect(selection?.newestSampleAt).toBe(100_000);
+  });
+
+  it('reports sample evidence before a target has usable motion', () => {
+    const estimator = new AisMotionEstimator();
+    const selection = estimator
+      .update(
+        [target({ latitude: 10, longitude: 20 }, { cogRad: undefined, sogMps: undefined })],
+        0,
+      )
+      .get('target-1');
+    expect(selection).toEqual({ sampleCount: 1, newestSampleAt: 0 });
   });
 
   it('forgets removed targets and starts their history over', () => {

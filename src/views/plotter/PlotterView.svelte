@@ -1421,6 +1421,12 @@ $effect(() => {
               calculatedSogMps={selectedAisId
                 ? aisMotionById.get(selectedAisId)?.observed?.sogMps
                 : undefined}
+              calculatedSampleCount={selectedAisId
+                ? aisMotionById.get(selectedAisId)?.sampleCount
+                : undefined}
+              newestCalculatedSampleAt={selectedAisId
+                ? aisMotionById.get(selectedAisId)?.newestSampleAt
+                : undefined}
               selectedId={selectedAisId}
               onSelect={onAisSelect}
               connectionPhase={store.connection.phase}

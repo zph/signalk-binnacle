@@ -132,7 +132,12 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     }),
     notesOverlay,
     createAisTrailsOverlay(origin, getToken, aisTrailsAvailable, () => store.selfContext),
-    createAisVectorsOverlay(aisTargets, () => collision.assessment, Date.now, onAisMotionUpdate),
+    createAisVectorsOverlay(aisTargets, () => collision.assessment, Date.now, onAisMotionUpdate, {
+      origin,
+      getToken,
+      providers: historyProviders,
+      selectedId: selectedAisId ?? (() => undefined),
+    }),
     createAisOverlay(aisTargets, {
       assessment: () => collision.assessment,
       onSelect: onAisSelect,

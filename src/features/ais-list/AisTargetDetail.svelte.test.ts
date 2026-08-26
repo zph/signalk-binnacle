@@ -28,6 +28,9 @@ function detail(
       units: new UnitsStore(),
       connectionPhase,
       calculatedSogMps: 6,
+      calculatedSampleCount: 13,
+      newestCalculatedSampleAt: Date.parse('2026-08-26T12:00:55Z'),
+      sampleNow: Date.parse('2026-08-26T12:01:00Z'),
       onBack: vi.fn(),
       onLocate: vi.fn(),
     },
@@ -41,6 +44,10 @@ describe('AisTargetDetail', () => {
     expect(html).toContain('11.7 kn');
     expect(html).toContain('Reported speed over ground');
     expect(html).toContain('7.8 kn');
+    expect(html).toContain('Calculated position samples');
+    expect(html).toContain('13');
+    expect(html).toContain('Newest position sample');
+    expect(html).toContain('5 s ago');
   });
 
   // The banner is server-raised safety state, not a response to anything the navigator did in this

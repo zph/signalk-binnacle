@@ -25,11 +25,32 @@ interface Props {
   units: UnitsStore;
   connectionPhase: ConnectionPhase;
   calculatedSogMps?: number;
+  calculatedSampleCount?: number;
+  newestCalculatedSampleAt?: number;
+  sampleNow: number;
   onBack: () => void;
   onLocate: (position: LatLon) => void;
 }
 
-const { row, units, connectionPhase, calculatedSogMps, onBack, onLocate }: Props = $props();
+const {
+  row,
+  units,
+  connectionPhase,
+  calculatedSogMps,
+  calculatedSampleCount,
+  newestCalculatedSampleAt,
+  sampleNow,
+  onBack,
+  onLocate,
+}: Props = $props();
+
+function sampleAge(at: number | undefined, now: number): string {
+  if (at === undefined || !Number.isFinite(at)) return '--';
+  const seconds = Math.max(0, Math.floor((now - at) / 1000));
+  if (seconds < 60) return `${seconds} s ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes} ${minutes === 1 ? 'min' : 'mins'} ago`;
+}
 </script>
 
 <SubViewHeader title={row.label} backLabel="Back to nearby vessels" {onBack} />
@@ -79,6 +100,14 @@ const { row, units, connectionPhase, calculatedSogMps, onBack, onLocate }: Props
     <div class="item">
       <dt>Calculated speed over ground</dt>
       <dd>{formatKnotsOr(calculatedSogMps)} kn</dd>
+    </div>
+    <div class="item">
+      <dt>Calculated position samples</dt>
+      <dd>{calculatedSampleCount ?? 0}</dd>
+    </div>
+    <div class="item">
+      <dt>Newest position sample</dt>
+      <dd>{sampleAge(newestCalculatedSampleAt, sampleNow)}</dd>
     </div>
     <div class="item">
       <dt>Reported speed over ground</dt>

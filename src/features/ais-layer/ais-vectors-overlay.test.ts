@@ -34,6 +34,21 @@ function movingTarget(overrides: Partial<AisTargetView> = {}): AisTargetView {
   };
 }
 
+function positionAfter(
+  origin: AisTargetView['position'],
+  cogRad: number,
+  sogMps: number,
+  seconds: number,
+): AisTargetView['position'] {
+  const [longitude, latitude] = geodesicDestination(
+    origin.latitude,
+    origin.longitude,
+    cogRad,
+    sogMps * seconds,
+  );
+  return { latitude, longitude };
+}
+
 describe('geodesicDestination', () => {
   it('heading due north 111320 m lands near lat 1 from the equator', () => {
     const [lon, lat] = geodesicDestination(0, 0, 0, 111_320);
@@ -135,6 +150,7 @@ describe('createAisVectorsOverlay', () => {
     let version = 1;
     return {
       list: () => list,
+      find: (id: string) => list.find((target) => target.id === id),
       get version() {
         return version;
       },
@@ -243,6 +259,56 @@ describe('createAisVectorsOverlay', () => {
     expect(map.layers.get(REPORTED_LAYER_ID)?.paint).toMatchObject({
       'line-dasharray': [2, 2],
     });
+  });
+
+  it('seeds the selected target from history and publishes calculated motion immediately', async () => {
+    const now = 60_000;
+    const origin = { latitude: 10, longitude: 20 };
+    const current = positionAfter(origin, Math.PI / 2, 8, 60);
+    const targets = makeTargets([movingTarget({ position: current })]);
+    const onMotionUpdate = vi.fn();
+    const fetchHistory = vi.fn(async () =>
+      Array.from({ length: 12 }, (_, index) => {
+        const seconds = index * 5;
+        return {
+          at: seconds * 1000,
+          ...positionAfter(origin, Math.PI / 2, 8, seconds),
+        };
+      }),
+    );
+    const overlay = createAisVectorsOverlay(
+      targets as never,
+      emptyAssessment,
+      () => now,
+      onMotionUpdate,
+      {
+        origin: 'http://boat.local',
+        getToken: () => 'token',
+        providers: () => ({ ids: ['signalk-questdb'] }),
+        selectedId: () => 'target-1',
+        fetchHistory,
+      },
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    overlay.sync(ctx);
+
+    await vi.waitFor(() => {
+      expect(onMotionUpdate.mock.calls.at(-1)?.[0].get('target-1')?.basis).toBe('observed');
+    });
+    expect(fetchHistory).toHaveBeenCalledOnce();
+    expect(fetchHistory).toHaveBeenCalledWith(
+      'http://boat.local',
+      'token',
+      { ids: ['signalk-questdb'] },
+      'target-1',
+      now,
+      expect.any(AbortSignal),
+    );
+    const selection = onMotionUpdate.mock.calls.at(-1)?.[0].get('target-1');
+    expect(selection?.sampleCount).toBe(13);
+    expect(selection?.newestSampleAt).toBe(now);
   });
 
   it('sync skips rebuild when version and contacts are unchanged', async () => {

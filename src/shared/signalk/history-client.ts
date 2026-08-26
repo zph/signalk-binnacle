@@ -12,6 +12,7 @@ const HISTORY_API = '/signalk/v2/api/history';
 export const MAX_HISTORY_PROVIDERS = 8;
 export const MAX_HISTORY_CATALOG_PATHS = 2_000;
 const MAX_HISTORY_PATH_LENGTH = 512;
+const MAX_HISTORY_CONTEXT_LENGTH = 512;
 export const MAX_HISTORY_QUERY_PATHS = 100;
 const MAX_HISTORY_ROWS = 100_000;
 const MAX_HISTORY_DURATION_SECONDS = 366 * 24 * 60 * 60;
@@ -29,6 +30,15 @@ function safeHistoryPath(path: unknown): path is string {
     path.length <= MAX_HISTORY_PATH_LENGTH &&
     !path.includes(',') &&
     !hasControlCharacters(path)
+  );
+}
+
+function safeHistoryContext(context: string | undefined): boolean {
+  return (
+    context === undefined ||
+    (context.length > 0 &&
+      context.length <= MAX_HISTORY_CONTEXT_LENGTH &&
+      !hasControlCharacters(context))
   );
 }
 
@@ -81,6 +91,8 @@ export interface HistoryQuery {
   durationSeconds: number;
   resolutionSeconds?: number;
   provider?: string;
+  // Signal K context to query. The server defaults to vessels.self when this is omitted.
+  context?: string;
   signal?: AbortSignal;
 }
 
@@ -119,6 +131,7 @@ export async function fetchHistoryValues(
     !safeQueryPaths(query.paths) ||
     !safeDuration(query.durationSeconds) ||
     !safeProviderId(query.provider) ||
+    !safeHistoryContext(query.context) ||
     (query.resolutionSeconds !== undefined &&
       (!Number.isSafeInteger(query.resolutionSeconds) ||
         query.resolutionSeconds <= 0 ||
@@ -134,6 +147,7 @@ export async function fetchHistoryValues(
     params.set('resolution', String(query.resolutionSeconds));
   }
   if (query.provider) params.set('provider', query.provider);
+  if (query.context) params.set('context', query.context);
   const body = await fetchJsonOrUndefined<{
     range?: unknown;
     values?: unknown;

@@ -28,6 +28,8 @@ function mountPanel(options: {
   contacts?: DangerContact[];
   selectedId?: string;
   calculatedSogMps?: number;
+  calculatedSampleCount?: number;
+  newestCalculatedSampleAt?: number;
   connectionPhase?: ConnectionPhase;
   noOwnPosition?: boolean;
 }) {
@@ -56,6 +58,8 @@ function mountPanel(options: {
         connectionPhase: options.connectionPhase ?? 'open',
         selectedId: options.selectedId,
         calculatedSogMps: options.calculatedSogMps,
+        calculatedSampleCount: options.calculatedSampleCount,
+        newestCalculatedSampleAt: options.newestCalculatedSampleAt,
         onSelect,
         onLocate,
         onClose,
@@ -155,6 +159,8 @@ describe('AisListPanel interactions', () => {
     const panel = mountPanel({
       selectedId: id,
       calculatedSogMps: 6,
+      calculatedSampleCount: 13,
+      newestCalculatedSampleAt: Date.now() - 5_000,
       targets: {
         [id]: {
           name: 'FREIGHTER',
@@ -170,6 +176,8 @@ describe('AisListPanel interactions', () => {
     const detail = panel.target.textContent?.replace(/\s+/g, ' ');
     expect(detail).toContain('Calculated speed over ground 11.7 kn');
     expect(detail).toContain('Reported speed over ground 7.8 kn');
+    expect(detail).toContain('Calculated position samples 13');
+    expect(detail).toMatch(/Newest position sample [45] s ago/);
     panel.button('Show on chart').click();
     expect(panel.onLocate).toHaveBeenCalledWith({ latitude: 42.01, longitude: -83 });
     panel.target

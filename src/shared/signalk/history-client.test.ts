@@ -105,6 +105,20 @@ describe('fetchHistoryValues', () => {
     expect(url).toContain('resolution=300');
   });
 
+  it('adds an encoded Signal K context to a values query', async () => {
+    const mock = stubFetch({
+      ok: true,
+      body: { range: RANGE, values: [{ path: 'navigation.position' }], data: [] },
+    });
+    await fetchHistoryValues(BASE, undefined, {
+      paths: ['navigation.position'],
+      durationSeconds: 60,
+      context: 'vessels.urn:mrn:imo:mmsi:111111111',
+    });
+    const url = new URL(String(mock.mock.calls[0][0]));
+    expect(url.searchParams.get('context')).toBe('vessels.urn:mrn:imo:mmsi:111111111');
+  });
+
   it('returns undefined on a 501 no-provider answer or a transport failure', async () => {
     stubFetch({ ok: false, status: 501 });
     await expect(
@@ -136,6 +150,13 @@ describe('fetchHistoryValues', () => {
         paths: ['navigation.position'],
         durationSeconds: 60,
         provider: 'bad\u0000provider',
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      fetchHistoryValues(BASE, undefined, {
+        paths: ['navigation.position'],
+        durationSeconds: 60,
+        context: 'vessels.bad\u0000context',
       }),
     ).resolves.toBeUndefined();
     expect(mock).not.toHaveBeenCalled();
