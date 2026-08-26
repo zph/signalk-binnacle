@@ -106,6 +106,24 @@ describe('chart overlay', () => {
     expect(overlay.chart?.kind).toBe('vector');
   });
 
+  it('honors a provider default while leaving normal charts visible by default', () => {
+    const hidden = createChartOverlay(
+      {
+        identifier: 'optional',
+        name: 'Optional cells',
+        type: 'S-57',
+        defaultVisible: false,
+      },
+      'http://pi.local',
+    );
+    const ordinary = createChartOverlay(
+      { identifier: 'ordinary', name: 'Ordinary', type: 'tilelayer' },
+      'http://pi.local',
+    );
+    expect(hidden.defaultVisible).toBe(false);
+    expect(ordinary.defaultVisible).toBeUndefined();
+  });
+
   it('remove deletes the layer and source', async () => {
     const overlay = createChartOverlay(
       { identifier: 'noaa', name: 'NOAA', type: 'tilelayer', tilemapUrl: '/t/{z}/{x}/{y}' },
@@ -279,6 +297,47 @@ describe('chart overlay', () => {
     overlay.setOpacity?.(ctx, 0.8);
     expect(lastOpacity('chart-california-enc-depare-shallow', 'fill-opacity')).toBeCloseTo(0.2);
     expect(lastOpacity('chart-california-enc-soundg-label', 'text-opacity')).toBeCloseTo(0.8);
+  });
+
+  it('reports a clicked S-57 depth cell and detaches its handlers on remove', async () => {
+    const onFeatureSelect = vi.fn();
+    const overlay = createChartOverlay(s57Chart(), 'http://pi.local', 'basemap', undefined, {
+      onFeatureSelect,
+    });
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    const layerId = 'chart-california-enc-depare-shallow';
+    expect(map.handlerCount('click', layerId)).toBe(1);
+
+    map.emitLayer('click', layerId, {
+      type: 'click',
+      target: map,
+      point: { x: 120, y: 90 },
+      lngLat: { lng: -122.4, lat: 37.8 },
+      features: [
+        {
+          sourceLayer: 'DEPARE',
+          properties: { BATHY_DEPTH_M: 4.2, BATHY_CONFIDENCE: 0.75 },
+        },
+      ],
+    });
+
+    expect(onFeatureSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chartIdentifier: 'california-enc',
+        chartTitle: 'NOAA ENC California',
+        sourceLayer: 'DEPARE',
+        x: 120,
+        y: 90,
+        longitude: -122.4,
+        latitude: 37.8,
+        properties: { BATHY_DEPTH_M: 4.2, BATHY_CONFIDENCE: 0.75 },
+      }),
+    );
+
+    overlay.remove(ctx);
+    expect(map.handlerCount('click', layerId)).toBe(0);
   });
 
   it('registers a PMTiles archive on add and unregisters it on remove', async () => {

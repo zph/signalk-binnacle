@@ -42,7 +42,24 @@ function join(...parts: ReadonlyArray<ReadonlyArray<number>>): Uint8Array {
 }
 
 function encDepthAreaTile(): Uint8Array {
-  const value = join(doubleField(3, 4));
+  const values = [
+    join(doubleField(3, 4)),
+    join(stringField(1, 'signalk-bathymetry')),
+    join(doubleField(3, 4)),
+    join(doubleField(3, 0.72)),
+    join(doubleField(3, 0.35)),
+    join(doubleField(3, 3)),
+    join(stringField(1, 'single_pass|sparse_neighbors')),
+  ];
+  const keys = [
+    'DRVAL1',
+    'BATHYMETRY_PROVIDER',
+    'BATHY_DEPTH_M',
+    'BATHY_CONFIDENCE',
+    'BATHY_VERTICAL_SIGMA_M',
+    'BATHY_OBSERVATION_COUNT',
+    'BATHY_CONFIDENCE_REASONS',
+  ];
   const geometry = join(
     varint(9),
     varint(0),
@@ -58,15 +75,15 @@ function encDepthAreaTile(): Uint8Array {
   );
   const feature = join(
     varintField(1, 1),
-    bytesField(2, join(varint(0), varint(0))),
+    bytesField(2, join(...keys.flatMap((_, index) => [varint(index), varint(index)]))),
     varintField(3, 3),
     bytesField(4, geometry),
   );
   const layer = join(
     stringField(1, 'DEPARE'),
     bytesField(2, feature),
-    stringField(3, 'DRVAL1'),
-    bytesField(4, value),
+    ...keys.map((key) => stringField(3, key)),
+    ...values.map((value) => bytesField(4, value)),
     varintField(5, 4096),
     varintField(15, 2),
   );
@@ -136,6 +153,18 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     const canvasBeforeTile = await canvas.screenshot();
     releaseTiles();
     await expect.poll(async () => !(await canvas.screenshot()).equals(canvasBeforeTile)).toBe(true);
+
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('Map canvas has no bounds');
+    await canvas.click({ position: { x: canvasBox.width / 2, y: canvasBox.height / 2 } });
+    const cellDetails = page.getByRole('dialog', { name: 'Local bathymetry cell details' });
+    await expect(cellDetails).toBeVisible();
+    await expect(cellDetails).toContainText('4.0 m');
+    await expect(cellDetails).toContainText('Moderate evidence (72%)');
+    await expect(cellDetails).toContainText('Observations');
+    await expect(cellDetails).toContainText('Quality limits: Single Pass, Sparse Neighbors.');
+    await cellDetails.getByRole('button', { name: 'Close cell details' }).click();
+    await expect(cellDetails).toBeHidden();
 
     await openMenuItem(page, 'Layers and charts');
     const row = page.locator(`#layers-panel [data-layer-row="chart-${CHART_ID}"]`);

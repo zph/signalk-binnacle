@@ -15,4 +15,5 @@ export interface SignalKChart {
   url?: string;
   tilemapUrl?: string;
   layers?: string[];
+  defaultVisible?: boolean;
 }

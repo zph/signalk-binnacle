@@ -157,4 +157,30 @@ describe('fetchCharts', () => {
       },
     ]);
   });
+
+  it('retains an optional chart provider default visibility without coercing other values', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        jsonResponse(200, {
+          hidden: {
+            name: 'Interactive bathymetry cells',
+            type: 'S-57',
+            defaultVisible: false,
+          },
+          ordinary: { name: 'Ordinary chart', type: 'tilelayer', defaultVisible: 'false' },
+        }),
+      ),
+    );
+
+    expect(await fetchCharts('http://pi.local')).toEqual([
+      {
+        identifier: 'hidden',
+        name: 'Interactive bathymetry cells',
+        type: 'S-57',
+        defaultVisible: false,
+      },
+      { identifier: 'ordinary', name: 'Ordinary chart', type: 'tilelayer' },
+    ]);
+  });
 });

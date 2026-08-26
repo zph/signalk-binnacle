@@ -64,6 +64,7 @@ function chartFromEntry(id: string, raw: unknown): SignalKChart | undefined {
   if (format) chart.format = format;
   if (url) chart.url = url;
   if (tilemapUrl) chart.tilemapUrl = tilemapUrl;
+  if (typeof raw.defaultVisible === 'boolean') chart.defaultVisible = raw.defaultVisible;
   if (isFiniteNumber(raw.scale) && raw.scale > 0) chart.scale = raw.scale;
   const canonicalLayers =
     Array.isArray(raw.layers) && raw.layers.length > 0 ? raw.layers : undefined;

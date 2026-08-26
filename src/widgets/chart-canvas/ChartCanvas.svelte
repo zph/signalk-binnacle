@@ -46,6 +46,7 @@ import type { LatLon } from '$shared/geo';
 import { createRetryableLazyUiLoader, lengthUnit } from '$shared/lib';
 import {
   activeLayerHitCursor,
+  type ChartFeatureSelection,
   CONTEXT_MENU_KEYSHORTCUTS,
   chartSourceId,
   createBaseMapOverlay,
@@ -77,6 +78,9 @@ import { CRITICAL_OVERLAY_IDS } from './critical-overlays';
 import VesselOffScreenIndicator from './VesselOffScreenIndicator.svelte';
 
 const loadRouteEditorModule = createRetryableLazyUiLoader(() => import('$features/route-edit'));
+const loadChartFeatureInfo = createRetryableLazyUiLoader(
+  () => import('$features/chart-feature-info'),
+);
 
 interface Props {
   store: SignalKStore;
@@ -279,6 +283,9 @@ const markerInteractionsAllowed = (): boolean =>
   !routeStore.working &&
   !radarPlacementDispatch &&
   !marineRadarLayer?.chartEditing();
+const selectChartFeature = (selection: ChartFeatureSelection): void => {
+  if (markerInteractionsAllowed()) chartFeature = selection;
+};
 // The registered Measure overlay also owns its generous vertex hit surface and deliberate drag
 // lifecycle. The chart click dispatcher consults it before deciding that a tap adds a new point.
 let measureOverlay: MeasureOverlay | undefined;
@@ -320,6 +327,7 @@ let commandsRef = $state<MapCommands | undefined>();
 let chartMenu = $state<
   { x: number; y: number; lat: number; lon: number; width: number; height: number } | undefined
 >();
+let chartFeature = $state<ChartFeatureSelection | undefined>();
 const CONTEXT_HINT_KEY = binnacleStorageKey('chartActionsHint');
 let showContextHint = $state(false);
 // The touch hint below is shown to coarse pointers only, and a right click advertises itself to
@@ -458,12 +466,16 @@ onMount(async () => {
       // wheel, keyboard, the zoom control) and leaves it unset for a programmatic camera call, and
       // follow mode recenters on every fix, which would otherwise close the menu within one fix.
       map.on('movestart', (e) => {
-        if (e.originalEvent) chartMenu = undefined;
+        if (e.originalEvent) {
+          chartMenu = undefined;
+          chartFeature = undefined;
+        }
       });
       // One mouse-or-touch tap handler gives the active chart tool one outcome per gesture. Measure
       // resolves a generous vertex hit before an empty-water add, and it suppresses the trailing
       // event that follows a completed drag.
       const handleChartTap = (e: MapTapEvent): void => {
+        chartFeature = undefined;
         if (marineRadarLayer?.chartEditing()) {
           radarPlacementDispatch = true;
           queueMicrotask(() => {
@@ -730,6 +742,8 @@ onMount(async () => {
         const results = await mgr.registerBatch(
           wanted.map((chart) =>
             createChartOverlay(chart, origin, 'basemap', () => chartsToken, {
+              onFeatureSelect: selectChartFeature,
+              interactionsAllowed: markerInteractionsAllowed,
               s57Style: {
                 safetyDepth:
                   thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
@@ -797,6 +811,8 @@ onMount(async () => {
             await mgr.register(
               createChartOverlay(chart, origin, 'bathymetry', () => chartsToken, {
                 source: 'user',
+                onFeatureSelect: selectChartFeature,
+                interactionsAllowed: markerInteractionsAllowed,
                 s57Style: {
                   safetyDepth:
                     thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
@@ -817,6 +833,8 @@ onMount(async () => {
             await mgr.replace(
               createChartOverlay(chart, origin, 'bathymetry', () => chartsToken, {
                 source: 'user',
+                onFeatureSelect: selectChartFeature,
+                interactionsAllowed: markerInteractionsAllowed,
                 s57Style: {
                   safetyDepth:
                     thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
@@ -964,6 +982,29 @@ onDestroy(() => {
       }}
     />
   {/if}
+  {#if chartFeature}
+    {#await loadChartFeatureInfo()}
+      <div class="chart-feature-loading popover-card" role="status">Loading cell details…</div>
+    {:then module}
+      <module.ChartFeaturePopup
+        selection={chartFeature}
+        {units}
+        onClose={() => {
+          chartFeature = undefined;
+        }}
+      />
+    {:catch}
+      <button
+        type="button"
+        class="chart-feature-error popover-card"
+        onclick={() => {
+          chartFeature = undefined;
+        }}
+      >
+        Cell details could not load. Tap to close.
+      </button>
+    {/await}
+  {/if}
 </div>
 
 <style>
@@ -998,6 +1039,26 @@ onDestroy(() => {
   max-inline-size: calc(100% - 2 * var(--space-4));
   padding: var(--space-1) var(--space-2);
   transform: translateX(-50%);
+  font-size: var(--text-sm);
+}
+
+.chart-feature-error,
+.chart-feature-loading {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-start: 50%;
+  z-index: var(--z-menu);
+  min-block-size: var(--control-size);
+  padding: var(--space-2) var(--space-3);
+  transform: translateX(-50%);
+}
+
+.chart-feature-error {
+  color: var(--alarm);
+}
+
+.chart-feature-loading {
+  color: var(--text-muted);
   font-size: var(--text-sm);
 }
 </style>

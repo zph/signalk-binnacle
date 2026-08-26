@@ -7,6 +7,7 @@ import {
   THEME_PAINT_KEY,
 } from './chart-adapter';
 import type { SignalKChart } from './chart-types';
+import { createLayerHitHandlers, type LayerHitEvent } from './layer-hit-handlers';
 import { applyRasterTheme, colorProperty, DAY_PAINT, type MapColorKey } from './map-theme';
 import { removeLayersAndSources, setLayersVisibility, setPaintProp } from './overlay-helpers';
 import { registerPmtilesArchive, unregisterPmtilesArchive } from './pmtiles';
@@ -19,6 +20,19 @@ import {
 } from './s57-chart-style';
 import { registerS57Symbols } from './s57-symbols';
 import type { ChartLayerInfo, OverlayFacet, OverlayModule, ZBand } from './types';
+
+export interface ChartFeatureSelection {
+  chartIdentifier: string;
+  chartTitle: string;
+  sourceLayer: string;
+  properties: Record<string, unknown>;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  longitude: number;
+  latitude: number;
+}
 
 // How far past a raster or generic chart's native max zoom its layers keep drawing before they hand
 // off to the base map. S-57 ENC is deliberately exempt: MapLibre can overzoom its last vector tile
@@ -96,7 +110,12 @@ export function createChartOverlay(
   serverBase: string,
   band: ZBand = 'basemap',
   getToken?: () => string | undefined,
-  options: { source?: ChartLayerInfo['source']; s57Style?: S57StyleOptions } = {},
+  options: {
+    source?: ChartLayerInfo['source'];
+    s57Style?: S57StyleOptions;
+    onFeatureSelect?: (selection: ChartFeatureSelection) => void;
+    interactionsAllowed?: () => boolean;
+  } = {},
 ): OverlayModule {
   const source = options.source ?? 'server';
   if (chart.type === 'mapstyleJSON') {
@@ -123,6 +142,10 @@ export function createChartOverlay(
     };
   });
   const layerIds = layers.map((layer) => layer.id);
+  const inspectableLayerIds = specs.layers.flatMap((layer) => {
+    const sourceLayer = (layer as { 'source-layer'?: string })['source-layer'];
+    return sourceLayer === 'DEPARE' || sourceLayer === 'SOUNDG' ? [layer.id] : [];
+  });
   const chartId = chartSourceId(chart.identifier);
   const chartSource = sourceIds[0];
   // The bare http urls of this chart's PMTiles archives, registered with the protocol on add and
@@ -203,6 +226,31 @@ export function createChartOverlay(
       })
     : [];
   let symbolGeneration = 0;
+  const hitHandlers =
+    isS57 && options.onFeatureSelect && inspectableLayerIds.length > 0
+      ? createLayerHitHandlers(
+          inspectableLayerIds,
+          (event: LayerHitEvent): boolean => {
+            const feature = event.features?.[0];
+            const sourceLayer = feature?.sourceLayer;
+            if (!feature || !sourceLayer) return false;
+            options.onFeatureSelect?.({
+              chartIdentifier: chart.identifier,
+              chartTitle: chart.name,
+              sourceLayer,
+              properties: { ...(feature.properties ?? {}) },
+              x: event.point.x,
+              y: event.point.y,
+              width: event.target.getCanvas().clientWidth,
+              height: event.target.getCanvas().clientHeight,
+              longitude: event.lngLat.lng,
+              latitude: event.lngLat.lat,
+            });
+            return true;
+          },
+          { band, interactionsAllowed: options.interactionsAllowed },
+        )
+      : undefined;
 
   // The native max zoom lives in the source's TileJSON, which a PMTiles archive reports
   // only once it has loaded, so this is applied after the source is loaded. Each layer's
@@ -227,6 +275,7 @@ export function createChartOverlay(
     title: chart.name,
     description,
     band,
+    defaultVisible: chart.defaultVisible,
     supportsOpacity: true,
     layerIds,
     facets,
@@ -261,6 +310,7 @@ export function createChartOverlay(
           ctx.map.addLayer(layer, ctx.beforeIdFor(band));
         }
       }
+      hitHandlers?.attach(ctx);
       // A malformed or future source-free chart has nothing to cap, so skip the listener instead
       // of waiting forever on an undefined source id.
       if (!chartSource) return;
@@ -295,6 +345,7 @@ export function createChartOverlay(
     },
     remove(ctx) {
       symbolGeneration += 1;
+      hitHandlers?.detach(ctx);
       stopCapWait(ctx.map);
       removeLayersAndSources(ctx.map, layerIds, sourceIds);
       for (const url of pmtilesUrls) {
