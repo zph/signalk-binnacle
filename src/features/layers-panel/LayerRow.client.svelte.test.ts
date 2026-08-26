@@ -167,9 +167,14 @@ describe('LayerRow child-layer disclosure', () => {
     expect(setOpacity).toHaveBeenCalledWith('depth:facet:soundings', 0.6);
   });
 
-  it('does not reserve a caret for a row without child layers', () => {
-    const target = mountRow({ title: 'Open Maps' });
+  it('shows a disabled caret for a chart without child layers', () => {
+    const target = mountRow({
+      title: 'Open Maps',
+      chart: { identifier: 'open-maps', source: 'server', kind: 'vector', type: 'MVT' },
+    });
 
-    expect(target.querySelector('.facet-caret')).toBeNull();
+    const caret = target.querySelector<HTMLButtonElement>('.facet-caret');
+    expect(caret?.disabled).toBe(true);
+    expect(caret?.getAttribute('aria-label')).toBe('No child layers for Open Maps');
   });
 });

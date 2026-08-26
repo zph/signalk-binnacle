@@ -222,7 +222,7 @@ describe('chartToSpecs', () => {
     expect(sounding?.type).toBe('symbol');
     if (sounding?.type === 'symbol') {
       expect(JSON.stringify(sounding.layout?.['text-field'])).toContain('3.28084');
-      expect(JSON.stringify(sounding.layout?.['text-field'])).not.toContain('"ft"');
+      expect(JSON.stringify(sounding.layout?.['text-field'])).not.toContain('"concat"');
       expect(sounding.layout).not.toHaveProperty('icon-image');
       expect(sounding.paint).toEqual({ 'text-color': '#000000' });
     }

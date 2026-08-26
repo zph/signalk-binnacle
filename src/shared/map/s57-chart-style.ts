@@ -219,8 +219,10 @@ function soundingValue(): ExpressionSpecification {
   return ['to-number', ['coalesce', ['get', 'DEPTH'], ['get', 'VALSOU']], -9999];
 }
 
-function depthLabel(unit: S57DepthUnit): ExpressionSpecification {
-  const value = soundingValue();
+function depthLabelForUnit(
+  value: ExpressionSpecification,
+  unit: S57DepthUnit,
+): ExpressionSpecification {
   const converted: ExpressionSpecification =
     unit === 'ft' ? ['*', value, 3.28084] : unit === 'fm' ? ['/', value, 1.8288] : value;
   const decimal: ExpressionSpecification = [
@@ -243,9 +245,21 @@ function depthLabel(unit: S57DepthUnit): ExpressionSpecification {
           decimal,
         ]
       : decimal;
-  // The active display unit is chosen at the chart level; repeating it on every sounding creates
-  // visual noise and is unlike conventional ENC sounding notation.
   return displayed;
+}
+
+function depthLabel(fallbackUnit: S57DepthUnit): ExpressionSpecification {
+  const value = soundingValue();
+  const meters = depthLabelForUnit(value, 'm');
+  const feet = depthLabelForUnit(value, 'ft');
+  const fathoms = depthLabelForUnit(value, 'fm');
+  const fallback = fallbackUnit === 'ft' ? feet : fallbackUnit === 'fm' ? fathoms : meters;
+  // The app seeds this global state before chart registration and updates it whenever the display
+  // preference resolves or changes. Keeping the selection in the MapLibre expression avoids
+  // freezing an ENC in the local fallback unit while the Signal K unit preference is still loading.
+  // The branch keys select the conversion but are never appended to the visible sounding: repeating
+  // a unit on every label creates visual noise and is unlike conventional ENC notation.
+  return ['match', ['global-state', 'unit'], 'ft', feet, 'fm', fathoms, 'm', meters, fallback];
 }
 
 function fillLayer(

@@ -520,6 +520,8 @@ These were inconsistent across panels and are now unified; a new panel follows t
   name field left to copy.
 - Layers and charts opens to chart sources, not non-chart overlays. Put server-discovered and
   user-added chart sources in the Charts view, with compact name-button visibility, chart-to-chart
-  drag stacking, and detail controls for opacity, child layers, type, origin, source, zoom, bounds,
-  and show-bounds when available. Keep
+  drag stacking, an inline child-layer disclosure for facet visibility and opacity, and detail
+  controls for chart opacity, child layers, type, origin, source, zoom, bounds, and show-bounds when
+  available. Keep a disabled caret on chart rows without child layers so the disclosure rail stays
+  aligned and the missing capability is explicit. Keep
   non-chart visibility, opacity, management, and drag stacking in the Overlays view.

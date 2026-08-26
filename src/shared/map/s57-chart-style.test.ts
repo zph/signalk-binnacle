@@ -3,6 +3,7 @@ import type {
   LayerSpecification,
   SymbolLayerSpecification,
 } from 'maplibre-gl';
+import { createExpression } from '@maplibre/maplibre-gl-style-spec';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_S57_SAFETY_DEPTH_METERS,
@@ -30,6 +31,21 @@ function themePaint(layerSpecification: LayerSpecification): S57ThemePaintMap {
     throw new Error(`Missing S-57 theme metadata on ${layerSpecification.id}`);
   }
   return metadata[S57_THEME_PAINT_KEY];
+}
+
+function evaluateSounding(
+  sounding: SymbolLayerSpecification,
+  unit: 'm' | 'ft',
+  depthMeters: number,
+): unknown {
+  const parsed = createExpression(sounding.layout?.['text-field'], 's57-sounding', null, { unit });
+  if (parsed.result === 'error') {
+    throw new Error(parsed.value.map(({ message }) => message).join('; '));
+  }
+  return parsed.value.evaluate({ zoom: 12 }, {
+    type: 'Point',
+    properties: { DEPTH: depthMeters },
+  } as never);
 }
 
 describe('s57ChartLayers', () => {
@@ -128,23 +144,32 @@ describe('s57ChartLayers', () => {
     ]);
   });
 
-  it('converts sounding text without repeating the selected unit on every label', () => {
-    const meters = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-label');
-    const feet = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }), 'soundg-label');
+  it('converts sounding text live from map unit state without appending a unit', () => {
+    const meters = layer(
+      s57ChartLayers(SOURCE_ID, ['SOUNDG']),
+      'soundg-label',
+    ) as SymbolLayerSpecification;
+    const feet = layer(
+      s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }),
+      'soundg-label',
+    ) as SymbolLayerSpecification;
     const fathoms = layer(
       s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'fm' }),
       'soundg-label',
-    );
+    ) as SymbolLayerSpecification;
 
-    expect(JSON.stringify(meters.layout)).not.toContain('3.28084');
-    expect(JSON.stringify(meters.layout)).not.toContain('"m"');
-    expect(JSON.stringify(feet.layout)).toContain('3.28084');
-    expect(JSON.stringify(feet.layout)).not.toContain('"ft"');
-    expect(JSON.stringify(feet.layout)).toContain('"floor"');
-    expect(JSON.stringify(fathoms.layout)).toContain('1.8288');
-    expect(JSON.stringify(fathoms.layout)).not.toContain('"fm"');
-    expect(JSON.stringify(meters.layout)).not.toContain('"floor"');
-    expect(JSON.stringify(fathoms.layout)).not.toContain('"floor"');
+    for (const sounding of [meters, feet, fathoms]) {
+      const text = sounding.layout?.['text-field'];
+      expect(JSON.stringify(text)).toContain('["global-state","unit"]');
+      expect(JSON.stringify(text)).toContain('3.28084');
+      expect(JSON.stringify(text)).toContain('1.8288');
+      expect(JSON.stringify(text)).toContain('"floor"');
+      expect(JSON.stringify(text)).not.toContain('"concat"');
+    }
+    // The configured option is only the expression's fallback for a host that does not seed global
+    // state. Once Binnacle sets `unit`, every chart follows the live preference without rebuilding.
+    expect(meters.layout?.['text-field']).not.toEqual(feet.layout?.['text-field']);
+    expect(feet.layout?.['text-field']).not.toEqual(fathoms.layout?.['text-field']);
     expect(feet.filter).toEqual(meters.filter);
     expect(fathoms.filter).toEqual(meters.filter);
   });
@@ -157,7 +182,7 @@ describe('s57ChartLayers', () => {
     const value = ['to-number', ['coalesce', ['get', 'DEPTH'], ['get', 'VALSOU']], -9999];
     const converted = ['*', value, 3.28084];
 
-    expect(feet.layout?.['text-field']).toEqual([
+    const feetDisplay = [
       'case',
       ['>', converted, 20],
       [
@@ -166,7 +191,26 @@ describe('s57ChartLayers', () => {
         { 'max-fraction-digits': 0, 'min-fraction-digits': 0 },
       ],
       ['number-format', converted, { 'max-fraction-digits': 1, 'min-fraction-digits': 0 }],
+    ];
+    const text = feet.layout?.['text-field'];
+    expect((text as unknown[]).slice(0, 4)).toEqual([
+      'match',
+      ['global-state', 'unit'],
+      'ft',
+      feetDisplay,
     ]);
+    expect((text as unknown[]).at(-1)).toEqual(feetDisplay);
+  });
+
+  it('evaluates meter-native source depths in the live selected unit', () => {
+    const sounding = layer(
+      s57ChartLayers(SOURCE_ID, ['SOUNDG']),
+      'soundg-label',
+    ) as SymbolLayerSpecification;
+
+    expect(evaluateSounding(sounding, 'm', 3)).toBe('3');
+    expect(evaluateSounding(sounding, 'ft', 3)).toBe('9.8');
+    expect(evaluateSounding(sounding, 'ft', 10)).toBe('32');
   });
 
   it('renders every sounding as the same plain black text without a background or halo', () => {

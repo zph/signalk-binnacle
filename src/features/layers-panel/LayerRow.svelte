@@ -76,7 +76,10 @@ const MIN_LAYER_OPACITY = 0.15;
 // merely shares a group id with something it is not the parent of (for example a plain sibling row
 // tagged with the same group for display grouping alone) keeps its own title.
 const isFacetGroup = $derived(subLayers.length > 0);
-const inlineFacets = $derived(isFacetGroup && !item.chart);
+// Chart rows keep a disclosure slot even when the provider exposes no child facets. That makes the
+// capability discoverable and keeps the visibility/detail controls aligned across the Charts list.
+// Non-chart rows only reserve the slot when they actually own child layers.
+const showFacetCaret = $derived(isFacetGroup || item.chart !== undefined);
 // The drag handle moves the whole row, so for a facet group it names the group, otherwise the layer.
 const handleLabel = $derived(isFacetGroup ? (groupTitle ?? item.title) : item.title);
 
@@ -145,10 +148,15 @@ $effect(() => {
     type="button"
     class="facet-caret"
     class:is-open={facetsExpanded}
-    aria-label={`${facetsExpanded ? 'Hide' : 'Show'} ${item.title} child layers`}
-    aria-expanded={facetsExpanded}
-    aria-controls={facetPanelId}
-    onclick={() => (facetsExpanded = !facetsExpanded)}
+    aria-label={isFacetGroup
+      ? `${facetsExpanded ? 'Hide' : 'Show'} ${item.title} child layers`
+      : `No child layers for ${item.title}`}
+    aria-expanded={isFacetGroup ? facetsExpanded : undefined}
+    aria-controls={isFacetGroup ? facetPanelId : undefined}
+    disabled={!isFacetGroup}
+    onclick={() => {
+      if (isFacetGroup) facetsExpanded = !facetsExpanded;
+    }}
   >
     <ChevronRight size={18} aria-hidden="true" />
   </button>
@@ -253,7 +261,7 @@ $effect(() => {
     id={itemUnavailableId}
     hint={item.available ? undefined : item.unavailableHint}
   />
-  {#if inlineFacets}
+  {#if isFacetGroup}
     <!-- A facet group: one handle moves the whole group, the parent and child toggles share one
          aligned column, and the tune control sits on the parent line. -->
     <div class="facet-row">
@@ -262,7 +270,6 @@ $effect(() => {
       {/if}
       <div class="facet-stack">
         <div class="facet-line">
-          {@render facetCaret()}
           <LayerToggle
             label={item.title}
             description={item.description}
@@ -272,6 +279,7 @@ $effect(() => {
             onToggle={(visible) => view.toggle(item.id, visible)}
             presentation="row"
           />
+          {@render facetCaret()}
           {@render regionTag()}
           {@render trailing()}
         </div>
@@ -322,6 +330,9 @@ $effect(() => {
         onToggle={(visible) => view.toggle(item.id, visible)}
         presentation="row"
       />
+      {#if showFacetCaret}
+        {@render facetCaret()}
+      {/if}
       {@render regionTag()}
       {@render trailing()}
     </div>
@@ -383,8 +394,8 @@ $effect(() => {
   text-align: end;
   color: var(--text-muted);
 }
-/* A non-chart facet group keeps its child disclosure inline. Chart facets move into chart detail so
-   chart-source rows retain only the grip, the name toggle, and the detail action. */
+/* Facet groups disclose their children inline. Chart detail repeats these controls as a larger
+   editing surface, while this compact disclosure keeps everyday facet toggles one tap away. */
 .facet-row {
   display: flex;
   align-items: flex-start;

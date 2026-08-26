@@ -618,9 +618,11 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   resolved customizable list.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
   sources. Each compact row has one separate drag grip, a name-sized visibility button whose enabled
-  state lights the row, and one chart-detail action. Chart detail owns opacity and child-layer controls
-  so those controls do not crowd the source name. The grip stays separate from visibility and detail
-  because its pointer and keyboard gestures cannot be ambiguous. The detail shows bounds when known,
+  state lights the row, a child-layer caret, and one chart-detail action. A chart with facets discloses
+  their visibility and opacity controls inline; a chart without facets keeps the caret disabled so the
+  row geometry and capability remain clear. Chart detail repeats the chart and facet controls as a
+  larger editing surface. The grip stays separate from visibility, disclosure, and detail because its
+  pointer and keyboard gestures cannot be ambiguous. The detail shows bounds when known,
   and the list keeps "Add a chart" for user PMTiles URLs. Every query-bearing
   URL defaults to device-only, displays redact all query values, and sharing the complete URL with
   Signal K requires an explicit reviewed choice. User chart detail stages replacement metadata before

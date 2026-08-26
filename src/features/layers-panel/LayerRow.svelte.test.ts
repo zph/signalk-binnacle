@@ -151,13 +151,13 @@ describe('LayerRow child-layer disclosure', () => {
     expect(html).toContain('role="group" aria-label="NOAA ENC California child layers" hidden=""');
   });
 
-  it('does not reserve a caret slot when a row has no child layers', () => {
+  it('does not reserve a caret slot for a non-chart row without child layers', () => {
     const html = body(layer('plain', { title: 'Open Maps' }), []);
 
     expect(html).not.toContain('facet-caret');
   });
 
-  it('moves chart child layers out of the compact source row', () => {
+  it('exposes chart child layers inline and keeps chart details reachable', () => {
     const html = body(
       layer('enc', {
         title: 'NOAA ENC California',
@@ -167,9 +167,25 @@ describe('LayerRow child-layer disclosure', () => {
       noop,
     );
 
-    expect(html).not.toContain('facet-caret');
-    expect(html).not.toContain('Depth areas');
+    expect(html).toContain('aria-label="Show NOAA ENC California child layers"');
+    expect(html).toContain('role="group" aria-label="NOAA ENC California child layers" hidden=""');
+    expect(html).toContain('Depth areas');
+    expect(html).toContain('Adjust Depth areas opacity');
     expect(html).not.toContain('Adjust NOAA ENC California opacity');
     expect(html).toContain('Open NOAA ENC California chart details');
+  });
+
+  it('shows a disabled disclosure affordance when a chart exposes no child layers', () => {
+    const html = body(
+      layer('open-maps', {
+        title: 'Open Maps',
+        chart: { identifier: 'open-maps', source: 'server', kind: 'vector', type: 'MVT' },
+      }),
+      [],
+      noop,
+    );
+
+    expect(html).toContain('aria-label="No child layers for Open Maps"');
+    expect(html).toMatch(/aria-label="No child layers for Open Maps"[^>]*disabled=""/);
   });
 });

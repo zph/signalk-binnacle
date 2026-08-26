@@ -146,7 +146,19 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await expect(row.getByRole('button', { name: 'Adjust Fixture NOAA ENC opacity' })).toHaveCount(
       0,
     );
-    await expect(row.locator('.facet-caret')).toHaveCount(0);
+    const facetCaret = row.getByRole('button', {
+      name: 'Show Fixture NOAA ENC child layers',
+    });
+    await expect(facetCaret).toBeVisible();
+    await facetCaret.click();
+    const inlineFacets = row.getByRole('group', { name: 'Fixture NOAA ENC child layers' });
+    await expect(inlineFacets).toBeVisible();
+    await expect(
+      inlineFacets.getByRole('button', { name: 'Depth areas', exact: true }),
+    ).toBeVisible();
+    await expect(
+      inlineFacets.getByRole('button', { name: 'Adjust Depth areas opacity' }),
+    ).toBeVisible();
     await row.getByRole('button', { name: 'Open Fixture NOAA ENC chart details' }).click();
     await expect(page.getByRole('slider', { name: 'Opacity' })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Fixture NOAA ENC chart layers' })).toBeVisible();
