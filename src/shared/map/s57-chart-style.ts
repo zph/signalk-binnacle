@@ -69,7 +69,7 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     navStarboard: '#d8392f',
     navaid: '#263238',
     restricted: '#a82bb8',
-    safetyContour: '#b02f24',
+    safetyContour: '#747474',
     soundingText: '#000000',
   },
   dusk: {
@@ -90,7 +90,7 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     navStarboard: '#e0573f',
     navaid: '#b4b7b8',
     restricted: '#d45bdf',
-    safetyContour: '#e0703a',
+    safetyContour: '#8a8a8a',
     soundingText: '#000000',
   },
   'night-red': {
@@ -111,7 +111,7 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     navStarboard: '#ff6e00',
     navaid: '#b03b00',
     restricted: '#c24c00',
-    safetyContour: '#ff6e00',
+    safetyContour: '#6a2000',
     soundingText: '#000000',
   },
 };
@@ -667,7 +667,7 @@ export function s57ChartLayers(
     const contour = depthValue('VALDCO');
     layers.push(lineLayer(sourceId, 'DEPCNT', 'line', 'contour', 0.8));
     layers.push(
-      lineLayer(sourceId, 'DEPCNT', 'safety', 'safetyContour', 2.4, [
+      lineLayer(sourceId, 'DEPCNT', 'safety', 'safetyContour', 1.4, [
         'all',
         ['>=', contour, safetyDepth],
         ['<', contour, safetyDepth + 3],

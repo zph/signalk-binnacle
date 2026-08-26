@@ -144,6 +144,18 @@ describe('s57ChartLayers', () => {
     ]);
   });
 
+  it('portrays the safety contour as a thin medium-gray line', () => {
+    const safety = layer(s57ChartLayers(SOURCE_ID, ['DEPCNT']), 'depcnt-safety');
+
+    expect(safety.paint).toMatchObject({
+      'line-color': '#747474',
+      'line-width': 1.4,
+    });
+    expect(themePaint(safety)).toEqual({ 'line-color': 'safetyContour' });
+    expect(s57ThemeColor('dusk', 'safetyContour')).toBe('#8a8a8a');
+    expect(s57ThemeColor('night-red', 'safetyContour')).toBe('#6a2000');
+  });
+
   it('converts sounding text live from map unit state without appending a unit', () => {
     const meters = layer(
       s57ChartLayers(SOURCE_ID, ['SOUNDG']),
