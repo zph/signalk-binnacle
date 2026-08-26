@@ -1,19 +1,15 @@
 <script lang="ts">
+import CircleHelp from '@lucide/svelte/icons/circle-help';
 import { type Snippet, untrack } from 'svelte';
 import { CustomizeToggle, dialog, PanelHeader, trapFocus } from '$shared/ui';
-import AttitudeTile from './AttitudeTile.svelte';
-import CompassTile from './CompassTile.svelte';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
-import HeelTile from './HeelTile.svelte';
 import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentDockResize from './InstrumentDockResize.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
+import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
-import NumericTile from './NumericTile.svelte';
 import { staleAgeText, type TileDeps } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
-import WindRoseTile from './WindRoseTile.svelte';
-import WindTile from './WindTile.svelte';
 
 interface Props {
   controller: InstrumentsController;
@@ -51,6 +47,7 @@ const depthDef = $derived(controller.resolve('depth'));
 
 let customizing = $state(false);
 let detailId = $state<string | undefined>();
+let expandedId = $state<string | undefined>();
 $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
 });
@@ -59,6 +56,11 @@ $effect(() => {
 // real change instead of once per clock tick: both the effect below and the template read this.
 const tiles = $derived(controller.tiles);
 const detailDef = $derived(detailId ? tiles.find((def) => def.id === detailId) : undefined);
+const expandedDef = $derived(expandedId ? tiles.find((def) => def.id === expandedId) : undefined);
+
+function spansWholeRow(kind: string, state: string): boolean {
+  return kind === 'wind-rose' || (state !== 'never' && (kind === 'wind' || kind === 'position'));
+}
 
 // Session-only sparkline history: sampled here on the shared reactive clock so the buffers only
 // accumulate while the dock is mounted, matching the subscription lifecycle. The reads are
@@ -85,12 +87,13 @@ $effect(() => {
 <!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: the dynamic role is dialog exactly when aria-modal is defined. -->
 <aside
   class="instruments"
+  class:instrument-focus={expandedDef !== undefined}
   role={fullscreen ? 'dialog' : undefined}
   aria-label="Instruments"
   aria-modal={fullscreen ? 'true' : undefined}
   tabindex="-1"
   use:dialog={() => controller.setOpen(false)}
-  use:trapFocus={fullscreen}
+  use:trapFocus={fullscreen && expandedDef === undefined}
 >
   {#if !fullscreen}
     <InstrumentDockResize width={dockWidth} onResize={onDockResize} onCommit={onDockResizeCommit} />
@@ -147,73 +150,64 @@ $effect(() => {
         {@const reading = def.read(deps)}
         {@const zone = controller.zoneState(def, reading.siValue)}
         {@const staleAge = staleAgeText(deps, def, reading)}
-        {#if def.kind === 'wind-rose'}
-          {@const depthZone =
-            depthDef && reading.windRose
-              ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
-              : 'normal'}
-          <WindRoseTile
-            label={controller.resolvedLabel(def)}
+        {@const depthZone =
+          def.kind === 'wind-rose' && depthDef && reading.windRose
+            ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
+            : 'normal'}
+        {@const resolvedLabel = controller.resolvedLabel(def)}
+        <div class="tile-shell" class:tile-shell--wide={spansWholeRow(def.kind, reading.state)}>
+          <InstrumentTile
+            {def}
+            label={resolvedLabel}
             {reading}
             {zone}
             {depthZone}
-            sensorGloss={def.sensorGloss}
             staleAgeText={staleAge}
-            onOpen={() => (detailId = def.id)}
-          />
-        {:else if def.kind === 'wind'}
-          <WindTile
-            label={controller.resolvedLabel(def)}
-            {reading}
-            {zone}
-            sensorGloss={def.sensorGloss}
-            kind={def.kind}
-            abbr={def.abbr}
-            staleAgeText={staleAge}
-            onOpen={() => (detailId = def.id)}
-          />
-        {:else if def.kind === 'compass'}
-          <CompassTile
-            label={controller.resolvedLabel(def)}
-            {reading}
-            {zone}
-            sensorGloss={def.sensorGloss}
-            staleAgeText={staleAge}
-            onOpen={() => (detailId = def.id)}
-          />
-        {:else if def.kind === 'heel'}
-          <HeelTile
-            label={controller.resolvedLabel(def)}
-            {reading}
-            {zone}
-            sensorGloss={def.sensorGloss}
-            staleAgeText={staleAge}
-            onOpen={() => (detailId = def.id)}
-          />
-        {:else if def.kind === 'attitude'}
-          <AttitudeTile
-            label={controller.resolvedLabel(def)}
-            {reading}
-            {zone}
-            sensorGloss={def.sensorGloss}
-            staleAgeText={staleAge}
-            onOpen={() => (detailId = def.id)}
-          />
-        {:else}
-          <NumericTile
-            label={controller.resolvedLabel(def)}
-            {reading}
-            {zone}
-            sensorGloss={def.sensorGloss}
-            kind={def.kind}
-            abbr={def.abbr}
-            viz={def.viz}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
-            staleAgeText={staleAge}
-            onOpen={() => (detailId = def.id)}
+            onActivate={() => (expandedId = def.id)}
           />
-        {/if}
+          <button
+            type="button"
+            class="tile-info"
+            aria-label={`Show information for ${resolvedLabel}`}
+            title={`Show information for ${resolvedLabel}`}
+            onclick={() => (detailId = def.id)}
+          >
+            <CircleHelp size={15} aria-hidden="true" />
+          </button>
+        </div>
       {/each}
+    </div>
+  {/if}
+
+  {#if expandedDef}
+    {@const reading = expandedDef.read(deps)}
+    {@const zone = controller.zoneState(expandedDef, reading.siValue)}
+    {@const staleAge = staleAgeText(deps, expandedDef, reading)}
+    {@const depthZone =
+      expandedDef.kind === 'wind-rose' && depthDef && reading.windRose
+        ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
+        : 'normal'}
+    <div
+      class="expanded-instrument"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${controller.resolvedLabel(expandedDef)} full-screen instrument`}
+      tabindex="-1"
+      use:dialog={() => (expandedId = undefined)}
+      use:trapFocus={true}
+    >
+      <InstrumentTile
+        def={expandedDef}
+        label={controller.resolvedLabel(expandedDef)}
+        {reading}
+        {zone}
+        {depthZone}
+        staleAgeText={staleAge}
+        sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
+        expanded
+        onActivate={() => (expandedId = undefined)}
+      />
     </div>
   {/if}
 </aside>
@@ -235,6 +229,55 @@ $effect(() => {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-2) var(--space-3);
+}
+.tile-shell {
+  position: relative;
+  display: flex;
+  min-inline-size: 0;
+}
+.tile-shell--wide {
+  grid-column: 1 / -1;
+}
+.tile-shell :global(.tile) {
+  flex: 1;
+  inline-size: 100%;
+}
+/* The question mark is visually quiet, but its transparent target keeps the full 44 px touch
+   contract. It is a sibling of the tile button, never a nested interactive control. */
+.tile-info {
+  appearance: none;
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-end: 0;
+  display: grid;
+  place-items: center;
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: help;
+}
+.tile-info:hover,
+.tile-info:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+.expanded-instrument {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  background: var(--surface);
+}
+.expanded-instrument :global(.tile) {
+  flex: 1;
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  border-radius: 0;
 }
 @media (max-width: 900px) {
   /* The full-screen dock sits under the floating safety rail; reserving the rail's measured

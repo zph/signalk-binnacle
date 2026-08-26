@@ -269,6 +269,10 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   green in day and dusk, while night-red distinguishes those roles only by red and amber brightness.
   SOG occupies the lower-left corner. Resolved Depth occupies the lower-right corner and alone takes
   the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
+  Every instrument face is the zoom control: activating a tile expands that one face over the full
+  Binnacle surface, and activating the expanded face restores the grid. A quiet question-mark icon
+  in the tile's lower-right corner is the separate path to source details and recent trends. Its icon
+  is small, but its transparent target remains the full `--control-size` touch area.
   Customize groups available instruments by category, and its Rescan action reruns instance discovery
   for batteries, engines, tanks, solar, and cabin sensors. Discovery unions the live Signal K model
   with concrete paths recorded during the preceding year by registered history providers within a

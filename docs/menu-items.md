@@ -233,7 +233,9 @@ source, and surrounding traffic before relying on it.
   freshness folds into the same chip line. The combined wind rose follows the installed Skip
   instrument's compass-card geometry and apparent-wind, true-wind, port, and starboard color roles.
   It adds SOG at lower left and resolved Depth at lower right; Depth uses the server's Signal K zone
-  and notification state for its Warning and Alarm treatment. Customize can show, hide, and reorder tiles,
+  and notification state for its Warning and Alarm treatment. Tapping any instrument expands that
+  face across Binnacle, and tapping the large face restores the grid. A small question-mark control
+  at the lower right opens the instrument's source and trend details. Customize can show, hide, and reorder tiles,
   including bounded discovered batteries, engines, tanks, solar controllers, and cabin sensors. A
   Rescan checks the live Signal K model first. When a registered history provider is available, it
   also checks the preceding year for concrete paths that populated under `vessels.self`, so seasonal

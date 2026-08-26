@@ -36,4 +36,7 @@ const fillWidth = $derived(fraction === undefined ? 0 : Math.max(0, Math.min(1, 
   block-size: auto;
   flex-shrink: 0;
 }
+:global(.tile--expanded) .battery {
+  inline-size: min(24vmin, 14rem);
+}
 </style>

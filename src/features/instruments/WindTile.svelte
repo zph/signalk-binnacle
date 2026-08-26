@@ -14,16 +14,31 @@ interface Props {
   abbr?: string;
   // See NumericTile: the retained stale value's age, shown while the reading is stale.
   staleAgeText?: string;
+  expanded?: boolean;
+  actionLabel?: string;
   onOpen?: () => void;
 }
 
-const { label, reading, zone, sensorGloss, kind, abbr, staleAgeText, onOpen }: Props = $props();
+const {
+  label,
+  reading,
+  zone,
+  sensorGloss,
+  kind,
+  abbr,
+  staleAgeText,
+  expanded = false,
+  actionLabel = 'Expand instrument',
+  onOpen,
+}: Props = $props();
 
 // One expression, so the formatter cannot split the label from its reference parenthetical.
 const labelText = $derived(
   `${label}${reading.referenceLabel ? ` (${reading.referenceLabel})` : ''}`,
 );
-const accessibleLabel = $derived(tileAccessibleLabel(labelText, reading, zone, sensorGloss));
+const accessibleLabel = $derived(
+  tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel),
+);
 
 // BOW-UP: 0 rad points up. SVG rotate() uses degrees, positive = clockwise.
 const deg = $derived((reading.angleRad ?? 0) * RAD_TO_DEG);
@@ -37,6 +52,7 @@ const deg = $derived((reading.angleRad ?? 0) * RAD_TO_DEG);
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
   class:tile--wide={kind === 'wind'}
+  class:tile--expanded={expanded}
   aria-label={accessibleLabel}
   onclick={onOpen}
 >
@@ -159,6 +175,10 @@ const deg = $derived((reading.angleRad ?? 0) * RAD_TO_DEG);
   block-size: 3rem;
   flex-shrink: 0;
 }
+.tile--expanded .rose {
+  inline-size: min(58vmin, 34rem);
+  block-size: min(58vmin, 34rem);
+}
 
 .wind-body {
   display: flex;
@@ -171,6 +191,9 @@ const deg = $derived((reading.angleRad ?? 0) * RAD_TO_DEG);
   color: var(--text-muted);
   font-size: var(--text-sm);
   margin-inline-start: var(--space-2);
+}
+.tile--expanded .angle {
+  font-size: clamp(var(--text-lg), 4vmin, 2.5rem);
 }
 
 .tile--stale .needle {

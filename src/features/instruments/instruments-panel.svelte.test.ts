@@ -113,6 +113,18 @@ describe('InstrumentsPanel', () => {
     expect(body).toContain('Customize instruments');
   });
 
+  it('uses the tile to expand and a separate question-mark control for information', () => {
+    const { body } = render(InstrumentsPanel, {
+      props: {
+        controller: makeController({ selectedIds: ['sog'] }),
+        deps: makeDeps(),
+      },
+    });
+    expect(body).toContain('Expand instrument');
+    expect(body).toContain('aria-label="Show information for Speed"');
+    expect(body).not.toContain('Open details');
+  });
+
   it('renders an accessible horizontal resize control in dock mode', () => {
     const { body } = render(InstrumentsPanel, {
       props: { controller: makeController(), deps: makeDeps(), dockWidth: 420 },

@@ -41,4 +41,7 @@ const rotation = $derived.by(() => {
   block-size: auto;
   flex-shrink: 0;
 }
+:global(.tile--expanded) .rot {
+  inline-size: min(30vmin, 18rem);
+}
 </style>

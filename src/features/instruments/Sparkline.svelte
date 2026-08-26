@@ -49,4 +49,8 @@ const polyline = $derived.by(() => {
   /* Muted so the trace reads as background context under the hero readout, not a competing element. */
   opacity: 0.5;
 }
+:global(.tile--expanded) .sparkline {
+  inline-size: min(80vw, 60rem);
+  block-size: min(22vmin, 10rem);
+}
 </style>

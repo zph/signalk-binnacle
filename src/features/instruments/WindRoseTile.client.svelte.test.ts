@@ -58,5 +58,9 @@ describe('WindRoseTile sectors', () => {
     const sectors = target.querySelector('.wind-sectors');
     expect(sectors?.getAttribute('data-reference')).toBe('true');
     expect(sectors?.getAttribute('transform')).toContain('rotate(40.107');
+    expect(target.querySelectorAll('.wind-sector-lines path')).toHaveLength(2);
+    expect(target.querySelector('.wind-sector-lines')?.getAttribute('transform')).toContain(
+      'rotate(40.107',
+    );
   });
 });

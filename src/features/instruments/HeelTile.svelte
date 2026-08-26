@@ -11,11 +11,24 @@ interface Props {
   zone: ZoneState;
   sensorGloss: string;
   staleAgeText?: string;
+  expanded?: boolean;
+  actionLabel?: string;
   onOpen?: () => void;
 }
 
-const { label, reading, zone, sensorGloss, staleAgeText, onOpen }: Props = $props();
-const accessibleLabel = $derived(tileAccessibleLabel(label, reading, zone, sensorGloss));
+const {
+  label,
+  reading,
+  zone,
+  sensorGloss,
+  staleAgeText,
+  expanded = false,
+  actionLabel = 'Expand instrument',
+  onOpen,
+}: Props = $props();
+const accessibleLabel = $derived(
+  tileAccessibleLabel(label, reading, zone, sensorGloss, actionLabel),
+);
 const needleDeg = $derived(clamp((reading.rollRad ?? 0) * RAD_TO_DEG, -40, 40));
 </script>
 
@@ -26,6 +39,7 @@ const needleDeg = $derived(clamp((reading.rollRad ?? 0) * RAD_TO_DEG, -40, 40));
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
+  class:tile--expanded={expanded}
   aria-label={accessibleLabel}
   onclick={onOpen}
 >
@@ -63,6 +77,10 @@ const needleDeg = $derived(clamp((reading.rollRad ?? 0) * RAD_TO_DEG, -40, 40));
 .heel {
   inline-size: min(100%, 8rem);
   block-size: 5.5rem;
+}
+.tile--expanded .heel {
+  inline-size: min(72vmin, 44rem);
+  block-size: min(54vmin, 33rem);
 }
 .coarse,
 .fine,

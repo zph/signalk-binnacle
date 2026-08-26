@@ -188,6 +188,29 @@ test('stream fixture feeds the worker: subscriptions arrive and deltas render', 
   expect(body.received.some((message) => Array.isArray(message.subscribe))).toBe(true);
 });
 
+test('expanded numeric instruments prioritize the live value at helm distance', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openApp(page);
+  await sendDelta(page, OWN_FIX);
+  await openMenuItem(page, 'Instrument dock');
+  const dock = page.getByRole('complementary', { name: 'Instruments' });
+  await dock.getByRole('button', { name: /Speed.*Expand instrument/ }).click();
+
+  const expanded = page.getByRole('dialog', { name: 'Speed full-screen instrument' });
+  const value = expanded.locator('.num');
+  await expect(value).toHaveText('5.8');
+  await expect
+    .poll(async () =>
+      Number.parseFloat(await value.evaluate((node) => getComputedStyle(node).fontSize)),
+    )
+    .toBeGreaterThan(160);
+  await expect
+    .poll(async () => await value.evaluate((node) => getComputedStyle(node).fontWeight))
+    .toBe('900');
+});
+
 test('P0: MOB actions stay reachable with Forecast open at 320x568', async ({ page }) => {
   // SAF-01: the emergency rail must never be displaced by the Forecast panel; it stacks above it
   // at the viewport bottom instead.
@@ -381,7 +404,7 @@ test('a server staleness declaration relabels the fix and names the quiet source
   // The instrument detail names the declaration and the source that went quiet, not "Unknown".
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: /speed/i }).first().click();
+  await dock.getByRole('button', { name: 'Show information for Speed' }).click();
   await expect(dock).toContainText('The Signal K server reports this sensor stopped updating.');
   await expect(dock).toContainText('No update from gps0.GP.');
 });

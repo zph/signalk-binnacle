@@ -6,6 +6,7 @@ export function tileAccessibleLabel(
   reading: TileReading,
   zone: ZoneState,
   sensorGloss: string,
+  actionLabel = 'Expand instrument',
 ): string {
   const value =
     reading.state === 'never'
@@ -16,5 +17,5 @@ export function tileAccessibleLabel(
   const state = reading.state === 'stale' ? ', stale' : '';
   const angle = reading.angleState ? `, wind angle ${reading.angleState}` : '';
   const alert = zone === 'alarm' ? ', alarm' : zone === 'warning' ? ', warning' : '';
-  return `${label}, ${value}${state}${angle}${alert}. Open details`;
+  return `${label}, ${value}${state}${angle}${alert}. ${actionLabel}`;
 }

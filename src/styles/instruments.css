@@ -115,3 +115,32 @@
   font-size: var(--text-sm);
   font-weight: 700;
 }
+
+/* A focused instrument becomes the whole Binnacle surface. The face stays a single button so a
+   click, tap, Enter, or Space anywhere on it returns to the tile grid. Purpose-built gauges refine
+   their SVG size in their own component styles. */
+.tile--expanded {
+  gap: clamp(var(--space-2), 2vmin, var(--space-5));
+  padding: max(var(--space-4), env(safe-area-inset-top, 0px))
+    max(var(--space-4), env(safe-area-inset-right, 0px))
+    max(var(--space-4), env(safe-area-inset-bottom, 0px))
+    max(var(--space-4), env(safe-area-inset-left, 0px));
+}
+.tile--expanded .num,
+.tile--expanded.tile--position .num {
+  font-size: clamp(5rem, 28vmin, 18rem);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+}
+/* Position is a two-line coordinate readout rather than one core number. Keep both lines inside
+   the face while giving them the same heavier, long-distance treatment. */
+.tile--expanded.tile--position .num {
+  font-size: clamp(3rem, 13vmin, 8rem);
+}
+.tile--expanded .unit,
+.tile--expanded .tile-secondary,
+.tile--expanded .caps-label,
+.tile--expanded .abbr,
+.tile--expanded .tile-state {
+  font-size: clamp(var(--text-base), 2.6vmin, var(--text-xl));
+}

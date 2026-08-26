@@ -19,6 +19,8 @@ interface Props {
   // The retained stale value's age, shown in place of the secondary line while stale, so the
   // muted numeral carries the fact that makes retention honest.
   staleAgeText?: string;
+  expanded?: boolean;
+  actionLabel?: string;
   onOpen?: () => void;
 }
 
@@ -32,6 +34,8 @@ const {
   viz,
   sparkPoints,
   staleAgeText,
+  expanded = false,
+  actionLabel = 'Expand instrument',
   onOpen,
 }: Props = $props();
 
@@ -39,7 +43,9 @@ const {
 const labelText = $derived(
   `${label}${reading.referenceLabel ? ` (${reading.referenceLabel})` : ''}`,
 );
-const accessibleLabel = $derived(tileAccessibleLabel(labelText, reading, zone, sensorGloss));
+const accessibleLabel = $derived(
+  tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel),
+);
 </script>
 
 <!-- The tile column, value size, unit, and zone tints come from the global .tile vocabulary in
@@ -52,6 +58,7 @@ const accessibleLabel = $derived(tileAccessibleLabel(labelText, reading, zone, s
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
   class:tile--position={kind === 'position'}
+  class:tile--expanded={expanded}
   aria-label={accessibleLabel}
   onclick={onOpen}
 >

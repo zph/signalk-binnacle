@@ -110,6 +110,11 @@ the provider contract small and declarative:
   code. Binnacle must render every instrument in day, dusk, and night-red themes, with no blue or
   bright stray pixels in night-red.
 
+Binnacle also owns the standard tile interactions. Activating a face expands it to the full app
+surface, activating the expanded face restores the grid, and the lower-right question-mark control
+opens metadata and trend details. Instrument manifests do not declare, replace, or style these
+controls.
+
 The visible label, value, unit, freshness, and zone must also form a complete spoken description.
 Plugin authors provide concise labels and descriptions; Binnacle constructs the accessible name and
 keeps the whole tile touch-sized. A plugin should be useful at the narrow dock width before relying

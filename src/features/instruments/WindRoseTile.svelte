@@ -12,10 +12,22 @@ interface Props {
   depthZone: ZoneState;
   sensorGloss: string;
   staleAgeText?: string;
+  expanded?: boolean;
+  actionLabel?: string;
   onOpen?: () => void;
 }
 
-const { label, reading, zone, depthZone, sensorGloss, staleAgeText, onOpen }: Props = $props();
+const {
+  label,
+  reading,
+  zone,
+  depthZone,
+  sensorGloss,
+  staleAgeText,
+  expanded = false,
+  actionLabel = 'Expand instrument',
+  onOpen,
+}: Props = $props();
 const rose = $derived(reading.windRose);
 const dialTicks = Array.from({ length: 36 }, (_, index) => ({
   angle: index * 10,
@@ -46,8 +58,8 @@ function metricText(metric: InstrumentMetric | undefined, angle = false): string
 
 const accessibleLabel = $derived(
   rose
-    ? `${label}. Heading ${metricText(rose.heading)}. Apparent wind ${metricText(rose.apparent, true)}. True wind ${metricText(rose.trueWind, true)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. Open details`
-    : `${label}, ${sensorGloss}. Open details`,
+    ? `${label}. Heading ${metricText(rose.heading)}. Apparent wind ${metricText(rose.apparent, true)}. True wind ${metricText(rose.trueWind, true)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. ${actionLabel}`
+    : `${label}, ${sensorGloss}. ${actionLabel}`,
 );
 const apparentDeg = $derived((rose?.apparent.angleRad ?? 0) * RAD_TO_DEG);
 const trueDeg = $derived((rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
@@ -103,6 +115,7 @@ const sectorRotation = $derived(
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
+  class:tile--expanded={expanded}
   aria-label={accessibleLabel}
   onclick={onOpen}
 >
@@ -148,6 +161,13 @@ const sectorRotation = $derived(
         {/each}
       </g>
 
+      {#if rawSectorReference}
+        <g class="wind-sector-lines" transform="rotate({sectorRotation} 500 500)">
+          <path class="port-sector-line" d="M186 186 L500 500" />
+          <path class="starboard-sector-line" d="M814 186 L500 500" />
+        </g>
+      {/if}
+
       <g class="crosshair">
         <path d="M500 166 V360 M500 640 V834" />
         <path d="M166 500 H360 M640 500 H834" />
@@ -171,23 +191,65 @@ const sectorRotation = $derived(
       {/if}
 
       <g class="wind-counter wind-counter--apparent">
-        <text class="counter-label" x="105" y="72">AWS</text>
-        <text class="counter-value apparent-color" x="105" y="132">
+        <rect
+          class="counter-box"
+          class:counter-box--warning={zone === 'warning'}
+          class:counter-box--alarm={zone === 'alarm'}
+          x="20"
+          y="8"
+          width="240"
+          height="162"
+          rx="22"
+        />
+        <rect
+          class="counter-box"
+          class:counter-box--warning={zone === 'warning'}
+          class:counter-box--alarm={zone === 'alarm'}
+          x="20"
+          y="184"
+          width="240"
+          height="140"
+          rx="22"
+        />
+        <text class="counter-label" x="140" y="42">AWS</text>
+        <text class="counter-value" x="140" y="128">
           {rose?.apparent.value ?? '---'}
         </text>
-        <text class="counter-detail apparent-color" x="105" y="169">
-          {rose?.apparent.unit ?? ''}
-          · AWA {formatSignedAngleOr(rose?.apparent.angleRad)}
+        <text class="counter-unit" x="140" y="162">{rose?.apparent.unit ?? ''}</text>
+        <text class="counter-angle-label" x="140" y="218">AWA</text>
+        <text class="counter-angle-value" x="140" y="306">
+          {formatSignedAngleOr(rose?.apparent.angleRad)}
         </text>
       </g>
       <g class="wind-counter wind-counter--true">
-        <text class="counter-label" x="895" y="72">TWS</text>
-        <text class="counter-value true-color" x="895" y="132">
+        <rect
+          class="counter-box"
+          class:counter-box--warning={zone === 'warning'}
+          class:counter-box--alarm={zone === 'alarm'}
+          x="740"
+          y="8"
+          width="240"
+          height="162"
+          rx="22"
+        />
+        <rect
+          class="counter-box"
+          class:counter-box--warning={zone === 'warning'}
+          class:counter-box--alarm={zone === 'alarm'}
+          x="740"
+          y="184"
+          width="240"
+          height="140"
+          rx="22"
+        />
+        <text class="counter-label" x="860" y="42">TWS</text>
+        <text class="counter-value" x="860" y="128">
           {rose?.trueWind.value ?? '---'}
         </text>
-        <text class="counter-detail true-color" x="895" y="169">
-          {rose?.trueWind.unit ?? ''}
-          · TWA {formatSignedAngleOr(rose?.trueWind.angleRad)}
+        <text class="counter-unit" x="860" y="162">{rose?.trueWind.unit ?? ''}</text>
+        <text class="counter-angle-label" x="860" y="218">TWA</text>
+        <text class="counter-angle-value" x="860" y="306">
+          {formatSignedAngleOr(rose?.trueWind.angleRad)}
         </text>
       </g>
 
@@ -202,21 +264,17 @@ const sectorRotation = $derived(
 
     <div class="corner corner--sog">
       <span class="corner-label">SOG</span>
-      <span
-        ><span class="num">{rose?.speedOverGround.value ?? '---'}</span>
-        <span class="unit">{rose?.speedOverGround.unit ?? ''}</span></span
-      >
+      <span class="num">{rose?.speedOverGround.value ?? '---'}</span>
+      <span class="unit">{rose?.speedOverGround.unit ?? ''}</span>
     </div>
     <div
       class="corner corner--depth"
       class:corner--warning={depthZone === 'warning'}
       class:corner--alarm={depthZone === 'alarm'}
     >
-      <span class="corner-label">Depth</span>
-      <span
-        ><span class="num">{rose?.depth.value ?? '---'}</span>
-        <span class="unit">{rose?.depth.unit ?? ''}</span></span
-      >
+      <span class="corner-label">DEPTH</span>
+      <span class="num">{rose?.depth.value ?? '---'}</span>
+      <span class="unit">{rose?.depth.unit ?? ''}</span>
       {#if depthZone === 'warning'}
         <span class="corner-state">Warning</span>
       {:else if depthZone === 'alarm'}
@@ -240,6 +298,7 @@ const sectorRotation = $derived(
   --wind-apparent: #ff9100;
   --wind-true: #d89a00;
   --wind-pointer-label: #170b00;
+  --wind-dial: color-mix(in srgb, var(--text) 12%, var(--surface-raised));
   grid-column: 1 / -1;
 }
 :global(:root[data-theme="dusk"]) .tile--wind-rose {
@@ -248,6 +307,7 @@ const sectorRotation = $derived(
   --wind-apparent: #ff9100;
   --wind-true: #ffcf4d;
   --wind-pointer-label: #0f1a24;
+  --wind-dial: color-mix(in srgb, var(--text) 70%, var(--surface-raised));
 }
 :global(:root[data-theme="night-red"]) .tile--wind-rose {
   --wind-port: #a23500;
@@ -255,11 +315,16 @@ const sectorRotation = $derived(
   --wind-apparent: #e04900;
   --wind-true: #ff9f00;
   --wind-pointer-label: #1a0000;
+  --wind-dial: color-mix(in srgb, var(--text-muted) 28%, var(--surface-raised));
 }
 .rose-layout {
   position: relative;
   inline-size: min(100%, 26rem);
   aspect-ratio: 1;
+  container-type: inline-size;
+}
+.tile--expanded .rose-layout {
+  inline-size: min(88vmin, 54rem);
 }
 .rose {
   display: block;
@@ -269,13 +334,15 @@ const sectorRotation = $derived(
 .fixed-dial,
 .port-sector,
 .starboard-sector,
+.port-sector-line,
+.starboard-sector-line,
 .dial-tick,
 .crosshair,
 .boat-outline {
   fill: none;
 }
 .fixed-dial {
-  stroke: color-mix(in srgb, var(--text-muted) 62%, var(--surface-raised));
+  stroke: var(--wind-dial);
   stroke-width: 82;
 }
 .port-sector,
@@ -287,6 +354,17 @@ const sectorRotation = $derived(
   stroke: var(--wind-port);
 }
 .starboard-sector {
+  stroke: var(--wind-starboard);
+}
+.port-sector-line,
+.starboard-sector-line {
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.port-sector-line {
+  stroke: var(--wind-port);
+}
+.starboard-sector-line {
   stroke: var(--wind-starboard);
 }
 .card-backplate {
@@ -354,24 +432,43 @@ const sectorRotation = $derived(
   font-family: var(--font-mono);
   text-anchor: middle;
 }
+.counter-box {
+  fill: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  stroke: var(--border);
+  stroke-width: 3;
+}
+.counter-box--warning {
+  fill: var(--warning-tint);
+  stroke: var(--warning);
+  stroke-width: 8;
+}
+.counter-box--alarm {
+  fill: var(--alarm-tint);
+  stroke: var(--alarm);
+  stroke-width: 8;
+}
 .counter-label {
   fill: var(--text-muted);
   font-size: 35px;
   font-weight: 800;
 }
 .counter-value {
-  font-size: 66px;
-  font-weight: 800;
+  fill: var(--text);
+  font-size: 88px;
+  font-weight: 900;
+  letter-spacing: -3px;
 }
-.counter-detail {
+.counter-unit,
+.counter-angle-label {
+  fill: var(--text-muted);
   font-size: 27px;
-  font-weight: 650;
+  font-weight: 750;
 }
-.apparent-color {
-  fill: var(--wind-apparent);
-}
-.true-color {
-  fill: var(--wind-true);
+.counter-angle-value {
+  fill: var(--text);
+  font-size: 88px;
+  font-weight: 900;
+  letter-spacing: -3px;
 }
 .heading-window rect {
   fill: var(--surface-raised);
@@ -394,44 +491,52 @@ const sectorRotation = $derived(
   min-inline-size: 24%;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  text-align: start;
+  align-items: center;
+  padding: 1.5cqi 2cqi;
+  border: 3px solid var(--border);
+  border-radius: 2.2cqi;
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  text-align: center;
 }
 .corner--sog {
   inset-inline-start: 2.5%;
 }
 .corner--depth {
   inset-inline-end: 2.5%;
-  align-items: flex-end;
-  text-align: end;
 }
 .corner .num {
   font-family: var(--font-mono);
-  font-size: var(--text-readout);
-  font-weight: 750;
+  font-size: 8.8cqi;
+  font-weight: 900;
+  line-height: var(--leading-tight);
 }
 .corner .unit {
-  margin-inline-start: var(--space-1);
+  margin-inline-start: 0;
   color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-size: 2.7cqi;
+  font-weight: 650;
 }
-.corner-label,
+.corner-label {
+  color: var(--text-muted);
+  font-size: 3.5cqi;
+  font-weight: 800;
+  line-height: var(--leading-tight);
+}
 .corner-state {
   color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-size: 2.7cqi;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
 }
 .corner--warning {
+  border-width: 5px;
   border-color: var(--warning);
   background: var(--warning-tint);
   color: var(--warning);
 }
 .corner--alarm {
+  border-width: 5px;
   border-color: var(--alarm);
   background: var(--alarm-tint);
   color: var(--alarm);
@@ -443,5 +548,13 @@ const sectorRotation = $derived(
 .corner--alarm .corner-label,
 .corner--alarm .corner-state {
   color: var(--alarm);
+}
+.tile--wind-rose.tile--expanded .corner .num {
+  font-size: 8.8cqi;
+}
+.tile--wind-rose.tile--expanded .corner-label,
+.tile--wind-rose.tile--expanded .corner-state,
+.tile--wind-rose.tile--expanded .corner .unit {
+  font-size: 3.5cqi;
 }
 </style>

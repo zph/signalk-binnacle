@@ -11,11 +11,24 @@ interface Props {
   zone: ZoneState;
   sensorGloss: string;
   staleAgeText?: string;
+  expanded?: boolean;
+  actionLabel?: string;
   onOpen?: () => void;
 }
 
-const { label, reading, zone, sensorGloss, staleAgeText, onOpen }: Props = $props();
-const accessibleLabel = $derived(tileAccessibleLabel(label, reading, zone, sensorGloss));
+const {
+  label,
+  reading,
+  zone,
+  sensorGloss,
+  staleAgeText,
+  expanded = false,
+  actionLabel = 'Expand instrument',
+  onOpen,
+}: Props = $props();
+const accessibleLabel = $derived(
+  tileAccessibleLabel(label, reading, zone, sensorGloss, actionLabel),
+);
 const rollDeg = $derived(-clamp((reading.rollRad ?? 0) * RAD_TO_DEG, -60, 60));
 const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30) * 0.8);
 </script>
@@ -27,6 +40,7 @@ const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
+  class:tile--expanded={expanded}
   aria-label={accessibleLabel}
   onclick={onOpen}
 >
@@ -73,6 +87,10 @@ const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30
   inline-size: min(100%, 8rem);
   block-size: 6rem;
 }
+.tile--expanded .attitude {
+  inline-size: min(70vmin, 42rem);
+  block-size: min(58vmin, 35rem);
+}
 .above {
   fill: var(--accent-tint);
 }
@@ -101,6 +119,9 @@ const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30
 }
 .attitude-values {
   font-size: var(--text-sm);
+}
+.tile--expanded .attitude-values {
+  font-size: clamp(var(--text-xl), 4vmin, 2.5rem);
 }
 .tile--stale .horizon {
   stroke: var(--text-muted);

@@ -11,11 +11,24 @@ interface Props {
   zone: ZoneState;
   sensorGloss: string;
   staleAgeText?: string;
+  expanded?: boolean;
+  actionLabel?: string;
   onOpen?: () => void;
 }
 
-const { label, reading, zone, sensorGloss, staleAgeText, onOpen }: Props = $props();
-const accessibleLabel = $derived(tileAccessibleLabel(label, reading, zone, sensorGloss));
+const {
+  label,
+  reading,
+  zone,
+  sensorGloss,
+  staleAgeText,
+  expanded = false,
+  actionLabel = 'Expand instrument',
+  onOpen,
+}: Props = $props();
+const accessibleLabel = $derived(
+  tileAccessibleLabel(label, reading, zone, sensorGloss, actionLabel),
+);
 const cardDeg = $derived(-((reading.siValue ?? 0) * RAD_TO_DEG));
 </script>
 
@@ -26,6 +39,7 @@ const cardDeg = $derived(-((reading.siValue ?? 0) * RAD_TO_DEG));
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
+  class:tile--expanded={expanded}
   aria-label={accessibleLabel}
   onclick={onOpen}
 >
@@ -65,6 +79,10 @@ const cardDeg = $derived(-((reading.siValue ?? 0) * RAD_TO_DEG));
 .compass {
   inline-size: min(100%, 8rem);
   block-size: 7rem;
+}
+.tile--expanded .compass {
+  inline-size: min(70vmin, 42rem);
+  block-size: min(70vmin, 42rem);
 }
 .ring,
 .ticks {
