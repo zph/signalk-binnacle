@@ -2,6 +2,7 @@
 import Link2 from '@lucide/svelte/icons/link-2';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 import Trash2 from '@lucide/svelte/icons/trash-2';
 import {
   type DraftChart,
@@ -16,12 +17,22 @@ import {
 import { type Bbox4, formatBounds } from '$shared/geo';
 import type { LayerListItem } from '$shared/map';
 import type { UpgradeOutcome } from '$shared/signalk';
-import { InlineConfirm, SubViewHeader, TextField, WriteAccessNote } from '$shared/ui';
+import {
+  InlineConfirm,
+  LayerToggle,
+  SubViewHeader,
+  TextField,
+  UnavailableHint,
+  WriteAccessNote,
+} from '$shared/ui';
 import ChartSourceReview from './ChartSourceReview.svelte';
 import ChartSpecList from './ChartSpecList.svelte';
+import type { LayersView } from './layers-view.svelte';
 
 interface Props {
   item: LayerListItem;
+  view: LayersView;
+  subLayers?: LayerListItem[];
   userCharts?: UserCharts;
   userSource?: UserChartSource;
   writeBlocked?: boolean;
@@ -38,6 +49,8 @@ interface Props {
 
 const {
   item,
+  view,
+  subLayers = [],
   userCharts,
   userSource,
   writeBlocked = false,
@@ -63,6 +76,7 @@ let stageGeneration = 0;
 let stageController: AbortController | undefined;
 
 const chart = $derived(item.chart);
+const MIN_LAYER_OPACITY = 0.15;
 const canEdit = $derived(userSource !== undefined && userCharts !== undefined);
 const renameBlocked = $derived(
   writeBlocked && userSource !== undefined && shouldShareUserChart(userSource),
@@ -95,6 +109,7 @@ const specRows = $derived([
   { label: 'Name', value: item.title },
   { label: 'Type', value: chartKind },
   { label: 'Origin', value: chartOrigin },
+  ...(item.region ? [{ label: 'Region', value: item.region }] : []),
   ...(chartUrl ? [{ label: 'Source', value: chartUrl }] : []),
   { label: 'Zoom', value: zoom },
   { label: 'Bounds', value: chartBounds ? formatBounds(chartBounds) : 'Unknown' },
@@ -278,6 +293,80 @@ function changeSharing(share: boolean): void {
 
   <ChartSpecList rows={specRows} />
 
+  <section class="panel-section" aria-label="Chart display">
+    <h3 class="caps-label">Display</h3>
+    <LayerToggle
+      label="Show chart"
+      description={`Show or hide ${item.title} on the chart`}
+      visible={item.visible}
+      disabled={!item.available}
+      onToggle={(visible) => view.toggle(item.id, visible)}
+      presentation="row"
+    />
+
+    {#if item.supportsOpacity}
+      <div class="opacity-field">
+        <div class="opacity-label">
+          <label for={`${item.id}-detail-opacity`}>Opacity</label>
+          <span class="num">{Math.round(item.opacity * 100)}%</span>
+        </div>
+        <div class="opacity-controls">
+          <input
+            id={`${item.id}-detail-opacity`}
+            class="range"
+            type="range"
+            min={MIN_LAYER_OPACITY}
+            max="1"
+            step="0.05"
+            value={item.opacity}
+            disabled={!item.visible || !item.available}
+            aria-valuetext={`${Math.round(item.opacity * 100)}%`}
+            oninput={(event) =>
+              view.setOpacity(item.id, Number(event.currentTarget.value), false)}
+            onchange={(event) => view.setOpacity(item.id, Number(event.currentTarget.value))}
+          >
+          <button
+            type="button"
+            class="icon-btn"
+            aria-label={`Reset ${item.title} opacity`}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setOpacity(item.id, 1)}
+          >
+            <RotateCcw size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    {/if}
+
+    {#if subLayers.length > 0}
+      <div class="chart-layer-list" role="group" aria-label={`${item.title} chart layers`}>
+        <h4 class="caps-label">Chart layers</h4>
+        {#each subLayers as sub (sub.id)}
+          {@const unavailableId = `chart-layer-${sub.id}-unavailable`}
+          <div
+            class="chart-layer-row"
+            class:unavailable={!sub.available}
+            title={sub.available ? undefined : sub.unavailableHint}
+          >
+            <UnavailableHint
+              id={unavailableId}
+              hint={sub.available ? undefined : sub.unavailableHint}
+            />
+            <LayerToggle
+              label={sub.title}
+              description={sub.description}
+              visible={sub.visible}
+              disabled={!item.available || !item.visible || !sub.available}
+              describedBy={!sub.available && sub.unavailableHint ? unavailableId : undefined}
+              onToggle={(visible) => view.toggle(sub.id, visible)}
+              presentation="row"
+            />
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </section>
+
   {#if !item.available && item.unavailableHint}
     <p class="muted-note" role="status">{item.unavailableHint}</p>
   {/if}
@@ -460,5 +549,28 @@ function changeSharing(share: boolean): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+.opacity-field,
+.chart-layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.opacity-label,
+.opacity-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.opacity-label {
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+.opacity-controls .range {
+  flex: 1;
+  min-inline-size: 0;
+}
+.chart-layer-row {
+  display: flex;
 }
 </style>

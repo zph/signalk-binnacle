@@ -2,6 +2,7 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UserChartSource, UserCharts } from '$entities/user-charts';
 import type { LayerListItem } from '$shared/map';
+import type { LayersView } from './layers-view.svelte';
 import SourceDetail from './SourceDetail.svelte';
 
 const url = 'https://charts.example/harbor.pmtiles';
@@ -24,6 +25,7 @@ const item: LayerListItem = {
   chart: { identifier: source.id, source: 'user', kind: 'vector', type: 'tileJSON', url },
 };
 const mounted: Array<() => void> = [];
+const view = { toggle: vi.fn(), setOpacity: vi.fn() } as unknown as LayersView;
 
 function mountDetail() {
   const target = document.createElement('div');
@@ -37,6 +39,7 @@ function mountDetail() {
       target,
       props: {
         item,
+        view,
         userCharts: { remove, stageReplacement } as unknown as UserCharts,
         userSource: source,
         writeBlocked: false,

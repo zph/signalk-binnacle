@@ -107,6 +107,8 @@ describe('LayersPanel chart guidance', () => {
     expect(body).toContain('aria-label="Move Harbor chart, position 1 of 2"');
     expect(body).toContain('aria-label="Move Coastal chart, position 2 of 2"');
     expect(body).toContain('aria-keyshortcuts="ArrowUp ArrowDown"');
+    expect(body).toMatch(/<button[^>]+aria-pressed="true"[^>]*>\s*<span[^>]*>Harbor chart/);
+    expect(body).not.toContain('Adjust Harbor chart opacity');
   });
 
   it('explains a reference-only view and that depth shading does not count as a chart', () => {

@@ -617,8 +617,11 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   mode owns membership, order, reset, and the live reorder announcement; the bar only renders the
   resolved customizable list.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
-  sources, uses the shared drag grips to set their top-to-bottom stack, opens chart detail from the row
-  gear, shows bounds when known, and keeps "Add a chart" for user PMTiles URLs. Every query-bearing
+  sources. Each compact row has one separate drag grip, a name-sized visibility button whose enabled
+  state lights the row, and one chart-detail action. Chart detail owns opacity and child-layer controls
+  so those controls do not crowd the source name. The grip stays separate from visibility and detail
+  because its pointer and keyboard gestures cannot be ambiguous. The detail shows bounds when known,
+  and the list keeps "Add a chart" for user PMTiles URLs. Every query-bearing
   URL defaults to device-only, displays redact all query values, and sharing the complete URL with
   Signal K requires an explicit reviewed choice. User chart detail stages replacement metadata before
   save, refreshes metadata through the same review, and changes device or server sharing without

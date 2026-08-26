@@ -41,8 +41,10 @@ function body(item: LayerListItem, subLayers: LayerListItem[], onManage?: () => 
   }).body;
 }
 
-function checkboxAttributes(html: string): string[] {
-  return [...html.matchAll(/<input type="checkbox"([^>]*)\/>/g)].map((match) => match[1] ?? '');
+function toggleButtons(html: string): string[] {
+  return [...html.matchAll(/<button type="button" class="layer-toggle[^>]*>/g)].map(
+    (match) => match[0],
+  );
 }
 
 describe('LayerRow availability', () => {
@@ -54,11 +56,11 @@ describe('LayerRow availability', () => {
       }),
       [],
     );
-    const checkboxes = checkboxAttributes(html);
+    const toggles = toggleButtons(html);
 
-    expect(checkboxes).toHaveLength(1);
-    expect(checkboxes[0]).toContain('disabled=""');
-    expect(checkboxes[0]).toContain('aria-describedby="layer-standalone-unavailable"');
+    expect(toggles).toHaveLength(1);
+    expect(toggles[0]).toContain('disabled=""');
+    expect(toggles[0]).toContain('aria-describedby="layer-standalone-unavailable"');
     expect(html).toContain('Standalone provider unavailable.');
   });
 
@@ -74,11 +76,11 @@ describe('LayerRow availability', () => {
       [],
       noop,
     );
-    const checkboxes = checkboxAttributes(html);
+    const toggles = toggleButtons(html);
 
-    expect(checkboxes).toHaveLength(1);
-    expect(checkboxes[0]).toContain('disabled=""');
-    expect(checkboxes[0]).not.toContain('checked=""');
+    expect(toggles).toHaveLength(1);
+    expect(toggles[0]).toContain('disabled=""');
+    expect(toggles[0]).toContain('aria-pressed="false"');
     expect(html).toContain('aria-label="Open Provider style chart details"');
   });
 
@@ -91,13 +93,13 @@ describe('LayerRow availability', () => {
       }),
       [layer('available-child', { title: 'Available child' })],
     );
-    const checkboxes = checkboxAttributes(html);
+    const toggles = toggleButtons(html);
 
-    expect(checkboxes).toHaveLength(2);
-    expect(checkboxes[0]).toContain('disabled=""');
-    expect(checkboxes[0]).toContain('aria-describedby="layer-parent-facet-unavailable"');
-    expect(checkboxes[1]).toContain('disabled=""');
-    expect(checkboxes[1]).toContain('aria-describedby="layer-parent-facet-unavailable"');
+    expect(toggles).toHaveLength(2);
+    expect(toggles[0]).toContain('disabled=""');
+    expect(toggles[0]).toContain('aria-describedby="layer-parent-facet-unavailable"');
+    expect(toggles[1]).toContain('disabled=""');
+    expect(toggles[1]).toContain('aria-describedby="layer-parent-facet-unavailable"');
     expect(html).toContain('Provider unavailable.');
   });
 
@@ -109,12 +111,12 @@ describe('LayerRow availability', () => {
         unavailableHint: 'Child provider unavailable.',
       }),
     ]);
-    const checkboxes = checkboxAttributes(html);
+    const toggles = toggleButtons(html);
 
-    expect(checkboxes).toHaveLength(2);
-    expect(checkboxes[0]).not.toContain('disabled=""');
-    expect(checkboxes[1]).toContain('disabled=""');
-    expect(checkboxes[1]).toContain('aria-describedby="layer-unavailable-child-unavailable"');
+    expect(toggles).toHaveLength(2);
+    expect(toggles[0]).not.toContain('disabled=""');
+    expect(toggles[1]).toContain('disabled=""');
+    expect(toggles[1]).toContain('aria-describedby="layer-unavailable-child-unavailable"');
     expect(html).toContain('Child provider unavailable.');
   });
 });
@@ -138,21 +140,36 @@ describe('LayerRow opacity focus', () => {
   });
 });
 
-describe('LayerRow child-layer caret', () => {
-  it('renders an active collapsed caret for a row with child layers', () => {
+describe('LayerRow child-layer disclosure', () => {
+  it('keeps non-chart child layers in an inline disclosure', () => {
     const html = body(layer('enc', { title: 'NOAA ENC California' }), [
       layer('enc:facet:depth', { title: 'Depth areas', parent: 'enc' }),
     ]);
 
-    expect(html).toContain('aria-label="Show NOAA ENC California chart layers"');
+    expect(html).toContain('aria-label="Show NOAA ENC California child layers"');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('role="group" aria-label="NOAA ENC California chart layers" hidden=""');
+    expect(html).toContain('role="group" aria-label="NOAA ENC California child layers" hidden=""');
   });
 
-  it('keeps the caret slot disabled when a row has no child layers', () => {
+  it('does not reserve a caret slot when a row has no child layers', () => {
     const html = body(layer('plain', { title: 'Open Maps' }), []);
 
-    expect(html).toContain('aria-label="No child layers for Open Maps"');
-    expect(html).toMatch(/<button[^>]*class="facet-caret[^"]*"[^>]*disabled=""/);
+    expect(html).not.toContain('facet-caret');
+  });
+
+  it('moves chart child layers out of the compact source row', () => {
+    const html = body(
+      layer('enc', {
+        title: 'NOAA ENC California',
+        chart: { identifier: 'enc', source: 'server', kind: 'vector', type: 'S-57' },
+      }),
+      [layer('enc:facet:depth', { title: 'Depth areas', parent: 'enc' })],
+      noop,
+    );
+
+    expect(html).not.toContain('facet-caret');
+    expect(html).not.toContain('Depth areas');
+    expect(html).not.toContain('Adjust NOAA ENC California opacity');
+    expect(html).toContain('Open NOAA ENC California chart details');
   });
 });

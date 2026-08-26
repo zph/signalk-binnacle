@@ -150,6 +150,8 @@ const reorderAnnouncement = $derived(
     {#key detailItem.id}
       <SourceDetail
         item={detailItem}
+        {view}
+        subLayers={childrenByParent.get(detailItem.id) ?? []}
         {userCharts}
         userSource={detailUserSource}
         writeBlocked={auth.writeBlocked}

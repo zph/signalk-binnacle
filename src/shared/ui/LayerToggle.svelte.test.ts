@@ -48,4 +48,13 @@ describe('LayerToggle', () => {
     expect(checkbox(body)).not.toContain('aria-describedby');
     expect(body).not.toContain('visually-hidden');
   });
+
+  it('renders a pressed row button without a checkbox when requested', () => {
+    const body = renderToggle({ presentation: 'row', description: DESCRIPTION });
+
+    expect(body).not.toContain('type="checkbox"');
+    expect(body).toMatch(/<button[^>]+class="layer-toggle[^>]+aria-pressed="true"/);
+    expect(body).toContain('NOAA ENC');
+    expect(body).toContain(DESCRIPTION);
+  });
 });

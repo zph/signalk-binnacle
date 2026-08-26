@@ -1,12 +1,9 @@
 <script lang="ts">
-import type { Snippet } from 'svelte';
 import { resolveToggleDescription, type VisibilityToggleProps } from './visibility-toggle';
 
 interface Props extends VisibilityToggleProps {
   label: string;
-  // Optional control rendered immediately after the checkbox. Layers uses this for its consistent
-  // child-layer caret column; other toggle surfaces keep the original single-label structure.
-  afterCheckbox?: Snippet;
+  presentation?: 'checkbox' | 'row';
 }
 
 // disabled: a sub-layer toggle is disabled while its parent is off, so a facet cannot be enabled
@@ -18,40 +15,40 @@ const {
   disabled = false,
   description,
   describedBy,
-  afterCheckbox,
+  presentation = 'checkbox',
 }: Props = $props();
 
 const ownDescriptionId = $props.id();
-const checkboxId = `${ownDescriptionId}-checkbox`;
 const described = $derived(
   resolveToggleDescription({ description, describedBy }, ownDescriptionId),
 );
 </script>
 
-{#snippet checkbox()}
-  <input
-    type="checkbox"
-    id={afterCheckbox ? checkboxId : undefined}
-    checked={visible}
-    {disabled}
+{#if presentation === 'row'}
+  <button
+    type="button"
+    class="layer-toggle layer-toggle-button row-interactive"
+    class:is-on={visible}
+    class:disabled
+    aria-pressed={visible}
     aria-describedby={described.describedBy}
-    onchange={(e) => onToggle(e.currentTarget.checked)}
+    title={description ?? label}
+    {disabled}
+    onclick={() => onToggle(!visible)}
   >
-{/snippet}
-
-{#if afterCheckbox}
-  <div class="layer-toggle" class:disabled>
-    {@render checkbox()}
-    {@render afterCheckbox()}
-    <!-- Keep the visible title as the checkbox label even though the disclosure button sits between
-         them visually. This preserves label-in-name and leaves each control independently clickable. -->
-    <label class="title" for={checkboxId} title={description ?? label}>{label}</label>
-  </div>
+    <span class="title">{label}</span>
+  </button>
 {:else}
   <label class="layer-toggle" class:disabled>
     <!-- The accessible name comes from the wrapping label's visible title text, so the on-screen word
          and the spoken name match exactly (WCAG 2.5.3). The checkbox role carries the state. -->
-    {@render checkbox()}
+    <input
+      type="checkbox"
+      checked={visible}
+      {disabled}
+      aria-describedby={described.describedBy}
+      onchange={(e) => onToggle(e.currentTarget.checked)}
+    >
     <span class="title" title={description ?? label}>{label}</span>
   </label>
 {/if}
@@ -78,6 +75,13 @@ const described = $derived(
 .layer-toggle.disabled {
   cursor: default;
   opacity: var(--disabled-opacity);
+}
+.layer-toggle-button {
+  justify-content: flex-start;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-align: start;
 }
 .layer-toggle input[type="checkbox"] {
   inline-size: var(--checkbox-size);

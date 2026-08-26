@@ -768,7 +768,9 @@ test('layers and charts opens chart sources before overlay stack controls', asyn
     localStorage.clear();
     localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
+  const workerProof = await installMapLibreWorkerProof(page);
   await page.goto('/');
+  await workerProof.assertInitialNavigation();
 
   // Layers and charts is not a default toolbar pin: open it from the launcher, so this test keeps
   // exercising the menu entry rather than whichever control happens to mention charts.
@@ -845,8 +847,11 @@ test('style-document charts stay visible and explain that they are unsupported',
   const panel = page.locator('#layers-panel');
   const row = panel.locator('[data-layer-row="chart-provider-style"]');
   await expect(row).toBeVisible();
-  await expect(row.getByRole('checkbox', { name: 'Provider style' })).toBeDisabled();
-  await expect(row.getByRole('checkbox', { name: 'Provider style' })).not.toBeChecked();
+  await expect(row.getByRole('button', { name: 'Provider style', exact: true })).toBeDisabled();
+  await expect(row.getByRole('button', { name: 'Provider style', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await row.getByRole('button', { name: 'Open Provider style chart details' }).click();
 
   await expect(panel.getByText('cannot display yet')).toBeVisible();

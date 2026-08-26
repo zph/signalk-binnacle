@@ -35,9 +35,10 @@ source, and surrounding traffic before relying on it.
   and explicitly enabling sharing sends the complete URL to Signal K. Closing or superseding an
   import cancels its metadata request. User chart detail can stage a replacement URL, refresh the
   current URL's metadata, and change server sharing while retaining the chart id, visibility,
-  opacity, and stack position. A failed replacement restores the accepted chart. Chart rows expose
-  drag grips for top-to-bottom stacking. Overlays remain in their own tab with visibility, opacity,
-  management, and stacking controls. Signal K style-document
+  opacity, and stack position. A failed replacement restores the accepted chart. Tapping a chart
+  name toggles it and highlights the enabled row. A separate grip sets top-to-bottom stacking, while
+  chart detail holds opacity and child-layer controls. Overlays remain in their own tab with
+  visibility, opacity, management, and stacking controls. Signal K style-document
   sources remain listed with details available for inspection, but they are disabled, forced off,
   and identified as unsupported instead of appearing as blank charts. Chart overlays under
   **Chart overlays and marks** include seabed infrastructure (power cables, telecom cables,

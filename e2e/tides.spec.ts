@@ -156,13 +156,14 @@ test('opens Tides from a station enabled only through Layers and charts', async 
   await layers.getByRole('button', { name: /Chart overlays and marks/ }).click();
   const tideLayer = layers
     .locator('[data-layer-row="tides"]')
-    .getByRole('checkbox', { name: 'Tide stations' });
+    .getByRole('button', { name: 'Tide stations', exact: true });
   const prediction = page.waitForResponse(
     (response) =>
       response.url().includes('/api/prod/datagetter') &&
       new URL(response.url()).searchParams.get('product') === 'predictions',
   );
-  await tideLayer.check();
+  await tideLayer.click();
+  await expect(tideLayer).toHaveAttribute('aria-pressed', 'true');
   await prediction;
   await layers.getByRole('button', { name: 'Close layers and charts' }).click();
 

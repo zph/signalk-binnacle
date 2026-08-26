@@ -2,6 +2,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { UserChartSource, UserCharts } from '$entities/user-charts';
 import type { LayerListItem } from '$shared/map';
+import type { LayersView } from './layers-view.svelte';
 import SourceDetail from './SourceDetail.svelte';
 
 const url = 'https://charts.example/harbor.pmtiles?style=day&access_token=secret';
@@ -25,11 +26,13 @@ const item: LayerListItem = {
   chart: { identifier: source.id, source: 'user', kind: 'vector', type: 'tileJSON', url },
 };
 const noop = (): void => {};
+const view = { toggle: noop, setOpacity: noop } as unknown as LayersView;
 
 function body(writeBlocked: boolean, userSource: UserChartSource = source): string {
   return render(SourceDetail, {
     props: {
       item,
+      view,
       userCharts: {} as UserCharts,
       userSource,
       writeBlocked,
@@ -39,6 +42,30 @@ function body(writeBlocked: boolean, userSource: UserChartSource = source): stri
 }
 
 describe('SourceDetail', () => {
+  it('keeps chart visibility, opacity, and child layers in the detail view', () => {
+    const html = render(SourceDetail, {
+      props: {
+        item,
+        view,
+        subLayers: [
+          {
+            ...item,
+            id: 'chart-source-chart-1:facet:soundings',
+            title: 'Soundings and contours',
+            parent: item.id,
+            chart: undefined,
+          },
+        ],
+        onBack: noop,
+      },
+    }).body;
+
+    expect(html).toMatch(/<button[^>]+aria-pressed="true"[^>]*>\s*<span[^>]*>Show chart/);
+    expect(html).toContain(`id="${item.id}-detail-opacity"`);
+    expect(html).toContain('Soundings and contours');
+    expect(html).toContain(`${item.title} chart layers`);
+  });
+
   it('shows an unsupported style chart reason and keeps its query values redacted', () => {
     const styleUrl = 'https://charts.example/style.json?access_token=secret';
     const styleItem: LayerListItem = {
@@ -59,6 +86,7 @@ describe('SourceDetail', () => {
     const html = render(SourceDetail, {
       props: {
         item: styleItem,
+        view,
         onBack: noop,
       },
     }).body;
@@ -112,6 +140,7 @@ describe('SourceDetail', () => {
     const html = render(SourceDetail, {
       props: {
         item,
+        view,
         userCharts: {} as UserCharts,
         userSource: { ...source, shareWithServer: true },
         writeBlocked: true,
@@ -128,6 +157,7 @@ describe('SourceDetail', () => {
     const html = render(SourceDetail, {
       props: {
         item,
+        view,
         userCharts: {} as UserCharts,
         userSource: { ...source, shareWithServer: true },
         writeBlocked: true,

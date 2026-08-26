@@ -76,6 +76,7 @@ const MIN_LAYER_OPACITY = 0.15;
 // merely shares a group id with something it is not the parent of (for example a plain sibling row
 // tagged with the same group for display grouping alone) keeps its own title.
 const isFacetGroup = $derived(subLayers.length > 0);
+const inlineFacets = $derived(isFacetGroup && !item.chart);
 // The drag handle moves the whole row, so for a facet group it names the group, otherwise the layer.
 const handleLabel = $derived(isFacetGroup ? (groupTitle ?? item.title) : item.title);
 
@@ -144,10 +145,9 @@ $effect(() => {
     type="button"
     class="facet-caret"
     class:is-open={facetsExpanded}
-    disabled={!isFacetGroup}
-    aria-label={isFacetGroup ? `${facetsExpanded ? 'Hide' : 'Show'} ${item.title} chart layers` : `No child layers for ${item.title}`}
-    aria-expanded={isFacetGroup ? facetsExpanded : undefined}
-    aria-controls={isFacetGroup ? facetPanelId : undefined}
+    aria-label={`${facetsExpanded ? 'Hide' : 'Show'} ${item.title} child layers`}
+    aria-expanded={facetsExpanded}
+    aria-controls={facetPanelId}
     onclick={() => (facetsExpanded = !facetsExpanded)}
   >
     <ChevronRight size={18} aria-hidden="true" />
@@ -216,7 +216,9 @@ $effect(() => {
 
 {#snippet trailing()}
   <div class="trail">
-    {@render opacityControl(item)}
+    {#if !item.chart}
+      {@render opacityControl(item)}
+    {/if}
     {#if onManage}
       <button
         type="button"
@@ -231,7 +233,7 @@ $effect(() => {
 {/snippet}
 
 {#snippet regionTag()}
-  {#if item.region}
+  {#if item.region && !item.chart}
     <span class="region-tag">{item.region}</span>
   {/if}
 {/snippet}
@@ -241,6 +243,7 @@ $effect(() => {
   class:dragging
   class:drop-before={dropBefore}
   class:drop-after={dropAfter}
+  class:is-on={item.visible && item.available}
   class:unavailable={!item.available}
   aria-label={isFacetGroup ? groupTitle : undefined}
   title={item.available ? undefined : item.unavailableHint}
@@ -250,7 +253,7 @@ $effect(() => {
     id={itemUnavailableId}
     hint={item.available ? undefined : item.unavailableHint}
   />
-  {#if isFacetGroup}
+  {#if inlineFacets}
     <!-- A facet group: one handle moves the whole group, the parent and child toggles share one
          aligned column, and the tune control sits on the parent line. -->
     <div class="facet-row">
@@ -259,6 +262,7 @@ $effect(() => {
       {/if}
       <div class="facet-stack">
         <div class="facet-line">
+          {@render facetCaret()}
           <LayerToggle
             label={item.title}
             description={item.description}
@@ -266,7 +270,7 @@ $effect(() => {
             disabled={!item.available}
             describedBy={!item.available && item.unavailableHint ? itemUnavailableId : undefined}
             onToggle={(visible) => view.toggle(item.id, visible)}
-            afterCheckbox={facetCaret}
+            presentation="row"
           />
           {@render regionTag()}
           {@render trailing()}
@@ -275,7 +279,7 @@ $effect(() => {
           class="facet-disclosure"
           id={facetPanelId}
           role="group"
-          aria-label={`${item.title} chart layers`}
+          aria-label={`${item.title} child layers`}
           hidden={!facetsExpanded}
         >
           {#each subLayers as sub (sub.id)}
@@ -296,6 +300,7 @@ $effect(() => {
                 disabled={!item.available || !item.visible || !sub.available}
                 describedBy={childDescribedBy(sub, subUnavailableId)}
                 onToggle={(visible) => view.toggle(sub.id, visible)}
+                presentation="row"
               />
               {@render opacityControl(sub)}
             </div>
@@ -315,7 +320,7 @@ $effect(() => {
         disabled={!item.available}
         describedBy={!item.available && item.unavailableHint ? itemUnavailableId : undefined}
         onToggle={(visible) => view.toggle(item.id, visible)}
-        afterCheckbox={facetCaret}
+        presentation="row"
       />
       {@render regionTag()}
       {@render trailing()}
@@ -378,8 +383,8 @@ $effect(() => {
   text-align: end;
   color: var(--text-muted);
 }
-/* A facet group: the handle is a left gutter top-aligned with the first facet, the facets stack to its
-   right so every toggle's checkbox shares one left edge, and a child facet is inset under its parent. */
+/* A non-chart facet group keeps its child disclosure inline. Chart facets move into chart detail so
+   chart-source rows retain only the grip, the name toggle, and the detail action. */
 .facet-row {
   display: flex;
   align-items: flex-start;
@@ -416,9 +421,6 @@ $effect(() => {
 }
 .facet-caret.is-open :global(svg) {
   rotate: 90deg;
-}
-.facet-caret:disabled {
-  opacity: var(--disabled-opacity);
 }
 .facet-child {
   /* A nested child toggle is secondary, so it runs at the denser row-size line rather than the full

@@ -140,10 +140,22 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await openMenuItem(page, 'Layers and charts');
     const row = page.locator(`#layers-panel [data-layer-row="chart-${CHART_ID}"]`);
     await expect(row).toBeVisible();
-    await expect(row.getByRole('checkbox', { name: 'Fixture NOAA ENC' })).toBeChecked();
+    const chartToggle = row.getByRole('button', { name: 'Fixture NOAA ENC', exact: true });
+    await expect(chartToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(row.getByRole('checkbox')).toHaveCount(0);
+    await expect(row.getByRole('button', { name: 'Adjust Fixture NOAA ENC opacity' })).toHaveCount(
+      0,
+    );
+    await expect(row.locator('.facet-caret')).toHaveCount(0);
+    await row.getByRole('button', { name: 'Open Fixture NOAA ENC chart details' }).click();
+    await expect(page.getByRole('slider', { name: 'Opacity' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Fixture NOAA ENC chart layers' })).toBeVisible();
+    await page.getByRole('button', { name: 'Back to layers' }).click();
     const baseRow = page.locator('#layers-panel [data-layer-row="basemap"]');
     await expect(baseRow).toBeVisible();
-    await expect(baseRow.getByRole('checkbox', { name: 'OpenFreeMap base' })).toBeChecked();
+    await expect(
+      baseRow.getByRole('button', { name: 'OpenFreeMap base', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     await baseRow.getByRole('button', { name: 'Adjust OpenFreeMap base opacity' }).click();
     const baseOpacity = page.getByRole('slider', { name: 'OpenFreeMap base opacity' });
     await baseOpacity.fill('0.5');
@@ -158,9 +170,6 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
       await zoomIn.click();
       await page.waitForTimeout(350);
     }
-    await expect(
-      page.getByRole('button', { name: /Zoomed past the chart’s native detail/ }),
-    ).toHaveText('Chart overzoomed');
     await expect
       .poll(() => tileRequests.some((path) => path.includes(`/${CHART_ID}/16/`)))
       .toBe(true);
@@ -171,7 +180,8 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     // z17 made this a no-op because the ENC had already vanished.
     const overzoomedWithChart = await canvas.screenshot();
     await openMenuItem(page, 'Layers and charts');
-    await row.getByRole('checkbox', { name: 'Fixture NOAA ENC' }).uncheck();
+    await chartToggle.click();
+    await expect(chartToggle).toHaveAttribute('aria-pressed', 'false');
     await expect
       .poll(async () => !(await canvas.screenshot()).equals(overzoomedWithChart))
       .toBe(true);

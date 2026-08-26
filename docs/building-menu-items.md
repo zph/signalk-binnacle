@@ -321,7 +321,7 @@ Everything below is exported from `$shared/ui`. The standing rule is to hoist a 
 | Confirm a destructive or immediate navigation action in a panel | `InlineConfirm` | `window.confirm` |
 | Confirm a destructive one-tap strip action | `ConfirmArm` | an unguarded one-tap delete |
 | Collapse advanced or optional content | `Disclosure` (prop `expanded`) | a hand-rolled toggle, or the prop name `open` |
-| A layer or chart toggle row | `LayerToggle` with `description` | a bare checkbox row |
+| A layer or chart toggle row | `LayerToggle` with `description`; use its row presentation in Layers | a bare checkbox or bespoke toggle row |
 | An in-panel "show on chart" control | `ShowOnChartToggle` with `description` | a bespoke toggle button |
 | A compact per-card show or hide | `VisibilityToggle` | a re-styled icon button |
 | A map-anchored menu or popover | `AnchoredMenu` with `onFocusLeft` | a bespoke backdrop, Escape handler, or focus-out check |
@@ -519,6 +519,7 @@ These were inconsistent across panels and are now unified; a new panel follows t
   `onEnter` submit, and a `large` deck-glove size. There is no hand-rolled "caps-label plus input"
   name field left to copy.
 - Layers and charts opens to chart sources, not non-chart overlays. Put server-discovered and
-  user-added chart sources in the Charts view, with visibility, opacity, chart-to-chart drag stacking,
-  and detail rows for type, origin, source, zoom, bounds, and show-bounds when available. Keep
+  user-added chart sources in the Charts view, with compact name-button visibility, chart-to-chart
+  drag stacking, and detail controls for opacity, child layers, type, origin, source, zoom, bounds,
+  and show-bounds when available. Keep
   non-chart visibility, opacity, management, and drag stacking in the Overlays view.

@@ -105,6 +105,22 @@ describe('LayerRow opacity popover', () => {
   });
 });
 
+describe('LayerRow visibility', () => {
+  it('uses the name area as the visibility toggle', () => {
+    const toggle = vi.fn();
+    const rowView = { toggle, setOpacity: noop } as unknown as LayersView;
+    const target = mountRow({}, rowView);
+    const control = target.querySelector<HTMLButtonElement>(
+      'button.layer-toggle[aria-pressed="true"]',
+    );
+
+    control?.click();
+
+    expect(toggle).toHaveBeenCalledWith('depth', false);
+    expect(target.querySelector('input[type="checkbox"]')).toBeNull();
+  });
+});
+
 describe('LayerRow child-layer disclosure', () => {
   it('opens from the caret and commits opacity to the selected child id', () => {
     const setOpacity = vi.fn();
@@ -123,11 +139,11 @@ describe('LayerRow child-layer disclosure', () => {
       },
     ]);
     const caret = target.querySelector<HTMLButtonElement>(
-      '[aria-label="Show NOAA ENC California chart layers"]',
+      '[aria-label="Show NOAA ENC California child layers"]',
     );
     if (!caret) throw new Error('no chart-layer caret');
     const childGroup = target.querySelector<HTMLElement>(
-      '[aria-label="NOAA ENC California chart layers"]',
+      '[aria-label="NOAA ENC California child layers"]',
     );
     expect(childGroup?.hidden).toBe(true);
 
@@ -151,12 +167,9 @@ describe('LayerRow child-layer disclosure', () => {
     expect(setOpacity).toHaveBeenCalledWith('depth:facet:soundings', 0.6);
   });
 
-  it('shows a disabled caret for a row without child layers', () => {
+  it('does not reserve a caret for a row without child layers', () => {
     const target = mountRow({ title: 'Open Maps' });
-    const caret = target.querySelector<HTMLButtonElement>(
-      '[aria-label="No child layers for Open Maps"]',
-    );
 
-    expect(caret?.disabled).toBe(true);
+    expect(target.querySelector('.facet-caret')).toBeNull();
   });
 });
