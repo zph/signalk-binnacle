@@ -210,11 +210,27 @@ function depthLabel(unit: S57DepthUnit): ExpressionSpecification {
   const value = soundingValue();
   const converted: ExpressionSpecification =
     unit === 'ft' ? ['*', value, 3.28084] : unit === 'fm' ? ['/', value, 1.8288] : value;
-  return [
-    'concat',
-    ['number-format', converted, { 'max-fraction-digits': 1, 'min-fraction-digits': 0 }],
-    unit,
+  const decimal: ExpressionSpecification = [
+    'number-format',
+    converted,
+    { 'max-fraction-digits': 1, 'min-fraction-digits': 0 },
   ];
+  // Whole-foot soundings above 20 ft are deliberately floored, not rounded to nearest. That keeps
+  // the displayed chart depth conservative while retaining tenths where they matter in shoal water.
+  const displayed: ExpressionSpecification =
+    unit === 'ft'
+      ? [
+          'case',
+          ['>', converted, 20],
+          [
+            'number-format',
+            ['floor', converted],
+            { 'max-fraction-digits': 0, 'min-fraction-digits': 0 },
+          ],
+          decimal,
+        ]
+      : decimal;
+  return ['concat', displayed, unit];
 }
 
 function fillLayer(

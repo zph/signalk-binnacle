@@ -140,10 +140,37 @@ describe('s57ChartLayers', () => {
     expect(JSON.stringify(meters.layout)).toContain('"m"');
     expect(JSON.stringify(feet.layout)).toContain('3.28084');
     expect(JSON.stringify(feet.layout)).toContain('"ft"');
+    expect(JSON.stringify(feet.layout)).toContain('"floor"');
     expect(JSON.stringify(fathoms.layout)).toContain('1.8288');
     expect(JSON.stringify(fathoms.layout)).toContain('"fm"');
+    expect(JSON.stringify(meters.layout)).not.toContain('"floor"');
+    expect(JSON.stringify(fathoms.layout)).not.toContain('"floor"');
     expect(feet.filter).toEqual(meters.filter);
     expect(fathoms.filter).toEqual(meters.filter);
+  });
+
+  it('keeps tenths through 20 ft and floors deeper sounding labels after unit conversion', () => {
+    const feet = layer(
+      s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }),
+      'soundg-safe',
+    ) as SymbolLayerSpecification;
+    const value = ['to-number', ['coalesce', ['get', 'DEPTH'], ['get', 'VALSOU']], -9999];
+    const converted = ['*', value, 3.28084];
+
+    expect(feet.layout?.['text-field']).toEqual([
+      'concat',
+      [
+        'case',
+        ['>', converted, 20],
+        [
+          'number-format',
+          ['floor', converted],
+          { 'max-fraction-digits': 0, 'min-fraction-digits': 0 },
+        ],
+        ['number-format', converted, { 'max-fraction-digits': 1, 'min-fraction-digits': 0 }],
+      ],
+      'ft',
+    ]);
   });
 
   it('outlines shallow sounding warnings with a dark neutral halo', () => {
