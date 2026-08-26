@@ -43,7 +43,33 @@ describe('NumericTile', () => {
     const html = numericBody({ label: LABEL, reading: LIVE, zone: normal, sensorGloss: GLOSS });
     expect(html).toContain('7.4');
     expect(html).toContain('kn');
+    expect(html).toContain('tile--numeric');
+    expect(html).toContain('value--short');
     expect(html).toContain('aria-label="SOG, 7.4 kn. Expand instrument"');
+  });
+
+  it('steps down the fill size for longer formatted values', () => {
+    const medium = numericBody({
+      label: LABEL,
+      reading: { ...LIVE, value: '12.34' },
+      zone: normal,
+      sensorGloss: GLOSS,
+    });
+    const long = numericBody({
+      label: LABEL,
+      reading: { ...LIVE, value: '123.456' },
+      zone: normal,
+      sensorGloss: GLOSS,
+    });
+    const wide = numericBody({
+      label: LABEL,
+      reading: { ...LIVE, value: '123456789' },
+      zone: normal,
+      sensorGloss: GLOSS,
+    });
+    expect(medium).toContain('value--medium');
+    expect(long).toContain('value--long');
+    expect(wide).toContain('value--wide');
   });
 
   it('renders sensorGloss and hides value span when state is never', () => {

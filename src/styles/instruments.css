@@ -26,6 +26,29 @@
   line-height: var(--hero-leading);
   white-space: pre-line;
 }
+/* Numeric faces scale with their box and their formatted value length. A short SOG or depth value
+   should read across a cockpit, while a longer multi-digit value must shrink before it clips. The
+   dedicated wind and gauge faces keep their own geometry. */
+.tile--numeric {
+  container-type: inline-size;
+  overflow: hidden;
+}
+.tile--numeric .value {
+  max-inline-size: 100%;
+  justify-content: center;
+}
+.tile--numeric .value--short .num {
+  font-size: clamp(var(--text-readout-lg), 30cqi, 8rem);
+}
+.tile--numeric .value--medium .num {
+  font-size: clamp(var(--text-readout-lg), 24cqi, 7rem);
+}
+.tile--numeric .value--long .num {
+  font-size: clamp(var(--text-readout-lg), 16cqi, 5rem);
+}
+.tile--numeric .value--wide .num {
+  font-size: clamp(var(--text-readout), 12cqi, 4rem);
+}
 /* The value slot reserves the hero line box, so a no-sensor gloss (or any future degraded fill)
    keeps the tile the same height as its value siblings. Baseline keeps the unit suffix on the
    numeral's baseline; the empty state centers its gloss in the reserved slot instead. */
@@ -131,6 +154,18 @@
   font-size: clamp(5rem, 28vmin, 18rem);
   font-weight: 900;
   letter-spacing: -0.035em;
+}
+.tile--expanded.tile--numeric .value--short .num {
+  font-size: clamp(6rem, min(46vi, 70vb), 40rem);
+}
+.tile--expanded.tile--numeric .value--medium .num {
+  font-size: clamp(6rem, min(34vi, 70vb), 34rem);
+}
+.tile--expanded.tile--numeric .value--long .num {
+  font-size: clamp(5rem, min(22vi, 62vb), 24rem);
+}
+.tile--expanded.tile--numeric .value--wide .num {
+  font-size: clamp(4rem, min(15vi, 52vb), 16rem);
 }
 /* Position is a two-line coordinate readout rather than one core number. Keep both lines inside
    the face while giving them the same heavier, long-distance treatment. */

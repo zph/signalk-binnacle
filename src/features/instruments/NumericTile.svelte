@@ -46,13 +46,20 @@ const labelText = $derived(
 const accessibleLabel = $derived(
   tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel),
 );
+const valueScale = $derived.by(() => {
+  const longestLine = Math.max(...reading.value.split('\n').map((line) => line.trim().length));
+  if (longestLine <= 3) return 'short';
+  if (longestLine <= 5) return 'medium';
+  if (longestLine <= 8) return 'long';
+  return 'wide';
+});
 </script>
 
 <!-- The tile column, value size, unit, and zone tints come from the global .tile vocabulary in
      styles/instruments.css, shared with WindTile. -->
 <button
   type="button"
-  class="tile card-frame"
+  class="tile card-frame tile--numeric"
   class:tile--warning={zone === 'warning'}
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
@@ -65,7 +72,7 @@ const accessibleLabel = $derived(
   {#if reading.state === 'never'}
     <span class="value"><span class="muted-note">{sensorGloss}</span></span>
   {:else}
-    <span class="value"
+    <span class="value value--{valueScale}"
       ><span class="num">{reading.value}</span><span class="unit">{reading.unit}</span></span
     >
     {#if viz === 'battery'}

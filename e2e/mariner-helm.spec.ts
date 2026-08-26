@@ -196,7 +196,14 @@ test('expanded numeric instruments prioritize the live value at helm distance', 
   await sendDelta(page, OWN_FIX);
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: /Speed.*Expand instrument/ }).click();
+  const speedTile = dock.getByRole('button', { name: /Speed.*Expand instrument/ });
+  const tileValue = speedTile.locator('.num');
+  await expect
+    .poll(async () =>
+      Number.parseFloat(await tileValue.evaluate((node) => getComputedStyle(node).fontSize)),
+    )
+    .toBeGreaterThan(40);
+  await speedTile.click();
 
   const expanded = page.getByRole('dialog', { name: 'Speed full-screen instrument' });
   const value = expanded.locator('.num');
@@ -205,7 +212,8 @@ test('expanded numeric instruments prioritize the live value at helm distance', 
     .poll(async () =>
       Number.parseFloat(await value.evaluate((node) => getComputedStyle(node).fontSize)),
     )
-    .toBeGreaterThan(160);
+    .toBeGreaterThan(480);
+  await expect.poll(async () => (await value.boundingBox())?.width ?? 0).toBeGreaterThan(700);
   await expect
     .poll(async () => await value.evaluate((node) => getComputedStyle(node).fontWeight))
     .toBe('900');

@@ -241,7 +241,10 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   numerics), `BatteryBar` (charge fraction, zone-tinted), and `RotNeedle` (turn-rate half-dial);
   circular and stepped values carry no mark. The
   position tile is the one hero-size exception (`--text-readout`, the secondary readout), because two
-  coordinate lines at hero size would double the tile. The dock grid fills its column: rows share the
+  coordinate lines at hero size would double the tile. Other numeric faces use container-relative,
+  value-length tiers so short SOG and depth values fill most of their tile without letting longer
+  values clip. Their focused view uses the same tiers against the viewport for long-distance reading.
+  The dock grid fills its column: rows share the
   full dock height (`grid-auto-rows: minmax(min-content, 1fr)`, falling back to min-content and the
   dock scroll when the tile set outgrows it), tile content centers vertically in a stretched row, an
   empty tile is never full width (`.tile--empty` overrides the full-row modifiers back to a single
