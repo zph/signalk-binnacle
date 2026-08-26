@@ -3,6 +3,7 @@ import { formatSignedAngleOr, RAD_TO_DEG } from '$shared/lib';
 import type { ZoneState } from '$shared/signalk';
 import TileStateBadge from './TileStateBadge.svelte';
 import type { InstrumentMetric, TileReading } from './tile-catalog';
+import { createWindSectorTracker, type WindSectorReference } from './wind-sector-tracker';
 
 interface Props {
   label: string;
@@ -52,6 +53,47 @@ const apparentDeg = $derived((rose?.apparent.angleRad ?? 0) * RAD_TO_DEG);
 const trueDeg = $derived((rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
 const headingDeg = $derived((rose?.heading.siValue ?? 0) * RAD_TO_DEG);
 const cardRotation = $derived(-headingDeg);
+const sectorTracker = createWindSectorTracker();
+let filteredSectorAngleRad = $state<number>();
+let filteredSectorReference = $state<WindSectorReference>();
+const rawSectorReference = $derived.by(() => {
+  const trueAngle = rose?.trueWind.angleRad;
+  if (trueAngle !== undefined) {
+    return {
+      angleRad: trueAngle,
+      epochMs: rose?.trueWind.angleEpoch,
+      reference: 'true' as const,
+    };
+  }
+  const apparentAngle = rose?.apparent.angleRad;
+  if (apparentAngle !== undefined) {
+    return {
+      angleRad: apparentAngle,
+      epochMs: rose?.apparent.angleEpoch,
+      reference: 'apparent' as const,
+    };
+  }
+  return undefined;
+});
+$effect(() => {
+  const next = rawSectorReference;
+  if (!next) {
+    sectorTracker.reset();
+    filteredSectorAngleRad = undefined;
+    filteredSectorReference = undefined;
+    return;
+  }
+  filteredSectorAngleRad = sectorTracker.push(
+    next.angleRad,
+    next.epochMs ?? Date.now(),
+    next.reference,
+  );
+  filteredSectorReference = next.reference;
+});
+const sectorReference = $derived(filteredSectorReference ?? rawSectorReference?.reference);
+const sectorRotation = $derived(
+  (filteredSectorAngleRad ?? rawSectorReference?.angleRad ?? 0) * RAD_TO_DEG,
+);
 </script>
 
 <button
@@ -67,8 +109,16 @@ const cardRotation = $derived(-headingDeg);
   <div class="rose-layout">
     <svg class="rose" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle class="fixed-dial" cx="500" cy="500" r="444" />
-      <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
-      <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
+      {#if rawSectorReference}
+        <g
+          class="wind-sectors"
+          data-reference={sectorReference}
+          transform="rotate({sectorRotation} 500 500)"
+        >
+          <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
+          <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
+        </g>
+      {/if}
 
       <g class="compass-card" transform="rotate({cardRotation} 500 500)">
         <circle class="card-backplate" cx="500" cy="500" r="354" />

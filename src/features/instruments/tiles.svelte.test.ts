@@ -298,6 +298,7 @@ describe('purpose-built instrument faces', () => {
           unit: 'kn',
           siValue: 6.2,
           angleRad: -0.5,
+          angleEpoch: 1000,
         },
         trueWind: {
           state: 'live',
@@ -305,6 +306,7 @@ describe('purpose-built instrument faces', () => {
           unit: 'kn',
           siValue: 5.1,
           angleRad: 0.7,
+          angleEpoch: 1000,
         },
         heading: { state: 'live', value: '57°', unit: '', siValue: 1 },
         speedOverGround: { state: 'live', value: '6.4', unit: 'kn', siValue: 3.3 },
@@ -329,11 +331,34 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('Speed over ground 6.4 kn');
     expect(html).toContain('Heading 57°');
     expect(html).toContain('class="fixed-dial ');
+    expect(html).toContain('class="wind-sectors"');
+    expect(html).toContain('data-reference="true"');
+    expect(html).toContain('rotate(40.107');
     expect(html).toContain('class="port-sector ');
     expect(html).toContain('class="starboard-sector ');
     expect(html).toContain('class="apparent-pointer ');
     expect(html).toContain('class="true-pointer ');
     expect(html).toContain('rotate(-57.295');
+
+    const windRose = reading.windRose;
+    if (!windRose) throw new Error('Test reading must include a wind rose');
+    const apparentOnlyHtml = render(WindRoseTile, {
+      props: {
+        label: 'Wind rose',
+        reading: {
+          ...reading,
+          windRose: {
+            ...windRose,
+            trueWind: { state: 'never', value: '---', unit: '' },
+          },
+        },
+        zone: normal,
+        depthZone: normal,
+        sensorGloss: 'No wind data',
+      },
+    }).body;
+    expect(apparentOnlyHtml).toContain('data-reference="apparent"');
+    expect(apparentOnlyHtml).toContain('rotate(-28.647');
 
     const alarmHtml = render(WindRoseTile, {
       props: {

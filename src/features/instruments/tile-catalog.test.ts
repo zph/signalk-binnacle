@@ -503,7 +503,9 @@ describe('wind rose tile', () => {
     const reading = readTile('wind-rose', deps);
     expect(reading.state).toBe('live');
     expect(reading.windRose?.apparent.angleRad).toBeCloseTo(-0.5);
+    expect(reading.windRose?.apparent.angleEpoch).toBe(1000);
     expect(reading.windRose?.trueWind.angleRad).toBeCloseTo(0.7);
+    expect(reading.windRose?.trueWind.angleEpoch).toBe(1000);
     expect(reading.windRose?.heading.siValue).toBeCloseTo(1.2);
     expect(reading.windRose?.heading.value).toBe('069°');
     expect(reading.windRose?.speedOverGround.siValue).toBe(3);

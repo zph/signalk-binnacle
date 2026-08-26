@@ -52,6 +52,9 @@ export interface TileReading {
   secondary?: string;
   referenceLabel?: string;
   angleRad?: number;
+  // Receipt time for the angle sample, kept separate from the speed sample so animated wind
+  // displays can filter each vane update once without overweighting unrelated tile refreshes.
+  angleEpoch?: number;
   // Why a wind tile carries no angle even though its speed is live: the angle expired after
   // arriving ('stale'), or it cannot be produced honestly right now ('unavailable', a missing
   // value or an incompatible reference). Absent when the angle is present or was never reported.
@@ -76,6 +79,7 @@ export interface InstrumentMetric {
   unit: string;
   siValue?: number;
   angleRad?: number;
+  angleEpoch?: number;
   angleState?: 'stale' | 'unavailable';
   referenceLabel?: string;
 }
@@ -302,6 +306,7 @@ function instrumentMetric(reading: TileReading): InstrumentMetric {
     unit: reading.unit,
     siValue: reading.siValue,
     angleRad: reading.angleRad,
+    angleEpoch: reading.angleEpoch,
     angleState: reading.angleState,
     referenceLabel: reading.referenceLabel,
   };
@@ -474,6 +479,7 @@ const WIND_APPARENT_DEF: TileDef = {
     let gradingCell: PathCell;
     let mps: number | undefined;
     let angleRad: number | undefined;
+    let angleEpoch: number | undefined;
     let angleState: 'stale' | 'unavailable' | undefined;
     let referenceLabel: string | undefined;
 
@@ -486,6 +492,7 @@ const WIND_APPARENT_DEF: TileDef = {
       // reporting, and a retained angle must not steer anyone.
       const angleCell = store.cell(SK_PATHS.windAngleApparent);
       angleRad = grade(angleCell, clock) === 'live' ? asNumber(angleCell.value) : undefined;
+      angleEpoch = angleRad === undefined ? undefined : angleCell.epoch;
       angleState = angleFreshness(angleCell, clock, angleRad);
     } else if (groundSpeedCell.epoch > 0) {
       gradingCell = groundSpeedCell;
@@ -512,6 +519,7 @@ const WIND_APPARENT_DEF: TileDef = {
         }
         if (reference === undefined) reference = vessel.cogStale ? undefined : vessel.cogRad;
         angleRad = reference !== undefined ? normalizeAngle(dirTrue - reference) : undefined;
+        angleEpoch = angleRad === undefined ? undefined : directionCell.epoch;
       }
       angleState = angleFreshness(directionCell, clock, angleRad);
     } else {
@@ -525,6 +533,7 @@ const WIND_APPARENT_DEF: TileDef = {
       unit: 'kn',
       siValue: mps,
       angleRad,
+      angleEpoch,
       angleState,
       referenceLabel,
       activePath,
@@ -584,6 +593,7 @@ const WIND_TRUE_DEF: TileDef = {
       unit: 'kn',
       siValue: mps,
       angleRad,
+      angleEpoch: angleRad === undefined ? undefined : angleCell.epoch,
       angleState,
       referenceLabel: angleCell === groundAngleCell ? 'GND' : undefined,
     };
@@ -595,7 +605,7 @@ const WIND_ROSE_DEF: TileDef = {
   label: 'Wind rose',
   abbr: 'WIND',
   description:
-    'Apparent and true wind on one bow-up rose, with speed over ground and depth in the lower corners.',
+    'Apparent and true wind on one bow-up rose. Sailing sectors follow filtered true wind, with apparent wind as a fallback.',
   sensorGloss: 'No wind data',
   paths: [
     ...new Set([
