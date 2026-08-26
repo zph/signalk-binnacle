@@ -182,13 +182,8 @@ describe('chart overlay', () => {
     );
     expect(map.layers.has('chart-california-enc-resare-outline')).toBe(true);
     expect(map.setPaintProperty).toHaveBeenCalledWith(
-      'chart-california-enc-soundg-safe',
+      'chart-california-enc-soundg-label',
       'text-opacity',
-      0.5,
-    );
-    expect(map.setPaintProperty).toHaveBeenCalledWith(
-      'chart-california-enc-soundg-safe',
-      'icon-opacity',
       0.5,
     );
 
@@ -278,12 +273,12 @@ describe('chart overlay', () => {
     overlay.setOpacity?.(ctx, 0.5);
     depth.setOpacity(ctx, 0.4);
     expect(lastOpacity('chart-california-enc-depare-shallow', 'fill-opacity')).toBeCloseTo(0.2);
-    expect(lastOpacity('chart-california-enc-soundg-safe', 'text-opacity')).toBeCloseTo(0.5);
+    expect(lastOpacity('chart-california-enc-soundg-label', 'text-opacity')).toBeCloseTo(0.5);
 
     depth.setOpacity(ctx, 0.25);
     overlay.setOpacity?.(ctx, 0.8);
     expect(lastOpacity('chart-california-enc-depare-shallow', 'fill-opacity')).toBeCloseTo(0.2);
-    expect(lastOpacity('chart-california-enc-soundg-safe', 'text-opacity')).toBeCloseTo(0.8);
+    expect(lastOpacity('chart-california-enc-soundg-label', 'text-opacity')).toBeCloseTo(0.8);
   });
 
   it('registers a PMTiles archive on add and unregisters it on remove', async () => {

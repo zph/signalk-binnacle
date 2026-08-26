@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { mapThemePaint } from './map-theme';
 import {
   S57_SYMBOL_KINDS,
-  s57SoundingSlugSvg,
   s57SymbolClass,
   s57SymbolIconExpression,
   s57SymbolIconId,
@@ -108,8 +107,6 @@ describe('S-57 symbol image contract', () => {
       expect(s57SymbolSvg('special-beacon', paint)).toContain(paint.warning);
       expect(s57SymbolSvg('light', paint)).toContain(paint.navLight);
       expect(s57SymbolSvg('wreck', paint)).toContain(paint.danger);
-      expect(s57SoundingSlugSvg('safe', paint)).toContain('fill-opacity="0.82"');
-      expect(s57SoundingSlugSvg('shallow', paint)).toContain('fill-opacity="0.82"');
     }
   });
 
@@ -117,13 +114,6 @@ describe('S-57 symbol image contract', () => {
     const paint = mapThemePaint('night-red');
     for (const kind of S57_SYMBOL_KINDS) {
       const colors = [...s57SymbolSvg(kind, paint).matchAll(/#[0-9a-f]{6}/gi)].map(
-        ([color]) => color,
-      );
-      expect(colors.length).toBeGreaterThan(0);
-      for (const color of colors) expect(color.toLowerCase()).toMatch(/^#[0-9a-f]{4}00$/);
-    }
-    for (const kind of ['safe', 'shallow'] as const) {
-      const colors = [...s57SoundingSlugSvg(kind, paint).matchAll(/#[0-9a-f]{6}/gi)].map(
         ([color]) => color,
       );
       expect(colors.length).toBeGreaterThan(0);

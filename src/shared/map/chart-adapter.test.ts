@@ -196,7 +196,7 @@ describe('chartToSpecs', () => {
       expect.arrayContaining([
         'chart-california-enc-depare-shallow',
         'chart-california-enc-depcnt-safety',
-        'chart-california-enc-soundg-shallow',
+        'chart-california-enc-soundg-label',
         'chart-california-enc-lndare-outline',
         'chart-california-enc-s57-symbol-boylat',
         'chart-california-enc-s57-symbol-wrecks',
@@ -218,12 +218,13 @@ describe('chartToSpecs', () => {
 
     expect(sources['chart-enc-without-format'].type).toBe('vector');
     expect(layers.map(({ id }) => id)).toContain('chart-enc-without-format-depare-shallow');
-    const sounding = layers.find(({ id }) => id === 'chart-enc-without-format-soundg-safe');
+    const sounding = layers.find(({ id }) => id === 'chart-enc-without-format-soundg-label');
     expect(sounding?.type).toBe('symbol');
     if (sounding?.type === 'symbol') {
       expect(JSON.stringify(sounding.layout?.['text-field'])).toContain('3.28084');
       expect(JSON.stringify(sounding.layout?.['text-field'])).not.toContain('"ft"');
-      expect(sounding.layout?.['icon-image']).toBe('binnacle-s57-sounding-safe-slug');
+      expect(sounding.layout).not.toHaveProperty('icon-image');
+      expect(sounding.paint).toEqual({ 'text-color': '#000000' });
     }
   });
 

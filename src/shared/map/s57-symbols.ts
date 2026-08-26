@@ -6,7 +6,6 @@ import type {
 } from 'maplibre-gl';
 import { setMapImage } from './map-image';
 import type { MapThemePaint } from './map-theme';
-import { S57_SOUNDING_SLUG_IDS, type S57SoundingKind, s57ThemeColor } from './s57-chart-style';
 import { decodeSvgToImageData } from './svg-raster';
 
 export const S57_SYMBOL_KINDS = [
@@ -47,11 +46,6 @@ type MarkColor = 'red' | 'green' | 'neutral';
 const ICON_PIXEL_RATIO = 2;
 const ICON_CSS_PX = 36;
 const ICON_RASTER_PX = ICON_CSS_PX * ICON_PIXEL_RATIO;
-const SOUNDING_SLUG_CSS_WIDTH = 24;
-const SOUNDING_SLUG_CSS_HEIGHT = 18;
-const SOUNDING_SLUG_RASTER_WIDTH = SOUNDING_SLUG_CSS_WIDTH * ICON_PIXEL_RATIO;
-const SOUNDING_SLUG_RASTER_HEIGHT = SOUNDING_SLUG_CSS_HEIGHT * ICON_PIXEL_RATIO;
-const SOUNDING_SLUG_KINDS = ['safe', 'shallow'] as const satisfies readonly S57SoundingKind[];
 const POINT_FILTER = ['==', ['geometry-type'], 'Point'] as FilterSpecification;
 
 interface SymbolLayerStyle {
@@ -307,19 +301,6 @@ export function s57SymbolSvg(kind: S57SymbolKind, paint: MapThemePaint): string 
   ].join('');
 }
 
-export function s57SoundingSlugSvg(kind: S57SoundingKind, paint: MapThemePaint): string {
-  const fill = s57ThemeColor(
-    paint.theme,
-    kind === 'safe' ? 'soundingSafeSlug' : 'soundingShallowSlug',
-  );
-  const stroke = s57ThemeColor(paint.theme, kind === 'safe' ? 'safetyContour' : 'dangerHalo');
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${SOUNDING_SLUG_CSS_WIDTH}" height="${SOUNDING_SLUG_CSS_HEIGHT}" viewBox="0 0 ${SOUNDING_SLUG_CSS_WIDTH} ${SOUNDING_SLUG_CSS_HEIGHT}">`,
-    `<rect x="1" y="1" width="22" height="16" rx="5" fill="${fill}" fill-opacity="0.82" stroke="${stroke}" stroke-opacity="0.58"/>`,
-    '</svg>',
-  ].join('');
-}
-
 async function rasterizeS57Symbol(
   kind: S57SymbolKind,
   paint: MapThemePaint,
@@ -332,37 +313,16 @@ async function rasterizeS57Symbol(
   });
 }
 
-async function rasterizeS57SoundingSlug(
-  kind: S57SoundingKind,
-  paint: MapThemePaint,
-): Promise<ImageData | null> {
-  return decodeSvgToImageData(s57SoundingSlugSvg(kind, paint), (image, context) => {
-    context.canvas.width = SOUNDING_SLUG_RASTER_WIDTH;
-    context.canvas.height = SOUNDING_SLUG_RASTER_HEIGHT;
-    context.drawImage(image, 0, 0, SOUNDING_SLUG_RASTER_WIDTH, SOUNDING_SLUG_RASTER_HEIGHT);
-    return context.getImageData(0, 0, SOUNDING_SLUG_RASTER_WIDTH, SOUNDING_SLUG_RASTER_HEIGHT);
-  });
-}
-
 export async function registerS57Symbols(
   map: MapLibreMap,
   paint: MapThemePaint,
   isCurrent: () => boolean = () => true,
 ): Promise<void> {
-  await Promise.all([
-    ...S57_SYMBOL_KINDS.map(async (kind) => {
+  await Promise.all(
+    S57_SYMBOL_KINDS.map(async (kind) => {
       const image = await rasterizeS57Symbol(kind, paint);
       if (!image || !isCurrent()) return;
       setMapImage(map, s57SymbolIconId(kind), image, ICON_PIXEL_RATIO);
     }),
-    ...SOUNDING_SLUG_KINDS.map(async (kind) => {
-      const image = await rasterizeS57SoundingSlug(kind, paint);
-      if (!image || !isCurrent()) return;
-      setMapImage(map, S57_SOUNDING_SLUG_IDS[kind], image, ICON_PIXEL_RATIO, {
-        stretchX: [[12, 36]],
-        stretchY: [[12, 24]],
-        content: [8, 4, 40, 32],
-      });
-    }),
-  ]);
+  );
 }

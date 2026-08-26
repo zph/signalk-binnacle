@@ -72,9 +72,9 @@ describe('s57ChartLayers', () => {
       ids.indexOf(`${SOURCE_ID}-depcnt-line`),
     );
     expect(ids.indexOf(`${SOURCE_ID}-depcnt-safety`)).toBeLessThan(
-      ids.indexOf(`${SOURCE_ID}-soundg-safe`),
+      ids.indexOf(`${SOURCE_ID}-soundg-label`),
     );
-    expect(ids.indexOf(`${SOURCE_ID}-soundg-shallow`)).toBeLessThan(
+    expect(ids.indexOf(`${SOURCE_ID}-soundg-label`)).toBeLessThan(
       ids.indexOf(`${SOURCE_ID}-wrecks-area`),
     );
     expect(ids.indexOf(`${SOURCE_ID}-wrecks-label`)).toBeLessThan(
@@ -121,19 +121,19 @@ describe('s57ChartLayers', () => {
       ['>=', ['to-number', ['get', 'VALDCO'], -9999], 4.5],
       ['<', ['to-number', ['get', 'VALDCO'], -9999], 7.5],
     ]);
-    expect(layer(layers, 'soundg-shallow').filter).toEqual([
-      'all',
-      ['any', ['has', 'DEPTH'], ['has', 'VALSOU']],
-      ['<', ['to-number', ['coalesce', ['get', 'DEPTH'], ['get', 'VALSOU']], -9999], 4.5],
+    expect(layer(layers, 'soundg-label').filter).toEqual([
+      'any',
+      ['has', 'DEPTH'],
+      ['has', 'VALSOU'],
     ]);
   });
 
   it('converts sounding text without repeating the selected unit on every label', () => {
-    const meters = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-safe');
-    const feet = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }), 'soundg-safe');
+    const meters = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-label');
+    const feet = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }), 'soundg-label');
     const fathoms = layer(
       s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'fm' }),
-      'soundg-safe',
+      'soundg-label',
     );
 
     expect(JSON.stringify(meters.layout)).not.toContain('3.28084');
@@ -152,7 +152,7 @@ describe('s57ChartLayers', () => {
   it('keeps tenths through 20 ft and floors deeper sounding labels after unit conversion', () => {
     const feet = layer(
       s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }),
-      'soundg-safe',
+      'soundg-label',
     ) as SymbolLayerSpecification;
     const value = ['to-number', ['coalesce', ['get', 'DEPTH'], ['get', 'VALSOU']], -9999];
     const converted = ['*', value, 3.28084];
@@ -169,28 +169,18 @@ describe('s57ChartLayers', () => {
     ]);
   });
 
-  it('uses fitted, collision-aware contrast slugs for safe and shallow soundings', () => {
-    const safe = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-safe');
-    const shallow = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-shallow');
+  it('renders every sounding as the same plain black text without a background or halo', () => {
+    const sounding = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-label');
 
-    expect(safe.layout).toMatchObject({
-      'icon-image': 'binnacle-s57-sounding-safe-slug',
-      'icon-text-fit': 'both',
-      'icon-text-fit-padding': [2, 3, 2, 3],
-      'icon-allow-overlap': false,
-      'icon-ignore-placement': false,
-      'icon-optional': true,
-    });
-    expect(shallow.layout).toMatchObject({
-      'icon-image': 'binnacle-s57-sounding-shallow-slug',
-      'icon-text-fit': 'both',
-    });
-    expect(themePaint(safe)).toEqual({ 'text-color': 'soundingSafeText' });
-    expect(themePaint(shallow)).toEqual({ 'text-color': 'soundingShallowText' });
-    expect(safe.paint).toEqual({ 'text-color': s57ThemeColor('day', 'soundingSafeText') });
-    expect(shallow.paint).toEqual({
-      'text-color': s57ThemeColor('day', 'soundingShallowText'),
-    });
+    expect(sounding.layout).not.toHaveProperty('icon-image');
+    expect(sounding.layout).not.toHaveProperty('icon-text-fit');
+    expect(sounding.paint).toEqual({ 'text-color': '#000000' });
+    expect(sounding.paint).not.toHaveProperty('text-halo-color');
+    expect(sounding.paint).not.toHaveProperty('text-halo-width');
+    expect(themePaint(sounding)).toEqual({ 'text-color': 'soundingText' });
+    for (const theme of ['day', 'dusk', 'night-red'] as const) {
+      expect(s57ThemeColor(theme, 'soundingText')).toBe('#000000');
+    }
   });
 
   it('falls back to the default safety depth for invalid values', () => {
@@ -362,6 +352,7 @@ describe('s57ChartLayers', () => {
       'navaid',
       'restricted',
       'safetyContour',
+      'soundingText',
     ];
 
     for (const key of keys) {
