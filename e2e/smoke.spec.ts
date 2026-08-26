@@ -1008,10 +1008,16 @@ test('instrument dock opens beside a still-present chart and closes from its hea
   await expect(page.getByRole('region', { name: 'Chart' })).toBeVisible();
   // Default tiles render their plain labels.
   await expect(dock.getByText('Speed', { exact: false }).first()).toBeVisible();
-  await dock.getByRole('button', { name: /Speed.*Expand instrument/ }).click();
+  await dock.getByRole('button', { name: /^Speed,.*Expand instrument$/ }).click();
   const expanded = page.getByRole('dialog', { name: 'Speed full-screen instrument' });
   await expect(expanded).toBeVisible();
-  await expanded.getByRole('button', { name: /Speed.*Collapse instrument/ }).click();
+  const viewport = page.viewportSize();
+  const expandedBox = await expanded.boundingBox();
+  expect(expandedBox?.x).toBe(0);
+  expect(expandedBox?.y).toBe(0);
+  expect(expandedBox?.width).toBe(viewport?.width);
+  expect(expandedBox?.height).toBe(viewport?.height);
+  await expanded.getByRole('button', { name: /^Speed,.*Collapse instrument$/ }).click();
   await expect(expanded).not.toBeVisible();
   await dock.getByRole('button', { name: 'Show information for Speed' }).click();
   await expect(dock.getByRole('button', { name: 'Back to instruments' })).toBeVisible();

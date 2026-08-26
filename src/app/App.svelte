@@ -3258,6 +3258,9 @@ const plotterActions = {
   /* The dock scrolls its own tiles; without this a long tile list would stretch the shell row. */
   min-block-size: 0;
 }
+.binnacle-shell > :global(.instruments.instrument-focus) {
+  z-index: calc(var(--z-menu) + 1);
+}
 @media (max-width: 900px) {
   .binnacle-shell > :global(.instruments) {
     position: fixed;
