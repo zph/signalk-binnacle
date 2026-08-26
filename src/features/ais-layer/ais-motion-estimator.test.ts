@@ -62,8 +62,8 @@ describe('AisMotionEstimator', () => {
     }
 
     expect(selection?.basis).toBe('observed');
-    expect(selection?.primary.sogMps).toBeCloseTo(8, 1);
-    expect(selection?.primary.cogRad).toBeCloseTo(Math.PI / 2, 2);
+    expect(selection?.primary?.sogMps).toBeCloseTo(8, 1);
+    expect(selection?.primary?.cogRad).toBeCloseTo(Math.PI / 2, 2);
     expect(selection?.observed?.sogMps).toBeCloseTo(8, 1);
     expect(selection?.reportedComparison).toEqual({ cogRad: 0, sogMps: 5 });
   });
@@ -98,8 +98,8 @@ describe('AisMotionEstimator', () => {
     }
 
     expect(selection?.basis).toBe('observed');
-    expect(selection?.primary.cogRad).toBeCloseTo(0, 2);
-    expect(selection?.primary.sogMps).toBeCloseTo(8, 1);
+    expect(selection?.primary?.cogRad).toBeCloseTo(0, 2);
+    expect(selection?.primary?.sogMps).toBeCloseTo(8, 1);
   });
 
   it('can infer a stopped target from repeated unchanged positions', () => {
@@ -111,7 +111,7 @@ describe('AisMotionEstimator', () => {
     }
 
     expect(selection?.basis).toBe('observed');
-    expect(selection?.primary.sogMps).toBe(0);
+    expect(selection?.primary?.sogMps).toBe(0);
     expect(selection?.observed?.sogMps).toBe(0);
     expect(selection?.reportedComparison).toEqual({ cogRad: 0, sogMps: 5 });
   });
@@ -163,8 +163,8 @@ describe('AisMotionEstimator', () => {
     }
 
     expect(selection?.basis).toBe('observed');
-    expect(selection?.primary.sogMps).toBeCloseTo(8, 1);
-    expect(selection?.primary.cogRad).toBeCloseTo(Math.PI / 2, 2);
+    expect(selection?.primary?.sogMps).toBeCloseTo(8, 1);
+    expect(selection?.primary?.cogRad).toBeCloseTo(Math.PI / 2, 2);
     expect(selection?.observed?.sogMps).toBeCloseTo(8, 1);
     expect(selection?.reportedComparison).toBeUndefined();
   });
