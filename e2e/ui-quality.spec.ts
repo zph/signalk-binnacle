@@ -88,7 +88,12 @@ test('constrains a long toolbar More menu on a short display', async ({ page }) 
         'poi-search',
         'measure',
         'layers',
-        'instruments',
+        'orientation',
+        'regions',
+        'time-travel',
+        'ais',
+        'anchor',
+        'alarms',
         'profiles',
       ]),
     );

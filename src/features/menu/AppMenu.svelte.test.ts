@@ -104,3 +104,24 @@ describe('AppMenu bar-only actions', () => {
     expect(without).not.toContain('aria-label="Menu"');
   });
 });
+
+describe('AppMenu fixed bottom-bar actions', () => {
+  it('shows a fixed action as selected in edit mode without adding it to the reorder list', () => {
+    const body = render(AppMenu, {
+      props: {
+        items: [
+          item('center', { group: 'Chart' }),
+          item('instruments', { fixedToBar: true, group: 'Instruments' }),
+        ],
+        open: true,
+        onOpenChange: () => {},
+        editing: true,
+        pinnedIds: ['center', 'instruments'],
+      },
+    }).body;
+
+    expect(body).toContain('Fixed actions stay shown.');
+    expect(body).toMatch(/aria-pressed="true"[^>]*>[\s\S]*instruments/);
+    expect(body.match(/Move instruments/g)).toBeNull();
+  });
+});

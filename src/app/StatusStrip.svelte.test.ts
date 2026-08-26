@@ -45,11 +45,12 @@ function body(props: ComponentProps<typeof StatusStrip>): string {
 }
 
 describe('StatusStrip depth alarm', () => {
-  it('renders the fixed emergency action beside the customizable bottom-bar actions', () => {
+  it('renders fixed actions beside the customizable bottom-bar actions', () => {
     const html = body({
       ...baseProps(),
-      emergencyAction: createRawSnippet(() => ({
-        render: () => '<button type="button">MOB</button>',
+      fixedActions: createRawSnippet(() => ({
+        render: () =>
+          '<button type="button">Instruments</button><button type="button">MOB</button>',
       })),
     });
     const actionsStart = html.indexOf('strip-actions');
@@ -57,6 +58,7 @@ describe('StatusStrip depth alarm', () => {
 
     expect(actionsStart).toBeGreaterThanOrEqual(0);
     expect(actions).toContain('pinned-actions');
+    expect(actions).toContain('>Instruments</button>');
     expect(actions).toContain('>MOB</button>');
   });
 

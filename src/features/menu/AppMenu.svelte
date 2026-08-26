@@ -50,7 +50,9 @@ const {
   onResetPinned,
 }: Props = $props();
 
-const pinnedSet = $derived(new Set(pinnedIds));
+const pinnedSet = $derived(
+  new Set([...pinnedIds, ...items.filter((item) => item.fixedToBar).map((item) => item.id)]),
+);
 const pinnedItems = $derived(resolvePinned(items, pinnedIds));
 
 let trigger = $state<HTMLButtonElement>();
@@ -93,6 +95,10 @@ function select(item: MenuItem): void {
   // is currently disabled (Center before the map loads, a panel gated by a missing plugin). The
   // disabled guard only blocks running the action outside edit mode.
   if (editing) {
+    if (item.fixedToBar) {
+      blockedNote.show(`${item.label} is always shown on the bottom toolbar.`);
+      return;
+    }
     onTogglePin?.(item.id);
     return;
   }
@@ -187,7 +193,9 @@ function onCardFocusOut(event: FocusEvent): void {
       {#if editing}
         <!-- Announce the mode change: in edit mode the tile accent means "pinned to the bar", not
              "panel open", which is invisible to a screen reader without this. -->
-        <p class="muted-note">Tap an action to pin or unpin it on the bottom toolbar.</p>
+        <p class="muted-note">
+          Tap an action to pin or unpin it on the bottom toolbar. Fixed actions stay shown.
+        </p>
         <ToolbarEditor items={pinnedItems} onReorder={onReorderPinned} onReset={onResetPinned} />
       {/if}
       {#each groups as group, gi (gi)}

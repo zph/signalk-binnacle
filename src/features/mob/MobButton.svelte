@@ -76,7 +76,7 @@ function onTimeout(): void {
   onclick={onButton}
 >
   <LifeBuoy size={16} aria-hidden="true" />
-  MOB
+  <span class="mob-label">MOB</span>
 </button>
 {#if confirming}
   <MobConfirmDialog mark={pressMark} {writeBlocked} {onConfirm} {onCancel} {onTimeout} />

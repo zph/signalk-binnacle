@@ -50,7 +50,7 @@ let {
   onReconnect,
   onOpenHelp = undefined,
   onOpenAnchor = undefined,
-  emergencyAction = undefined,
+  fixedActions = undefined,
 }: {
   connectionLabel: string;
   // The fuller diagnosis behind the conn chip's short label, shown on hover and on a chip tap.
@@ -91,9 +91,8 @@ let {
   onOpenHelp?: () => void;
   // Opens the Anchor watch panel: overnight the chip is the monitoring surface, so it is a door.
   onOpenAnchor?: () => void;
-  // Keeps the dedicated helm emergency control in the thumb-reachable bottom action row without
-  // folding it into the customizable pinned-action registry.
-  emergencyAction?: Snippet;
+  // App-shell actions that stay in the thumb-reachable row without joining toolbar customization.
+  fixedActions?: Snippet;
 } = $props();
 
 // COG is meaningless while the boat is stationary; under this speed the readout dashes.
@@ -359,8 +358,8 @@ const depthWatchPaused = $derived(
   <TransientNote message={chipNote.message} noteClass="chip-note" />
   <div class="strip-actions">
     <PinnedActions actions={pinnedActions} />
-    {#if emergencyAction}
-      {@render emergencyAction()}
+    {#if fixedActions}
+      {@render fixedActions()}
     {/if}
   </div>
   <div class="center-cluster">
@@ -492,6 +491,17 @@ const depthWatchPaused = $derived(
   }
   .strip-actions {
     gap: var(--space-1);
+  }
+}
+@media (max-width: 480px) {
+  :global(.strip-actions .fixed-action-label),
+  :global(.strip-actions .mob-label) {
+    display: none;
+  }
+  :global(.strip-actions .fixed-toolbar-action),
+  :global(.strip-actions .mob-btn) {
+    min-inline-size: var(--control-size);
+    padding-inline: 0;
   }
 }
 .offline {

@@ -36,6 +36,9 @@ export interface MenuItem {
   // would otherwise render as a tile inside the menu it opens. The launcher still shows it while
   // customizing the toolbar, because tapping a tile is the only way to pin or unpin.
   barOnly?: boolean;
+  // An action that is always rendered in the bottom toolbar by the app shell. It remains a normal
+  // launcher tile, but toolbar customization cannot remove, duplicate, or reorder it.
+  fixedToBar?: boolean;
   // Optional section heading. Consecutive items sharing a group render under one caps-label header,
   // so the menu groups itself from data without the menu component knowing the sections.
   group?: string;

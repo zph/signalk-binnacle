@@ -1870,6 +1870,7 @@ const menuItems = $derived<MenuItem[]>([
     shortLabel: 'Instruments',
     icon: Gauge,
     group: 'Instruments',
+    fixedToBar: true,
     pressed: instruments.open,
     onSelect: toggleInstrumentsPanel,
   },
@@ -3018,7 +3019,19 @@ const plotterActions = {
     {/await}
   {/if}
 
-  {#snippet statusStripMobAction()}
+  {#snippet statusStripFixedActions()}
+    <button
+      type="button"
+      class="btn btn-pill fixed-toolbar-action"
+      class:is-on={instruments.open}
+      aria-pressed={instruments.open}
+      aria-label={instruments.open ? 'Close instrument dock' : 'Open instrument dock'}
+      title={instruments.open ? 'Close instrument dock' : 'Open instrument dock'}
+      onclick={toggleInstrumentsPanel}
+    >
+      <Gauge size={16} aria-hidden="true" />
+      <span class="fixed-action-label">Instruments</span>
+    </button>
     <!-- The fixed emergency key shares the bottom action row but stays outside customization, so
          it is always reachable and retains its dedicated confirm-before-marking flow. -->
     <MobButton
@@ -3052,7 +3065,7 @@ const plotterActions = {
       : undefined}
     onResetOrientation={() => chartOrientation.set('north')}
     pinnedActions={resolvedPinned}
-    emergencyAction={statusStripMobAction}
+    fixedActions={statusStripFixedActions}
     editing={menuEditing}
     {clock}
     onOpenHelp={() => openPanel('help')}

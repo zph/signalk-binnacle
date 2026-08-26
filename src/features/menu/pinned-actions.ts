@@ -4,7 +4,8 @@ import type { MenuItem } from './menu-item';
 // default, imported by the composition root for the persisted-value fallback. Menu leads because
 // the topbar hamburger is a cross-screen reach on a phone, where every unpinned journey starts;
 // AIS holds the fourth slot so one Safety action is thumb-reachable out of the box, carrying its
-// live collision-risk count. Charts and Instruments stay one tap away inside the menu.
+// live collision-risk count. Charts stay one tap away inside the menu, while Instruments has its
+// own fixed toggle beside the customizable actions.
 export const DEFAULT_PINNED: readonly string[] = ['menu', 'center', 'follow', 'ais'];
 
 // The pinned actions in stored order, so toolbar customization controls both membership and position.
@@ -17,7 +18,7 @@ export function resolvePinned(items: MenuItem[], pinnedIds: unknown): MenuItem[]
   for (const id of list) {
     if (typeof id !== 'string' || seen.has(id)) continue;
     const item = byId.get(id);
-    if (!item) continue;
+    if (!item || item.fixedToBar) continue;
     seen.add(id);
     out.push(item);
   }

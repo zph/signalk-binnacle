@@ -132,7 +132,10 @@ test('profiles restore instrument order in a different browser', async ({ browse
   await installProfileServer(page, serverDocument);
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Instruments' }).first().click();
+  await expect(
+    page.getByRole('button', { name: 'Profile Test helm, switch profile' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Open instrument dock' }).click();
   const dock = page.getByRole('complementary', { name: 'Instruments' });
   await dock.getByRole('button', { name: 'Customize instruments' }).click();
   const shownTitles = () =>
@@ -182,7 +185,7 @@ test('profiles restore instrument order in a different browser', async ({ browse
   await expect(profiles.getByText('Active here')).toBeVisible();
   await profiles.getByRole('button', { name: 'Close profiles panel' }).click();
 
-  await secondPage.getByRole('button', { name: 'Instruments' }).first().click();
+  await secondPage.getByRole('button', { name: 'Open instrument dock' }).click();
   const secondDock = secondPage.getByRole('complementary', { name: 'Instruments' });
   await secondDock.getByRole('button', { name: 'Customize instruments' }).click();
   const restoredTitles = await secondPage.$$eval(

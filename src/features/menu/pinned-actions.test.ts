@@ -46,6 +46,15 @@ describe('resolvePinned', () => {
     ]);
   });
 
+  it('excludes fixed bottom-bar actions from customizable pins', () => {
+    const fixed = item('instruments');
+    fixed.fixedToBar = true;
+
+    expect(resolvePinned([...registry, fixed], ['center', 'instruments']).map((i) => i.id)).toEqual(
+      ['center'],
+    );
+  });
+
   it('returns the empty array for an empty pin list', () => {
     expect(resolvePinned(registry, [])).toEqual([]);
   });
