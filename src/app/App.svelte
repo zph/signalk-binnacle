@@ -12,6 +12,7 @@ import Gauge from '@lucide/svelte/icons/gauge';
 import History from '@lucide/svelte/icons/history';
 import Layers from '@lucide/svelte/icons/layers';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
+import Lock from '@lucide/svelte/icons/lock';
 import MapPin from '@lucide/svelte/icons/map-pin';
 import Menu from '@lucide/svelte/icons/menu';
 import Navigation from '@lucide/svelte/icons/navigation';
@@ -73,6 +74,7 @@ import {
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
 } from '$features/instruments';
+import { createInterfaceLockController, InterfaceLockLayer } from '$features/interface-lock';
 import type { LayersView } from '$features/layers-panel';
 import {
   CollisionMute,
@@ -743,6 +745,13 @@ const instrumentsOpen = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
+const interfaceLocked = new PersistedValue<boolean>(
+  binnacleStorageKey('interfaceLocked'),
+  false,
+  undefined,
+  booleanPersistedCodec,
+);
+const interfaceLock = createInterfaceLockController(interfaceLocked);
 const instrumentDockWidthStore = new PersistedValue<number>(
   binnacleStorageKey('instrumentDockWidth'),
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
@@ -2743,6 +2752,7 @@ const plotterActions = {
   backFromPoiSearch,
   onSetRadarPower,
   openInstrumentsPanel: finishOpeningInstrumentsPanel,
+  lockInterface: interfaceLock.lock,
 };
 </script>
 
@@ -2936,6 +2946,19 @@ const plotterActions = {
     />
   {/snippet}
 
+  {#snippet interfaceLockAction()}
+    <button
+      type="button"
+      class="btn btn-pill fixed-toolbar-action"
+      aria-label="Lock Binnacle"
+      title="Lock Binnacle"
+      onclick={interfaceLock.lock}
+    >
+      <Lock size={16} aria-hidden="true" />
+      <span class="fixed-action-label">Lock</span>
+    </button>
+  {/snippet}
+
   {#if instruments.open}
     {#await instrumentsPanelForAttempt()}
       {@render instrumentsState('Loading Instruments controls…')}
@@ -2949,6 +2972,7 @@ const plotterActions = {
           onDockResize={resizeInstrumentDock}
           onDockResizeCommit={commitInstrumentDockWidth}
           emergencyAction={instrumentsMobAction}
+          lockAction={interfaceLockAction}
           initialDetailId={trendReturnInstrumentId}
           restoreTrendFocusId={trendReturnInstrumentId}
           onViewTrend={openFocusedTrend}
@@ -3018,6 +3042,7 @@ const plotterActions = {
     />
     <ThemeToggle controller={theme} />
     <AppInfo version={__APP_VERSION__} />
+    {@render interfaceLockAction()}
     <button
       type="button"
       class="btn btn-pill fixed-toolbar-action"
@@ -3185,6 +3210,8 @@ const plotterActions = {
     {/await}
   {/key}
 {/if}
+
+<InterfaceLockLayer controller={interfaceLock} />
 
 <style>
 .lazy-note-dialog {

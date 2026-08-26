@@ -29,6 +29,7 @@ describe('ChartContextMenu', () => {
         onGoToHere: vi.fn(),
         onStartRoute: vi.fn(),
         onFullScreen: vi.fn(),
+        onLockInterface: vi.fn(),
         onClose: vi.fn(),
       },
     }).body;
@@ -43,10 +44,28 @@ describe('ChartContextMenu', () => {
         height: 400,
         onGoToHere: vi.fn(),
         onStartRoute: vi.fn(),
+        onLockInterface: vi.fn(),
         onClose: vi.fn(),
       },
     }).body;
     expect(unsupported).toContain('Full screen');
     expect(unsupported).toContain('disabled');
+  });
+
+  it('offers the interface lock when the host wires it', () => {
+    const body = render(ChartContextMenu, {
+      props: {
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 400,
+        onGoToHere: vi.fn(),
+        onStartRoute: vi.fn(),
+        onLockInterface: vi.fn(),
+        onClose: vi.fn(),
+      },
+    }).body;
+
+    expect(body).toContain('Lock Binnacle');
   });
 });

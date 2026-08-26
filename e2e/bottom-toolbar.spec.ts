@@ -37,6 +37,23 @@ test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page })
 
   const toolbar = page.locator('.status-strip');
   await expectNoHorizontalOverflow(toolbar);
+  await expect(toolbar.getByRole('button', { name: 'Lock Binnacle' })).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'Open instrument dock' })).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'Mark man overboard here' })).toBeVisible();
+});
+
+test('the interface lock stays reachable from full-screen Instruments', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Open instrument dock' }).click();
+  const instruments = page.getByRole('dialog', { name: 'Instruments' });
+  await expect(instruments).toBeVisible();
+  await instruments.getByRole('button', { name: 'Lock Binnacle' }).click();
+
+  const lockLayer = page.getByRole('dialog', { name: 'Binnacle controls locked' });
+  await expect(lockLayer).toBeVisible();
+  await lockLayer.getByRole('button', { name: 'Unlock Binnacle' }).click();
+  await expect(lockLayer).toHaveCount(0);
+  await expect(instruments).toBeVisible();
 });

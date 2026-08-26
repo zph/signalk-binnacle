@@ -624,11 +624,13 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   (a native `<dialog class="modal-card">` opened via the `dialog` action, which calls `showModal()`),
   used for the waypoint editor and the MOB confirm.
 - The bottom bar renders the pinned `MenuItem`s in stored order (using `shortLabel`) plus a More
-  overflow, followed by the fixed Instruments toggle and MOB key. Fixed actions stay outside toolbar
-  customization and remain in the thumb-reachable action row. Instruments reflects its open state
-  and toggles the dock; MOB opens its confirmation dialog before marking. The app menu's toolbar edit
-  mode owns membership, order, reset, and the live reorder announcement; the bar only renders the
-  resolved customizable list.
+  overflow, followed by the fixed interface lock, Instruments toggle, and MOB key. Fixed actions stay
+  outside toolbar customization and remain in the thumb-reachable action row. Interface lock opens a
+  transparent, full-viewport native modal that intercepts interaction everywhere and leaves one
+  open-lock control to unlock. It persists on this device across reloads. Instruments reflects its
+  open state and toggles the dock; MOB opens its confirmation dialog before marking. The app menu's
+  toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar only
+  renders the resolved customizable list.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
   sources. Each compact row has one separate drag grip, a name-sized visibility button whose enabled
   state lights the row, a child-layer caret, and one chart-detail action. A chart with facets discloses

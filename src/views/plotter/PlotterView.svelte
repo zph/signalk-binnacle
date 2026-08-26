@@ -293,6 +293,7 @@ interface FlatProps {
   backFromPoiSearch: () => void;
   onSetRadarPower: (status: import('$features/marine-radar').RadarStatus) => void;
   openInstrumentsPanel: () => void;
+  lockInterface: () => void;
 }
 
 type ServiceKey =
@@ -401,7 +402,8 @@ type ActionKey =
   | 'closePoiSearch'
   | 'backFromPoiSearch'
   | 'onSetRadarPower'
-  | 'openInstrumentsPanel';
+  | 'openInstrumentsPanel'
+  | 'lockInterface';
 
 interface Props extends Omit<FlatProps, ServiceKey | ControllerKey | EntityKey | ActionKey> {
   services: Pick<FlatProps, ServiceKey>;
@@ -584,6 +586,7 @@ const {
   backFromPoiSearch,
   onSetRadarPower,
   openInstrumentsPanel,
+  lockInterface,
 } = $derived(actions);
 
 let mapCommands = $state<MapCommands | undefined>();
@@ -858,6 +861,7 @@ $effect(() => {
     onMeasureFrom={(position) => {
       if (armMeasure(true)) measure.add(position);
     }}
+    onLockInterface={lockInterface}
     onRouteEditorError={() => routeController.flagEditorLoadFailed()}
     onAnchorMoved={(position) => void anchorController.onAnchorMoved(position)}
     marineRadarLayer={marineRadar.layer}

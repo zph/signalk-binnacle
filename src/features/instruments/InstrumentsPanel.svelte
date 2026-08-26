@@ -27,6 +27,8 @@ interface Props {
   // inside the dialog subtree. Injected rather than imported so instruments never reaches into
   // the mob feature.
   emergencyAction?: Snippet;
+  // The shell lock remains reachable when this panel covers the normal bottom toolbar.
+  lockAction?: Snippet;
 }
 
 const {
@@ -41,6 +43,7 @@ const {
   onDockResize = () => {},
   onDockResizeCommit = () => {},
   emergencyAction,
+  lockAction,
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -84,6 +87,14 @@ $effect(() => {
 });
 </script>
 
+{#snippet fixedLockAction()}
+  {#if lockAction}
+    <div class="instrument-lock-action">
+      {@render lockAction()}
+    </div>
+  {/if}
+{/snippet}
+
 <!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: the dynamic role is dialog exactly when aria-modal is defined. -->
 <aside
   class="instruments"
@@ -118,6 +129,9 @@ $effect(() => {
       />
     {/snippet}
   </PanelHeader>
+  {#if fullscreen && !expandedDef}
+    {@render fixedLockAction()}
+  {/if}
   {#if detailDef}
     {@const reading = detailDef.read(deps)}
     {@const zone = controller.zoneState(detailDef, reading.siValue)}
@@ -208,6 +222,7 @@ $effect(() => {
         expanded
         onActivate={() => (expandedId = undefined)}
       />
+      {@render fixedLockAction()}
     </div>
   {/if}
 </aside>
@@ -278,6 +293,12 @@ $effect(() => {
   block-size: 100%;
   border: 0;
   border-radius: 0;
+}
+.instrument-lock-action {
+  position: fixed;
+  inset-inline-end: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+  inset-block-end: calc(var(--space-2) + var(--system-bar-clearance));
+  z-index: calc(var(--z-menu) + 1);
 }
 @media (max-width: 900px) {
   /* The full-screen dock sits under the floating safety rail; reserving the rail's measured

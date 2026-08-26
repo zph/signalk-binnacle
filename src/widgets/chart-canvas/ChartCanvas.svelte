@@ -170,6 +170,8 @@ interface Props {
   onAddNote?: (position: LatLon) => void;
   // Arm the measure tool seeded with the long-pressed chart position as its first point.
   onMeasureFrom?: (position: LatLon) => void;
+  // Freeze all app-shell interaction from the chart context menu.
+  onLockInterface?: () => void;
   // The lazily-imported route editor chunk failed to load, so the app can surface it.
   onRouteEditorError?: () => void;
   // Whether the server runs the tracks plugin, read per tick so trails light up when known.
@@ -245,6 +247,7 @@ const {
   onDropWaypoint,
   onAddNote,
   onMeasureFrom,
+  onLockInterface,
   onRouteEditorError,
   aisTrailsAvailable,
   isOnline,
@@ -977,6 +980,12 @@ onDestroy(() => {
           }
         : undefined}
       onFullScreen={enterFullScreen}
+      onLockInterface={onLockInterface
+        ? () => {
+            onLockInterface();
+            chartMenu = undefined;
+          }
+        : undefined}
       onClose={() => {
         chartMenu = undefined;
       }}

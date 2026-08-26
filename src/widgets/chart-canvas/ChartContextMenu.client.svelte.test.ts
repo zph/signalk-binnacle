@@ -4,7 +4,9 @@ import ChartContextMenu from './ChartContextMenu.svelte';
 
 const mounted: Array<() => void> = [];
 
-function mountMenu(onFullScreen?: () => void): HTMLDivElement {
+function mountMenu(
+  options: { onFullScreen?: () => void; onLockInterface?: () => void; onClose?: () => void } = {},
+): HTMLDivElement {
   const target = document.createElement('div');
   document.body.append(target);
   let component!: ReturnType<typeof mount>;
@@ -18,8 +20,9 @@ function mountMenu(onFullScreen?: () => void): HTMLDivElement {
         height: 600,
         onGoToHere: vi.fn(),
         onStartRoute: vi.fn(),
-        onFullScreen,
-        onClose: vi.fn(),
+        onFullScreen: options.onFullScreen,
+        onLockInterface: options.onLockInterface,
+        onClose: options.onClose ?? vi.fn(),
       },
     });
   });
@@ -91,10 +94,23 @@ describe('ChartContextMenu go-to confirmation', () => {
 describe('ChartContextMenu full screen', () => {
   it('forwards the full-screen action', () => {
     const onFullScreen = vi.fn();
-    const target = mountMenu(onFullScreen);
+    const target = mountMenu({ onFullScreen });
 
     button(target, 'Full screen').click();
 
     expect(onFullScreen).toHaveBeenCalledOnce();
+  });
+});
+
+describe('ChartContextMenu interface lock', () => {
+  it('locks the interface and closes the chart menu', () => {
+    const onLockInterface = vi.fn();
+    const onClose = vi.fn();
+    const target = mountMenu({ onLockInterface, onClose });
+
+    button(target, 'Lock Binnacle').click();
+
+    expect(onLockInterface).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

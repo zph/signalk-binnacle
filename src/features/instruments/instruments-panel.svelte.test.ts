@@ -1,3 +1,4 @@
+import { createRawSnippet } from 'svelte';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import InstrumentDetail from './InstrumentDetail.svelte';
@@ -139,6 +140,21 @@ describe('InstrumentsPanel', () => {
       props: { controller: makeController(), deps: makeDeps(), fullscreen: true },
     });
     expect(body).not.toContain('Resize instruments dock');
+  });
+
+  it('keeps the interface lock reachable when the panel covers the bottom toolbar', () => {
+    const lockAction = createRawSnippet(() => ({
+      render: () => '<button aria-label="Lock Binnacle">Lock</button>',
+    }));
+    const fullScreen = render(InstrumentsPanel, {
+      props: { controller: makeController(), deps: makeDeps(), fullscreen: true, lockAction },
+    }).body;
+    const dock = render(InstrumentsPanel, {
+      props: { controller: makeController(), deps: makeDeps(), lockAction },
+    }).body;
+
+    expect(fullScreen).toContain('aria-label="Lock Binnacle"');
+    expect(dock).not.toContain('aria-label="Lock Binnacle"');
   });
 
   it('offers a full-width recent-trend action for an eligible detail', () => {

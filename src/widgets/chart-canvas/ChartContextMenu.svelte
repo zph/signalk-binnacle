@@ -1,4 +1,5 @@
 <script lang="ts">
+import Lock from '@lucide/svelte/icons/lock';
 import MapPin from '@lucide/svelte/icons/map-pin';
 import Maximize from '@lucide/svelte/icons/maximize';
 import Navigation from '@lucide/svelte/icons/navigation';
@@ -29,6 +30,8 @@ interface Props {
   // Requests browser fullscreen for the chart surface. Absent when the platform does not expose
   // the Fullscreen API, in which case the consistently positioned row remains disabled.
   onFullScreen?: () => void;
+  // Absent only when a host embeds the chart without an app-shell lock controller.
+  onLockInterface?: () => void;
   onClose: () => void;
 }
 
@@ -43,6 +46,7 @@ const {
   onAddNote,
   onMeasureFrom,
   onFullScreen,
+  onLockInterface,
   onClose,
 }: Props = $props();
 
@@ -51,6 +55,11 @@ const {
 // re-registering on every parent render, which the parent's fresh onClose closure would otherwise
 // cause, breaking last-opened-first order; the wrapper reads the latest onClose when it fires.
 const close = (): void => onClose();
+
+function lockAndClose(): void {
+  onLockInterface?.();
+  close();
+}
 
 // Wide enough for the longest label ("Start a route here") at the inherited font size; the menu
 // is fixed to this width below so the clamp math always matches the rendered box.
@@ -74,7 +83,7 @@ const left = $derived(
 // Prefer above the press so a finger does not cover the menu; drop below near the top edge.
 let confirmingGoTo = $state(false);
 const itemCount = $derived(
-  confirmingGoTo ? 3 : 3 + (onDropWaypoint ? 1 : 0) + (onAddNote ? 1 : 0) + (onMeasureFrom ? 1 : 0),
+  confirmingGoTo ? 3 : 4 + (onDropWaypoint ? 1 : 0) + (onAddNote ? 1 : 0) + (onMeasureFrom ? 1 : 0),
 );
 const menuHeight = $derived(itemCount * ITEM_HEIGHT + MENU_PADDING);
 const above = $derived(y > menuHeight + EDGE * 2 || y > height / 2);
@@ -146,6 +155,16 @@ const top = $derived(above ? y - EDGE : y + EDGE);
       >
         <Maximize size={16} aria-hidden="true" />
         Full screen
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        class="menu-item item"
+        disabled={!onLockInterface}
+        onclick={lockAndClose}
+      >
+        <Lock size={16} aria-hidden="true" />
+        Lock Binnacle
       </button>
     </div>
   {/if}

@@ -317,12 +317,15 @@ source, and surrounding traffic before relying on it.
 ## Toolbar and status strip
 
 - The bottom toolbar starts with the fixed Menu opener, carries customizable pinned actions, and ends
-  with fixed profile, theme, app information, Instruments, and Man overboard controls. Instruments
-  toggles the dock open or closed and shows its current state. The MOB key requires confirmation
-  before it marks the position and raises the alarm. Fixed controls are not customizable. The default
-  pinned set is Center, Follow, and AIS, keeping one Safety action thumb-reachable with its live
-  collision-risk count. Menu renders as a launcher tile only while customizing, where its fixed
-  placement is explicit.
+  with fixed profile, theme, app information, interface lock, Instruments, and Man overboard controls.
+  Interface lock is also available from the chart context menu and full-screen Instruments. It places
+  a transparent modal over the whole app, persists on this device across reloads, and leaves one
+  open-lock control to unlock. It blocks every other action, including safety responses, while live
+  data, visual alarms, and alarm audio continue underneath. Unlock before acting. Instruments toggles
+  the dock open or closed and shows its current state. The MOB key requires confirmation before it
+  marks the position and raises the alarm. Fixed controls are not customizable. The default pinned set
+  is Center, Follow, and AIS, keeping one Safety action thumb-reachable with its live collision-risk
+  count. Menu renders as a launcher tile only while customizing, where its fixed placement is explicit.
 - Degraded status-strip chips explain themselves on touch: tapping the connection dot, the AIS
   chip, the depth chip, a radar-trouble chip, or either alarm-audio chip shows its explanation as a
   transient note above the strip. Waiting for GPS carries a Help action, and the anchor chip opens
