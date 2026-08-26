@@ -327,7 +327,14 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('DEPTH');
     expect(html).toContain('1.8');
     expect(html).toContain('corner--warning');
-    expect(html.match(/counter-box--alarm/g)).toHaveLength(4);
+    expect(html.match(/counter-box--alarm/g)).toHaveLength(2);
+    expect(html).toContain('>AWA</tspan>');
+    expect(html).toContain('>TWA</tspan>');
+    expect(html).toMatch(/counter-angle-inline[^>]+x="236" y="186"/);
+    expect(html).toMatch(/counter-angle-inline[^>]+x="980" y="186"/);
+    expect(html).toContain('x="8" y="8" width="240" height="190"');
+    expect(html).toContain('x="752" y="8" width="240" height="190"');
+    expect(html).toContain('x="370" y="8" width="260"');
     expect(html).toContain('Warning');
     expect(html).toContain('Speed over ground 6.4 kn');
     expect(html).toContain('Heading 57°');

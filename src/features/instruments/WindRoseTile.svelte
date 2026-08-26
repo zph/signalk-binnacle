@@ -195,30 +195,22 @@ const sectorRotation = $derived(
           class="counter-box"
           class:counter-box--warning={zone === 'warning'}
           class:counter-box--alarm={zone === 'alarm'}
-          x="20"
+          x="8"
           y="8"
           width="240"
-          height="162"
+          height="190"
           rx="22"
         />
-        <rect
-          class="counter-box"
-          class:counter-box--warning={zone === 'warning'}
-          class:counter-box--alarm={zone === 'alarm'}
-          x="20"
-          y="184"
-          width="240"
-          height="140"
-          rx="22"
-        />
-        <text class="counter-label" x="140" y="42">AWS</text>
-        <text class="counter-value" x="140" y="128">
+        <text class="counter-label" x="128" y="42">AWS</text>
+        <text class="counter-value" x="128" y="128">
           {rose?.apparent.value ?? '---'}
         </text>
-        <text class="counter-unit" x="140" y="162">{rose?.apparent.unit ?? ''}</text>
-        <text class="counter-angle-label" x="140" y="218">AWA</text>
-        <text class="counter-angle-value" x="140" y="306">
-          {formatSignedAngleOr(rose?.apparent.angleRad)}
+        <text class="counter-unit counter-unit--inset" x="22" y="186">
+          {rose?.apparent.unit ?? ''}
+        </text>
+        <text class="counter-angle-inline" x="236" y="186">
+          <tspan class="counter-angle-prefix">AWA</tspan>
+          <tspan>{formatSignedAngleOr(rose?.apparent.angleRad)}</tspan>
         </text>
       </g>
       <g class="wind-counter wind-counter--true">
@@ -226,38 +218,30 @@ const sectorRotation = $derived(
           class="counter-box"
           class:counter-box--warning={zone === 'warning'}
           class:counter-box--alarm={zone === 'alarm'}
-          x="740"
+          x="752"
           y="8"
           width="240"
-          height="162"
+          height="190"
           rx="22"
         />
-        <rect
-          class="counter-box"
-          class:counter-box--warning={zone === 'warning'}
-          class:counter-box--alarm={zone === 'alarm'}
-          x="740"
-          y="184"
-          width="240"
-          height="140"
-          rx="22"
-        />
-        <text class="counter-label" x="860" y="42">TWS</text>
-        <text class="counter-value" x="860" y="128">
+        <text class="counter-label" x="872" y="42">TWS</text>
+        <text class="counter-value" x="872" y="128">
           {rose?.trueWind.value ?? '---'}
         </text>
-        <text class="counter-unit" x="860" y="162">{rose?.trueWind.unit ?? ''}</text>
-        <text class="counter-angle-label" x="860" y="218">TWA</text>
-        <text class="counter-angle-value" x="860" y="306">
-          {formatSignedAngleOr(rose?.trueWind.angleRad)}
+        <text class="counter-unit counter-unit--inset" x="766" y="186">
+          {rose?.trueWind.unit ?? ''}
+        </text>
+        <text class="counter-angle-inline" x="980" y="186">
+          <tspan class="counter-angle-prefix">TWA</tspan>
+          <tspan>{formatSignedAngleOr(rose?.trueWind.angleRad)}</tspan>
         </text>
       </g>
 
       <g class="heading-window">
-        <rect x="370" y="18" width="260" height="112" rx="25" />
-        <text x="500" y="98">{rose?.heading.value ?? '---'}</text>
+        <rect x="370" y="8" width="260" height="112" rx="25" />
+        <text x="500" y="88">{rose?.heading.value ?? '---'}</text>
         {#if rose?.heading.referenceLabel}
-          <text class="heading-reference" x="615" y="109">{rose.heading.referenceLabel}</text>
+          <text class="heading-reference" x="615" y="99">{rose.heading.referenceLabel}</text>
         {/if}
       </g>
     </svg>
@@ -458,17 +442,25 @@ const sectorRotation = $derived(
   font-weight: 900;
   letter-spacing: -3px;
 }
-.counter-unit,
-.counter-angle-label {
+.counter-unit {
   fill: var(--text-muted);
   font-size: 27px;
   font-weight: 750;
 }
-.counter-angle-value {
+.counter-unit--inset {
+  text-anchor: start;
+}
+.counter-angle-inline {
   fill: var(--text);
-  font-size: 88px;
-  font-weight: 900;
-  letter-spacing: -3px;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  text-anchor: end;
+}
+.counter-angle-prefix {
+  fill: var(--text-muted);
+  font-size: 27px;
+  letter-spacing: 0;
 }
 .heading-window rect {
   fill: var(--surface-raised);
@@ -487,7 +479,7 @@ const sectorRotation = $derived(
 }
 .corner {
   position: absolute;
-  inset-block-end: 2.5%;
+  inset-block-end: 0.8%;
   min-inline-size: 24%;
   display: flex;
   flex-direction: column;
@@ -499,10 +491,10 @@ const sectorRotation = $derived(
   text-align: center;
 }
 .corner--sog {
-  inset-inline-start: 2.5%;
+  inset-inline-start: 0.8%;
 }
 .corner--depth {
-  inset-inline-end: 2.5%;
+  inset-inline-end: 0.8%;
 }
 .corner .num {
   font-family: var(--font-mono);
