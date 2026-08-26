@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import type { OverlayContext, OverlayModule } from '$shared/map';
+import { describe, expect, it, vi } from 'vitest';
+import type { LayerListItem, OverlayContext, OverlayModule } from '$shared/map';
 import { LayerManager } from '$shared/map';
 import { fakeOverlayContext } from '$shared/testing';
 import { LayersView } from './layers-view.svelte';
@@ -47,5 +47,41 @@ describe('LayersView', () => {
     view.refresh();
     view.setOpacity('noaa', 0.3);
     expect(view.items[0].opacity).toBe(0.3);
+  });
+
+  it('passes only the filtered chart order to the manager', () => {
+    const listItem = (
+      id: string,
+      band: LayerListItem['band'],
+      category: string,
+    ): LayerListItem => ({
+      id,
+      title: id,
+      visible: true,
+      opacity: 1,
+      supportsOpacity: true,
+      pinned: false,
+      band,
+      category,
+      available: true,
+    });
+    const items = [
+      listItem('traffic', 'traffic', 'live'),
+      listItem('chart-a', 'bathymetry', 'charts'),
+      listItem('reference', 'safety', 'reference'),
+      listItem('chart-b', 'bathymetry', 'charts'),
+      listItem('route', 'routes', 'mine'),
+    ];
+    const reorderSubset = vi.fn();
+    const manager = {
+      layers: () => items,
+      reorderSubset,
+    } as unknown as LayerManager;
+    const view = new LayersView(manager);
+    view.items = items;
+
+    view.reorderSubset('chart-a', ['chart-a', 'chart-b'], 1);
+
+    expect(reorderSubset).toHaveBeenCalledWith('chart-a', ['chart-a', 'chart-b'], 1);
   });
 });

@@ -788,6 +788,14 @@ test('layers and charts opens chart sources before overlay stack controls', asyn
   );
   await expect(panel.getByRole('heading', { name: 'Chart sources' })).toBeVisible();
 
+  const chartRows = panel.locator('.chart-source-rows [data-layer-row]');
+  await expect(chartRows.nth(1)).toBeVisible();
+  const secondChartId = await chartRows.nth(1).getAttribute('data-layer-row');
+  if (!secondChartId) throw new Error('chart rows need stable ids');
+  await chartRows.nth(1).locator('.handle').press('ArrowUp');
+  await expect(chartRows.first()).toHaveAttribute('data-layer-row', secondChartId);
+  await expect(chartRows.first().locator('.handle')).toBeFocused();
+
   await panel.getByRole('button', { name: 'Add a chart' }).click();
   await expect(panel.getByText('Chart files on this server')).toBeVisible();
   await expect(panel.getByText('From a PMTiles URL')).toBeVisible();

@@ -539,6 +539,37 @@ describe('LayerManager', () => {
     expect(orders.at(-1)).toEqual(['b', 'c', 'a']);
   });
 
+  it('reorders a chart subset without moving interleaved non-chart stack slots', async () => {
+    const orders: string[][] = [];
+    const manager = new LayerManager(fakeCtx(), { onOrderChange: (o) => orders.push(o) });
+    await manager.register(fakeOverlay('traffic'));
+    await manager.register(fakeOverlay('chart-california'));
+    await manager.register(fakeOverlay('reference'));
+    await manager.register(fakeOverlay('chart-minimal'));
+    await manager.register(fakeOverlay('route'));
+    manager.applySnapshot({}, [
+      'route',
+      'chart-minimal',
+      'reference',
+      'chart-california',
+      'traffic',
+    ]);
+    orders.length = 0;
+
+    manager.reorderSubset('chart-minimal', ['chart-california', 'chart-minimal'], 0);
+
+    expect(manager.layers().map((item) => item.id)).toEqual([
+      'traffic',
+      'chart-minimal',
+      'reference',
+      'chart-california',
+      'route',
+    ]);
+    expect(orders).toEqual([
+      ['route', 'chart-california', 'reference', 'chart-minimal', 'traffic'],
+    ]);
+  });
+
   it('restores a saved order on register', async () => {
     const manager = new LayerManager(fakeCtx(), { savedOrder: ['b', 'c', 'a'] });
     await manager.register(fakeOverlay('a'));

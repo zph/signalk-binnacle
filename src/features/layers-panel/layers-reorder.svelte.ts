@@ -22,3 +22,29 @@ export function createLayerReorder(
     itemNoun: 'Layer',
   });
 }
+
+// A filtered view, such as the Charts tab, addresses positions inside only the rows it renders.
+// Translate that subset insertion slot back into the full movable list before persisting it, so a
+// pointer drop cannot jump across non-rendered rows and the handle positions remain local to the
+// visible list.
+export function createLayerSubsetReorder(
+  getView: () => LayersView,
+  getSubset: () => LayerListItem[],
+  getListEl: () => HTMLUListElement | undefined,
+  itemNoun: string,
+): LayerReorder {
+  const view = getView();
+  return createReorder({
+    getItems: getSubset,
+    getListEl,
+    commit: (id, subsetSlot) =>
+      view.reorderSubset(
+        id,
+        getSubset().map((item) => item.id),
+        subsetSlot,
+      ),
+    rowAttribute: 'data-layer-row',
+    handleSelector: '.handle',
+    itemNoun,
+  });
+}

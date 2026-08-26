@@ -540,6 +540,31 @@ export class LayerManager {
     this.#onOrderChange?.([...this.#explicitOrder]);
   }
 
+  // Reorder one member inside a filtered top-level subset while leaving every row outside that
+  // subset in its existing stack slot. The Charts view uses this because a restored legacy order
+  // can interleave charts with non-chart overlays that are not visible in that view; dragging a
+  // chart must not silently move one of those hidden overlays too.
+  reorderSubset(id: string, subsetIds: string[], toIndex: number): void {
+    if (this.#pinned.has(id) || !this.#modules.has(id) || this.#isChild(id)) return;
+    const topDown = this.#effectiveOrder()
+      .filter((other) => !this.#pinned.has(other) && !this.#isChild(other))
+      .reverse();
+    const requested = new Set(subsetIds);
+    const subset = topDown.filter((other) => requested.has(other));
+    const from = subset.indexOf(id);
+    if (from < 0) return;
+    subset.splice(from, 1);
+    subset.splice(Math.max(0, Math.min(toIndex, subset.length)), 0, id);
+
+    let subsetIndex = 0;
+    const reordered = topDown.map((other) =>
+      requested.has(other) ? (subset[subsetIndex++] ?? other) : other,
+    );
+    this.#explicitOrder = reordered.reverse();
+    this.#applyOrder();
+    this.#onOrderChange?.([...this.#explicitOrder]);
+  }
+
   // Apply a full settings snapshot and a new explicit stacking order in one pass, for profile
   // switching. The batch persists and fires the order-change callback exactly once at the end
   // rather than per layer, so swapping a profile is a single store write and a single restack.

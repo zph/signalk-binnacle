@@ -583,7 +583,8 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   toggle's lit state, `disabled` plus `disabledLabel`, `available` plus `unavailableHint`,
   `barOnly` for an action whose home is the bottom bar (the Menu opener, which would otherwise be
   a tile inside the menu it opens; it still renders as a tile while customizing, since tapping a
-  tile is the pin control), `onSelect`). Groups today:
+  tile is the pin control), `fixedToBar` for an app-shell action that stays in the bottom toolbar
+  while remaining available in the launcher, and `onSelect`). Groups today:
   Chart, Navigate, Safety, Weather, Instruments, and Settings.
   Safety stays before Weather and Instruments; Settings stays last. Adding a menu option is one more
   `MenuItem`, never a change to the menu component. A capability whose provider is absent sets
@@ -610,17 +611,19 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   (a native `<dialog class="modal-card">` opened via the `dialog` action, which calls `showModal()`),
   used for the waypoint editor and the MOB confirm.
 - The bottom bar renders the pinned `MenuItem`s in stored order (using `shortLabel`) plus a More
-  overflow, followed by the fixed MOB key. MOB stays outside toolbar customization, remains in the
-  thumb-reachable action row, and opens its confirmation dialog before marking. The app menu's
-  toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar only
-  renders the resolved list.
+  overflow, followed by the fixed Instruments toggle and MOB key. Fixed actions stay outside toolbar
+  customization and remain in the thumb-reachable action row. Instruments reflects its open state
+  and toggles the dock; MOB opens its confirmation dialog before marking. The app menu's toolbar edit
+  mode owns membership, order, reset, and the live reorder announcement; the bar only renders the
+  resolved customizable list.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
-  sources, opens chart detail from the row gear, shows bounds when known, and keeps "Add a chart" for
-  user PMTiles URLs. Every query-bearing URL defaults to device-only, displays redact all query
-  values, and sharing the complete URL with Signal K requires an explicit reviewed choice. User chart
-  detail stages replacement metadata before save, refreshes metadata through the same review, and
-  changes device or server sharing without changing the chart id or its layer state. The Overlays
-  view is for overlay visibility, opacity, and stacking controls.
+  sources, uses the shared drag grips to set their top-to-bottom stack, opens chart detail from the row
+  gear, shows bounds when known, and keeps "Add a chart" for user PMTiles URLs. Every query-bearing
+  URL defaults to device-only, displays redact all query values, and sharing the complete URL with
+  Signal K requires an explicit reviewed choice. User chart detail stages replacement metadata before
+  save, refreshes metadata through the same review, and changes device or server sharing without
+  changing the chart id or its layer state. The Overlays view is for non-chart overlay visibility,
+  opacity, and stacking controls.
 
 ## 9. Interaction and accessibility
 

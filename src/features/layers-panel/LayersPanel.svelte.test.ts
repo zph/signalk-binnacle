@@ -67,6 +67,48 @@ describe('LayersPanel write access', () => {
 });
 
 describe('LayersPanel chart guidance', () => {
+  it('exposes chart stacking handles in the Charts view', () => {
+    const body = renderPanel(auth(false), [
+      {
+        id: 'harbor-chart',
+        title: 'Harbor chart',
+        visible: true,
+        opacity: 1,
+        supportsOpacity: true,
+        pinned: false,
+        band: 'bathymetry',
+        available: true,
+        chart: {
+          identifier: 'harbor',
+          source: 'server',
+          kind: 'vector',
+          type: 'S-57',
+        },
+      },
+      {
+        id: 'coastal-chart',
+        title: 'Coastal chart',
+        visible: true,
+        opacity: 1,
+        supportsOpacity: true,
+        pinned: false,
+        band: 'bathymetry',
+        available: true,
+        chart: {
+          identifier: 'coastal',
+          source: 'server',
+          kind: 'raster',
+          type: 'tilelayer',
+        },
+      },
+    ]);
+
+    expect(body).toContain('drag their grips to set chart stacking');
+    expect(body).toContain('aria-label="Move Harbor chart, position 1 of 2"');
+    expect(body).toContain('aria-label="Move Coastal chart, position 2 of 2"');
+    expect(body).toContain('aria-keyshortcuts="ArrowUp ArrowDown"');
+  });
+
   it('explains a reference-only view and that depth shading does not count as a chart', () => {
     const body = renderPanel(auth(false));
     expect(body).toContain('No nautical chart is on');

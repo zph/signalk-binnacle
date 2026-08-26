@@ -12,7 +12,7 @@ import { createPanelMinimize, SlideOver, WriteAccessNote } from '$shared/ui';
 import AddChartForm from './AddChartForm.svelte';
 import LayerRow from './LayerRow.svelte';
 import { CATEGORY_DEFAULT_OPEN, CATEGORY_ORDER, layerCategory } from './layer-category';
-import { createLayerReorder } from './layers-reorder.svelte';
+import { createLayerReorder, createLayerSubsetReorder } from './layers-reorder.svelte';
 import type { LayersView } from './layers-view.svelte';
 import SourceDetail from './SourceDetail.svelte';
 
@@ -83,9 +83,7 @@ const categories = $derived.by(() => {
     return bucket ? [{ id, title: bucket.title, rows: bucket.rows }] : [];
   });
 });
-const chartRows = $derived.by(() =>
-  movable.flatMap((item, i) => (layerCategory(item).id === 'charts' ? [{ item, i }] : [])),
-);
+const chartItems = $derived(movable.filter((item) => layerCategory(item).id === 'charts'));
 // The same predicate the chart badge grades with: depth shading is reference only and carries
 // neither chart field, so enabling it correctly leaves this true.
 const noNavigationChart = $derived(!hasVisibleNavigationChart(view.items));
@@ -107,9 +105,6 @@ let detailId = $state<string | undefined>();
 // clicks override freely in between (the old string-prop derived missed same-value requests).
 let mode = $derived<'charts' | 'overlays'>(request.mode);
 const minimize = createPanelMinimize();
-// One shared no-op for the non-draggable chart rows' required handle props, instead of a fresh
-// closure pair per row per render.
-const noopHandle = () => {};
 const detailItem = $derived(detailId ? view.items.find((item) => item.id === detailId) : undefined);
 const detailUserSource = $derived(
   detailItem?.chart?.source === 'user'
@@ -117,15 +112,25 @@ const detailUserSource = $derived(
     : undefined,
 );
 
-let listEl = $state<HTMLUListElement>();
+let chartListEl = $state<HTMLUListElement>();
+let overlayListEl = $state<HTMLUListElement>();
 
 // The imperative pointer-and-keyboard drag-reorder controller, given the live list element so it
 // can measure rows and refocus the moved handle. It owns the drag state and announcement; the
 // template reads them back through its getters.
-const reorder = createLayerReorder(
+const overlayReorder = createLayerReorder(
   () => view,
   () => movable,
-  () => listEl,
+  () => overlayListEl,
+);
+const chartReorder = createLayerSubsetReorder(
+  () => view,
+  () => chartItems,
+  () => chartListEl,
+  'Chart',
+);
+const reorderAnnouncement = $derived(
+  mode === 'charts' ? chartReorder.reorderAnnouncement : overlayReorder.reorderAnnouncement,
 );
 </script>
 
@@ -140,7 +145,7 @@ const reorder = createLayerReorder(
   onBack={detailItem ? undefined : onBack}
   {minimize}
 >
-  <div class="visually-hidden" aria-live="polite">{reorder.reorderAnnouncement}</div>
+  <div class="visually-hidden" aria-live="polite">{reorderAnnouncement}</div>
   {#if detailItem?.chart}
     {#key detailItem.id}
       <SourceDetail
@@ -159,7 +164,9 @@ const reorder = createLayerReorder(
       />
     {/key}
   {:else}
-    <p class="muted-note">Choose chart sources, then tune overlays and stacking for the chart.</p>
+    <p class="muted-note">
+      Choose chart sources, drag their grips to set chart stacking, then tune overlays.
+    </p>
 
     <div class="segmented layer-tabs" role="group" aria-label="Layers and charts view">
       <button
@@ -230,26 +237,26 @@ const reorder = createLayerReorder(
       <section class="category" aria-label="Chart sources">
         <h3 class="category-head pinned-head">
           <span class="category-title caps-label">Chart sources</span>
-          <span class="pill-count category-count" aria-hidden="true">{chartRows.length}</span>
+          <span class="pill-count category-count" aria-hidden="true">{chartItems.length}</span>
         </h3>
-        {#if chartRows.length === 0}
+        {#if chartItems.length === 0}
           <p class="muted-note empty-note">No chart sources yet.</p>
         {:else}
-          <ul class="category-rows bare-list chart-source-rows">
-            {#each chartRows as { item, i } (item.id)}
+          <ul class="category-rows bare-list chart-source-rows" bind:this={chartListEl}>
+            {#each chartItems as item, i (item.id)}
+              {@const indicator = chartReorder.indicatorFor(item.id)}
               <LayerRow
                 {item}
                 {view}
                 index={i}
-                count={movable.length}
+                count={chartItems.length}
                 groupTitle={item.group?.title}
                 subLayers={childrenByParent.get(item.id) ?? []}
-                dragging={false}
-                dropBefore={false}
-                dropAfter={false}
-                draggable={false}
-                onHandlePointerDown={noopHandle}
-                onHandleKeydown={noopHandle}
+                dragging={chartReorder.dragId === item.id}
+                dropBefore={indicator.before}
+                dropAfter={indicator.after}
+                onHandlePointerDown={(e) => chartReorder.handlePointerDown(item.id, e)}
+                onHandleKeydown={(e) => chartReorder.handleKeydown(item.id, e)}
                 manageLabel={item.chart ? `Open ${item.title} chart details` : undefined}
                 onManage={item.chart
                   ? () => (detailId = item.id)
@@ -300,7 +307,7 @@ const reorder = createLayerReorder(
         </section>
       {/if}
 
-      <ul class="rows bare-list" bind:this={listEl}>
+      <ul class="rows bare-list" bind:this={overlayListEl}>
         {#each overlayCategories as cat (cat.id)}
           {@const expanded = isOpen(cat.id)}
           {@const panelId = `layer-cat-${cat.id}`}
@@ -324,7 +331,7 @@ const reorder = createLayerReorder(
             </h3>
             <ul class="category-rows bare-list" id={panelId} hidden={!expanded}>
               {#each cat.rows as { item, i } (item.id)}
-                {@const indicator = reorder.indicatorFor(item.id)}
+                {@const indicator = overlayReorder.indicatorFor(item.id)}
                 <LayerRow
                   {item}
                   {view}
@@ -332,11 +339,11 @@ const reorder = createLayerReorder(
                   count={movable.length}
                   groupTitle={item.group?.title}
                   subLayers={childrenByParent.get(item.id) ?? []}
-                  dragging={reorder.dragId === item.id}
+                  dragging={overlayReorder.dragId === item.id}
                   dropBefore={indicator.before}
                   dropAfter={indicator.after}
-                  onHandlePointerDown={(e) => reorder.handlePointerDown(item.id, e)}
-                  onHandleKeydown={(e) => reorder.handleKeydown(item.id, e)}
+                  onHandlePointerDown={(e) => overlayReorder.handlePointerDown(item.id, e)}
+                  onHandleKeydown={(e) => overlayReorder.handleKeydown(item.id, e)}
                   manageLabel={item.chart ? `Open ${item.title} chart details` : undefined}
                   onManage={item.chart
                     ? () => (detailId = item.id)

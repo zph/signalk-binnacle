@@ -108,4 +108,87 @@ describe('createReorder', () => {
     expect(scheduled).toHaveLength(2);
     expect(cancelled).toEqual([scheduled[0]]);
   });
+
+  it('reads the updated owner order for a rapid reverse move', () => {
+    let items = makeItems(3);
+    const committed: Array<{ id: string; slot: number }> = [];
+    const r = createReorder({
+      getItems: () => items,
+      getListEl: () => undefined,
+      commit: (id, slot) => {
+        committed.push({ id, slot });
+        const remaining = items.filter((item) => item.id !== id);
+        const moved = items.find((item) => item.id === id);
+        if (moved) remaining.splice(slot, 0, moved);
+        items = remaining;
+      },
+      rowAttribute: 'data-row',
+      handleSelector: '.handle',
+      itemNoun: 'Item',
+    });
+
+    r.handleKeydown('item-1', fakeKey('ArrowUp'));
+    r.handleKeydown('item-1', fakeKey('ArrowDown'));
+
+    expect(committed).toEqual([
+      { id: 'item-1', slot: 0 },
+      { id: 'item-1', slot: 1 },
+    ]);
+    expect(items.map((item) => item.id)).toEqual(['item-0', 'item-1', 'item-2']);
+  });
+
+  it('commits the insertion slot selected by a pointer drag', () => {
+    const items = makeItems(3);
+    const committed: Array<{ id: string; slot: number }> = [];
+    const listeners = new Map<string, EventListener>();
+    const handle = {
+      addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') listeners.set(type, listener);
+      },
+      releasePointerCapture: vi.fn(),
+      setPointerCapture: vi.fn(),
+    } as unknown as HTMLElement;
+    const rows = [
+      {
+        getAttribute: () => 'item-0',
+        getBoundingClientRect: () => ({ top: 0, height: 20 }),
+      },
+      {
+        getAttribute: () => 'item-1',
+        getBoundingClientRect: () => ({ top: 20, height: 20 }),
+      },
+      {
+        getAttribute: () => 'item-2',
+        getBoundingClientRect: () => ({ top: 40, height: 20 }),
+      },
+    ] as unknown as HTMLElement[];
+    const list = {
+      addEventListener: vi.fn(),
+      querySelectorAll: () => rows,
+    } as unknown as HTMLElement;
+    const r = createReorder({
+      getItems: () => items,
+      getListEl: () => list,
+      commit: (id, slot) => committed.push({ id, slot }),
+      rowAttribute: 'data-row',
+      handleSelector: '.handle',
+      itemNoun: 'Item',
+    });
+    const preventDefault = vi.fn();
+
+    r.handlePointerDown('item-1', {
+      button: 0,
+      pointerType: 'mouse',
+      pointerId: 7,
+      currentTarget: handle,
+      preventDefault,
+    } as unknown as PointerEvent);
+    listeners.get('pointermove')?.({ clientY: 5 } as unknown as Event);
+    listeners.get('pointerup')?.({} as Event);
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(handle.setPointerCapture).toHaveBeenCalledWith(7);
+    expect(handle.releasePointerCapture).toHaveBeenCalledWith(7);
+    expect(committed).toEqual([{ id: 'item-1', slot: 0 }]);
+  });
 });

@@ -64,7 +64,9 @@ two leaves a tile that opens nothing, or a panel with no way in.
    order, so a group move means relocating the literal, not only editing its `group` string. Safety
    stays before Weather and Instruments; Settings (Profiles) MUST stay last. Set `id`, `label`, `icon` (a lucide component),
    `group`, `pressed: activePanel === '<id>'`, and `onSelect: () => togglePanel('<id>')`. Add
-   `shortLabel` when the label is long (the bottom-bar pill renders `shortLabel ?? label`). Add
+   `shortLabel` when the label is long (the bottom-bar pill renders `shortLabel ?? label`). Use
+   `fixedToBar` only for an app-shell action that must always remain in the bottom toolbar while its
+   launcher tile stays available; the Instruments toggle is the reference. Add
    `disabled` plus `disabledLabel` for a transient block, such as a chart still loading. When a
    user-relevant optional provider is absent, keep the item visible with `available: false` plus an
    actionable `unavailableHint`; do not hide it with a conditional spread. Offline charts is the
@@ -516,6 +518,7 @@ These were inconsistent across panels and are now unified; a new panel follows t
 - One labeled text field: `TextField`, which supports a live `onInput`, a `focusOnOpen`, an
   `onEnter` submit, and a `large` deck-glove size. There is no hand-rolled "caps-label plus input"
   name field left to copy.
-- Layers and charts opens to chart sources, not overlay stacking. Put server-discovered and user-added
-  chart sources in the Charts view, with detail rows for type, origin, source, zoom, bounds, and
-  show-bounds when available. Keep opacity, visibility, and drag stacking in the Overlays view.
+- Layers and charts opens to chart sources, not non-chart overlays. Put server-discovered and
+  user-added chart sources in the Charts view, with visibility, opacity, chart-to-chart drag stacking,
+  and detail rows for type, origin, source, zoom, bounds, and show-bounds when available. Keep
+  non-chart visibility, opacity, management, and drag stacking in the Overlays view.

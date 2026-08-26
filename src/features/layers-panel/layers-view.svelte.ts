@@ -1,5 +1,5 @@
 import type { LayerListItem, LayerManager } from '$shared/map';
-import { clampReorderSlot } from './layer-category';
+import { clampReorderSlot, layerCategory } from './layer-category';
 
 export class LayersView {
   items = $state<LayerListItem[]>([]);
@@ -36,13 +36,35 @@ export class LayersView {
 
   // Move a layer to a new index in the top-to-bottom display order, then rebuild the list in
   // the new order. A reorder is a discrete drop, not a per-pixel stream, so a full refresh is
-  // fine here (unlike the in-place opacity write above, which mutates one item). The target is
-  // clamped here, in the one place every reorder funnels through, so no caller can move a row
-  // outside its own category bucket; the panel clamps too, but only for its drop indicator and
-  // keyboard announcement.
+  // fine here (unlike the in-place opacity write above, which mutates one item). Full-list targets
+  // are clamped here so they cannot move a row outside its category bucket. Filtered lists use the
+  // separately guarded reorderSubset path below.
   reorder(id: string, toIndex: number): void {
     const movable = this.items.filter((item) => !item.pinned && !item.parent);
     this.#manager.reorder(id, clampReorderSlot(movable, id, toIndex));
+    this.refresh();
+  }
+
+  // Reorder inside a filtered list, such as the Charts tab, whose visible positions do not map
+  // directly onto the full overlay stack. The supplied ids are narrowed to the moved row's own
+  // category, then the manager atomically permutes only those stack slots. That preserves hidden
+  // non-chart rows even when a restored legacy order interleaves categories.
+  reorderSubset(id: string, subsetIds: string[], toIndex: number): void {
+    const movable = this.items.filter((item) => !item.pinned && !item.parent);
+    const moved = movable.find((item) => item.id === id);
+    if (!moved) return;
+    const category = layerCategory(moved).id;
+    const allowed = new Set(subsetIds);
+    const subset = movable.filter(
+      (item) => allowed.has(item.id) && layerCategory(item).id === category,
+    );
+    if (!subset.some((item) => item.id === id)) return;
+
+    this.#manager.reorderSubset(
+      id,
+      subset.map((item) => item.id),
+      Math.max(0, Math.min(toIndex, subset.length - 1)),
+    );
     this.refresh();
   }
 }

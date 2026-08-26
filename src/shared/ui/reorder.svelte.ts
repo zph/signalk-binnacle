@@ -63,10 +63,6 @@ export function createReorder(options: ReorderOptions): Reorder {
     };
   });
 
-  function movableIndex(id: string): number {
-    return movable.findIndex((item) => item.id === id);
-  }
-
   // Translate an insertion slot (movable list, dragged row removed) into the id of the row it
   // renders against, plus which edge, so a row can draw the drop indicator.
   function indicatorFor(id: string): { before: boolean; after: boolean } {
@@ -84,8 +80,9 @@ export function createReorder(options: ReorderOptions): Reorder {
   function handlePointerDown(id: string, event: PointerEvent): void {
     if (event.button !== 0 && event.pointerType === 'mouse') return;
     event.preventDefault();
+    const currentItems = options.getItems();
     dragId = id;
-    dropSlot = movableIndex(id);
+    dropSlot = currentItems.findIndex((item) => item.id === id);
     const handle = event.currentTarget as HTMLElement;
     handle.setPointerCapture(event.pointerId);
 
@@ -120,7 +117,7 @@ export function createReorder(options: ReorderOptions): Reorder {
           break;
         }
       }
-      return clamp(movable, id, slot);
+      return clamp(currentItems, id, slot);
     };
 
     // One AbortController tears down all the listeners on drop or cancel, so the teardown
@@ -153,21 +150,25 @@ export function createReorder(options: ReorderOptions): Reorder {
   }
 
   function handleKeydown(id: string, event: KeyboardEvent): void {
-    const from = movableIndex(id);
+    // Read directly through the getter at the action boundary. A preceding keyboard move can update
+    // the owner's list before Svelte has invalidated this controller's derived render state, and a
+    // second rapid key press must use the new position rather than reversing from a stale index.
+    const currentItems = options.getItems();
+    const from = currentItems.findIndex((item) => item.id === id);
     if (from < 0) return;
     let to = from;
     if (event.key === 'ArrowUp') to = from - 1;
     else if (event.key === 'ArrowDown') to = from + 1;
     else return;
     event.preventDefault();
-    if (to < 0 || to >= movable.length) return;
+    if (to < 0 || to >= currentItems.length) return;
     // Hold the move inside the row's own category: a clamp back to the current slot means the row
     // is already at its bucket edge, so there is nothing to move or announce.
-    to = clamp(movable, id, to);
+    to = clamp(currentItems, id, to);
     if (to === from) return;
-    const title = movable[from]?.title ?? options.itemNoun;
+    const title = currentItems[from]?.title ?? options.itemNoun;
     options.commit(id, to);
-    reorderAnnouncement = `Moved ${title} to position ${to + 1} of ${movable.length}.`;
+    reorderAnnouncement = `Moved ${title} to position ${to + 1} of ${currentItems.length}.`;
     // Keep focus on the moved handle as it follows the row to its new position.
     if (refocusFrame !== null) cancelAnimationFrame(refocusFrame);
     refocusFrame = requestAnimationFrame(() => {
