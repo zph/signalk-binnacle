@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
 import process from 'node:process';
-import { WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws';
 
 const PORT = Number(process.env.SIGNALK_FIXTURE_PORT ?? 4174);
 const BASE_PATH = '/binnacle-custom/';
@@ -72,7 +72,18 @@ async function readJsonBody(request) {
 /** @param {unknown} payload */
 function broadcast(payload) {
   const frame = JSON.stringify(payload);
-  for (const client of streamClients) client.send(frame);
+  for (const client of streamClients) {
+    if (client.readyState !== WebSocket.OPEN) {
+      streamClients.delete(client);
+      continue;
+    }
+    try {
+      client.send(frame);
+    } catch {
+      streamClients.delete(client);
+      client.terminate();
+    }
+  }
   return streamClients.size;
 }
 

@@ -30,9 +30,9 @@ import { WindParticles } from './wind-gl/wind-particles';
 const SOURCE_ID = 'binnacle-weather-wind';
 const LAYER_ID = 'binnacle-weather-wind-line';
 const GL_LAYER_ID = 'binnacle-weather-wind-particles';
-// Cap the particle simulation at ~25 fps. The custom layer's render runs on every map composite, but
-// stepping the field that often pins the Pi GPU at max FPS. Frames closer together than this just
-// re-blit the last trail, so the field stays visible while the simulation advances at the capped rate.
+// Cap both the particle simulation and its map composites at ~25 fps. A custom layer that calls
+// triggerRepaint directly from render follows the display refresh rate even when its simulation is
+// throttled, which still keeps the GPU and MapLibre worker hot on 60 Hz and 120 Hz displays.
 const STEP_MS = 40;
 
 interface WindOverlay extends OverlayModule {
@@ -68,6 +68,8 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
   // (empty until the particle layer is added, run on its removal).
   let lastStep = 0;
   let removeContextListeners = () => {};
+  let stopParticleLoop = () => {};
+  let resumeParticleLoop = () => {};
 
   // Arrow fallback path. windColorExpression stays free of MapLibre types (see wind-colormap.ts),
   // so this is the one place that casts its plain array to the paint property's expression type.
@@ -110,10 +112,31 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
     // lost event lets the browser restore it, and on restore the particle resources are rebuilt so the
     // field recovers instead of staying dead with stale handles.
     let contextLost = false;
+    let repaintTimer: ReturnType<typeof setTimeout> | undefined;
     const canvas = ctx.map.getCanvas();
+    const stopRepaintTimer = () => {
+      if (repaintTimer === undefined) return;
+      clearTimeout(repaintTimer);
+      repaintTimer = undefined;
+    };
+    const scheduleRepaint = (delayMs = STEP_MS) => {
+      if (repaintTimer !== undefined || document.hidden || !visible || !particles || contextLost) {
+        return;
+      }
+      repaintTimer = setTimeout(
+        () => {
+          repaintTimer = undefined;
+          if (!document.hidden && visible && particles && !contextLost) ctx.map.triggerRepaint();
+        },
+        Math.max(0, delayMs),
+      );
+    };
+    stopParticleLoop = stopRepaintTimer;
+    resumeParticleLoop = () => scheduleRepaint(0);
     const onLost = (event: Event) => {
       event.preventDefault();
       contextLost = true;
+      stopRepaintTimer();
     };
     const onRestored = () => {
       contextLost = false;
@@ -127,12 +150,14 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
         addArrowLayer(ctx);
         if (visible) syncArrows(ctx);
       }
+      scheduleRepaint(0);
     };
     // render() stops requesting frames while the tab is hidden, and nothing else repaints the map on
     // return, so the particle loop would stay frozen until a pan, zoom, or toggle. Resume it here when
     // the tab becomes visible again.
     const onVisible = () => {
-      if (!document.hidden && visible && particles && !contextLost) ctx.map.triggerRepaint();
+      if (document.hidden) stopRepaintTimer();
+      else scheduleRepaint(0);
     };
 
     const layer: CustomLayerInterface = {
@@ -182,14 +207,18 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
         } else {
           particles.blit(w, h);
         }
-        // Schedule the next frame only when the document is visible: a hidden tab does not composite,
-        // so there is nothing to animate and no reason to keep the GPU awake.
-        if (!document.hidden) ctx.map.triggerRepaint();
+        // A timer requests the next composite only when the next simulation step is due. Calling
+        // triggerRepaint here would immediately schedule another display-rate frame and defeat the
+        // 25 fps cap even though that frame only re-blits the existing trail.
+        scheduleRepaint(Math.max(0, STEP_MS - (performance.now() - lastStep)));
       },
       onRemove() {
+        stopRepaintTimer();
         removeContextListeners();
         particles?.dispose();
         particles = undefined;
+        stopParticleLoop = () => {};
+        resumeParticleLoop = () => {};
       },
     };
     ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
@@ -227,6 +256,7 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
     },
     remove(ctx) {
       visible = false;
+      stopParticleLoop();
       removeLayersAndSources(ctx.map, [GL_LAYER_ID, LAYER_ID], [SOURCE_ID]);
     },
     setVisible(ctx, value) {
@@ -239,8 +269,9 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
         gate.reset();
         this.sync(ctx);
       }
-      // Restart the particle render loop when turned on; render() stops requesting frames when off.
-      if (value) ctx.map.triggerRepaint();
+      // Restart the particle loop when turned on, and cancel its pending wake-up when turned off.
+      if (value) resumeParticleLoop();
+      else stopParticleLoop();
     },
     setOpacity(ctx, value) {
       opacity = value;

@@ -2,7 +2,7 @@ import type * as maplibregl from 'maplibre-gl';
 import type { OverlayContext } from './types';
 
 // How often store-driven overlays (AIS prune, tides, radar advance, collision) are synced when the
-// map is not repainting on its own. Map moves still sync on every 'render', so this only covers the
+// map is not moving on its own. Map moves still sync on every 'move', so this only covers the
 // overlays that change without a camera move; 250 ms is well under the radar frame dwell.
 const STORE_SYNC_MS = 250;
 
@@ -18,13 +18,13 @@ function syncableId(overlay: Syncable): string | undefined {
 }
 
 export interface OverlayTick {
-  // Start syncing the overlays: on every MapLibre 'render' (so pan and zoom repaints update them)
+  // Start syncing the overlays: on every MapLibre 'move' (so pan and zoom update them)
   // and on a low-frequency interval (so store-driven overlays that change without a camera move,
   // like AIS prune, tides, radar advance, and collision, still tick). Both stop while the document
   // is hidden. The per-overlay dirty-checks still gate real work, so this only changes WHEN sync is
   // invoked, not what it does.
   runTick: (overlays: ReadonlyArray<Syncable>, onStatus?: OverlaySyncStatus) => void;
-  // Teardown for the sync wiring runTick installs (the 'render' listener, the interval, and the
+  // Teardown for the sync wiring runTick installs (the 'move' listener, the interval, and the
   // visibilitychange listener). A no-op until runTick is called; invoked once on destroy.
   stopTick: () => void;
 }
@@ -40,15 +40,16 @@ export function createOverlayTick(
   let teardown = () => {};
 
   const runTick = (overlays: ReadonlyArray<Syncable>, onStatus?: OverlaySyncStatus) => {
-    // A second call must not orphan the first 'render' listener, interval, and visibilitychange
+    // A second call must not orphan the first 'move' listener, interval, and visibilitychange
     // listener, so tear down any prior wiring first.
     teardown();
     // An async widget initializer can reach runTick after the map owner has already torn down. Do
     // not reinstall listeners or timers on the dead map in that case.
     if (isDestroyed()) return;
     // Calling this once replaces the old unconditional rAF loop, which synced ~60x/sec for the life
-    // of the map even at anchor. Now sync runs only when the map actually repaints (pan, zoom) and
-    // on a low-frequency interval for the store-driven overlays, and both pause while hidden.
+    // of the map even at anchor. Sync on camera movement, not every render: animated custom layers
+    // such as wind can repaint continuously without changing any store-driven overlay. Listening to
+    // render would multiply that animation cost across AIS, collision, routes, tides, and tracks.
     const failedOverlays = new WeakSet<Syncable>();
     const syncAll = () => {
       if (isDestroyed()) return;
@@ -70,9 +71,9 @@ export function createOverlayTick(
       }
     };
 
-    // MapLibre fires 'render' only when it repaints, so this covers every pan and zoom without a
-    // self-scheduling frame loop.
-    map.on('render', syncAll);
+    // MapLibre fires 'move' for pan, zoom, bearing, and pitch changes. Source layers move with the
+    // camera by themselves; this hook is for overlays whose derived data depends on projection.
+    map.on('move', syncAll);
 
     let interval = 0;
     const startInterval = () => {
@@ -85,7 +86,7 @@ export function createOverlayTick(
       interval = 0;
     };
 
-    // Pause both the interval and (implicitly, since the map stops repainting) the render sync while
+    // Pause both the interval and (implicitly, since the map stops moving) the camera sync while
     // the tab is hidden; resume and sync once on return so a hidden-tab change shows immediately.
     const onVisibility = () => {
       if (document.hidden) {
@@ -100,7 +101,7 @@ export function createOverlayTick(
     syncAll();
 
     teardown = () => {
-      map.off('render', syncAll);
+      map.off('move', syncAll);
       stopInterval();
       document.removeEventListener('visibilitychange', onVisibility);
       teardown = () => {};

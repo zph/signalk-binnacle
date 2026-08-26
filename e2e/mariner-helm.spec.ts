@@ -126,6 +126,108 @@ async function openForecast(page: Page): Promise<void> {
   await openMenuItem(page, 'Forecast');
 }
 
+async function openSoakMenuItem(page: Page, itemName: string): Promise<void> {
+  const launcher = page.locator('#app-menu-launcher');
+  if (!(await launcher.isVisible())) {
+    await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  }
+  const item = launcher.getByRole('button', { name: itemName });
+  await expect(item).toBeVisible();
+  if (itemName === 'Alarms') {
+    // Incoming notification mirrors can replace this row as its count changes. Dispatch the
+    // click as soon as the current row resolves instead of waiting for Playwright's stability
+    // interval across that intentional replacement.
+    await item.evaluate((button: HTMLButtonElement) => button.click());
+    return;
+  }
+  await expect(item).toBeEnabled({ timeout: 15_000 });
+  await item.click({ timeout: 15_000 });
+}
+
+async function clearSoakAlerts(page: Page): Promise<void> {
+  await sendDelta(page, [
+    ...OWN_FIX,
+    { path: 'environment.depth.belowKeel', value: 12 },
+    { path: 'notifications.mob', value: null },
+    { path: 'notifications.navigation.anchor', value: null },
+    { path: 'notifications.engine.overTemperature', value: null },
+  ]);
+  await sendDelta(
+    page,
+    [
+      { path: 'navigation.position', value: { latitude: 27.7045, longitude: -82.7 } },
+      { path: 'navigation.courseOverGroundTrue', value: 0 },
+      { path: 'navigation.speedOverGround', value: 3 },
+      { path: 'name', value: 'Fixture Target' },
+    ],
+    TARGET_CONTEXT,
+  );
+}
+
+async function exerciseHelmSurfaces(page: Page, cycle: number): Promise<void> {
+  await sendDelta(page, [
+    ...OWN_FIX,
+    { path: 'environment.depth.belowKeel', value: cycle % 2 === 0 ? 1 : 0.4 },
+    { path: 'environment.wind.speedApparent', value: 4 + (cycle % 5) },
+    { path: 'environment.wind.angleApparent', value: (cycle % 6) * 0.35 },
+    { path: 'environment.wind.speedTrue', value: 5 + (cycle % 4) },
+    { path: 'environment.wind.angleTrueWater', value: ((cycle + 2) % 6) * 0.4 },
+    ...ANCHOR_DRAG,
+    GENERIC_ALARM,
+    ...(cycle % 3 === 0 ? [MOB_ALARM] : []),
+  ]);
+  await sendDelta(page, CLOSING_TARGET, TARGET_CONTEXT);
+
+  await openSoakMenuItem(page, 'Instrument dock');
+  const dock = page.getByRole('complementary', { name: 'Instruments' });
+  await expect(dock).toBeVisible();
+  await dock.getByRole('button', { name: /^Speed,.*Expand instrument$/ }).click();
+  const expanded = page.getByRole('dialog', { name: 'Speed full-screen instrument' });
+  await expect(expanded).toBeVisible();
+  await expanded.getByRole('button', { name: /^Speed,.*Collapse instrument$/ }).click();
+  await dock.getByRole('button', { name: 'Close instruments dock' }).click();
+
+  await openSoakMenuItem(page, 'Layers and charts');
+  const layers = page.getByRole('complementary', { name: 'Layers and charts' });
+  await layers.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await layers.getByRole('button', { name: 'Charts', exact: true }).click();
+  await layers.getByRole('button', { name: 'Close layers and charts' }).click();
+
+  await openSoakMenuItem(page, 'Nearby vessels (AIS)');
+  const ais = page.getByRole('complementary', { name: 'Nearby vessels (AIS)' });
+  await expect(ais).toContainText('Fixture Target');
+  await ais.getByRole('button', { name: 'Close nearby vessels' }).click();
+
+  await openSoakMenuItem(page, 'Alarms');
+  const alarms = page.getByRole('complementary', { name: 'Alarms' });
+  await expect(alarms).toBeVisible();
+  await alarms.getByRole('button', { name: 'Close alarms panel' }).click();
+
+  await openSoakMenuItem(page, 'Forecast');
+  const weather = page.getByRole('region', { name: 'Weather' });
+  await expect(weather).toBeVisible();
+  await weather.getByRole('button', { name: 'Close weather' }).click();
+
+  const canvas = page.locator('.maplibregl-canvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('map canvas did not lay out during the helm soak');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 24, box.y + box.height / 2 + 12, { steps: 3 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  await page.getByRole('button', { name: 'Zoom out' }).click();
+  await page.getByRole('button', { name: /^Switch theme/ }).click();
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await clearSoakAlerts(page);
+}
+
 // Full visibility for an emergency control: inside the viewport, not cropped by any
 // overflow-clipping ancestor, and hit-testable at its center. A bounding-box check alone misses
 // the overflow: hidden crop, because a clipped element still reports a box.
@@ -186,6 +288,123 @@ test('stream fixture feeds the worker: subscriptions arrive and deltas render', 
   const state = await page.request.get(`${FIXTURE_SERVER}/__fixture__/state`);
   const body = (await state.json()) as { received: Array<{ subscribe?: unknown }> };
   expect(body.received.some((message) => Array.isArray(message.subscribe))).toBe(true);
+});
+
+test('accelerated helm soak keeps rendering, heap, and mounted UI work bounded', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript(() => {
+    const metrics = {
+      animationFramesRequested: 0,
+      animationFrameCallbacks: 0,
+      longTaskCount: 0,
+      longTaskMs: 0,
+      longestTaskMs: 0,
+    };
+    Object.assign(window, { __binnacleSoakMetrics: metrics });
+    const requestFrame = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+      metrics.animationFramesRequested += 1;
+      return requestFrame((time) => {
+        metrics.animationFrameCallbacks += 1;
+        callback(time);
+      });
+    };
+    try {
+      const observer = new PerformanceObserver((entries) => {
+        for (const entry of entries.getEntries()) {
+          metrics.longTaskCount += 1;
+          metrics.longTaskMs += entry.duration;
+          metrics.longestTaskMs = Math.max(metrics.longestTaskMs, entry.duration);
+        }
+      });
+      observer.observe({ type: 'longtask', buffered: true });
+    } catch {
+      // Chromium normally supports long tasks. The remaining deterministic budgets still apply.
+    }
+  });
+  await openApp(page);
+
+  // Warm every lazy surface once before taking the baseline. The measured cycles then exercise
+  // steady-state mounting and teardown rather than counting intentional first-load module caches.
+  await exerciseHelmSurfaces(page, 0);
+  const session = await page.context().newCDPSession(page);
+  await session.send('HeapProfiler.collectGarbage');
+  const baseline = await page.evaluate(() => {
+    const memory = performance as Performance & {
+      memory?: { usedJSHeapSize: number };
+    };
+    const metrics = (
+      window as unknown as Window & {
+        __binnacleSoakMetrics: {
+          animationFramesRequested: number;
+          animationFrameCallbacks: number;
+          longTaskCount: number;
+          longTaskMs: number;
+          longestTaskMs: number;
+        };
+      }
+    ).__binnacleSoakMetrics;
+    metrics.animationFramesRequested = 0;
+    metrics.animationFrameCallbacks = 0;
+    metrics.longTaskCount = 0;
+    metrics.longTaskMs = 0;
+    metrics.longestTaskMs = 0;
+    return {
+      elements: document.querySelectorAll('*').length,
+      heap: memory.memory?.usedJSHeapSize,
+    };
+  });
+
+  // Six measured cycles cover both depth bands, every wind permutation used by the fixture,
+  // repeated alarm mounting, and two MOB transitions while staying inside the local gate's
+  // one-minute process budget.
+  for (let cycle = 1; cycle <= 6; cycle += 1) await exerciseHelmSurfaces(page, cycle);
+  await session.send('HeapProfiler.collectGarbage');
+  const measured = await page.evaluate(() => {
+    const memory = performance as Performance & {
+      memory?: { usedJSHeapSize: number };
+    };
+    return {
+      elements: document.querySelectorAll('*').length,
+      heap: memory.memory?.usedJSHeapSize,
+      metrics: (
+        window as unknown as Window & {
+          __binnacleSoakMetrics: {
+            animationFramesRequested: number;
+            animationFrameCallbacks: number;
+            longTaskCount: number;
+            longTaskMs: number;
+            longestTaskMs: number;
+          };
+        }
+      ).__binnacleSoakMetrics,
+    };
+  });
+
+  expect(measured.elements).toBeLessThanOrEqual(baseline.elements + 30);
+  if (baseline.heap !== undefined && measured.heap !== undefined) {
+    expect(measured.heap - baseline.heap).toBeLessThan(24 * 1024 * 1024);
+  }
+  expect(measured.metrics.longestTaskMs).toBeLessThan(750);
+  expect(measured.metrics.longTaskMs).toBeLessThan(8_000);
+
+  // Once every panel and alert is closed, a static chart must settle instead of running a
+  // display-rate animation loop. AIS projection and store ticks may request a handful of frames.
+  const idleStart = measured.metrics.animationFrameCallbacks;
+  await page.waitForTimeout(2_000);
+  const idleFrames = await page.evaluate(
+    (start) =>
+      (
+        window as unknown as Window & {
+          __binnacleSoakMetrics: { animationFrameCallbacks: number };
+        }
+      ).__binnacleSoakMetrics.animationFrameCallbacks - start,
+    idleStart,
+  );
+  expect(idleFrames).toBeLessThan(30);
 });
 
 test('expanded numeric instruments prioritize the live value at helm distance', async ({

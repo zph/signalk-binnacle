@@ -93,9 +93,10 @@ export class Alarm implements AlarmControl {
   #timer: ReturnType<typeof setInterval> | undefined;
   #tone: AlarmTone | undefined;
   #warnedNoAudio = false;
-  // Oscillators scheduled but not yet finished, so stop() can cut a burst that is still sounding
-  // rather than letting the rest of it play out after the danger has cleared.
-  #active = new Set<OscillatorNode>();
+  // Oscillators scheduled but not yet finished, paired with their gain nodes so every completed or
+  // canceled beep is disconnected from the shared destination. A sounding alarm can run for days;
+  // leaving each ended gain graph connected makes browser audio work grow with every burst.
+  #active = new Map<OscillatorNode, GainNode>();
 
   start(tone: AlarmTone): void {
     // Already sounding this tone: leave the running burst loop alone. Compare by the fields that
@@ -132,12 +133,13 @@ export class Alarm implements AlarmControl {
     this.#tone = undefined;
     // Cut any beeps still scheduled in the current burst, so the alarm silences at once when the
     // danger clears instead of finishing the burst it was partway through.
-    for (const osc of this.#active) {
+    for (const [osc, gain] of this.#active) {
       try {
         osc.stop();
       } catch {
         // Already stopped or never started; nothing to do.
       }
+      this.#disconnect(osc, gain);
     }
     this.#active.clear();
   }
@@ -166,9 +168,23 @@ export class Alarm implements AlarmControl {
     gain.gain.setValueAtTime(tone.volume, start + duration - 0.02);
     gain.gain.linearRampToValueAtTime(0, start + duration);
     osc.connect(gain).connect(ctx.destination);
-    this.#active.add(osc);
-    osc.onended = () => this.#active.delete(osc);
+    this.#active.set(osc, gain);
+    osc.onended = () => this.#disconnect(osc, gain);
     osc.start(start);
     osc.stop(start + duration);
+  }
+
+  #disconnect(osc: OscillatorNode, gain: GainNode): void {
+    if (!this.#active.delete(osc)) return;
+    try {
+      osc.disconnect();
+    } catch {
+      // A browser may already have torn down a node after an audio-device reset.
+    }
+    try {
+      gain.disconnect();
+    } catch {
+      // Same best-effort cleanup for the destination edge.
+    }
   }
 }

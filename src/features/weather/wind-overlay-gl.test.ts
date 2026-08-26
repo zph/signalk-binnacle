@@ -4,6 +4,7 @@ import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 
 const windParticles = vi.hoisted(() => ({
   render: vi.fn(),
+  blit: vi.fn(),
   setWind: vi.fn(),
 }));
 
@@ -15,6 +16,9 @@ vi.mock('./wind-gl/wind-particles', () => ({
   WindParticles: class {
     render(...args: unknown[]) {
       windParticles.render(...args);
+    }
+    blit(...args: unknown[]) {
+      windParticles.blit(...args);
     }
     setTheme() {}
     setOpacity() {}
@@ -41,8 +45,98 @@ function storeWithGrid(): WeatherStore {
 
 describe('wind overlay WebGL field', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it('paces map composites at the particle step rate and cancels the wake-up when hidden', async () => {
+    vi.useFakeTimers();
+    const documentTarget = Object.assign(new EventTarget(), { hidden: false });
+    vi.stubGlobal('document', documentTarget);
+    const overlay = createWindOverlay(storeWithGrid());
+    const map = createFakeMap();
+    const canvas = new EventTarget();
+    Object.assign(map, {
+      getCanvas: () => canvas,
+      triggerRepaint: vi.fn(),
+    });
+    const addLayer = map.addLayer;
+    let customLayer:
+      | {
+          id: string;
+          onAdd?: (map: unknown, gl: unknown) => void;
+          render?: (gl: unknown, args: unknown) => void;
+        }
+      | undefined;
+    map.addLayer = ((layer: typeof customLayer & { id: string }) => {
+      addLayer(layer);
+      customLayer = layer;
+      layer.onAdd?.(map, {});
+    }) as typeof map.addLayer;
+    const ctx = fakeOverlayContext(map);
+
+    await overlay.add(ctx);
+    overlay.setVisible(ctx, true);
+    await vi.runOnlyPendingTimersAsync();
+    vi.mocked(map.triggerRepaint).mockClear();
+    customLayer?.render?.(
+      { drawingBufferWidth: 1280, drawingBufferHeight: 720 },
+      { defaultProjectionData: { mainMatrix: new Float64Array(16).fill(1) } },
+    );
+
+    await vi.advanceTimersByTimeAsync(39);
+    expect(map.triggerRepaint).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(map.triggerRepaint).toHaveBeenCalledTimes(1);
+
+    vi.mocked(map.triggerRepaint).mockClear();
+    customLayer?.render?.(
+      { drawingBufferWidth: 1280, drawingBufferHeight: 720 },
+      { defaultProjectionData: { mainMatrix: new Float64Array(16).fill(1) } },
+    );
+    Object.defineProperty(documentTarget, 'hidden', { configurable: true, value: true });
+    documentTarget.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(map.triggerRepaint).not.toHaveBeenCalled();
+    overlay.remove(ctx);
+  });
+
+  it('stays within the 25 fps composite budget during five accelerated minutes', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('document', Object.assign(new EventTarget(), { hidden: false }));
+    const overlay = createWindOverlay(storeWithGrid());
+    const map = createFakeMap();
+    const canvas = new EventTarget();
+    const addLayer = map.addLayer;
+    let customLayer:
+      | {
+          id: string;
+          onAdd?: (map: unknown, gl: unknown) => void;
+          render?: (gl: unknown, args: unknown) => void;
+        }
+      | undefined;
+    const gl = { drawingBufferWidth: 1280, drawingBufferHeight: 720 };
+    const args = { defaultProjectionData: { mainMatrix: new Float64Array(16).fill(1) } };
+    Object.assign(map, {
+      getCanvas: () => canvas,
+      triggerRepaint: vi.fn(() => customLayer?.render?.(gl, args)),
+    });
+    map.addLayer = ((layer: typeof customLayer & { id: string }) => {
+      addLayer(layer);
+      customLayer = layer;
+      layer.onAdd?.(map, {});
+    }) as typeof map.addLayer;
+    const ctx = fakeOverlayContext(map);
+
+    await overlay.add(ctx);
+    overlay.setVisible(ctx, true);
+    vi.advanceTimersByTime(5 * 60 * 1000);
+
+    // One immediate frame plus no more than 25 frames for each accelerated second.
+    expect(map.triggerRepaint).toHaveBeenCalledTimes(7_501);
+    expect(windParticles.render).toHaveBeenCalledTimes(7_501);
+    overlay.remove(ctx);
   });
 
   it('suppresses hidden texture generation and pushes one texture when shown', async () => {
@@ -69,6 +163,7 @@ describe('wind overlay WebGL field', () => {
     expect(windParticles.setWind).toHaveBeenCalledTimes(1);
     overlay.sync(ctx);
     expect(windParticles.setWind).toHaveBeenCalledTimes(1);
+    overlay.remove(ctx);
   });
 
   it('passes the default projection matrix to the renderer without early conversion', async () => {
@@ -108,5 +203,6 @@ describe('wind overlay WebGL field', () => {
     );
 
     expect(windParticles.render).toHaveBeenCalledWith(matrix, 1280, 720, true);
+    overlay.remove(ctx);
   });
 });
