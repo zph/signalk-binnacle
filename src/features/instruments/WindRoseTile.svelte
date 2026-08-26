@@ -1,8 +1,10 @@
 <script lang="ts">
-import { formatSignedAngleOr, RAD_TO_DEG } from '$shared/lib';
+import { onDestroy } from 'svelte';
+import { formatSignedAngleOr, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
 import type { ZoneState } from '$shared/signalk';
 import TileStateBadge from './TileStateBadge.svelte';
 import type { InstrumentMetric, TileReading } from './tile-catalog';
+import { createWindAngleAnimator } from './wind-angle-animator';
 import { createWindSectorTracker, type WindSectorReference } from './wind-sector-tracker';
 
 interface Props {
@@ -61,9 +63,30 @@ const accessibleLabel = $derived(
     ? `${label}. Heading ${metricText(rose.heading)}. Apparent wind ${metricText(rose.apparent, true)}. True wind ${metricText(rose.trueWind, true)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. ${actionLabel}`
     : `${label}, ${sensorGloss}. ${actionLabel}`,
 );
-const apparentDeg = $derived((rose?.apparent.angleRad ?? 0) * RAD_TO_DEG);
-const trueDeg = $derived((rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
-const headingDeg = $derived((rose?.heading.siValue ?? 0) * RAD_TO_DEG);
+let displayedApparentRad = $state<number>();
+let displayedTrueRad = $state<number>();
+let displayedHeadingRad = $state<number>();
+let displayedSectorRad = $state<number>();
+const motionOptions = { reducedMotion: prefersReducedMotion };
+const apparentAnimator = createWindAngleAnimator(
+  (angleRad) => (displayedApparentRad = angleRad),
+  motionOptions,
+);
+const trueAnimator = createWindAngleAnimator(
+  (angleRad) => (displayedTrueRad = angleRad),
+  motionOptions,
+);
+const headingAnimator = createWindAngleAnimator(
+  (angleRad) => (displayedHeadingRad = angleRad),
+  motionOptions,
+);
+const sectorAnimator = createWindAngleAnimator(
+  (angleRad) => (displayedSectorRad = angleRad),
+  motionOptions,
+);
+const apparentDeg = $derived((displayedApparentRad ?? rose?.apparent.angleRad ?? 0) * RAD_TO_DEG);
+const trueDeg = $derived((displayedTrueRad ?? rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
+const headingDeg = $derived((displayedHeadingRad ?? rose?.heading.siValue ?? 0) * RAD_TO_DEG);
 const cardRotation = $derived(-headingDeg);
 const sectorTracker = createWindSectorTracker();
 let filteredSectorAngleRad = $state<number>();
@@ -88,9 +111,34 @@ const rawSectorReference = $derived.by(() => {
   return undefined;
 });
 $effect(() => {
+  const angleRad = rose?.apparent.angleRad;
+  if (angleRad === undefined) {
+    apparentAnimator.reset();
+    return;
+  }
+  apparentAnimator.push(angleRad, rose?.apparent.angleEpoch ?? Date.now());
+});
+$effect(() => {
+  const angleRad = rose?.trueWind.angleRad;
+  if (angleRad === undefined) {
+    trueAnimator.reset();
+    return;
+  }
+  trueAnimator.push(angleRad, rose?.trueWind.angleEpoch ?? Date.now());
+});
+$effect(() => {
+  const angleRad = rose?.heading.siValue;
+  if (angleRad === undefined) {
+    headingAnimator.reset();
+    return;
+  }
+  headingAnimator.push(angleRad, rose?.heading.angleEpoch ?? Date.now());
+});
+$effect(() => {
   const next = rawSectorReference;
   if (!next) {
     sectorTracker.reset();
+    sectorAnimator.reset();
     filteredSectorAngleRad = undefined;
     filteredSectorReference = undefined;
     return;
@@ -100,11 +148,18 @@ $effect(() => {
     next.epochMs ?? Date.now(),
     next.reference,
   );
+  sectorAnimator.push(filteredSectorAngleRad, next.epochMs ?? Date.now());
   filteredSectorReference = next.reference;
+});
+onDestroy(() => {
+  apparentAnimator.destroy();
+  trueAnimator.destroy();
+  headingAnimator.destroy();
+  sectorAnimator.destroy();
 });
 const sectorReference = $derived(filteredSectorReference ?? rawSectorReference?.reference);
 const sectorRotation = $derived(
-  (filteredSectorAngleRad ?? rawSectorReference?.angleRad ?? 0) * RAD_TO_DEG,
+  (displayedSectorRad ?? filteredSectorAngleRad ?? rawSectorReference?.angleRad ?? 0) * RAD_TO_DEG,
 );
 </script>
 
