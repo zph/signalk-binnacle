@@ -221,9 +221,9 @@ describe('chartToSpecs', () => {
     const sounding = layers.find(({ id }) => id === 'chart-enc-without-format-soundg-safe');
     expect(sounding?.type).toBe('symbol');
     if (sounding?.type === 'symbol') {
-      expect(sounding.layout?.['text-field']).toEqual(
-        expect.arrayContaining(['concat', expect.anything(), 'ft']),
-      );
+      expect(JSON.stringify(sounding.layout?.['text-field'])).toContain('3.28084');
+      expect(JSON.stringify(sounding.layout?.['text-field'])).not.toContain('"ft"');
+      expect(sounding.layout?.['icon-image']).toBe('binnacle-s57-sounding-safe-slug');
     }
   });
 

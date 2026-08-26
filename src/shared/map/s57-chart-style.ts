@@ -12,6 +12,12 @@ import type { Theme } from '$shared/ui';
 export const S57_THEME_PAINT_KEY = 'binnacle:s57ThemePaint';
 export const DEFAULT_S57_SAFETY_DEPTH_METERS = 3;
 
+export type S57SoundingKind = 'safe' | 'shallow';
+export const S57_SOUNDING_SLUG_IDS: Record<S57SoundingKind, string> = {
+  safe: 'binnacle-s57-sounding-safe-slug',
+  shallow: 'binnacle-s57-sounding-shallow-slug',
+};
+
 type S57DepthUnit = 'm' | 'ft' | 'fm';
 
 export type S57ThemeColorKey =
@@ -32,7 +38,11 @@ export type S57ThemeColorKey =
   | 'navStarboard'
   | 'navaid'
   | 'restricted'
-  | 'safetyContour';
+  | 'safetyContour'
+  | 'soundingSafeSlug'
+  | 'soundingSafeText'
+  | 'soundingShallowSlug'
+  | 'soundingShallowText';
 
 type S57ThemePaintProperty =
   | 'circle-color'
@@ -69,6 +79,10 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     navaid: '#263238',
     restricted: '#a82bb8',
     safetyContour: '#b02f24',
+    soundingSafeSlug: '#f6b8b2',
+    soundingSafeText: '#111820',
+    soundingShallowSlug: '#b42318',
+    soundingShallowText: '#ffffff',
   },
   dusk: {
     anchorage: '#4f8fc0',
@@ -89,6 +103,10 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     navaid: '#b4b7b8',
     restricted: '#d45bdf',
     safetyContour: '#e0703a',
+    soundingSafeSlug: '#e7a28a',
+    soundingSafeText: '#080d10',
+    soundingShallowSlug: '#b94f32',
+    soundingShallowText: '#ffffff',
   },
   'night-red': {
     anchorage: '#9a3100',
@@ -109,6 +127,10 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     navaid: '#b03b00',
     restricted: '#c24c00',
     safetyContour: '#ff6e00',
+    soundingSafeSlug: '#3a0d00',
+    soundingSafeText: '#ff9f00',
+    soundingShallowSlug: '#7a2500',
+    soundingShallowText: '#ff9f00',
   },
 };
 
@@ -121,6 +143,15 @@ const LABEL_TEXT_SIZE: ExpressionSpecification = [
   9,
   15,
   13,
+];
+const SOUNDING_TEXT_SIZE: ExpressionSpecification = [
+  'interpolate',
+  ['linear'],
+  ['zoom'],
+  10,
+  10.5,
+  15,
+  15,
 ];
 const POINT_FILTER: FilterSpecification = ['==', ['geometry-type'], 'Point'];
 const AREA_FILTER: FilterSpecification = ['==', ['geometry-type'], 'Polygon'];
@@ -230,7 +261,9 @@ function depthLabel(unit: S57DepthUnit): ExpressionSpecification {
           decimal,
         ]
       : decimal;
-  return ['concat', displayed, unit];
+  // The active display unit is chosen at the chart level; repeating it on every sounding creates
+  // visual noise and is unlike conventional ENC sounding notation.
+  return displayed;
 }
 
 function fillLayer(
@@ -336,6 +369,41 @@ function labelLayer(
       'text-halo-width': 1,
     },
     metadata: metadata({ 'text-color': color, 'text-halo-color': haloColor }),
+  };
+}
+
+function soundingLabelLayer(
+  sourceId: string,
+  kind: S57SoundingKind,
+  text: ExpressionSpecification,
+  filter: FilterSpecification,
+): SymbolLayerSpecification {
+  const color: S57ThemeColorKey = kind === 'safe' ? 'soundingSafeText' : 'soundingShallowText';
+  return {
+    id: `${sourceId}-soundg-${kind}`,
+    type: 'symbol',
+    source: sourceId,
+    'source-layer': 'SOUNDG',
+    filter,
+    minzoom: 12,
+    layout: {
+      'text-field': text,
+      'text-font': LABEL_TEXT_FONT,
+      'text-size': SOUNDING_TEXT_SIZE,
+      'text-padding': 3,
+      'icon-image': S57_SOUNDING_SLUG_IDS[kind],
+      'icon-text-fit': 'both',
+      'icon-text-fit-padding': [2, 3, 2, 3],
+      'icon-allow-overlap': false,
+      'icon-ignore-placement': false,
+      // Preserve the number if image decoding ever fails; normally the fitted icon and text share
+      // one collision box and render together.
+      'icon-optional': true,
+    },
+    paint: {
+      'text-color': s57ThemeColor('day', color),
+    },
+    metadata: metadata({ 'text-color': color }),
   };
 }
 
@@ -625,25 +693,16 @@ export function s57ChartLayers(
   if (available.has('SOUNDG')) {
     const sounding = soundingValue();
     layers.push(
-      labelLayer(
-        sourceId,
-        'SOUNDG',
-        'safe',
-        'label',
-        depthLabel(depthUnit),
-        ['all', ['any', ['has', 'DEPTH'], ['has', 'VALSOU']], ['>=', sounding, safetyDepth]],
-        12,
-      ),
-      labelLayer(
-        sourceId,
-        'SOUNDG',
-        'shallow',
-        'danger',
-        depthLabel(depthUnit),
-        ['all', ['any', ['has', 'DEPTH'], ['has', 'VALSOU']], ['<', sounding, safetyDepth]],
-        12,
-        'dangerHalo',
-      ),
+      soundingLabelLayer(sourceId, 'safe', depthLabel(depthUnit), [
+        'all',
+        ['any', ['has', 'DEPTH'], ['has', 'VALSOU']],
+        ['>=', sounding, safetyDepth],
+      ]),
+      soundingLabelLayer(sourceId, 'shallow', depthLabel(depthUnit), [
+        'all',
+        ['any', ['has', 'DEPTH'], ['has', 'VALSOU']],
+        ['<', sounding, safetyDepth],
+      ]),
     );
   }
 

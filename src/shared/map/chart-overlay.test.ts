@@ -186,6 +186,11 @@ describe('chart overlay', () => {
       'text-opacity',
       0.5,
     );
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-california-enc-soundg-safe',
+      'icon-opacity',
+      0.5,
+    );
 
     overlay.applyTheme?.(ctx, mapThemePaint('night-red'));
     expect(map.setPaintProperty).toHaveBeenCalledWith(

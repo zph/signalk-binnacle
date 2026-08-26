@@ -128,7 +128,7 @@ describe('s57ChartLayers', () => {
     ]);
   });
 
-  it('converts only sounding label text into the requested display unit', () => {
+  it('converts sounding text without repeating the selected unit on every label', () => {
     const meters = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-safe');
     const feet = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG'], { depthUnit: 'ft' }), 'soundg-safe');
     const fathoms = layer(
@@ -137,12 +137,12 @@ describe('s57ChartLayers', () => {
     );
 
     expect(JSON.stringify(meters.layout)).not.toContain('3.28084');
-    expect(JSON.stringify(meters.layout)).toContain('"m"');
+    expect(JSON.stringify(meters.layout)).not.toContain('"m"');
     expect(JSON.stringify(feet.layout)).toContain('3.28084');
-    expect(JSON.stringify(feet.layout)).toContain('"ft"');
+    expect(JSON.stringify(feet.layout)).not.toContain('"ft"');
     expect(JSON.stringify(feet.layout)).toContain('"floor"');
     expect(JSON.stringify(fathoms.layout)).toContain('1.8288');
-    expect(JSON.stringify(fathoms.layout)).toContain('"fm"');
+    expect(JSON.stringify(fathoms.layout)).not.toContain('"fm"');
     expect(JSON.stringify(meters.layout)).not.toContain('"floor"');
     expect(JSON.stringify(fathoms.layout)).not.toContain('"floor"');
     expect(feet.filter).toEqual(meters.filter);
@@ -158,33 +158,39 @@ describe('s57ChartLayers', () => {
     const converted = ['*', value, 3.28084];
 
     expect(feet.layout?.['text-field']).toEqual([
-      'concat',
+      'case',
+      ['>', converted, 20],
       [
-        'case',
-        ['>', converted, 20],
-        [
-          'number-format',
-          ['floor', converted],
-          { 'max-fraction-digits': 0, 'min-fraction-digits': 0 },
-        ],
-        ['number-format', converted, { 'max-fraction-digits': 1, 'min-fraction-digits': 0 }],
+        'number-format',
+        ['floor', converted],
+        { 'max-fraction-digits': 0, 'min-fraction-digits': 0 },
       ],
-      'ft',
+      ['number-format', converted, { 'max-fraction-digits': 1, 'min-fraction-digits': 0 }],
     ]);
   });
 
-  it('outlines shallow sounding warnings with a dark neutral halo', () => {
+  it('uses fitted, collision-aware contrast slugs for safe and shallow soundings', () => {
+    const safe = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-safe');
     const shallow = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-shallow');
 
-    expect(themePaint(shallow)).toMatchObject({
-      'text-color': 'danger',
-      'text-halo-color': 'dangerHalo',
+    expect(safe.layout).toMatchObject({
+      'icon-image': 'binnacle-s57-sounding-safe-slug',
+      'icon-text-fit': 'both',
+      'icon-text-fit-padding': [2, 3, 2, 3],
+      'icon-allow-overlap': false,
+      'icon-ignore-placement': false,
+      'icon-optional': true,
     });
-    expect(shallow.paint).toMatchObject({
-      'text-color': s57ThemeColor('day', 'danger'),
-      'text-halo-color': s57ThemeColor('day', 'dangerHalo'),
+    expect(shallow.layout).toMatchObject({
+      'icon-image': 'binnacle-s57-sounding-shallow-slug',
+      'icon-text-fit': 'both',
     });
-    expect(s57ThemeColor('night-red', 'dangerHalo')).toBe('#080100');
+    expect(themePaint(safe)).toEqual({ 'text-color': 'soundingSafeText' });
+    expect(themePaint(shallow)).toEqual({ 'text-color': 'soundingShallowText' });
+    expect(safe.paint).toEqual({ 'text-color': s57ThemeColor('day', 'soundingSafeText') });
+    expect(shallow.paint).toEqual({
+      'text-color': s57ThemeColor('day', 'soundingShallowText'),
+    });
   });
 
   it('falls back to the default safety depth for invalid values', () => {
