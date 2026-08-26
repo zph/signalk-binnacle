@@ -18,6 +18,11 @@ const BINNACLE_ID_PREFIX = 'binnacle-';
 // recolor leaves them alone. RASTER_ID_PREFIX is shared with the raster-overlay factory.
 const MANAGED_PREFIXES = [CHART_SOURCE_PREFIX, BINNACLE_ID_PREFIX, RASTER_ID_PREFIX];
 
+// OpenFreeMap separates water geometry and labels into these OpenMapTiles source layers. Keeping
+// the classification here avoids coupling the navigation chart to Liberty's individual layer ids,
+// which can change as the published style evolves.
+const BASE_WATER_SOURCE_LAYERS = new Set(['water', 'waterway', 'water_name']);
+
 export interface BaseLayer {
   id: string;
   type: string;
@@ -42,6 +47,24 @@ export function themableBaseLayers(map: MapLibreMap): BaseLayer[] {
   return baseLayers(map).filter(
     (layer) => !MANAGED_PREFIXES.some((prefix) => layer.id.startsWith(prefix)),
   );
+}
+
+// Remove OpenFreeMap's water portrayal from the navigation chart while retaining its land, roads,
+// buildings, and place labels. ENC depth areas can then provide the only water fill. Water labels
+// are hidden through layout rather than transparent paint because invisible symbols would still
+// occupy collision space and could suppress ENC labels. The low-zoom Natural Earth raster is left
+// alone because its land and water pixels cannot be separated.
+export function applyBaseWaterTransparency(map: MapLibreMap, layers?: BaseLayer[]): void {
+  for (const layer of layers ?? themableBaseLayers(map)) {
+    if (!BASE_WATER_SOURCE_LAYERS.has(layer['source-layer'] ?? '')) continue;
+    try {
+      if (layer.type === 'fill') setPaintProp(map, layer.id, 'fill-opacity', 0);
+      else if (layer.type === 'line') setPaintProp(map, layer.id, 'line-opacity', 0);
+      else if (layer.type === 'symbol') map.setLayoutProperty(layer.id, 'visibility', 'none');
+    } catch {
+      // A published style may omit a paint or layout property; skip that layer safely.
+    }
+  }
 }
 
 function paintProperty(type: string): string | null {

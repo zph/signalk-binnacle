@@ -414,6 +414,7 @@ onMount(async () => {
     container,
     companionBase,
     getToken: () => chartsToken,
+    transparentBaseWater: true,
     view: initialView,
     managerOptions: {
       saved: savedLayers,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyBaseIconVisibility,
   applyBaseTheme,
+  applyBaseWaterTransparency,
   baseLayerPaint,
   captureBaseTheme,
   restoreBaseTheme,
@@ -95,6 +96,30 @@ describe('baseLayerPaint', () => {
     expect(
       baseLayerPaint({ id: 'mystery', type: 'fill', 'source-layer': 'who_knows' }, paint),
     ).toBeNull();
+  });
+});
+
+describe('applyBaseWaterTransparency', () => {
+  it('removes base water geometry and labels without touching land context', () => {
+    const layers = [
+      { id: 'water', type: 'fill', 'source-layer': 'water' },
+      { id: 'river', type: 'line', 'source-layer': 'waterway' },
+      { id: 'water-name', type: 'symbol', 'source-layer': 'water_name' },
+      { id: 'city-name', type: 'symbol', 'source-layer': 'place' },
+      { id: 'landuse', type: 'fill', 'source-layer': 'landuse' },
+      { id: 'chart-fixture-depare', type: 'fill', 'source-layer': 'water' },
+    ];
+    const map = fakeStyleMap(layers);
+
+    // biome-ignore lint/suspicious/noExplicitAny: minimal map stub for the test
+    applyBaseWaterTransparency(map as any);
+
+    expect(map.getPaintProperty('water', 'fill-opacity')).toBe(0);
+    expect(map.getPaintProperty('river', 'line-opacity')).toBe(0);
+    expect(map.getLayoutProperty('water-name', 'visibility')).toBe('none');
+    expect(map.getLayoutProperty('city-name', 'visibility')).toBeUndefined();
+    expect(map.getPaintProperty('landuse', 'fill-opacity')).toBeUndefined();
+    expect(map.getPaintProperty('chart-fixture-depare', 'fill-opacity')).toBeUndefined();
   });
 });
 

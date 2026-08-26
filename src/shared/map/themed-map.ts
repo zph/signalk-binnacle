@@ -6,6 +6,7 @@ import {
   applyBaseIconVisibility,
   applyBaseRasterVisibility,
   applyBaseTheme,
+  applyBaseWaterTransparency,
   captureBaseTheme,
   restoreBaseTheme,
   themableBaseLayers,
@@ -73,6 +74,9 @@ export interface ThemedMapOptions {
   // Every base-style attempt failed and the one-layer offline fallback is standing in, so the
   // chart-trust surface can say the base map is unavailable rather than showing a silent void.
   onBaseStyleFallback?: () => void;
+  // Suppress OpenFreeMap water geometry and labels so an overlaid nautical chart owns the water
+  // portrayal. The weather map leaves this off because it has no ENC depth-area replacement.
+  transparentBaseWater?: boolean;
   onLoad: (api: ThemedMapApi) => void | Promise<void>;
 }
 
@@ -408,7 +412,9 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
 
     // Snapshot the source style's own colors before any recolor, so the day theme can restore the
     // real map rather than approximate it.
-    const baseColors = captureBaseTheme(mapInstance, mapThemePaint('day'));
+    const initialBaseLayers = themableBaseLayers(mapInstance);
+    const baseColors = captureBaseTheme(mapInstance, mapThemePaint('day'), initialBaseLayers);
+    if (opts.transparentBaseWater) applyBaseWaterTransparency(mapInstance, initialBaseLayers);
     const recolor = (theme: Theme) => {
       const paint = mapThemePaint(theme);
       // Both base passes filter the style to the same themable layers; compute that list once and
@@ -416,6 +422,7 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       const layers = themableBaseLayers(mapInstance);
       if (theme === 'day') restoreBaseTheme(mapInstance, baseColors);
       else applyBaseTheme(mapInstance, paint, layers);
+      if (opts.transparentBaseWater) applyBaseWaterTransparency(mapInstance, layers);
       applyBaseIconVisibility(mapInstance, paint, layers);
       applyBaseRasterVisibility(mapInstance, paint, layers);
       loadedManager.applyTheme(paint);
