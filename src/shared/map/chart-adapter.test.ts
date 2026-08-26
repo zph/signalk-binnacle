@@ -205,6 +205,30 @@ describe('chartToSpecs', () => {
     expect(layers.every((layer) => !layer.id.includes('-earth'))).toBe(true);
   });
 
+  it('uses the bathymetry cell portrayal only for an explicit provider contract', () => {
+    const chart: SignalKChart = {
+      identifier: 'local-bathymetry',
+      name: 'Local bathymetry cells',
+      type: 'S-57',
+      format: 'pbf',
+      tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+      layers: ['DEPARE', 'SOUNDG'],
+      featureInfo: 'bathymetry-cell',
+    };
+
+    const { layers } = chartToSpecs(chart, base, {
+      s57Style: { safetyDepth: 3, depthUnit: 'ft' },
+    });
+
+    expect(layers.map(({ id }) => id)).toEqual([
+      'chart-local-bathymetry-depare-bathymetry-fill',
+      'chart-local-bathymetry-depare-bathymetry-outline',
+      'chart-local-bathymetry-soundg-bathymetry-label',
+    ]);
+    expect(JSON.stringify(layers[0]?.paint)).toContain('BATHY_DEPTH_M');
+    expect(JSON.stringify(layers[2]?.layout)).toContain('3.28084');
+  });
+
   it('treats S-57 as vector without relying on a format hint', () => {
     const chart: SignalKChart = {
       identifier: 'enc-without-format',

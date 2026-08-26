@@ -124,6 +124,16 @@ describe('chart overlay', () => {
     expect(ordinary.defaultVisible).toBeUndefined();
   });
 
+  it('keeps interactive bathymetry cells above navigation charts', () => {
+    const overlay = createChartOverlay(
+      { ...s57Chart(), featureInfo: 'bathymetry-cell' },
+      'http://pi.local',
+      'basemap',
+    );
+
+    expect(overlay.band).toBe('bathymetry');
+  });
+
   it('remove deletes the layer and source', async () => {
     const overlay = createChartOverlay(
       { identifier: 'noaa', name: 'NOAA', type: 'tilelayer', tilemapUrl: '/t/{z}/{x}/{y}' },
@@ -311,7 +321,7 @@ describe('chart overlay', () => {
     const map = createFakeMap();
     const ctx = fakeOverlayContext(map);
     await overlay.add(ctx);
-    const layerId = 'chart-california-enc-depare-shallow';
+    const layerId = 'chart-california-enc-depare-bathymetry-fill';
     expect(map.handlerCount('click', layerId)).toBe(1);
 
     map.emitLayer('click', layerId, {

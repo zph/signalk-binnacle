@@ -1,5 +1,10 @@
 import type { Map as MapLibreMap, MapSourceDataEvent } from 'maplibre-gl';
 import {
+  BATHYMETRY_THEME_PAINT_KEY,
+  type BathymetryThemePaintMap,
+  bathymetryThemePaint,
+} from './bathymetry-cell-style';
+import {
   chartSourceId,
   chartToSpecs,
   hasPmtilesPath,
@@ -121,6 +126,9 @@ export function createChartOverlay(
   if (chart.type === 'mapstyleJSON') {
     return createUnsupportedStyleChartOverlay(chart, band, source);
   }
+  // Interactive local soundings are an overlay on the navigation chart, not a competing base
+  // chart. Keep them in the bathymetry band so their translucent cells remain visible over ENC.
+  const overlayBand = chart.featureInfo === 'bathymetry-cell' ? 'bathymetry' : band;
   const specs = chartToSpecs(chart, serverBase, { s57Style: options.s57Style });
   const sourceIds = Object.keys(specs.sources);
   // A lightweight view of just the fields the lifecycle methods touch, derived once from
@@ -135,6 +143,9 @@ export function createChartOverlay(
       minzoom: (layer as { minzoom?: number }).minzoom ?? 0,
       themePaint: metadata?.[THEME_PAINT_KEY] as MapColorKey | undefined,
       s57ThemePaint: metadata?.[S57_THEME_PAINT_KEY] as S57ThemePaintMap | undefined,
+      bathymetryThemePaint: metadata?.[BATHYMETRY_THEME_PAINT_KEY] as
+        | BathymetryThemePaintMap
+        | undefined,
       opacity: opacityProperties(layer.type).map((property) => ({
         property,
         base: typeof paint?.[property] === 'number' ? paint[property] : 1,
@@ -251,7 +262,7 @@ export function createChartOverlay(
             });
             return true;
           },
-          { band, interactionsAllowed: options.interactionsAllowed },
+          { band: overlayBand, interactionsAllowed: options.interactionsAllowed },
         )
       : undefined;
 
@@ -277,7 +288,7 @@ export function createChartOverlay(
     id: chartId,
     title: chart.name,
     description,
-    band,
+    band: overlayBand,
     defaultVisible: chart.defaultVisible,
     supportsOpacity: true,
     layerIds,
@@ -310,7 +321,7 @@ export function createChartOverlay(
       }
       for (const layer of specs.layers) {
         if (!ctx.map.getLayer(layer.id)) {
-          ctx.map.addLayer(layer, ctx.beforeIdFor(band));
+          ctx.map.addLayer(layer, ctx.beforeIdFor(overlayBand));
         }
       }
       hitHandlers?.attach(ctx);
@@ -388,6 +399,16 @@ export function createChartOverlay(
         if (layer.s57ThemePaint) {
           for (const [property, color] of Object.entries(layer.s57ThemePaint)) {
             setPaintProp(ctx.map, layer.id, property, s57ThemeColor(paint.theme, color));
+          }
+        }
+        if (layer.bathymetryThemePaint) {
+          for (const [property, role] of Object.entries(layer.bathymetryThemePaint)) {
+            setPaintProp(
+              ctx.map,
+              layer.id,
+              property,
+              bathymetryThemePaint(paint.theme, role, options.s57Style?.safetyDepth),
+            );
           }
         }
       }
