@@ -72,7 +72,7 @@ const cardDeg = $derived(-((reading.siValue ?? 0) * RAD_TO_DEG));
     {/if}
   {/if}
   <span class="caps-label"><span class="abbr">HDG</span> {label}</span>
-  <TileStateBadge state={reading.state} {zone} />
+  <TileStateBadge state={reading.state} />
 </button>
 
 <style>

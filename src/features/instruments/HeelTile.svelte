@@ -70,7 +70,7 @@ const needleDeg = $derived(clamp((reading.rollRad ?? 0) * RAD_TO_DEG, -40, 40));
     {/if}
   {/if}
   <span class="caps-label">{label}</span>
-  <TileStateBadge state={reading.state} {zone} />
+  <TileStateBadge state={reading.state} />
 </button>
 
 <style>

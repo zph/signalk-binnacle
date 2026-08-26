@@ -69,9 +69,8 @@
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
-/* The state badge is a chip, not a third muted caps line: at arm's length Stale, Warning, and
-   Alarm must read as STATUS beside the label, and the chip colors itself by what it says (a Stale
-   chip stays caution-amber inside a warning-tinted tile; see TileStateBadge). */
+/* The state badge names data quality only. Warning and alarm are communicated by the face tint,
+   while the button's accessible name retains the explicit state for nonvisual users. */
 .tile-state {
   padding: 0.1rem var(--space-2);
   border: 1px solid var(--border);
@@ -83,11 +82,6 @@
   border-color: var(--warning);
   background: var(--warning-tint);
   color: var(--warning);
-}
-.tile-state--alarm {
-  border-color: var(--alarm);
-  background: var(--alarm-tint);
-  color: var(--alarm);
 }
 .tile--warning {
   border-color: var(--warning);
@@ -137,6 +131,13 @@
   color: var(--text);
   font-size: var(--text-sm);
   font-weight: 700;
+}
+.title-unit {
+  margin-inline-start: 0.35em;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  font-weight: 650;
+  white-space: nowrap;
 }
 
 /* A focused instrument becomes the whole Binnacle surface. The face stays a single button so a

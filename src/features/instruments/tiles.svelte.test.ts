@@ -42,7 +42,7 @@ describe('NumericTile', () => {
   it('shows value and unit for a live reading', () => {
     const html = numericBody({ label: LABEL, reading: LIVE, zone: normal, sensorGloss: GLOSS });
     expect(html).toContain('7.4');
-    expect(html).toContain('kn');
+    expect(html).toContain('<span class="title-unit">(kn)</span>');
     expect(html).toContain('tile--numeric');
     expect(html).toContain('value--short');
     expect(html).toContain('aria-label="SOG, 7.4 kn. Expand instrument"');
@@ -111,9 +111,7 @@ describe('NumericTile', () => {
     expect(html).toContain('19 s ago');
   });
 
-  it('lets Stale outrank a warning zone on the badge, while Alarm outranks Stale', () => {
-    // A zone verdict computed from an untrusted value is not a live warning; the alarm bias wins
-    // the other direction.
+  it('keeps data-quality text while warning and alarm remain color-only', () => {
     const staleWarning = numericBody({
       label: LABEL,
       reading: STALE,
@@ -128,8 +126,8 @@ describe('NumericTile', () => {
       zone: 'alarm',
       sensorGloss: GLOSS,
     });
-    expect(staleAlarm).toContain('>Alarm<');
-    expect(staleAlarm).not.toContain('>Stale<');
+    expect(staleAlarm).toContain('>Stale<');
+    expect(staleAlarm).not.toContain('>Alarm<');
   });
 
   it('adds tile--alarm class for alarm zone', () => {
@@ -140,7 +138,7 @@ describe('NumericTile', () => {
       sensorGloss: GLOSS,
     });
     expect(html).toContain('tile--alarm');
-    expect(html).toContain('Alarm');
+    expect(html).not.toContain('>Alarm<');
     expect(html).toContain('alarm. Expand instrument');
     expect(html).not.toContain('tile--warning');
   });
@@ -153,7 +151,7 @@ describe('NumericTile', () => {
       sensorGloss: GLOSS,
     });
     expect(html).toContain('tile--warning');
-    expect(html).toContain('Warning');
+    expect(html).not.toContain('>Warning<');
     expect(html).not.toContain('tile--alarm');
   });
 
@@ -311,7 +309,7 @@ describe('purpose-built instrument faces', () => {
     expect(html).toMatch(/R\s+11\.5°/);
   });
 
-  it('shows SOG and zone-colored depth in the wind rose corners', () => {
+  it('keeps all readouts outside the compass with inline units and color-only zones', () => {
     const reading: TileReading = {
       state: 'live',
       value: '12.0',
@@ -352,16 +350,16 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('6.4');
     expect(html).toContain('DEPTH');
     expect(html).toContain('1.8');
-    expect(html).toContain('corner--warning');
-    expect(html.match(/counter-box--alarm/g)).toHaveLength(2);
-    expect(html).toContain('>AWA</tspan>');
-    expect(html).toContain('>TWA</tspan>');
-    expect(html).toMatch(/counter-angle-inline[^>]+x="236" y="186"/);
-    expect(html).toMatch(/counter-angle-inline[^>]+x="980" y="186"/);
-    expect(html).toContain('x="8" y="8" width="240" height="190"');
-    expect(html).toContain('x="752" y="8" width="240" height="190"');
-    expect(html).toContain('x="370" y="8" width="260"');
-    expect(html).toContain('Warning');
+    expect(html).toContain('rose-readouts--top');
+    expect(html).toContain('rose-readouts--bottom');
+    expect(html).toContain('rose-readout--warning');
+    expect(html.match(/rose-readout--alarm/g)).toHaveLength(2);
+    expect(html).not.toContain('>AWA<');
+    expect(html).not.toContain('>TWA<');
+    expect(html).toContain('(kn)');
+    expect(html).toContain('(m)');
+    expect(html).not.toContain('>Warning<');
+    expect(html).not.toContain('>Wind rose<');
     expect(html).toContain('Speed over ground 6.4 kn');
     expect(html).toContain('Heading 57°');
     expect(html).toContain('class="fixed-dial ');
@@ -407,7 +405,7 @@ describe('purpose-built instrument faces', () => {
         sensorGloss: 'No wind data',
       },
     }).body;
-    expect(alarmHtml).toContain('corner--alarm');
-    expect(alarmHtml).toContain('Alarm');
+    expect(alarmHtml).toContain('rose-readout--alarm');
+    expect(alarmHtml).not.toContain('>Alarm<');
   });
 });

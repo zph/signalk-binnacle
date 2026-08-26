@@ -72,9 +72,7 @@ const valueScale = $derived.by(() => {
   {#if reading.state === 'never'}
     <span class="value"><span class="muted-note">{sensorGloss}</span></span>
   {:else}
-    <span class="value value--{valueScale}"
-      ><span class="num">{reading.value}</span><span class="unit">{reading.unit}</span></span
-    >
+    <span class="value value--{valueScale}"><span class="num">{reading.value}</span></span>
     {#if viz === 'battery'}
       <BatteryBar fraction={reading.siValue} state={zone} />
     {:else if viz === 'rot'}
@@ -94,7 +92,10 @@ const valueScale = $derived.by(() => {
     >{#if abbr}
       <span class="abbr">{abbr}</span>
     {/if}
-    {labelText}</span
+    {labelText}
+    {#if reading.unit}
+      <span class="title-unit">({reading.unit})</span>
+    {/if}</span
   >
-  <TileStateBadge state={reading.state} {zone} />
+  <TileStateBadge state={reading.state} />
 </button>

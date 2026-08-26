@@ -175,6 +175,44 @@ const sectorRotation = $derived(
   onclick={onOpen}
 >
   <div class="rose-layout">
+    <div class="rose-readouts rose-readouts--top" aria-hidden="true">
+      <div
+        class="rose-readout"
+        class:rose-readout--warning={zone === 'warning'}
+        class:rose-readout--alarm={zone === 'alarm'}
+      >
+        <span class="readout-title"
+          ><span>AWS</span>
+          {#if rose?.apparent.unit}
+            <span class="readout-unit">({rose.apparent.unit})</span>
+          {/if}</span
+        >
+        <span class="num">{rose?.apparent.value ?? '---'}</span>
+      </div>
+      <div class="rose-readout rose-readout--heading">
+        <span class="readout-title"
+          ><span>HDG</span>
+          {#if rose?.heading.referenceLabel}
+            <span class="readout-unit">({rose.heading.referenceLabel})</span>
+          {/if}</span
+        >
+        <span class="num">{rose?.heading.value ?? '---'}</span>
+      </div>
+      <div
+        class="rose-readout"
+        class:rose-readout--warning={zone === 'warning'}
+        class:rose-readout--alarm={zone === 'alarm'}
+      >
+        <span class="readout-title"
+          ><span>TWS</span>
+          {#if rose?.trueWind.unit}
+            <span class="readout-unit">({rose.trueWind.unit})</span>
+          {/if}</span
+        >
+        <span class="num">{rose?.trueWind.value ?? '---'}</span>
+      </div>
+    </div>
+
     <svg class="rose" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <circle class="fixed-dial" cx="500" cy="500" r="444" />
       {#if rawSectorReference}
@@ -244,89 +282,38 @@ const sectorRotation = $derived(
           <text class="pointer-label" x="500" y="113">T</text>
         </g>
       {/if}
-
-      <g class="wind-counter wind-counter--apparent">
-        <rect
-          class="counter-box"
-          class:counter-box--warning={zone === 'warning'}
-          class:counter-box--alarm={zone === 'alarm'}
-          x="8"
-          y="8"
-          width="240"
-          height="190"
-          rx="22"
-        />
-        <text class="counter-label" x="128" y="42">AWS</text>
-        <text class="counter-value" x="128" y="128">
-          {rose?.apparent.value ?? '---'}
-        </text>
-        <text class="counter-unit counter-unit--inset" x="22" y="186">
-          {rose?.apparent.unit ?? ''}
-        </text>
-        <text class="counter-angle-inline" x="236" y="186">
-          <tspan class="counter-angle-prefix">AWA</tspan>
-          <tspan>{formatSignedAngleOr(rose?.apparent.angleRad)}</tspan>
-        </text>
-      </g>
-      <g class="wind-counter wind-counter--true">
-        <rect
-          class="counter-box"
-          class:counter-box--warning={zone === 'warning'}
-          class:counter-box--alarm={zone === 'alarm'}
-          x="752"
-          y="8"
-          width="240"
-          height="190"
-          rx="22"
-        />
-        <text class="counter-label" x="872" y="42">TWS</text>
-        <text class="counter-value" x="872" y="128">
-          {rose?.trueWind.value ?? '---'}
-        </text>
-        <text class="counter-unit counter-unit--inset" x="766" y="186">
-          {rose?.trueWind.unit ?? ''}
-        </text>
-        <text class="counter-angle-inline" x="980" y="186">
-          <tspan class="counter-angle-prefix">TWA</tspan>
-          <tspan>{formatSignedAngleOr(rose?.trueWind.angleRad)}</tspan>
-        </text>
-      </g>
-
-      <g class="heading-window">
-        <rect x="370" y="8" width="260" height="112" rx="25" />
-        <text x="500" y="88">{rose?.heading.value ?? '---'}</text>
-        {#if rose?.heading.referenceLabel}
-          <text class="heading-reference" x="615" y="99">{rose.heading.referenceLabel}</text>
-        {/if}
-      </g>
     </svg>
 
-    <div class="corner corner--sog">
-      <span class="corner-label">SOG</span>
-      <span class="num">{rose?.speedOverGround.value ?? '---'}</span>
-      <span class="unit">{rose?.speedOverGround.unit ?? ''}</span>
-    </div>
-    <div
-      class="corner corner--depth"
-      class:corner--warning={depthZone === 'warning'}
-      class:corner--alarm={depthZone === 'alarm'}
-    >
-      <span class="corner-label">DEPTH</span>
-      <span class="num">{rose?.depth.value ?? '---'}</span>
-      <span class="unit">{rose?.depth.unit ?? ''}</span>
-      {#if depthZone === 'warning'}
-        <span class="corner-state">Warning</span>
-      {:else if depthZone === 'alarm'}
-        <span class="corner-state">Alarm</span>
-      {/if}
+    <div class="rose-readouts rose-readouts--bottom" aria-hidden="true">
+      <div class="rose-readout">
+        <span class="readout-title"
+          ><span>SOG</span>
+          {#if rose?.speedOverGround.unit}
+            <span class="readout-unit">({rose.speedOverGround.unit})</span>
+          {/if}</span
+        >
+        <span class="num">{rose?.speedOverGround.value ?? '---'}</span>
+      </div>
+      <div
+        class="rose-readout"
+        class:rose-readout--warning={depthZone === 'warning'}
+        class:rose-readout--alarm={depthZone === 'alarm'}
+      >
+        <span class="readout-title"
+          ><span>DEPTH</span>
+          {#if rose?.depth.unit}
+            <span class="readout-unit">({rose.depth.unit})</span>
+          {/if}</span
+        >
+        <span class="num">{rose?.depth.value ?? '---'}</span>
+      </div>
     </div>
   </div>
 
   {#if staleAgeText}
     <span class="tile-secondary">{staleAgeText}</span>
   {/if}
-  <span class="caps-label">{label}</span>
-  <TileStateBadge state={reading.state} {zone} />
+  <TileStateBadge state={reading.state} />
 </button>
 
 <style>
@@ -357,18 +344,23 @@ const sectorRotation = $derived(
   --wind-dial: color-mix(in srgb, var(--text-muted) 28%, var(--surface-raised));
 }
 .rose-layout {
-  position: relative;
   inline-size: min(100%, 26rem);
-  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(var(--space-2), 3cqi, var(--space-4));
   container-type: inline-size;
 }
 .tile--expanded .rose-layout {
-  inline-size: min(88vmin, 54rem);
+  /* The readout rows add about one quarter of the compass width above and below it. Bound the
+     complete face by viewport block size so neither row can be pushed beyond the screen. */
+  inline-size: min(82vw, calc(64 * var(--dvh)), 54rem);
 }
 .rose {
   display: block;
-  inline-size: 100%;
+  inline-size: 90%;
   block-size: auto;
+  flex: 0 0 auto;
 }
 .fixed-dial,
 .port-sector,
@@ -466,142 +458,72 @@ const sectorRotation = $derived(
 .tile--stale .true-pointer {
   fill: var(--text-muted);
 }
-.wind-counter text,
-.heading-window text {
-  font-family: var(--font-mono);
-  text-anchor: middle;
+.rose-readouts {
+  inline-size: 100%;
+  display: grid;
+  gap: clamp(var(--space-2), 2.5cqi, var(--space-4));
 }
-.counter-box {
-  fill: color-mix(in srgb, var(--surface-raised) 82%, transparent);
-  stroke: var(--border);
-  stroke-width: 3;
+.rose-readouts--top {
+  grid-template-columns: 1fr 0.9fr 1fr;
 }
-.counter-box--warning {
-  fill: var(--warning-tint);
-  stroke: var(--warning);
-  stroke-width: 8;
+.rose-readouts--bottom {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.counter-box--alarm {
-  fill: var(--alarm-tint);
-  stroke: var(--alarm);
-  stroke-width: 8;
-}
-.counter-label {
-  fill: var(--text-muted);
-  font-size: 35px;
-  font-weight: 800;
-}
-.counter-value {
-  fill: var(--text);
-  font-size: 88px;
-  font-weight: 900;
-  letter-spacing: -3px;
-}
-.counter-unit {
-  fill: var(--text-muted);
-  font-size: 27px;
-  font-weight: 750;
-}
-.counter-unit--inset {
-  text-anchor: start;
-}
-.counter-angle-inline {
-  fill: var(--text);
-  font-size: 42px;
-  font-weight: 800;
-  letter-spacing: -2px;
-  text-anchor: end;
-}
-.counter-angle-prefix {
-  fill: var(--text-muted);
-  font-size: 27px;
-  letter-spacing: 0;
-}
-.heading-window rect {
-  fill: var(--surface-raised);
-  stroke: var(--border);
-  stroke-width: 4;
-}
-.heading-window text {
-  fill: var(--text);
-  font-size: 88px;
-  font-weight: 800;
-}
-.heading-window .heading-reference {
-  fill: var(--text-muted);
-  font-size: 24px;
-  font-weight: 700;
-}
-.corner {
-  position: absolute;
-  inset-block-end: 0.8%;
-  min-inline-size: 24%;
+.rose-readout {
+  min-inline-size: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1.5cqi 2cqi;
-  border: 3px solid var(--border);
-  border-radius: 2.2cqi;
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  justify-content: center;
+  gap: 0.4cqi;
+  padding: 1.6cqi 2cqi;
+  border: 0;
+  border-radius: 2.4cqi;
+  background: color-mix(in srgb, var(--surface-raised) 58%, transparent);
   text-align: center;
 }
-.corner--sog {
-  inset-inline-start: 0.8%;
-}
-.corner--depth {
-  inset-inline-end: 0.8%;
-}
-.corner .num {
+.rose-readout .num {
   font-family: var(--font-mono);
   font-size: 8.8cqi;
   font-weight: 900;
   line-height: var(--leading-tight);
 }
-.corner .unit {
-  margin-inline-start: 0;
-  color: var(--text-muted);
-  font-size: 2.7cqi;
-  font-weight: 650;
-}
-.corner-label {
+.readout-title {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4em;
   color: var(--text-muted);
   font-size: 3.5cqi;
   font-weight: 800;
   line-height: var(--leading-tight);
+  white-space: nowrap;
 }
-.corner-state {
+.readout-unit {
   color: var(--text-muted);
-  font-size: 2.7cqi;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  font-size: 0.78em;
+  font-weight: 650;
 }
-.corner--warning {
-  border-width: 5px;
-  border-color: var(--warning);
+.rose-readout--warning {
   background: var(--warning-tint);
   color: var(--warning);
 }
-.corner--alarm {
-  border-width: 5px;
-  border-color: var(--alarm);
+.rose-readout--alarm {
   background: var(--alarm-tint);
   color: var(--alarm);
 }
-.corner--warning .corner-label,
-.corner--warning .corner-state {
+.rose-readout--warning .readout-title,
+.rose-readout--warning .readout-unit {
   color: var(--warning);
 }
-.corner--alarm .corner-label,
-.corner--alarm .corner-state {
+.rose-readout--alarm .readout-title,
+.rose-readout--alarm .readout-unit {
   color: var(--alarm);
 }
-.tile--wind-rose.tile--expanded .corner .num {
+.tile--wind-rose.tile--expanded .rose-readout .num {
   font-size: 8.8cqi;
 }
-.tile--wind-rose.tile--expanded .corner-label,
-.tile--wind-rose.tile--expanded .corner-state,
-.tile--wind-rose.tile--expanded .corner .unit {
+.tile--wind-rose.tile--expanded .readout-title {
   font-size: 3.5cqi;
 }
 </style>

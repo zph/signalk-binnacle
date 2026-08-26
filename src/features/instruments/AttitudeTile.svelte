@@ -79,7 +79,7 @@ const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30
     {/if}
   {/if}
   <span class="caps-label"><span class="abbr">ATT</span> {label}</span>
-  <TileStateBadge state={reading.state} {zone} />
+  <TileStateBadge state={reading.state} />
 </button>
 
 <style>

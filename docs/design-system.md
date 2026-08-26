@@ -228,7 +228,7 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   row uses `aria-current="true"`, an accent border, an accent tint, and a leading inset accent line;
   hover or keyboard preview alone must not claim selection.
 - Instruments (`instruments.css`): the `.tile` vocabulary on the `.card-frame` surface, shared by
-  NumericTile and WindTile: the `--text-readout-lg` hero `.num`, the `--text-xs` `.unit`, and the
+  NumericTile and WindTile: the `--text-readout-lg` hero `.num`, the parenthesized `.title-unit`, and the
   loud leading `.abbr` (the abbreviation is the tile's scanned name: SOG, HDG, AWS at `--text-sm`
   weight 700, with the long name as the quiet gloss beside it),
   the zone tints (`.tile--warning`, `.tile--alarm`, `.tile--stale`), `.tile--wide`, and `.tile--empty`.
@@ -243,7 +243,8 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   position tile is the one hero-size exception (`--text-readout`, the secondary readout), because two
   coordinate lines at hero size would double the tile. Other numeric faces use container-relative,
   value-length tiers so short SOG and depth values fill most of their tile without letting longer
-  values clip. Their focused view uses the same tiers against the viewport for long-distance reading.
+  values clip. Physical units sit beside the title in parentheses instead of competing with the core
+  number. Their focused view uses the same tiers against the viewport for long-distance reading.
   The dock grid fills its column: rows share the
   full dock height (`grid-auto-rows: minmax(min-content, 1fr)`, falling back to min-content and the
   dock scroll when the tile set outgrows it), tile content centers vertically in a stretched row, an
@@ -252,10 +253,10 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   customize order only where a hole would otherwise sit. Instrument tiles are buttons: selecting one
   opens an in-dock detail view with value, status, zone, source, update age, and the Signal K paths
   behind the reading. The button's accessible name includes the value, unit, freshness, alarm zone,
-  and action. Warning, Alarm, and Stale render as tinted chips (`.tile-state--caution`,
-  `.tile-state--alarm`), never color alone and never a third muted caps line; the chip colors
-  itself by what it says, Alarm outranks Stale, and Stale outranks Warning, since a zone verdict
-  computed from an untrusted value is not a live warning. A stale tile keeps its retained value at
+  and action. Warning and Alarm use only the established face tint in the visual display, without
+  repeating the state as a word. The accessible name still announces the explicit zone. Stale and
+  wind-angle availability keep their visible data-quality badge because they cannot be expressed by
+  the zone tint. A stale tile keeps its retained value at
   muted contrast WITH its age in the secondary line: the tile has a badge channel, so a retained
   number plus its age is more honest than dashes, while the status strip, which has no badge
   channel, dashes the same value; that divergence is deliberate and the Help panel's "When
@@ -267,11 +268,14 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   folds into the same chip line (Angle stale, Angle unavailable) rather than stacking a second
   fragment.
   The combined wind rose is the one dense instrument face. It uses an SVG compass card with
-  10-degree ticks, 30-degree labels, a fixed heading window, tapered and lettered apparent and true
-  wind pointers, and quiet hull and crosshair references. Port and starboard use marine red and
-  green in day and dusk, while night-red distinguishes those roles only by red and amber brightness.
-  SOG occupies the lower-left corner. Resolved Depth occupies the lower-right corner and alone takes
-  the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
+  10-degree ticks, 30-degree labels, tapered and lettered apparent and true wind pointers, and quiet
+  hull and crosshair references. Port and starboard use marine red and green in day and dusk, while
+  night-red distinguishes those roles only by red and amber brightness. AWS, heading, and TWS readouts
+  without borders sit in a separate row above the unobstructed compass; SOG and resolved Depth
+  readouts without borders sit below it. Units remain on each readout's title line in parentheses.
+  AWA and TWA stay encoded by their pointers instead of consuming a second numeric line. Depth alone
+  takes the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
+  The face carries no redundant Wind rose caption.
   Every instrument face is the zoom control: activating a tile expands that one face over the full
   Binnacle surface, and activating the expanded face restores the grid. A quiet question-mark icon
   in the tile's lower-right corner is the separate path to source details and recent trends. Its icon

@@ -227,13 +227,15 @@ source, and surrounding traffic before relying on it.
 ## Instruments
 
 - **Instrument dock** opens the live instrument tiles. Each tile leads with its loud abbreviation
-  (SOG, HDG, AWS) over the quiet long name, states render as tinted chips (Alarm outranks Stale,
-  and Stale outranks a zone Warning computed from the untrusted value), a stale tile keeps its
+  (SOG, HDG, AWS) over the quiet long name. Warning and Alarm are shown by the face color without a
+  redundant state word, while a stale tile keeps its
   retained number at muted contrast with its age on the secondary line, and the wind tile's angle
   freshness folds into the same chip line. The combined wind rose follows the installed Skip
   instrument's compass-card geometry and apparent-wind, true-wind, port, and starboard color roles.
-  It adds SOG at lower left and resolved Depth at lower right; Depth uses the server's Signal K zone
-  and notification state for its Warning and Alarm treatment. Tapping any instrument expands that
+  Its AWS, heading, and TWS row sits above a fully visible compass without readout borders, while SOG
+  and resolved Depth sit below. Each unit appears in parentheses on its title line, and the pointer
+  positions make separate AWA and TWA numerics unnecessary. Depth uses the server's Signal K zone
+  and notification state for its warning and alarm color. Tapping any instrument expands that
   face across Binnacle, and tapping the large face restores the grid. A small question-mark control
   at the lower right opens the instrument's source and trend details. Customize can show, hide, and reorder tiles,
   including bounded discovered batteries, engines, tanks, solar controllers, and cabin sensors. A

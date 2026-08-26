@@ -145,7 +145,7 @@ const deg = $derived((reading.angleRad ?? 0) * RAD_TO_DEG);
         {/if}
       </svg>
       <span class="speed">
-        <span class="num">{reading.value}</span><span class="unit">{reading.unit}</span
+        <span class="num">{reading.value}</span
         ><span class="angle">{formatSignedAngleOr(reading.angleRad)}</span>
       </span>
     </div>
@@ -160,11 +160,14 @@ const deg = $derived((reading.angleRad ?? 0) * RAD_TO_DEG);
     >{#if abbr}
       <span class="abbr">{abbr}</span>
     {/if}
-    {labelText}</span
+    {labelText}
+    {#if reading.unit}
+      <span class="title-unit">({reading.unit})</span>
+    {/if}</span
   >
   <!-- The angle freshness folds into the one badge line: the needle is already gone, and the
        badge names why, so a live speed beside a missing angle never reads as a broken display. -->
-  <TileStateBadge state={reading.state} {zone} angleState={reading.angleState} />
+  <TileStateBadge state={reading.state} angleState={reading.angleState} />
 </button>
 
 <!-- The tile column, value size, unit, and zone tints come from the global .tile vocabulary in
