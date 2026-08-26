@@ -1,12 +1,8 @@
 import type { MenuItem } from './menu-item';
 
-// The bar's default pinned set: the Menu opener, Center, Follow, and AIS. The single source of the
-// default, imported by the composition root for the persisted-value fallback. Menu leads because
-// the topbar hamburger is a cross-screen reach on a phone, where every unpinned journey starts;
-// AIS holds the fourth slot so one Safety action is thumb-reachable out of the box, carrying its
-// live collision-risk count. Charts stay one tap away inside the menu, while Instruments has its
-// own fixed toggle beside the customizable actions.
-export const DEFAULT_PINNED: readonly string[] = ['menu', 'center', 'follow', 'ais'];
+// The bar's default customizable set: Center, Follow, and AIS. The Menu opener is fixed at the
+// leading edge, while Instruments has its own fixed toggle beside the customizable actions.
+export const DEFAULT_PINNED: readonly string[] = ['center', 'follow', 'ais'];
 
 // The pinned actions in stored order, so toolbar customization controls both membership and position.
 // Unknown ids are skipped for forward and backward compatibility, and duplicates render once.
@@ -29,9 +25,8 @@ export function resolvePinned(items: MenuItem[], pinnedIds: unknown): MenuItem[]
 // pinned set exceeds this, one slot is reserved for the More pill itself.
 export const MAX_BAR_PILLS = 6;
 
-// The same cap on a phone-width bar. It matches DEFAULT_PINNED's length on purpose: at a lower cap
-// the reserved More slot pushes all but the first default action two taps away on the form factor
-// most likely to be at a helm.
+// The same cap on a phone-width bar. The default set fits without overflow, with one additional
+// customizable slot available before the More pill is needed.
 export const MAX_COMPACT_BAR_PILLS = 4;
 
 export function splitBarActions(

@@ -245,7 +245,7 @@ test('a locally cached profile applies at boot without a startup error', async (
     );
   });
   await page.goto('/');
-  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
+  await expect(page.getByRole('button', { name: 'About Binnacle Custom' })).toBeVisible();
   // The local-cache initialize path runs during App setup; give the boot flush a beat before
   // asserting no startup exception surfaced.
   await page.waitForTimeout(500);

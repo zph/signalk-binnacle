@@ -93,7 +93,7 @@ describe('AppMenu bar-only actions', () => {
     expect(renderWithEditing(true)).toContain('>menu<');
   });
 
-  it('drops the topbar trigger when the opener is pinned, so one control is named Menu', () => {
+  it('can omit its trigger when another control owns the open state', () => {
     const withTrigger = render(AppMenu, {
       props: { items: [], open: false, onOpenChange: () => {} },
     }).body;

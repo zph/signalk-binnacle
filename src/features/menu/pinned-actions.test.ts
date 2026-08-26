@@ -61,10 +61,9 @@ describe('resolvePinned', () => {
 });
 
 describe('DEFAULT_PINNED', () => {
-  it('leads with the Menu opener and keeps one Safety action thumb-reachable', () => {
-    expect([...DEFAULT_PINNED]).toEqual(['menu', 'center', 'follow', 'ais']);
-    // The phone cap is the default set's own length, so no default is pushed behind More.
-    expect(DEFAULT_PINNED).toHaveLength(MAX_COMPACT_BAR_PILLS);
+  it('keeps navigation and one Safety action thumb-reachable', () => {
+    expect([...DEFAULT_PINNED]).toEqual(['center', 'follow', 'ais']);
+    expect(DEFAULT_PINNED.length).toBeLessThanOrEqual(MAX_COMPACT_BAR_PILLS);
   });
 });
 
@@ -93,8 +92,7 @@ describe('splitBarActions', () => {
     expect(MAX_BAR_PILLS).toBe(6);
   });
 
-  // The phone bar is where hiding an action costs the most, and at a lower cap the reserved More
-  // slot buried three of the four defaults behind a second tap.
+  // The phone bar is where hiding an action costs the most, so every default remains direct.
   it('shows every default pinned action on a phone-width bar', () => {
     const defaults = [...DEFAULT_PINNED].map(item);
     const r = splitBarActions(defaults, MAX_COMPACT_BAR_PILLS);
@@ -103,7 +101,7 @@ describe('splitBarActions', () => {
   });
 
   it('MAX_COMPACT_BAR_PILLS covers the whole default set', () => {
-    expect(MAX_COMPACT_BAR_PILLS).toBe(DEFAULT_PINNED.length);
+    expect(MAX_COMPACT_BAR_PILLS).toBeGreaterThanOrEqual(DEFAULT_PINNED.length);
   });
 });
 

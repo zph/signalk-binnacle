@@ -231,7 +231,7 @@ import {
 } from '$shared/ui';
 import type { MapCommands } from '$widgets/chart-canvas';
 import { PlotterView } from '../views';
-import ChartLockerStatus from './ChartLockerStatus.svelte';
+import AppInfo from './AppInfo.svelte';
 import { resolveOrientation } from './chart-orientation';
 import { createFollowController } from './follow-controller.svelte';
 import { collectHandoffFacts } from './handoff-facts';
@@ -515,9 +515,8 @@ let layersOpenRequest = $state<{ mode: 'charts' | 'overlays' }>({ mode: 'charts'
 // the menu after it closed on selection.
 let menuOpen = $state(false);
 let menuEditing = $state(false);
-// Helm chrome can be independently tucked away without entering browser fullscreen. The edge tabs
-// remain fixed over the chart, so each bar always has an obvious route back.
-let topBarVisible = $state(true);
+// The helm toolbar can be tucked away without entering browser fullscreen. Its attached tab stays
+// reachable at the viewport edge, so the toolbar always has an obvious route back.
 let bottomBarVisible = $state(true);
 // Closing a panel drops everything that panel put on the chart or armed inside it, so nothing it
 // owned outlives it: a dismissed confirm cannot come back armed, and a hover ring cannot strand on
@@ -559,7 +558,7 @@ const openInstalledCharts = (): void => openPanel('charts-management');
 const backToOfflineCharts = (): void => openPanel('regions');
 // The phone breakpoint, in CSS pixels. A media query cannot reference this constant, so the same
 // 600px literal is mirrored in the `@media (max-width: 600px)` blocks in styles/panels.css and the
-// scoped styles of ChartLockerStatus, WeatherMap, AppMenu, WeatherConditions, and the
+// scoped styles of WeatherMap, AppMenu, WeatherConditions, and the
 // scoped CSS below. This const is the source of truth; retune all of them together.
 const NARROW_BREAKPOINT_PX = 600;
 const INSTRUMENTS_FULLSCREEN_BREAKPOINT_PX = 900;
@@ -1927,14 +1926,14 @@ const menuItems = $derived<MenuItem[]>([
     pressed: activePanel === 'profiles',
     onSelect: () => togglePanel('profiles'),
   },
-  // The bottom bar's own opener. barOnly keeps it out of the launcher grid it opens, except while
-  // customizing, where tapping a tile is the only way to pin or unpin. Pinned by default: on a
-  // phone the topbar hamburger is a cross-screen reach, and the sheet it opens is at the thumb.
+  // The bottom bar's own opener. It is fixed at the start of the toolbar and remains visible in
+  // customization mode so the fixed placement is explicit.
   {
     id: 'menu',
     label: 'Menu',
     icon: Menu,
     barOnly: true,
+    fixedToBar: true,
     pressed: menuOpen,
     onSelect: () => (menuOpen = !menuOpen),
   },
@@ -2760,73 +2759,6 @@ const plotterActions = {
     mute={muteAlert}
     companion={companionAnnounce}
   />
-  <div class="topbar-slot" id="top-toolbar">
-    {#if topBarVisible}
-      <header
-        class="topbar"
-        transition:slide={{ duration: prefersReducedMotion() ? 0 : PANEL_TRANSITION_MS }}
-      >
-        <span class="topbar-start">
-          <AppMenu
-            items={menuItems}
-            showTrigger={!pinnedActions.value.includes('menu')}
-            open={menuOpen}
-            onOpenChange={(next) => (menuOpen = next)}
-            pinnedIds={pinnedActions.value}
-            editing={menuEditing}
-            onEditingChange={(next) => (menuEditing = next)}
-            {onTogglePin}
-            {onReorderPinned}
-            {onResetPinned}
-          />
-          <span class="brand">Binnacle Custom <span class="version">v{__APP_VERSION__}</span></span>
-        </span>
-        <span class="topbar-actions">
-          {#if collisionMute.active}
-            <button
-              type="button"
-              class="btn btn-warning btn-pill"
-              aria-pressed="true"
-              aria-label="Collision alarm muted, {muteRemainingMin} minutes left, tap to unmute"
-              title="Collision alarm muted, {muteRemainingMin} min left, tap to unmute"
-              onclick={() => collisionMute.unmute()}
-            >
-              <VolumeX size={16} aria-hidden="true" />
-              Muted {muteRemainingMin}min
-            </button>
-          {/if}
-          {#if updateReady}
-            <button
-              type="button"
-              class="btn btn-primary btn-pill"
-              onclick={() => {
-            updateReady = false;
-            pwa.update();
-          }}
-            >
-              Update
-            </button>
-          {/if}
-          <ChartLockerStatus
-            present={companionStatus.present}
-            state={companionStatus.state}
-            cacheBytes={companionStatus.cacheBytes}
-            accessUrl={chartLockerAccessUrl}
-            onOpen={() => openPanel('regions')}
-            onRetry={() => void companionStatus.refresh()}
-          />
-          <ProfileSwitcher
-            active={profileStore.active}
-            profiles={profileStore.profiles}
-            hasUpdate={profileStore.remoteUpdateAvailable}
-            onSelect={onApplyProfile}
-            onManage={() => openPanel('profiles')}
-          />
-          <ThemeToggle controller={theme} />
-        </span>
-      </header>
-    {/if}
-  </div>
   <PlotterView
     services={plotterServices}
     controllers={plotterControllers}
@@ -2990,7 +2922,7 @@ const plotterActions = {
   {/snippet}
 
   {#snippet instrumentsMobAction()}
-    <!-- The same MOB store and trigger flow as the topbar button, rendered inside the modal
+    <!-- The same MOB store and trigger flow as the toolbar button, rendered inside the modal
          dialog subtree so full-screen Instruments always carries a reachable MOB initiation.
          Fly-to-mark closes the dock first, or the chart movement happens invisibly under it. -->
     <MobButton
@@ -3034,7 +2966,58 @@ const plotterActions = {
     {/await}
   {/if}
 
+  {#snippet statusStripLeadingActions()}
+    <span class="bottom-menu-anchor">
+      <AppMenu
+        items={menuItems}
+        showTrigger={true}
+        open={menuOpen}
+        onOpenChange={(next) => (menuOpen = next)}
+        pinnedIds={pinnedActions.value}
+        editing={menuEditing}
+        onEditingChange={(next) => (menuEditing = next)}
+        {onTogglePin}
+        {onReorderPinned}
+        {onResetPinned}
+      />
+    </span>
+  {/snippet}
+
   {#snippet statusStripFixedActions()}
+    {#if collisionMute.active}
+      <button
+        type="button"
+        class="btn btn-warning btn-pill"
+        aria-pressed="true"
+        aria-label="Collision alarm muted, {muteRemainingMin} minutes left, tap to unmute"
+        title="Collision alarm muted, {muteRemainingMin} min left, tap to unmute"
+        onclick={() => collisionMute.unmute()}
+      >
+        <VolumeX size={16} aria-hidden="true" />
+        Muted {muteRemainingMin}min
+      </button>
+    {/if}
+    {#if updateReady}
+      <button
+        type="button"
+        class="btn btn-primary btn-pill"
+        onclick={() => {
+          updateReady = false;
+          pwa.update();
+        }}
+      >
+        Update
+      </button>
+    {/if}
+    <ProfileSwitcher
+      active={profileStore.active}
+      profiles={profileStore.profiles}
+      hasUpdate={profileStore.remoteUpdateAvailable}
+      onSelect={onApplyProfile}
+      onManage={() => openPanel('profiles')}
+    />
+    <ThemeToggle controller={theme} />
+    <AppInfo version={__APP_VERSION__} />
     <button
       type="button"
       class="btn btn-pill fixed-toolbar-action"
@@ -3083,6 +3066,7 @@ const plotterActions = {
             : undefined}
           onResetOrientation={() => chartOrientation.set('north')}
           pinnedActions={resolvedPinned}
+          leadingActions={statusStripLeadingActions}
           fixedActions={statusStripFixedActions}
           editing={menuEditing}
           {clock}
@@ -3098,13 +3082,14 @@ const plotterActions = {
         />
       </div>
     {/if}
+    <ShellBarTabs
+      {bottomBarVisible}
+      onToggleBottom={() => {
+        bottomBarVisible = !bottomBarVisible;
+        if (!bottomBarVisible) menuOpen = false;
+      }}
+    />
   </div>
-  <ShellBarTabs
-    {topBarVisible}
-    {bottomBarVisible}
-    onToggleTop={() => (topBarVisible = !topBarVisible)}
-    onToggleBottom={() => (bottomBarVisible = !bottomBarVisible)}
-  />
 </main>
 
 {#if waypointsController.addWaypointAt}
@@ -3210,9 +3195,9 @@ const plotterActions = {
 }
 .binnacle-shell {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   /* The second column is the instrument dock; it collapses to zero when the dock is closed. Every
-     in-flow child is placed explicitly, because auto-placement would flow the topbar into the dock
+     in-flow child is placed explicitly, so auto-placement cannot flow chart content into the dock
      column. The toggle is instant by design: animating the track would resize the map per frame. */
   grid-template-columns: 1fr auto;
   /* #app is this component's sole mount target (see main.ts) and already carries the dvh-tracked
@@ -3224,98 +3209,18 @@ const plotterActions = {
   background: var(--surface);
   color: var(--text);
 }
-/* The brand and menu stay at the start, while status controls sit at the end. The dedicated MOB
-   key lives in the bottom action row. Includes Window Controls Overlay (WCO) support to merge
-   seamlessly into native PWA desktop title bars. */
-.topbar-slot {
-  grid-row: 1;
-  grid-column: 1 / -1;
-  min-block-size: 0;
-}
-.topbar {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: var(--space-2);
-
-  /* Fallback standard padding */
-  padding: var(--space-2) var(--space-4);
-
-  /* Window Controls Overlay alignment */
-  padding-block-start: max(var(--space-2), env(titlebar-area-y, 0px));
-  min-block-size: max(var(--control-size), env(titlebar-area-height, 0px));
-  padding-inline-start: max(var(--space-4), env(titlebar-area-x, 0px));
-  padding-inline-end: calc(100% - env(titlebar-area-width, 100%) + var(--space-4));
-
-  border-block-end: 1px solid var(--border);
-
-  /* Draggable header in installed PWA windows; only the -webkit- form is implemented anywhere. */
-  -webkit-app-region: drag;
-}
-.topbar > * {
-  /* Interactive children stay clickable inside the drag region. */
-  -webkit-app-region: no-drag;
-}
-.topbar-start {
+.bottom-menu-anchor {
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-inline-size: 0;
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  min-inline-size: 0;
-}
-.brand {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.version {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-muted);
-}
-/* On a phone the brand yields its version string so the muted badge and the Update pill keep room.
-   Phone override after the base rule: a media block before a same-specificity base is silently
-   defeated by source order. It works here only because the base sets no display. */
-@media (max-width: 600px) {
-  .topbar {
-    gap: var(--space-1);
-    padding: var(--space-1) var(--space-2);
-    padding-block-start: max(var(--space-1), env(titlebar-area-y, 0px));
-    padding-inline-start: max(var(--space-2), env(titlebar-area-x, 0px));
-    padding-inline-end: calc(100% - env(titlebar-area-width, 100%) + var(--space-2));
-  }
-  .topbar-actions {
-    gap: var(--space-1);
-  }
-  .brand {
-    display: none;
-  }
-  .version {
-    display: none;
-  }
-}
-@media (max-width: 360px) {
-  .topbar-actions :global(.cl-status) {
-    display: none;
-  }
 }
 /* PlotterView's root is the chart host; place it explicitly like every other shell child, so
    auto-placement can never drift it into the dock column. */
 .binnacle-shell > :global(.chart-host) {
-  grid-row: 2;
+  grid-row: 1;
   grid-column: 1;
 }
 .binnacle-shell > :global(.instruments) {
-  grid-row: 2;
+  grid-row: 1;
   grid-column: 2;
   display: flex;
   flex-direction: column;
@@ -3336,7 +3241,8 @@ const plotterActions = {
 }
 /* The strip's root lives inside the StatusStrip component, so the span reaches it with :global. */
 .statusbar-slot {
-  grid-row: 3;
+  position: relative;
+  grid-row: 2;
   grid-column: 1 / -1;
   min-block-size: 0;
 }

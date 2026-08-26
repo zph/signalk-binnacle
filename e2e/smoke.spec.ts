@@ -58,7 +58,7 @@ async function mockChartLocker(page: Page, regions: unknown[] = []): Promise<voi
 
 test('app shell renders the brand and a connection status', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
+  await expect(page.getByRole('button', { name: 'About Binnacle Custom' })).toBeVisible();
   await expect(page.locator('.status-strip .conn')).toHaveAttribute(
     'title',
     /Connecting|Connected|Reconnecting|Not connected/,
@@ -83,7 +83,7 @@ test('app shell stays usable and explains when WebGL2 is unavailable', async ({ 
 
   await page.goto('/');
   await expect(page.locator('.chart-start-error')).toContainText('WebGL2');
-  await expect(page.locator('.brand')).toContainText('Binnacle Custom');
+  await expect(page.getByRole('button', { name: 'About Binnacle Custom' })).toBeVisible();
   await expect(page.getByText('SOG')).toBeVisible();
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   await expect(page.locator('#app-menu-launcher')).toBeVisible();
@@ -327,8 +327,8 @@ test('menu prioritizes safety and customizes toolbar order without shifting bloc
   await menu.getByRole('button', { name: 'Customize toolbar' }).click();
   await menu.getByRole('button', { name: 'Reset toolbar' }).click();
   await menu.getByRole('button', { name: 'Reset', exact: true }).click();
-  // The default set is Menu, Center, Follow, and AIS; moving Follow up swaps it with Center.
-  await menu.getByRole('button', { name: /Move Follow boat, position 3 of 4/ }).press('ArrowUp');
+  // Menu is fixed first. Moving Follow up swaps it with Center in the customizable set.
+  await menu.getByRole('button', { name: /Move Follow boat, position 2 of 3/ }).press('ArrowUp');
 
   await expect
     .poll(async () =>
@@ -336,7 +336,7 @@ test('menu prioritizes safety and customizes toolbar order without shifting bloc
         .locator('footer .strip-center > button')
         .evaluateAll((buttons) => buttons.map((button) => button.textContent?.trim())),
     )
-    .toEqual(['Menu', 'Follow', 'Center', 'AIS']);
+    .toEqual(['Follow', 'Center', 'AIS']);
 
   await menu.getByRole('button', { name: 'Done' }).click();
   const chartBefore = await menu.getByRole('group', { name: 'Chart' }).boundingBox();
@@ -691,9 +691,6 @@ test('offline area review shows a planning estimate and catalog chart defaults',
   await mockChartLocker(page);
 
   await page.goto('/');
-  await expect(page.getByTitle('Offline charts: online, cache 0 B')).toBeVisible({
-    timeout: 10_000,
-  });
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   const offline = page.locator('#app-menu-launcher').getByRole('button', {
     name: 'Offline charts',
@@ -748,10 +745,13 @@ test('offline areas explain removed chart sources before re-download', async ({ 
   ]);
 
   await page.goto('/');
-  await expect(page.getByTitle('Offline charts: online, cache 0 B')).toBeVisible({
-    timeout: 10_000,
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  const offline = page.locator('#app-menu-launcher').getByRole('button', {
+    name: 'Offline charts',
+    exact: true,
   });
-  await openMenuItem(page, 'Offline charts');
+  await expect(offline).toBeEnabled({ timeout: 10_000 });
+  await offline.click();
 
   const panel = page.locator('aside.slide-over');
   await expect(

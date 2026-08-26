@@ -50,6 +50,7 @@ let {
   onReconnect,
   onOpenHelp = undefined,
   onOpenAnchor = undefined,
+  leadingActions = undefined,
   fixedActions = undefined,
 }: {
   connectionLabel: string;
@@ -91,6 +92,8 @@ let {
   onOpenHelp?: () => void;
   // Opens the Anchor watch panel: overnight the chip is the monitoring surface, so it is a door.
   onOpenAnchor?: () => void;
+  // The fixed menu trigger leads the lower toolbar before customizable actions.
+  leadingActions?: Snippet;
   // App-shell actions that stay in the thumb-reachable row without joining toolbar customization.
   fixedActions?: Snippet;
 } = $props();
@@ -357,6 +360,9 @@ const depthWatchPaused = $derived(
   </div>
   <TransientNote message={chipNote.message} noteClass="chip-note" />
   <div class="strip-actions">
+    {#if leadingActions}
+      {@render leadingActions()}
+    {/if}
     <PinnedActions actions={pinnedActions} />
     {#if fixedActions}
       {@render fixedActions()}
@@ -434,6 +440,7 @@ const depthWatchPaused = $derived(
 }
 .strip-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);

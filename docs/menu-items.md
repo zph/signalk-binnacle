@@ -283,7 +283,7 @@ source, and surrounding traffic before relying on it.
   the default sync
   through the authenticated Signal K account. A remote change to the active profile is offered for
   explicit application or rejection so the chart does not change underneath the navigator; the
-  prompt names the setting categories that differ, and the profile switcher in the top bar carries
+  prompt names the setting categories that differ, and the profile switcher in the bottom toolbar carries
   an update indicator so the offer is discoverable without opening the panel. The
   browser persists the last-applied setup separately, so an unresolved update survives reload.
   Imports are
@@ -311,14 +311,13 @@ source, and surrounding traffic before relying on it.
 
 ## Toolbar and status strip
 
-- The bottom toolbar carries pinned actions, chosen by tapping tiles while customizing, followed by
-  fixed Instruments and Man overboard controls. Instruments toggles the dock open or closed and shows
-  its current state. The MOB key requires confirmation before it marks the position and raises the
-  alarm. Neither fixed control is customizable. The default pinned set is Menu, Center, Follow, and AIS: the Menu
-  opener sits in the bar because on a phone the top-bar hamburger is a cross-screen reach, and AIS
-  keeps one Safety action thumb-reachable with its live collision-risk count. Pinning Menu hides the
-  top-bar hamburger, so exactly one control named Menu exists at a time. Menu renders as a launcher
-  tile only while customizing, since tapping a tile is the pin control.
+- The bottom toolbar starts with the fixed Menu opener, carries customizable pinned actions, and ends
+  with fixed profile, theme, app information, Instruments, and Man overboard controls. Instruments
+  toggles the dock open or closed and shows its current state. The MOB key requires confirmation
+  before it marks the position and raises the alarm. Fixed controls are not customizable. The default
+  pinned set is Center, Follow, and AIS, keeping one Safety action thumb-reachable with its live
+  collision-risk count. Menu renders as a launcher tile only while customizing, where its fixed
+  placement is explicit.
 - Degraded status-strip chips explain themselves on touch: tapping the connection dot, the AIS
   chip, the depth chip, a radar-trouble chip, or either alarm-audio chip shows its explanation as a
   transient note above the strip. Waiting for GPS carries a Help action, and the anchor chip opens

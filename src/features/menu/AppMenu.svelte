@@ -20,8 +20,7 @@ import ToolbarEditor from './ToolbarEditor.svelte';
 interface Props {
   items?: MenuItem[];
   label?: string;
-  // Whether to render the topbar trigger. False once the Menu action is pinned to the bottom bar,
-  // so exactly one control named Menu exists at a time and the sheet still renders here.
+  // Whether to render the trigger. A caller can omit it when another control owns the open state.
   showTrigger?: boolean;
   // The open state is controlled by the parent, so a panel's "back to menu" action can reopen the
   // menu after it closed on selection. The menu renders the current state and requests transitions.
@@ -235,21 +234,20 @@ function onCardFocusOut(event: FocusEvent): void {
 </AnchoredMenu>
 
 <style>
-/* Position the surface absolute under the hamburger, anchored to the inline-start of
-   .topbar-start (which carries position: relative). The surface grows from the top-left corner. */
+/* Position the launcher above its bottom-toolbar trigger. The caller supplies the positioned
+   anchor wrapper, while short and narrow displays switch to the full-width bottom sheet below. */
 :global(.launcher) {
   position: absolute;
-  inset-block-start: 100%;
+  inset-block-end: 100%;
   inset-inline-start: 0;
-  margin-block-start: var(--space-1);
+  margin-block-end: var(--space-1);
   z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   inline-size: min(22rem, calc(100dvw - 2 * var(--space-2)));
-  /* Fill the space below the topbar so the grouped grid fits without a scrollbar on a normal screen;
-     the topbar is one --control-size tall, and --space-6 leaves a small margin above and below. A
-     short helm display still caps here and scrolls. */
+  /* Leave one control row and a small margin outside the launcher. A short helm display still caps
+     here and scrolls. */
   max-block-size: calc(100 * var(--dvh) - var(--control-size) - var(--space-6));
   padding: var(--space-3);
   /* The surface, border, radius, and shadow come from the shared .surface-elevated frame. */
@@ -290,7 +288,7 @@ function onCardFocusOut(event: FocusEvent): void {
     inset-block-start: auto;
     inset-block-end: 0;
     inset-inline-start: 0;
-    margin-block-start: 0;
+    margin-block-end: 0;
     transform-origin: bottom center;
     inline-size: 100dvw;
     max-inline-size: none;
