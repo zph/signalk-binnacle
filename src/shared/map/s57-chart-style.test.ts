@@ -1,9 +1,9 @@
+import { createExpression } from '@maplibre/maplibre-gl-style-spec';
 import type {
   FilterSpecification,
   LayerSpecification,
   SymbolLayerSpecification,
 } from 'maplibre-gl';
-import { createExpression } from '@maplibre/maplibre-gl-style-spec';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_S57_SAFETY_DEPTH_METERS,
