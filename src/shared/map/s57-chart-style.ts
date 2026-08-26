@@ -19,6 +19,7 @@ export type S57ThemeColorKey =
   | 'coastline'
   | 'contour'
   | 'danger'
+  | 'dangerHalo'
   | 'depthDeep'
   | 'depthSafe'
   | 'depthShallow'
@@ -54,6 +55,7 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     coastline: '#3d4b50',
     contour: '#567a89',
     danger: '#c7271e',
+    dangerHalo: '#17242c',
     depthDeep: '#ecf5f7',
     depthSafe: '#c7e3ed',
     depthShallow: '#9bcddd',
@@ -73,6 +75,7 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     coastline: '#9ba5a5',
     contour: '#637a80',
     danger: '#e0703a',
+    dangerHalo: '#080d10',
     depthDeep: '#17242a',
     depthSafe: '#17313b',
     depthShallow: '#194451',
@@ -92,6 +95,7 @@ const THEME_COLORS: Record<Theme, Record<S57ThemeColorKey, string>> = {
     coastline: '#7a2500',
     contour: '#5a1800',
     danger: '#ff6e00',
+    dangerHalo: '#080100',
     depthDeep: '#080100',
     depthSafe: '#120300',
     depthShallow: '#220600',
@@ -294,6 +298,7 @@ function labelLayer(
   text: string | ExpressionSpecification,
   filter?: FilterSpecification,
   minzoom = 12,
+  haloColor: S57ThemeColorKey = 'depthDeep',
 ): SymbolLayerSpecification {
   return {
     id: `${sourceId}-${sourceLayer.toLowerCase()}-${suffix}`,
@@ -311,10 +316,10 @@ function labelLayer(
     },
     paint: {
       'text-color': s57ThemeColor('day', color),
-      'text-halo-color': s57ThemeColor('day', 'depthDeep'),
+      'text-halo-color': s57ThemeColor('day', haloColor),
       'text-halo-width': 1,
     },
-    metadata: metadata({ 'text-color': color, 'text-halo-color': 'depthDeep' }),
+    metadata: metadata({ 'text-color': color, 'text-halo-color': haloColor }),
   };
 }
 
@@ -621,6 +626,7 @@ export function s57ChartLayers(
         depthLabel(depthUnit),
         ['all', ['any', ['has', 'DEPTH'], ['has', 'VALSOU']], ['<', sounding, safetyDepth]],
         12,
+        'dangerHalo',
       ),
     );
   }

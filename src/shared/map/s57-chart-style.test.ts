@@ -146,6 +146,20 @@ describe('s57ChartLayers', () => {
     expect(fathoms.filter).toEqual(meters.filter);
   });
 
+  it('outlines shallow sounding warnings with a dark neutral halo', () => {
+    const shallow = layer(s57ChartLayers(SOURCE_ID, ['SOUNDG']), 'soundg-shallow');
+
+    expect(themePaint(shallow)).toMatchObject({
+      'text-color': 'danger',
+      'text-halo-color': 'dangerHalo',
+    });
+    expect(shallow.paint).toMatchObject({
+      'text-color': s57ThemeColor('day', 'danger'),
+      'text-halo-color': s57ThemeColor('day', 'dangerHalo'),
+    });
+    expect(s57ThemeColor('night-red', 'dangerHalo')).toBe('#080100');
+  });
+
   it('falls back to the default safety depth for invalid values', () => {
     const negative = s57ChartLayers(SOURCE_ID, ['DEPCNT'], { safetyDepth: -1 });
     const nonfinite = s57ChartLayers(SOURCE_ID, ['DEPCNT'], { safetyDepth: Number.NaN });
