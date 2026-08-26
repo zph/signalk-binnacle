@@ -4,7 +4,7 @@ import ChartContextMenu from './ChartContextMenu.svelte';
 
 const mounted: Array<() => void> = [];
 
-function mountMenu(): HTMLDivElement {
+function mountMenu(onFullScreen?: () => void): HTMLDivElement {
   const target = document.createElement('div');
   document.body.append(target);
   let component!: ReturnType<typeof mount>;
@@ -18,6 +18,7 @@ function mountMenu(): HTMLDivElement {
         height: 600,
         onGoToHere: vi.fn(),
         onStartRoute: vi.fn(),
+        onFullScreen,
         onClose: vi.fn(),
       },
     });
@@ -84,5 +85,16 @@ describe('ChartContextMenu go-to confirmation', () => {
     const first = button(target, 'Go to here');
     expect(document.activeElement).toBe(first);
     expect(pressTab(first).defaultPrevented).toBe(false);
+  });
+});
+
+describe('ChartContextMenu full screen', () => {
+  it('forwards the full-screen action', () => {
+    const onFullScreen = vi.fn();
+    const target = mountMenu(onFullScreen);
+
+    button(target, 'Full screen').click();
+
+    expect(onFullScreen).toHaveBeenCalledOnce();
   });
 });

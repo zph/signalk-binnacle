@@ -1,5 +1,6 @@
 <script lang="ts">
 import MapPin from '@lucide/svelte/icons/map-pin';
+import Maximize from '@lucide/svelte/icons/maximize';
 import Navigation from '@lucide/svelte/icons/navigation';
 import NotebookPen from '@lucide/svelte/icons/notebook-pen';
 import Route from '@lucide/svelte/icons/route';
@@ -25,6 +26,9 @@ interface Props {
   // Optional: arms the measure tool with its first point at the pressed position, so measuring
   // starts where the navigator is looking instead of via the app menu.
   onMeasureFrom?: () => void;
+  // Requests browser fullscreen for the chart surface. Absent when the platform does not expose
+  // the Fullscreen API, in which case the consistently positioned row remains disabled.
+  onFullScreen?: () => void;
   onClose: () => void;
 }
 
@@ -38,6 +42,7 @@ const {
   onDropWaypoint,
   onAddNote,
   onMeasureFrom,
+  onFullScreen,
   onClose,
 }: Props = $props();
 
@@ -69,7 +74,7 @@ const left = $derived(
 // Prefer above the press so a finger does not cover the menu; drop below near the top edge.
 let confirmingGoTo = $state(false);
 const itemCount = $derived(
-  confirmingGoTo ? 3 : 2 + (onDropWaypoint ? 1 : 0) + (onAddNote ? 1 : 0) + (onMeasureFrom ? 1 : 0),
+  confirmingGoTo ? 3 : 3 + (onDropWaypoint ? 1 : 0) + (onAddNote ? 1 : 0) + (onMeasureFrom ? 1 : 0),
 );
 const menuHeight = $derived(itemCount * ITEM_HEIGHT + MENU_PADDING);
 const above = $derived(y > menuHeight + EDGE * 2 || y > height / 2);
@@ -132,6 +137,16 @@ const top = $derived(above ? y - EDGE : y + EDGE);
           Measure from here
         </button>
       {/if}
+      <button
+        type="button"
+        role="menuitem"
+        class="menu-item item"
+        disabled={!onFullScreen}
+        onclick={onFullScreen}
+      >
+        <Maximize size={16} aria-hidden="true" />
+        Full screen
+      </button>
     </div>
   {/if}
 </AnchoredMenu>

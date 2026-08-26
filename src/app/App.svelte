@@ -26,6 +26,7 @@ import VolumeX from '@lucide/svelte/icons/volume-x';
 import Waves from '@lucide/svelte/icons/waves';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { onDestroy, onMount, untrack } from 'svelte';
+import { slide } from 'svelte/transition';
 import { AisTargets } from '$entities/ais';
 import { AnchorWatch } from '$entities/anchor';
 import { CollisionAssessment } from '$entities/collision';
@@ -163,6 +164,7 @@ import {
   HeldFlag,
   hasControlCharacters,
   isRecord,
+  prefersReducedMotion,
   Toast,
 } from '$shared/lib';
 import type { CompanionProbeResult, LayerSettings } from '$shared/map';
@@ -221,6 +223,7 @@ import {
   dialog,
   ErrorBoundary,
   LazyPanelState,
+  PANEL_TRANSITION_MS,
   PanelHeader,
   type PanelId,
   type Theme,
@@ -234,6 +237,7 @@ import { createFollowController } from './follow-controller.svelte';
 import { collectHandoffFacts } from './handoff-facts';
 import LiveRegions from './LiveRegions.svelte';
 import { createNotificationsController } from './notifications-controller.svelte';
+import ShellBarTabs from './ShellBarTabs.svelte';
 import StatusStrip from './StatusStrip.svelte';
 import { createSafetyAnnunciator } from './safety-annunciator.svelte';
 import { createStreamController } from './stream-controller.svelte';
@@ -511,6 +515,10 @@ let layersOpenRequest = $state<{ mode: 'charts' | 'overlays' }>({ mode: 'charts'
 // the menu after it closed on selection.
 let menuOpen = $state(false);
 let menuEditing = $state(false);
+// Helm chrome can be independently tucked away without entering browser fullscreen. The edge tabs
+// remain fixed over the chart, so each bar always has an obvious route back.
+let topBarVisible = $state(true);
+let bottomBarVisible = $state(true);
 // Closing a panel drops everything that panel put on the chart or armed inside it, so nothing it
 // owned outlives it: a dismissed confirm cannot come back armed, and a hover ring cannot strand on
 // the chart with no panel to clear it.
@@ -2752,66 +2760,73 @@ const plotterActions = {
     mute={muteAlert}
     companion={companionAnnounce}
   />
-  <header class="topbar">
-    <span class="topbar-start">
-      <AppMenu
-        items={menuItems}
-        showTrigger={!pinnedActions.value.includes('menu')}
-        open={menuOpen}
-        onOpenChange={(next) => (menuOpen = next)}
-        pinnedIds={pinnedActions.value}
-        editing={menuEditing}
-        onEditingChange={(next) => (menuEditing = next)}
-        {onTogglePin}
-        {onReorderPinned}
-        {onResetPinned}
-      />
-      <span class="brand">Binnacle Custom <span class="version">v{__APP_VERSION__}</span></span>
-    </span>
-    <span class="topbar-actions">
-      {#if collisionMute.active}
-        <button
-          type="button"
-          class="btn btn-warning btn-pill"
-          aria-pressed="true"
-          aria-label="Collision alarm muted, {muteRemainingMin} minutes left, tap to unmute"
-          title="Collision alarm muted, {muteRemainingMin} min left, tap to unmute"
-          onclick={() => collisionMute.unmute()}
-        >
-          <VolumeX size={16} aria-hidden="true" />
-          Muted {muteRemainingMin}min
-        </button>
-      {/if}
-      {#if updateReady}
-        <button
-          type="button"
-          class="btn btn-primary btn-pill"
-          onclick={() => {
+  <div class="topbar-slot" id="top-toolbar">
+    {#if topBarVisible}
+      <header
+        class="topbar"
+        transition:slide={{ duration: prefersReducedMotion() ? 0 : PANEL_TRANSITION_MS }}
+      >
+        <span class="topbar-start">
+          <AppMenu
+            items={menuItems}
+            showTrigger={!pinnedActions.value.includes('menu')}
+            open={menuOpen}
+            onOpenChange={(next) => (menuOpen = next)}
+            pinnedIds={pinnedActions.value}
+            editing={menuEditing}
+            onEditingChange={(next) => (menuEditing = next)}
+            {onTogglePin}
+            {onReorderPinned}
+            {onResetPinned}
+          />
+          <span class="brand">Binnacle Custom <span class="version">v{__APP_VERSION__}</span></span>
+        </span>
+        <span class="topbar-actions">
+          {#if collisionMute.active}
+            <button
+              type="button"
+              class="btn btn-warning btn-pill"
+              aria-pressed="true"
+              aria-label="Collision alarm muted, {muteRemainingMin} minutes left, tap to unmute"
+              title="Collision alarm muted, {muteRemainingMin} min left, tap to unmute"
+              onclick={() => collisionMute.unmute()}
+            >
+              <VolumeX size={16} aria-hidden="true" />
+              Muted {muteRemainingMin}min
+            </button>
+          {/if}
+          {#if updateReady}
+            <button
+              type="button"
+              class="btn btn-primary btn-pill"
+              onclick={() => {
             updateReady = false;
             pwa.update();
           }}
-        >
-          Update
-        </button>
-      {/if}
-      <ChartLockerStatus
-        present={companionStatus.present}
-        state={companionStatus.state}
-        cacheBytes={companionStatus.cacheBytes}
-        accessUrl={chartLockerAccessUrl}
-        onOpen={() => openPanel('regions')}
-        onRetry={() => void companionStatus.refresh()}
-      />
-      <ProfileSwitcher
-        active={profileStore.active}
-        profiles={profileStore.profiles}
-        hasUpdate={profileStore.remoteUpdateAvailable}
-        onSelect={onApplyProfile}
-        onManage={() => openPanel('profiles')}
-      />
-      <ThemeToggle controller={theme} />
-    </span>
-  </header>
+            >
+              Update
+            </button>
+          {/if}
+          <ChartLockerStatus
+            present={companionStatus.present}
+            state={companionStatus.state}
+            cacheBytes={companionStatus.cacheBytes}
+            accessUrl={chartLockerAccessUrl}
+            onOpen={() => openPanel('regions')}
+            onRetry={() => void companionStatus.refresh()}
+          />
+          <ProfileSwitcher
+            active={profileStore.active}
+            profiles={profileStore.profiles}
+            hasUpdate={profileStore.remoteUpdateAvailable}
+            onSelect={onApplyProfile}
+            onManage={() => openPanel('profiles')}
+          />
+          <ThemeToggle controller={theme} />
+        </span>
+      </header>
+    {/if}
+  </div>
   <PlotterView
     services={plotterServices}
     controllers={plotterControllers}
@@ -3042,41 +3057,53 @@ const plotterActions = {
     />
   {/snippet}
 
-  <StatusStrip
-    {connectionLabel}
-    {connectionTitle}
-    {streamError}
-    {dataStalled}
-    online={net.online}
-    {fixStale}
-    gpsNeverReceived={gpsNeverReceived.held}
-    connectionPhase={store.connection.phase}
-    {aisCount}
-    aisUnassessed={collision.assessment.unassessed.length}
-    navigating={courseGuidance.active}
-    {anchor}
-    {units}
-    {vessel}
-    shallowAlarming={shallowController.alarming}
-    shallowState={shallowController.monitorState}
-    {radarHealth}
-    orientation={chartOrientation.value !== 'north'
-      ? { label: orientation.label, active: orientation.active }
-      : undefined}
-    onResetOrientation={() => chartOrientation.set('north')}
-    pinnedActions={resolvedPinned}
-    fixedActions={statusStripFixedActions}
-    editing={menuEditing}
-    {clock}
-    onOpenHelp={() => openPanel('help')}
-    onOpenAnchor={() => openPanel('anchor')}
-    onReconnect={() => {
-      // On a fixed helm display no focus or visibility event ever re-probes an exhausted auth
-      // poll, so the one visible retry action must also revalidate access, or it silently no-ops
-      // while status is stuck at unknown and the stream controller refuses to connect.
-      auth.recheck();
-      streamController.reconnect();
-    }}
+  <div class="statusbar-slot" id="bottom-toolbar">
+    {#if bottomBarVisible}
+      <div transition:slide={{ duration: prefersReducedMotion() ? 0 : PANEL_TRANSITION_MS }}>
+        <StatusStrip
+          {connectionLabel}
+          {connectionTitle}
+          {streamError}
+          {dataStalled}
+          online={net.online}
+          {fixStale}
+          gpsNeverReceived={gpsNeverReceived.held}
+          connectionPhase={store.connection.phase}
+          {aisCount}
+          aisUnassessed={collision.assessment.unassessed.length}
+          navigating={courseGuidance.active}
+          {anchor}
+          {units}
+          {vessel}
+          shallowAlarming={shallowController.alarming}
+          shallowState={shallowController.monitorState}
+          {radarHealth}
+          orientation={chartOrientation.value !== 'north'
+            ? { label: orientation.label, active: orientation.active }
+            : undefined}
+          onResetOrientation={() => chartOrientation.set('north')}
+          pinnedActions={resolvedPinned}
+          fixedActions={statusStripFixedActions}
+          editing={menuEditing}
+          {clock}
+          onOpenHelp={() => openPanel('help')}
+          onOpenAnchor={() => openPanel('anchor')}
+          onReconnect={() => {
+            // On a fixed helm display no focus or visibility event ever re-probes an exhausted auth
+            // poll, so the one visible retry action must also revalidate access, or it silently no-ops
+            // while status is stuck at unknown and the stream controller refuses to connect.
+            auth.recheck();
+            streamController.reconnect();
+          }}
+        />
+      </div>
+    {/if}
+  </div>
+  <ShellBarTabs
+    {topBarVisible}
+    {bottomBarVisible}
+    onToggleTop={() => (topBarVisible = !topBarVisible)}
+    onToggleBottom={() => (bottomBarVisible = !bottomBarVisible)}
   />
 </main>
 
@@ -3200,9 +3227,12 @@ const plotterActions = {
 /* The brand and menu stay at the start, while status controls sit at the end. The dedicated MOB
    key lives in the bottom action row. Includes Window Controls Overlay (WCO) support to merge
    seamlessly into native PWA desktop title bars. */
-.topbar {
+.topbar-slot {
   grid-row: 1;
   grid-column: 1 / -1;
+  min-block-size: 0;
+}
+.topbar {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -3305,8 +3335,9 @@ const plotterActions = {
   }
 }
 /* The strip's root lives inside the StatusStrip component, so the span reaches it with :global. */
-.binnacle-shell :global(.status-strip) {
+.statusbar-slot {
   grid-row: 3;
   grid-column: 1 / -1;
+  min-block-size: 0;
 }
 </style>

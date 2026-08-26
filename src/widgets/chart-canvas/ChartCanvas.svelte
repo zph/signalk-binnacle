@@ -46,17 +46,13 @@ import type { LatLon } from '$shared/geo';
 import { createRetryableLazyUiLoader, lengthUnit } from '$shared/lib';
 import {
   activeLayerHitCursor,
-  type ChartViewStatusKind,
   CONTEXT_MENU_KEYSHORTCUTS,
   chartSourceId,
-  chartViewCharts,
-  chartViewStatus,
   createBaseMapOverlay,
   createChartOverlay,
   createMapTapRecognizer,
   createThemedMap,
   detectCompanion,
-  type LayerManager,
   type LayerSettings,
   type MapTapEvent,
   proxiedSources,
@@ -76,7 +72,6 @@ import { buildBathymetryOverlays } from './build-bathymetry-overlays';
 import { buildMapCommands } from './build-commands';
 import { buildDynamicOverlays } from './build-overlays';
 import ChartContextMenu from './ChartContextMenu.svelte';
-import ChartStatusBadge from './ChartStatusBadge.svelte';
 import type { MapCommands, UserChartRegistrar } from './commands';
 import { CRITICAL_OVERLAY_IDS } from './critical-overlays';
 import VesselOffScreenIndicator from './VesselOffScreenIndicator.svelte';
@@ -147,8 +142,6 @@ interface Props {
   onUserChartsReady?: (registrar: UserChartRegistrar) => void;
   onServerChartsReady?: (retry: () => void) => void;
   onServerChartsStatus?: (status: 'loading' | 'ready' | 'partial' | 'error') => void;
-  // Opens Layers and charts in chart mode: the ambient chart-trust badge's recovery route.
-  onOpenChartLayers?: () => void;
   // Critical navigation overlays failed to mount. The host surfaces this instead of leaving a
   // navigator with an apparently healthy chart that is missing the vessel or a safety mark.
   onCriticalOverlayError?: (overlayIds: string[]) => void;
@@ -236,7 +229,6 @@ const {
   onUserChartsReady,
   onServerChartsReady,
   onServerChartsStatus,
-  onOpenChartLayers,
   onCriticalOverlayError,
   onViewChange,
   onNoteSelect,
@@ -268,32 +260,10 @@ let mapHandle: ThemedMapHandle | undefined;
 // cannot-start notice (WebGL2, style failure) replaces it on the failure paths.
 let chartBooting = $state(true);
 
-// The ambient chart-trust inputs: the offline-fallback base flag, the chart endpoint state, the
-// view, and a counter bumped whenever the layer set or visibility changes so the badge recomputes
-// from the manager's non-reactive snapshot.
-let baseStyleFallback = $state(false);
-let chartsLoadStateLocal = $state<'loading' | 'ready' | 'partial' | 'error'>('loading');
-
-// One emitter for the server-chart load state, so the upward callback, the local badge input, and
-// the layer-set revision can never disagree.
+// One emitter keeps all server-chart load paths consistent for the host status surface.
 function emitChartsStatus(status: 'loading' | 'ready' | 'partial' | 'error'): void {
-  chartsLoadStateLocal = status;
-  layersRevision += 1;
   onServerChartsStatus?.(status);
 }
-let viewSnapshot = $state<{ center: LatLon; zoom: number } | undefined>();
-let layersRevision = $state(0);
-let managerRef = $state<LayerManager | undefined>();
-const chartStatus = $derived.by<ChartViewStatusKind>(() => {
-  void layersRevision;
-  return chartViewStatus({
-    baseStyleFallback,
-    chartsLoadState: chartsLoadStateLocal,
-    charts: chartViewCharts(managerRef?.layers() ?? []),
-    center: viewSnapshot?.center,
-    zoom: viewSnapshot?.zoom,
-  });
-});
 // onMount now awaits companion detection before building the map; this guards against the component
 // unmounting during that await, which would otherwise build a map onDestroy never tears down.
 let destroyed = false;
@@ -321,6 +291,24 @@ let editGeneration = 0;
 // Captured from onLoad so the units effect below can reach
 // map.setGlobalStateProperty once the map exists. $state so the effect re-runs once it is assigned.
 let mapRef = $state<MapLibreMap | undefined>();
+
+function enterFullScreen(): void {
+  chartMenu = undefined;
+  const request = (
+    container as HTMLDivElement & {
+      requestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+    }
+  ).requestFullscreen;
+  if (!request || document.fullscreenElement === container) return;
+  void request.call(container, { navigationUI: 'hide' }).catch(() => {
+    // Fullscreen can be refused by browser or device policy. The chart stays in its normal layout,
+    // so there is no partial UI state to unwind.
+  });
+}
+
+function resizeAfterFullScreenChange(): void {
+  requestAnimationFrame(() => mapRef?.resize());
+}
 // Available as soon as MapLibre creates its canvas. Chart tools can be armed before the base style
 // loads, so their cursor must not depend on the later onLoad callback that initializes overlays.
 let cursorMapRef = $state<MapLibreMap | undefined>();
@@ -405,6 +393,7 @@ $effect(() => {
 });
 
 onMount(async () => {
+  document.addEventListener('fullscreenchange', resizeAfterFullScreenChange);
   try {
     showContextHint =
       window.matchMedia('(pointer: coarse)').matches &&
@@ -428,12 +417,7 @@ onMount(async () => {
     view: initialView,
     managerOptions: {
       saved: savedLayers,
-      onChange: (settings) => {
-        // The chart-trust badge recomputes from the manager's non-reactive snapshot on any
-        // visibility or registration change.
-        layersRevision += 1;
-        onLayersChange?.(settings);
-      },
+      onChange: (settings) => onLayersChange?.(settings),
       savedOrder,
       onOrderChange,
       // The own vessel, an active MOB mark, and active collision alarms stay pinned on top so a
@@ -441,13 +425,7 @@ onMount(async () => {
       // the vessel itself.
       pinned: [COLLISION_OVERLAY_ID, MOB_OVERLAY_ID, OWN_VESSEL_OVERLAY_ID],
     },
-    onView: (view) => {
-      viewSnapshot = { center: { latitude: view.lat, longitude: view.lon }, zoom: view.zoom };
-      onViewChange?.(view);
-    },
-    onBaseStyleFallback: () => {
-      baseStyleFallback = true;
-    },
+    onView: (view) => onViewChange?.(view),
     onUserPan: () => onUserPan?.(),
     onContextMenu: (point) => {
       // No context menu at all while drawing or editing a route, or while the measure tool is armed
@@ -470,12 +448,6 @@ onMount(async () => {
       // Chart tools can be opened while optional overlays are still registering. Expose the loaded
       // map immediately so their cursor and keyboard feedback do not wait on unrelated providers.
       mapRef = map;
-      managerRef = mgr;
-      // Seed the chart-trust view before the first camera move reports through onView.
-      viewSnapshot = {
-        center: { latitude: map.getCenter().lat, longitude: map.getCenter().lng },
-        zoom: map.getZoom(),
-      };
       // Seed the unit global-state before registerAll below adds Seascape's vector layers, so their
       // global-state-driven filters and text-fields never evaluate against an unset value; the
       // units effect (mapRef-gated, further down) keeps it live after this initial seed.
@@ -923,6 +895,7 @@ onDestroy(() => {
   // layers in the right order (start -> stop, before map.remove()); the guard makes it a no-op when
   // editing never started. Then tear the map down.
   destroyed = true;
+  document.removeEventListener('fullscreenchange', resizeAfterFullScreenChange);
   measureOverlay?.cancelInteraction();
   measureOverlay = undefined;
   routeEditor?.stop();
@@ -950,7 +923,6 @@ onDestroy(() => {
       positionStale={vessel.positionStale}
       onCenter={() => commandsRef?.centerOnVessel()}
     />
-    <ChartStatusBadge status={chartStatus} onOpenLayers={() => onOpenChartLayers?.()} />
   {/if}
   {#if chartMenu}
     {@const menu = chartMenu}
@@ -985,6 +957,7 @@ onDestroy(() => {
             chartMenu = undefined;
           }
         : undefined}
+      onFullScreen={enterFullScreen}
       onClose={() => {
         chartMenu = undefined;
       }}
@@ -997,6 +970,12 @@ onDestroy(() => {
   position: relative;
   inline-size: 100%;
   block-size: 100%;
+}
+
+.chart-canvas:fullscreen {
+  inline-size: 100vw;
+  block-size: 100vh;
+  background: var(--surface);
 }
 
 /* Centered on the empty surface while the companion probe and map construction settle. */

@@ -841,7 +841,6 @@ $effect(() => {
     {onUserChartsReady}
     onServerChartsReady={(retry) => (retryServerCharts = retry)}
     onServerChartsStatus={(status) => (serverChartsStatus = status)}
-    onOpenChartLayers={() => openLayersPanel('charts')}
     onCriticalOverlayError={(ids) => {
       criticalOverlayError =
         ids.length === 0

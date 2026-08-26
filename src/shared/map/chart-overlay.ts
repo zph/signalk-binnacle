@@ -23,7 +23,7 @@ import type { ChartLayerInfo, OverlayFacet, OverlayModule, ZBand } from './types
 // How far past a raster or generic chart's native max zoom its layers keep drawing before they hand
 // off to the base map. S-57 ENC is deliberately exempt: MapLibre can overzoom its last vector tile
 // with crisp geometry, and hiding navigation features at close zoom is much worse than retaining
-// them with an explicit "Chart overzoomed" warning from chart-view-status.
+// them. Vector geometry remains crisp while MapLibre overzooms the final native tile.
 const CHART_OVERZOOM_BUDGET = 1;
 
 const OPACITY_PROPERTIES = {

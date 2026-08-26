@@ -18,4 +18,35 @@ describe('ChartContextMenu', () => {
     }).body;
     expect(body).toContain('Add note here');
   });
+
+  it('always exposes a consistently positioned full-screen action', () => {
+    const enabled = render(ChartContextMenu, {
+      props: {
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 400,
+        onGoToHere: vi.fn(),
+        onStartRoute: vi.fn(),
+        onFullScreen: vi.fn(),
+        onClose: vi.fn(),
+      },
+    }).body;
+    expect(enabled).toContain('Full screen');
+    expect(enabled).not.toContain('disabled');
+
+    const unsupported = render(ChartContextMenu, {
+      props: {
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 400,
+        onGoToHere: vi.fn(),
+        onStartRoute: vi.fn(),
+        onClose: vi.fn(),
+      },
+    }).body;
+    expect(unsupported).toContain('Full screen');
+    expect(unsupported).toContain('disabled');
+  });
 });
