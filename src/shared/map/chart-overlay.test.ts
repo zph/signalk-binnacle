@@ -301,9 +301,13 @@ describe('chart overlay', () => {
 
   it('reports a clicked S-57 depth cell and detaches its handlers on remove', async () => {
     const onFeatureSelect = vi.fn();
-    const overlay = createChartOverlay(s57Chart(), 'http://pi.local', 'basemap', undefined, {
-      onFeatureSelect,
-    });
+    const overlay = createChartOverlay(
+      { ...s57Chart(), featureInfo: 'bathymetry-cell' },
+      'http://pi.local',
+      'basemap',
+      undefined,
+      { onFeatureSelect },
+    );
     const map = createFakeMap();
     const ctx = fakeOverlayContext(map);
     await overlay.add(ctx);
@@ -338,6 +342,15 @@ describe('chart overlay', () => {
 
     overlay.remove(ctx);
     expect(map.handlerCount('click', layerId)).toBe(0);
+  });
+
+  it('does not make ordinary S-57 chart areas interactive without a provider contract', async () => {
+    const overlay = createChartOverlay(s57Chart(), 'http://pi.local', 'basemap', undefined, {
+      onFeatureSelect: vi.fn(),
+    });
+    const map = createFakeMap();
+    await overlay.add(fakeOverlayContext(map));
+    expect(map.handlerCount('click', 'chart-california-enc-depare-shallow')).toBe(0);
   });
 
   it('registers a PMTiles archive on add and unregisters it on remove', async () => {

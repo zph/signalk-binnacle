@@ -227,7 +227,10 @@ export function createChartOverlay(
     : [];
   let symbolGeneration = 0;
   const hitHandlers =
-    isS57 && options.onFeatureSelect && inspectableLayerIds.length > 0
+    isS57 &&
+    chart.featureInfo === 'bathymetry-cell' &&
+    options.onFeatureSelect &&
+    inspectableLayerIds.length > 0
       ? createLayerHitHandlers(
           inspectableLayerIds,
           (event: LayerHitEvent): boolean => {

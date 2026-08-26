@@ -167,6 +167,7 @@ describe('fetchCharts', () => {
             name: 'Interactive bathymetry cells',
             type: 'S-57',
             defaultVisible: false,
+            featureInfo: 'bathymetry-cell',
           },
           ordinary: { name: 'Ordinary chart', type: 'tilelayer', defaultVisible: 'false' },
         }),
@@ -179,6 +180,7 @@ describe('fetchCharts', () => {
         name: 'Interactive bathymetry cells',
         type: 'S-57',
         defaultVisible: false,
+        featureInfo: 'bathymetry-cell',
       },
       { identifier: 'ordinary', name: 'Ordinary chart', type: 'tilelayer' },
     ]);

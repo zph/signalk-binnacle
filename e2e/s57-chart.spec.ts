@@ -122,6 +122,7 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
           name: 'Fixture NOAA ENC',
           description: 'Synthetic California depth-area chart',
           type: 'S-57',
+          featureInfo: 'bathymetry-cell',
           format: 'pbf',
           chartLayers: ['DEPARE', 'DEPCNT', 'SOUNDG', 'LNDARE'],
           // The synthetic tile is a world-sized fixture so the test does not depend on a persisted

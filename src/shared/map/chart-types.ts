@@ -16,4 +16,5 @@ export interface SignalKChart {
   tilemapUrl?: string;
   layers?: string[];
   defaultVisible?: boolean;
+  featureInfo?: 'bathymetry-cell';
 }
