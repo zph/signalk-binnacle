@@ -483,7 +483,7 @@ describe('wind-true tile', () => {
 });
 
 describe('wind rose tile', () => {
-  it('combines apparent wind, true wind, speed over ground, and resolved depth', () => {
+  it('combines apparent wind, true wind, heading, speed over ground, and resolved depth', () => {
     const clock = { now: 1000 };
     const deps = makeDeps(clock, 'metric');
     deps.store.applyFrame(
@@ -493,6 +493,7 @@ describe('wind rose tile', () => {
           [SK_PATHS.windAngleApparent]: -0.5,
           [SK_PATHS.windSpeedTrue]: 4,
           [SK_PATHS.windAngleTrueWater]: 0.7,
+          [SK_PATHS.headingTrue]: 1.2,
           [SK_PATHS.speedOverGround]: 3,
           [SK_PATHS.depthBelowKeel]: 1.8,
         },
@@ -503,6 +504,8 @@ describe('wind rose tile', () => {
     expect(reading.state).toBe('live');
     expect(reading.windRose?.apparent.angleRad).toBeCloseTo(-0.5);
     expect(reading.windRose?.trueWind.angleRad).toBeCloseTo(0.7);
+    expect(reading.windRose?.heading.siValue).toBeCloseTo(1.2);
+    expect(reading.windRose?.heading.value).toBe('069°');
     expect(reading.windRose?.speedOverGround.siValue).toBe(3);
     expect(reading.windRose?.depth.value).toBe('1.8');
     expect(reading.windRose?.depth.referenceLabel).toBe('Keel');

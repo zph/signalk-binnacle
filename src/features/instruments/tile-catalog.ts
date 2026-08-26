@@ -62,6 +62,7 @@ export interface TileReading {
   windRose?: {
     apparent: InstrumentMetric;
     trueWind: InstrumentMetric;
+    heading: InstrumentMetric;
     speedOverGround: InstrumentMetric;
     depth: InstrumentMetric;
   };
@@ -600,6 +601,7 @@ const WIND_ROSE_DEF: TileDef = {
     ...new Set([
       ...WIND_APPARENT_DEF.paths,
       ...WIND_TRUE_DEF.paths,
+      ...HDG_DEF.paths,
       ...SOG_DEF.paths,
       ...DEPTH_DEF.paths,
     ]),
@@ -612,6 +614,7 @@ const WIND_ROSE_DEF: TileDef = {
   read(deps) {
     const apparent = WIND_APPARENT_DEF.read(deps);
     const trueWind = WIND_TRUE_DEF.read(deps);
+    const heading = HDG_DEF.read(deps);
     const speedOverGround = SOG_DEF.read(deps);
     const depth = DEPTH_DEF.read(deps);
     const windStates = [apparent.state, trueWind.state];
@@ -629,6 +632,7 @@ const WIND_ROSE_DEF: TileDef = {
       windRose: {
         apparent: instrumentMetric(apparent),
         trueWind: instrumentMetric(trueWind),
+        heading: instrumentMetric(heading),
         speedOverGround: instrumentMetric(speedOverGround),
         depth: instrumentMetric(depth),
       },

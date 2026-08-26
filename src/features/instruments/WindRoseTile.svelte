@@ -16,6 +16,24 @@ interface Props {
 
 const { label, reading, zone, depthZone, sensorGloss, staleAgeText, onOpen }: Props = $props();
 const rose = $derived(reading.windRose);
+const dialTicks = Array.from({ length: 36 }, (_, index) => ({
+  angle: index * 10,
+  major: index % 3 === 0,
+}));
+const dialLabels = [
+  { angle: 0, label: 'N' },
+  { angle: 30, label: '30' },
+  { angle: 60, label: '60' },
+  { angle: 90, label: 'E' },
+  { angle: 120, label: '120' },
+  { angle: 150, label: '150' },
+  { angle: 180, label: 'S' },
+  { angle: 210, label: '210' },
+  { angle: 240, label: '240' },
+  { angle: 270, label: 'W' },
+  { angle: 300, label: '300' },
+  { angle: 330, label: '330' },
+];
 
 function metricText(metric: InstrumentMetric | undefined, angle = false): string {
   if (!metric || metric.state === 'never') return 'Unavailable';
@@ -27,11 +45,13 @@ function metricText(metric: InstrumentMetric | undefined, angle = false): string
 
 const accessibleLabel = $derived(
   rose
-    ? `${label}. Apparent wind ${metricText(rose.apparent, true)}. True wind ${metricText(rose.trueWind, true)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. Open details`
+    ? `${label}. Heading ${metricText(rose.heading)}. Apparent wind ${metricText(rose.apparent, true)}. True wind ${metricText(rose.trueWind, true)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. Open details`
     : `${label}, ${sensorGloss}. Open details`,
 );
 const apparentDeg = $derived((rose?.apparent.angleRad ?? 0) * RAD_TO_DEG);
 const trueDeg = $derived((rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
+const headingDeg = $derived((rose?.heading.siValue ?? 0) * RAD_TO_DEG);
+const cardRotation = $derived(-headingDeg);
 </script>
 
 <button
@@ -45,47 +65,90 @@ const trueDeg = $derived((rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
   onclick={onOpen}
 >
   <div class="rose-layout">
-    <svg class="rose" viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle class="rose-ring" cx="100" cy="86" r="68" />
-      <path class="boat" d="M100 27 L91 104 L100 96 L109 104 Z" />
-      <g class="ticks">
-        <path d="M100 18 V29 M100 154 V143 M32 86 H43 M168 86 H157" />
-        <path d="M52 38 L60 46 M148 38 L140 46 M52 134 L60 126 M148 134 L140 126" />
-        <path d="M66 27 L70 35 M134 27 L130 35 M41 52 L49 56 M159 52 L151 56" />
-        <path d="M41 120 L49 116 M159 120 L151 116 M66 145 L70 137 M134 145 L130 137" />
-      </g>
-      <g class="rose-labels">
-        <text x="100" y="14">0</text>
-        <text x="153" y="36">45</text>
-        <text x="176" y="90">90</text>
-        <text x="151" y="145">135</text>
-        <text x="100" y="166">180</text>
-        <text x="49" y="145">135</text>
-        <text x="24" y="90">90</text>
-        <text x="47" y="36">45</text>
-      </g>
-      {#if rose?.trueWind.angleRad !== undefined}
-        <g transform="rotate({trueDeg} 100 86)">
-          <path class="true-needle" d="M100 27 V91" />
-          <circle class="true-tip" cx="100" cy="27" r="4" />
-        </g>
-      {/if}
-      {#if rose?.apparent.angleRad !== undefined}
-        <g transform="rotate({apparentDeg} 100 86)">
-          <path class="apparent-needle" d="M100 22 L94 34 H98 V92 H102 V34 H106 Z" />
-        </g>
-      {/if}
-      <circle class="hub" cx="100" cy="86" r="4" />
-      <text class="side side--port" x="39" y="104">P</text>
-      <text class="side side--starboard" x="161" y="104">S</text>
-    </svg>
+    <svg class="rose" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle class="fixed-dial" cx="500" cy="500" r="444" />
+      <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
+      <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
 
-    <div class="wind-readouts" aria-hidden="true">
-      <span><b>AWS</b> {rose?.apparent.value ?? '---'} {rose?.apparent.unit ?? ''}</span>
-      <span><b>AWA</b> {formatSignedAngleOr(rose?.apparent.angleRad)}</span>
-      <span><b>TWS</b> {rose?.trueWind.value ?? '---'} {rose?.trueWind.unit ?? ''}</span>
-      <span><b>TWA</b> {formatSignedAngleOr(rose?.trueWind.angleRad)}</span>
-    </div>
+      <g class="compass-card" transform="rotate({cardRotation} 500 500)">
+        <circle class="card-backplate" cx="500" cy="500" r="354" />
+        {#each dialTicks as tick (tick.angle)}
+          <line
+            class:major-tick={tick.major}
+            class="dial-tick"
+            x1="500"
+            y1={tick.major ? 61 : 69}
+            x2="500"
+            y2={tick.major ? 99 : 89}
+            transform="rotate({tick.angle} 500 500)"
+          />
+        {/each}
+        {#each dialLabels as item (item.angle)}
+          <g transform="rotate({item.angle} 500 500)">
+            <text
+              class:cardinal={item.label.length === 1}
+              class="dial-label"
+              x="500"
+              y="158"
+              transform="rotate({-item.angle} 500 158)"
+            >
+              {item.label}
+            </text>
+          </g>
+        {/each}
+      </g>
+
+      <g class="crosshair">
+        <path d="M500 166 V360 M500 640 V834" />
+        <path d="M166 500 H360 M640 500 H834" />
+      </g>
+      <path
+        class="boat-outline"
+        d="M500 260 C430 342 397 512 410 720 M500 260 C570 342 603 512 590 720"
+      />
+
+      {#if rose?.apparent.angleRad !== undefined}
+        <g class="wind-pointer wind-pointer--apparent" transform="rotate({apparentDeg} 500 500)">
+          <path class="apparent-pointer" d="M447 67 L500 24 L553 67 L512 294 Q500 326 488 294 Z" />
+          <text class="pointer-label" x="500" y="113">A</text>
+        </g>
+      {/if}
+      {#if rose?.trueWind.angleRad !== undefined}
+        <g class="wind-pointer wind-pointer--true" transform="rotate({trueDeg} 500 500)">
+          <path class="true-pointer" d="M462 75 L500 42 L538 75 L508 260 Q500 284 492 260 Z" />
+          <text class="pointer-label" x="500" y="113">T</text>
+        </g>
+      {/if}
+
+      <g class="wind-counter wind-counter--apparent">
+        <text class="counter-label" x="105" y="72">AWS</text>
+        <text class="counter-value apparent-color" x="105" y="132">
+          {rose?.apparent.value ?? '---'}
+        </text>
+        <text class="counter-detail apparent-color" x="105" y="169">
+          {rose?.apparent.unit ?? ''}
+          · AWA {formatSignedAngleOr(rose?.apparent.angleRad)}
+        </text>
+      </g>
+      <g class="wind-counter wind-counter--true">
+        <text class="counter-label" x="895" y="72">TWS</text>
+        <text class="counter-value true-color" x="895" y="132">
+          {rose?.trueWind.value ?? '---'}
+        </text>
+        <text class="counter-detail true-color" x="895" y="169">
+          {rose?.trueWind.unit ?? ''}
+          · TWA {formatSignedAngleOr(rose?.trueWind.angleRad)}
+        </text>
+      </g>
+
+      <g class="heading-window">
+        <rect x="370" y="18" width="260" height="112" rx="25" />
+        <text x="500" y="98">{rose?.heading.value ?? '---'}</text>
+        {#if rose?.heading.referenceLabel}
+          <text class="heading-reference" x="615" y="109">{rose.heading.referenceLabel}</text>
+        {/if}
+      </g>
+    </svg>
 
     <div class="corner corner--sog">
       <span class="corner-label">SOG</span>
@@ -122,107 +185,189 @@ const trueDeg = $derived((rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
 <style>
 .tile--wind-rose,
 .tile--empty.tile--wind-rose {
+  --wind-port: #8f0000;
+  --wind-starboard: #008700;
+  --wind-apparent: #ff9100;
+  --wind-true: #d89a00;
+  --wind-pointer-label: #170b00;
   grid-column: 1 / -1;
+}
+:global(:root[data-theme="dusk"]) .tile--wind-rose {
+  --wind-port: #d0523e;
+  --wind-starboard: #3fae6a;
+  --wind-apparent: #ff9100;
+  --wind-true: #ffcf4d;
+  --wind-pointer-label: #0f1a24;
+}
+:global(:root[data-theme="night-red"]) .tile--wind-rose {
+  --wind-port: #a23500;
+  --wind-starboard: #c05800;
+  --wind-apparent: #e04900;
+  --wind-true: #ff9f00;
+  --wind-pointer-label: #1a0000;
 }
 .rose-layout {
   position: relative;
-  inline-size: min(100%, 24rem);
-  min-block-size: 12rem;
+  inline-size: min(100%, 26rem);
+  aspect-ratio: 1;
 }
 .rose {
+  display: block;
   inline-size: 100%;
-  block-size: 12rem;
+  block-size: auto;
 }
-.rose-ring,
-.ticks,
-.true-needle {
+.fixed-dial,
+.port-sector,
+.starboard-sector,
+.dial-tick,
+.crosshair,
+.boat-outline {
   fill: none;
+}
+.fixed-dial {
+  stroke: color-mix(in srgb, var(--text-muted) 62%, var(--surface-raised));
+  stroke-width: 82;
+}
+.port-sector,
+.starboard-sector {
+  stroke-width: 44;
+  stroke-linecap: butt;
+}
+.port-sector {
+  stroke: var(--wind-port);
+}
+.starboard-sector {
+  stroke: var(--wind-starboard);
+}
+.card-backplate {
+  fill: color-mix(in srgb, var(--surface) 55%, transparent);
+  stroke: color-mix(in srgb, var(--border) 72%, transparent);
+  stroke-width: 2;
+}
+.dial-tick {
   stroke: var(--text-muted);
-  vector-effect: non-scaling-stroke;
+  stroke-width: 2;
 }
-.rose-ring {
-  stroke-width: 1.5;
+.dial-tick.major-tick {
+  stroke: var(--text);
+  stroke-width: 5;
 }
-.ticks {
-  stroke-width: 1.5;
-}
-.rose-labels,
-.side {
+.dial-label {
   fill: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: 42px;
+  font-weight: 600;
   text-anchor: middle;
 }
-.side {
-  font-weight: 700;
-}
-.boat {
-  fill: var(--accent-tint-strong);
-  stroke: var(--text-muted);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-.apparent-needle {
-  fill: var(--accent);
-}
-.true-needle {
-  stroke: var(--select);
-  stroke-width: 2.5;
-  stroke-dasharray: 5 4;
-}
-.true-tip {
-  fill: var(--surface-raised);
-  stroke: var(--select);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-}
-.hub {
+.dial-label.cardinal {
   fill: var(--text);
+  font-size: 50px;
+  font-weight: 800;
 }
-.tile--stale .apparent-needle,
-.tile--stale .true-tip {
+.crosshair {
+  opacity: 0.28;
+  stroke: var(--text-muted);
+  stroke-width: 2;
+}
+.boat-outline {
+  opacity: 0.48;
+  stroke: var(--text-muted);
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+.apparent-pointer {
+  fill: var(--wind-apparent);
+  stroke: color-mix(in srgb, var(--wind-apparent) 70%, var(--text));
+  stroke-width: 2;
+}
+.true-pointer {
+  fill: var(--wind-true);
+  stroke: color-mix(in srgb, var(--wind-true) 70%, var(--text));
+  stroke-width: 2;
+}
+.pointer-label {
+  fill: var(--wind-pointer-label);
+  font-family: var(--font-sans);
+  font-size: 58px;
+  font-weight: 900;
+  text-anchor: middle;
+}
+.wind-pointer--true .pointer-label {
+  font-size: 50px;
+}
+.tile--stale .apparent-pointer,
+.tile--stale .true-pointer {
   fill: var(--text-muted);
 }
-.tile--stale .true-needle,
-.tile--stale .true-tip {
-  stroke: var(--text-muted);
-}
-.wind-readouts {
-  position: absolute;
-  inset-block-start: 3.65rem;
-  inset-inline-start: 50%;
-  translate: -50% 0;
-  display: grid;
-  grid-template-columns: auto auto;
-  gap: var(--space-1) var(--space-2);
-  color: var(--text-muted);
+.wind-counter text,
+.heading-window text {
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: nowrap;
+  text-anchor: middle;
 }
-.wind-readouts b {
-  color: var(--text);
+.counter-label {
+  fill: var(--text-muted);
+  font-size: 35px;
+  font-weight: 800;
+}
+.counter-value {
+  font-size: 66px;
+  font-weight: 800;
+}
+.counter-detail {
+  font-size: 27px;
+  font-weight: 650;
+}
+.apparent-color {
+  fill: var(--wind-apparent);
+}
+.true-color {
+  fill: var(--wind-true);
+}
+.heading-window rect {
+  fill: var(--surface-raised);
+  stroke: var(--border);
+  stroke-width: 4;
+}
+.heading-window text {
+  fill: var(--text);
+  font-size: 88px;
+  font-weight: 800;
+}
+.heading-window .heading-reference {
+  fill: var(--text-muted);
+  font-size: 24px;
+  font-weight: 700;
 }
 .corner {
   position: absolute;
-  inset-block-end: 0;
+  inset-block-end: 2.5%;
+  min-inline-size: 24%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  text-align: start;
 }
 .corner--sog {
-  inset-inline-start: 0;
+  inset-inline-start: 2.5%;
 }
 .corner--depth {
-  inset-inline-end: 0;
+  inset-inline-end: 2.5%;
   align-items: flex-end;
+  text-align: end;
 }
 .corner .num {
+  font-family: var(--font-mono);
   font-size: var(--text-readout);
+  font-weight: 750;
+}
+.corner .unit {
+  margin-inline-start: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .corner-label,
 .corner-state {

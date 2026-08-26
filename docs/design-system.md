@@ -263,6 +263,12 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   excluded from that rule: it rides the radar provider's own stream, not the Signal K link. The wind tile's angle freshness
   folds into the same chip line (Angle stale, Angle unavailable) rather than stacking a second
   fragment.
+  The combined wind rose is the one dense instrument face. It uses an SVG compass card with
+  10-degree ticks, 30-degree labels, a fixed heading window, tapered and lettered apparent and true
+  wind pointers, and quiet hull and crosshair references. Port and starboard use marine red and
+  green in day and dusk, while night-red distinguishes those roles only by red and amber brightness.
+  SOG occupies the lower-left corner. Resolved Depth occupies the lower-right corner and alone takes
+  the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
   Customize groups available instruments by category, and its Rescan action reruns instance discovery
   for batteries, engines, tanks, solar, and cabin sensors. Discovery unions the live Signal K model
   with concrete paths recorded during the preceding year by registered history providers within a

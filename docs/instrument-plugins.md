@@ -84,6 +84,63 @@ Provider-controlled text, ids, paths, array sizes, presentation combinations, an
 validated before registration. Version 1 manifests are declarative. Binnacle does not download or
 execute JavaScript from instrument providers.
 
+## Design guidance
+
+An instrument pack supplies marine meaning and Signal K bindings. Binnacle owns the visual shell,
+interaction, subscriptions, units, freshness, zone colors, accessibility, and theme adaptation. Keep
+the provider contract small and declarative:
+
+- Publish values in Signal K SI units. Select the semantic `format` that describes the value instead
+  of formatting a string in advance or choosing a display unit.
+- Point `path`, `anglePath`, and `zonesPath` at real Signal K paths. Do not copy a value into a
+  provider-specific namespace merely to make a tile. Binnacle subscribes only while the instrument
+  is selected and uses the source metadata from the path it displays.
+- Prefer one instrument per operational question. A label such as `Boost pressure` is clearer than
+  a generic `Engine value`. Use `abbr` for the arm's-length scan name and `description` to explain
+  what the reading means to a navigator.
+- Treat no data, stale data, warning, and alarm as separate states. Do not replace a missing value
+  with zero, invent a client-only stale timeout, or encode warning colors into labels. Binnacle uses
+  the server's `meta.timeout`, `meta.zones`, and notification state when available.
+- Choose the least elaborate presentation that communicates the value. Use `numeric` for most
+  readings, `compass` only for a bearing, `heel` only for signed heel, and `wind` only when speed and
+  a compatible relative angle are both meaningful.
+- Keep instruments read-only unless a future versioned API explicitly defines a control contract.
+  A displayed value is advisory and must not imply that Binnacle can command the source device.
+- Avoid brand colors, fixed backgrounds, remote fonts, remote images, HTML, CSS, and executable
+  code. Binnacle must render every instrument in day, dusk, and night-red themes, with no blue or
+  bright stray pixels in night-red.
+
+The visible label, value, unit, freshness, and zone must also form a complete spoken description.
+Plugin authors provide concise labels and descriptions; Binnacle constructs the accessible name and
+keeps the whole tile touch-sized. A plugin should be useful at the narrow dock width before relying
+on horizontal expansion.
+
+## Composite instruments
+
+API version 1 intentionally accepts only the standard single-reading presentations. Composite
+instruments need a named, versioned data shape because their signals, fallback rules, alarm source,
+and accessible summary must remain consistent. They are not expressed as provider HTML or remote
+JavaScript.
+
+Binnacle's built-in wind rose is the reference composite. It registers through the same local
+instrument registry as every other built-in instrument and combines:
+
+- apparent wind speed and relative angle;
+- true wind speed and relative angle, with the ground-referenced fallback identified;
+- true heading, then magnetic heading, then COG as the documented last-resort compass reference;
+- speed over ground in the lower-left corner; and
+- resolved depth in the lower-right corner, colored from the depth path's Signal K zones and
+  notification state.
+
+Its visual hierarchy follows the installed Skip wind rose: a rotating compass card inside a strong
+annular dial, 10-degree ticks, 30-degree labels, red port and green starboard sectors, orange
+apparent-wind and yellow true-wind tapered pointers, a fixed heading window, a quiet hull outline,
+crosshair lines, and paired AWS and TWS readouts. Dusk brightens those roles. Night-red remaps both
+lateral sectors and wind pointers into distinct red and amber brightness levels so it never emits
+green or blue. Future composite presentations should document the same five things before a new API
+version accepts them: required paths, fallback order, freshness rule, zone owner, and an equivalent
+spoken summary.
+
 ## Minimal Signal K plugin
 
 All four resource methods are present because the Signal K provider interface requires them. The

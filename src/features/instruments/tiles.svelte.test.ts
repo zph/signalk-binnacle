@@ -306,6 +306,7 @@ describe('purpose-built instrument faces', () => {
           siValue: 5.1,
           angleRad: 0.7,
         },
+        heading: { state: 'live', value: '57°', unit: '', siValue: 1 },
         speedOverGround: { state: 'live', value: '6.4', unit: 'kn', siValue: 3.3 },
         depth: { state: 'live', value: '1.8', unit: 'm', siValue: 1.8 },
       },
@@ -326,6 +327,13 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('corner--warning');
     expect(html).toContain('Warning');
     expect(html).toContain('Speed over ground 6.4 kn');
+    expect(html).toContain('Heading 57°');
+    expect(html).toContain('class="fixed-dial ');
+    expect(html).toContain('class="port-sector ');
+    expect(html).toContain('class="starboard-sector ');
+    expect(html).toContain('class="apparent-pointer ');
+    expect(html).toContain('class="true-pointer ');
+    expect(html).toContain('rotate(-57.295');
 
     const alarmHtml = render(WindRoseTile, {
       props: {

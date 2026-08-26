@@ -1055,6 +1055,7 @@ test('instrument dock resizes horizontally and restores its device-local width',
   await openMenuItem(page, 'Instrument dock');
   let dock = page.getByRole('complementary', { name: 'Instruments' });
   const handle = dock.getByRole('slider', { name: 'Resize instruments dock' });
+  await expect(handle).toBeVisible();
   const initial = await dock.boundingBox();
   const handleBox = await handle.boundingBox();
   if (!initial || !handleBox) throw new Error('Instrument dock resize control did not lay out.');

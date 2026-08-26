@@ -230,7 +230,10 @@ source, and surrounding traffic before relying on it.
   (SOG, HDG, AWS) over the quiet long name, states render as tinted chips (Alarm outranks Stale,
   and Stale outranks a zone Warning computed from the untrusted value), a stale tile keeps its
   retained number at muted contrast with its age on the secondary line, and the wind tile's angle
-  freshness folds into the same chip line. Customize can show, hide, and reorder tiles,
+  freshness folds into the same chip line. The combined wind rose follows the installed Skip
+  instrument's compass-card geometry and apparent-wind, true-wind, port, and starboard color roles.
+  It adds SOG at lower left and resolved Depth at lower right; Depth uses the server's Signal K zone
+  and notification state for its Warning and Alarm treatment. Customize can show, hide, and reorder tiles,
   including bounded discovered batteries, engines, tanks, solar controllers, and cabin sensors. A
   Rescan checks the live Signal K model first. When a registered history provider is available, it
   also checks the preceding year for concrete paths that populated under `vessels.self`, so seasonal

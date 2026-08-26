@@ -3225,6 +3225,7 @@ const plotterActions = {
   display: flex;
   flex-direction: column;
   position: relative;
+  z-index: var(--z-panel);
   inline-size: clamp(20rem, var(--instrument-dock-width), calc(100dvw - 20rem));
   border-inline-start: 1px solid var(--border);
   /* The dock scrolls its own tiles; without this a long tile list would stretch the shell row. */

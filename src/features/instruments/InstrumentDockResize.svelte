@@ -79,7 +79,7 @@ function handleKeydown(event: KeyboardEvent): void {
   position: absolute;
   z-index: var(--z-overlay);
   inset-block: 0;
-  inset-inline-start: calc(-1 * var(--control-size));
+  inset-inline-start: calc(-0.5 * var(--control-size));
   inline-size: var(--control-size);
   cursor: ew-resize;
   touch-action: none;
@@ -88,7 +88,7 @@ function handleKeydown(event: KeyboardEvent): void {
   content: "";
   position: absolute;
   inset-block: var(--space-2);
-  inset-inline-end: 0;
+  inset-inline-end: calc(50% - 1.5px);
   inline-size: 3px;
   border-radius: var(--radius-pill);
   background: var(--border);
