@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
-import { expectInsideViewport, stubVesselsSelf } from './helpers';
+import { expectInsideViewport, openMenuItem, stubVesselsSelf } from './helpers';
+import { installMapLibreWorkerProof } from './maplibre-worker-proof';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -250,4 +251,221 @@ test('a locally cached profile applies at boot without a startup error', async (
   // asserting no startup exception surfaced.
   await page.waitForTimeout(500);
   expect(pageErrors.filter((message) => message.includes('before initialization'))).toEqual([]);
+});
+
+test('profiles restore discovered chart facets and overlay settings as one arrangement', async ({
+  page,
+}) => {
+  const chartId = 'profile-fixture-enc';
+  const chartLayerId = `chart-${chartId}`;
+  const facetId = (key: string) => `${chartLayerId}:facet:${key}`;
+  const harborSettings = {
+    theme: 'day',
+    layers: {
+      basemap: { visible: true, opacity: 0.45 },
+      ais: { visible: false, opacity: 0.6 },
+      [chartLayerId]: { visible: true, opacity: 0.7, cellSizeScale: 0.75 },
+      [facetId('depth-areas')]: { visible: true, opacity: 0.8 },
+      [facetId('soundings-contours')]: { visible: false, opacity: 0.35 },
+    },
+    layerOrder: ['basemap', chartLayerId, 'ais'],
+    weatherLayers: {},
+    aisIconMode: 'generic',
+    thresholds: {
+      dangerCpaMeters: 926,
+      dangerTcpaSeconds: 600,
+      warningCpaMeters: 1852,
+      warningTcpaSeconds: 1200,
+    },
+    trackSettings: { intervalSeconds: 10, minMeters: 10, colorMode: 'speed' },
+    planningSpeedMps: 3,
+    units: 'metric',
+    pinnedActionIds: ['center', 'follow', 'layers', 'instruments'],
+    instrumentTiles: ['sog', 'heading', 'depth'],
+    anchorRadiusMeters: 50,
+  };
+  const passageSettings = {
+    ...harborSettings,
+    layers: {
+      ...harborSettings.layers,
+      basemap: { visible: true, opacity: 0.9 },
+      ais: { visible: true, opacity: 0.85 },
+      [chartLayerId]: { visible: true, opacity: 0.95, cellSizeScale: 2 },
+      [facetId('depth-areas')]: { visible: false, opacity: 0.5 },
+      [facetId('soundings-contours')]: { visible: true, opacity: 0.9 },
+    },
+    layerOrder: ['basemap', 'ais', chartLayerId],
+    aisIconMode: 'type-specific',
+  };
+  const profile = (id: string, name: string, settings: typeof harborSettings) => ({
+    id,
+    name,
+    settings,
+    createdAt: 1,
+    updatedAt: 1,
+    nameUpdatedAt: 1,
+    settingUpdatedAt: Object.fromEntries(Object.keys(settings).map((key) => [key, 1])),
+  });
+  const serverDocument = {
+    schemaVersion: 2,
+    revision: 1,
+    profiles: {
+      harbor: profile('harbor', 'Harbor detail', harborSettings),
+      passage: profile('passage', 'Passage', passageSettings),
+    },
+    tombstones: {},
+    defaultId: 'harbor',
+  } as Record<string, unknown>;
+
+  await installProfileServer(page, serverDocument);
+  const workerProof = await installMapLibreWorkerProof(page);
+  await page.route(/\/signalk\/v2\/api\/resources\/charts\/?$/, (route) =>
+    route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
+  );
+  await page.route(/\/signalk\/v1\/api\/resources\/charts\/?$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        [chartId]: {
+          identifier: chartId,
+          name: 'Profile fixture ENC',
+          description: 'Synthetic chart used to verify profile restoration',
+          type: 'S-57',
+          featureInfo: 'bathymetry-cell',
+          format: 'pbf',
+          chartLayers: ['DEPARE', 'DEPCNT', 'SOUNDG', 'LNDARE'],
+          bounds: [-180, -85, 180, 85],
+          minzoom: 0,
+          maxzoom: 16,
+          tilemapUrl: `/signalk/v1/api/resources/charts/${chartId}/{z}/{x}/{y}`,
+          cellSizeControl: {
+            queryParameter: 'cellScale',
+            minimum: 0.5,
+            maximum: 4,
+            step: 0.25,
+            default: 1,
+          },
+        },
+      }),
+    }),
+  );
+  await page.route(
+    new RegExp(`/signalk/v1/api/resources/charts/${chartId}/\\d+/\\d+/\\d+`),
+    (route) => route.fulfill({ status: 204 }),
+  );
+
+  await page.goto('/');
+  await workerProof.assertInitialNavigation();
+  await expect(
+    page.getByRole('button', { name: 'Profile Harbor detail, switch profile' }),
+  ).toBeVisible();
+  await openMenuItem(page, 'Layers and charts');
+
+  const panel = page.getByRole('complementary', { name: 'Layers and charts' });
+  const row = panel.locator(`[data-layer-row="${chartLayerId}"]`);
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
+  const depthAreas = row.getByRole('button', { name: 'Depth areas', exact: true });
+  const soundings = row.getByRole('button', { name: 'Soundings and contours', exact: true });
+  await expect(depthAreas).toHaveAttribute('aria-pressed', 'true');
+  await expect(soundings).toHaveAttribute('aria-pressed', 'false');
+
+  await row.getByRole('button', { name: 'Adjust Depth areas opacity' }).click();
+  await expect(page.getByRole('slider', { name: 'Depth areas opacity' })).toHaveAttribute(
+    'aria-valuetext',
+    '80%',
+  );
+  await page.getByRole('button', { name: 'Close Depth areas opacity' }).click();
+  await row.getByRole('button', { name: 'Open Profile fixture ENC chart details' }).click();
+  await expect(page.getByRole('slider', { name: 'Opacity' })).toHaveAttribute(
+    'aria-valuetext',
+    '70%',
+  );
+  await expect(page.getByRole('slider', { name: 'Cell size' })).toHaveAttribute(
+    'aria-valuetext',
+    '0.75 times the normal cell size',
+  );
+  await page.getByRole('button', { name: 'Back to layers' }).click();
+
+  await page.getByRole('button', { name: 'Profile Harbor detail, switch profile' }).click();
+  await page.getByRole('menuitem', { name: 'Passage', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Profile Passage, switch profile' })).toBeVisible();
+  await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
+  await expect(depthAreas).toHaveAttribute('aria-pressed', 'false');
+  await expect(soundings).toHaveAttribute('aria-pressed', 'true');
+
+  await row.getByRole('button', { name: 'Open Profile fixture ENC chart details' }).click();
+  await expect(page.getByRole('slider', { name: 'Opacity' })).toHaveAttribute(
+    'aria-valuetext',
+    '95%',
+  );
+  await expect(page.getByRole('slider', { name: 'Cell size' })).toHaveAttribute(
+    'aria-valuetext',
+    '2 times the normal cell size',
+  );
+  await page.getByRole('button', { name: 'Back to layers' }).click();
+  await panel.getByRole('button', { name: 'Overlays', exact: true }).click();
+  const ais = panel.locator('[data-layer-row="ais"]');
+  await expect(ais.getByRole('button', { name: 'AIS targets', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+
+  // Change settings in the active profile, then prove the layer manager's complete snapshot reaches
+  // the profile document without dropping asynchronously registered chart or facet entries.
+  await ais.getByRole('button', { name: 'AIS targets', exact: true }).click();
+  await panel.getByRole('button', { name: 'Charts', exact: true }).click();
+  await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
+  await depthAreas.click();
+  await row.getByRole('button', { name: 'Adjust Depth areas opacity' }).click();
+  await page.getByRole('slider', { name: 'Depth areas opacity' }).fill('0.65');
+  await page.getByRole('button', { name: 'Close Depth areas opacity' }).click();
+  await row.getByRole('button', { name: 'Open Profile fixture ENC chart details' }).click();
+  await page.getByRole('slider', { name: 'Cell size' }).fill('3');
+  await page.getByRole('button', { name: 'Back to layers' }).click();
+
+  const savedPassageLayers = () => {
+    const profiles = serverDocument.profiles as Record<
+      string,
+      {
+        settings: {
+          layers: Record<string, { visible: boolean; opacity: number; cellSizeScale?: number }>;
+        };
+      }
+    >;
+    return profiles.passage.settings.layers;
+  };
+  await expect
+    .poll(() => savedPassageLayers()[facetId('depth-areas')])
+    .toEqual({
+      visible: true,
+      opacity: 0.65,
+    });
+  await expect.poll(() => savedPassageLayers()[chartLayerId]?.cellSizeScale).toBe(3);
+  await expect.poll(() => savedPassageLayers().ais?.visible).toBe(false);
+
+  await page.getByRole('button', { name: 'Profile Passage, switch profile' }).click();
+  await page.getByRole('menuitem', { name: 'Harbor detail', exact: true }).click();
+  await page.getByRole('button', { name: 'Profile Harbor detail, switch profile' }).click();
+  await page.getByRole('menuitem', { name: 'Passage', exact: true }).click();
+  await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
+  await expect(depthAreas).toHaveAttribute('aria-pressed', 'true');
+  await row.getByRole('button', { name: 'Adjust Depth areas opacity' }).click();
+  await expect(page.getByRole('slider', { name: 'Depth areas opacity' })).toHaveAttribute(
+    'aria-valuetext',
+    '65%',
+  );
+  await page.getByRole('button', { name: 'Close Depth areas opacity' }).click();
+  await row.getByRole('button', { name: 'Open Profile fixture ENC chart details' }).click();
+  await expect(page.getByRole('slider', { name: 'Cell size' })).toHaveAttribute(
+    'aria-valuetext',
+    '3 times the normal cell size',
+  );
+  await page.getByRole('button', { name: 'Back to layers' }).click();
+  await panel.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await expect(ais.getByRole('button', { name: 'AIS targets', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
 });
