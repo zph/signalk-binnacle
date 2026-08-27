@@ -334,7 +334,7 @@ describe('purpose-built instrument faces', () => {
         },
         heading: {
           state: 'live',
-          value: '57°',
+          value: '057°',
           unit: '',
           siValue: 1,
           referenceLabel: 'M',
@@ -358,14 +358,14 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('1.8');
     expect(html).toContain('rose-readouts--top');
     expect(html).toContain('rose-readouts--bottom');
-    expect(html).toContain('class="heading-center ');
-    expect(html).toContain('class="heading-halo ');
-    expect(html).toContain('class="heading-disc ');
-    expect(html).toContain('class="heading-value ');
-    expect(html).toContain('>57°<');
+    expect(html).toContain('class="heading-pill ');
+    expect(html).toContain('class="heading-digits ');
+    expect(html).toContain('class="heading-degree ');
+    expect(html).toContain('>057<');
+    expect(html).toContain('>°<');
     expect(html).not.toContain('>HDG<');
     expect(html).not.toContain('>(M)<');
-    expect(html.indexOf('heading-center')).toBeGreaterThan(html.lastIndexOf('wind-pointer'));
+    expect(html.indexOf('heading-pill')).toBeGreaterThan(html.lastIndexOf('</svg>'));
     expect(html).toContain('rose-readout--warning');
     expect(html.match(/rose-readout--alarm/g)).toHaveLength(2);
     expect(html).not.toContain('>AWA<');
@@ -375,7 +375,7 @@ describe('purpose-built instrument faces', () => {
     expect(html).not.toContain('>Warning<');
     expect(html).not.toContain('>Wind rose<');
     expect(html).toContain('Speed over ground 6.4 kn');
-    expect(html).toContain('Heading 57°');
+    expect(html).toContain('Heading 057°');
     expect(html).toContain('class="fixed-dial ');
     expect(html).toContain('class="wind-sectors"');
     expect(html).toContain('data-reference="true"');

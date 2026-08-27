@@ -31,7 +31,7 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(320);
   expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(568);
   await expect(focused.locator('svg.rose')).toBeVisible();
-  await expect(focused.locator('.heading-value')).toBeVisible();
+  await expect(focused.locator('.heading-pill')).toBeVisible();
 });
 
 test('the wide full-screen wind rose uses its height and moves readouts into the corners', async ({
@@ -46,7 +46,7 @@ test('the wide full-screen wind rose uses its height and moves readouts into the
     await Promise.all([
       focused.boundingBox(),
       compass.boundingBox(),
-      focused.locator('.heading-value').boundingBox(),
+      focused.locator('.heading-digits').boundingBox(),
       focused.locator('.rose-readout--aws .num').boundingBox(),
       focused.locator('.rose-readout--tws .num').boundingBox(),
       focused.locator('.rose-readout--sog .num').boundingBox(),
@@ -129,7 +129,7 @@ test('a half-width short wind rose shrinks its corner values around the compass'
   const compass = focused.locator('svg.rose');
   const [compassBox, headingBox, awsBox, twsBox, sogBox, depthBox] = await Promise.all([
     compass.boundingBox(),
-    focused.locator('.heading-value').boundingBox(),
+    focused.locator('.heading-digits').boundingBox(),
     focused.locator('.rose-readout--aws .num').boundingBox(),
     focused.locator('.rose-readout--tws .num').boundingBox(),
     focused.locator('.rose-readout--sog .num').boundingBox(),
@@ -159,4 +159,9 @@ test('a half-width short wind rose shrinks its corner values around the compass'
     .locator('.rose-readout--aws .num')
     .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   expect(valueSize).toBeLessThan(64);
+
+  const backdropFilter = await focused
+    .locator('.heading-pill')
+    .evaluate((element) => getComputedStyle(element).backdropFilter);
+  expect(backdropFilter).toContain('blur');
 });

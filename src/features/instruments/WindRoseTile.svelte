@@ -161,6 +161,9 @@ const sectorReference = $derived(filteredSectorReference ?? rawSectorReference?.
 const sectorRotation = $derived(
   (displayedSectorRad ?? filteredSectorAngleRad ?? rawSectorReference?.angleRad ?? 0) * RAD_TO_DEG,
 );
+const headingValue = $derived(rose?.heading.value ?? '---');
+const headingHasDegree = $derived(headingValue.endsWith('°'));
+const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : headingValue);
 </script>
 
 <button
@@ -204,85 +207,94 @@ const sectorRotation = $derived(
       </div>
     </div>
 
-    <svg class="rose" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle class="fixed-dial" cx="500" cy="500" r="444" />
-      {#if rawSectorReference}
-        <g
-          class="wind-sectors"
-          data-reference={sectorReference}
-          transform="rotate({sectorRotation} 500 500)"
-        >
-          <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
-          <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
-        </g>
-      {/if}
-
-      <g class="compass-card" transform="rotate({cardRotation} 500 500)">
-        <circle class="card-backplate" cx="500" cy="500" r="354" />
-        {#each dialTicks as tick (tick.angle)}
-          <line
-            class:major-tick={tick.major}
-            class="dial-tick"
-            x1="500"
-            y1={tick.major ? 61 : 69}
-            x2="500"
-            y2={tick.major ? 99 : 89}
-            transform="rotate({tick.angle} 500 500)"
-          />
-        {/each}
-        {#each dialLabels as item (item.angle)}
-          <g transform="rotate({item.angle} 500 500)">
-            <text
-              class:cardinal={item.label.length === 1}
-              class="dial-label"
-              x="500"
-              y="158"
-              transform="rotate({-item.angle} 500 158)"
-            >
-              {item.label}
-            </text>
+    <div class="rose-face">
+      <svg
+        class="rose"
+        viewBox="0 0 1000 1000"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <circle class="fixed-dial" cx="500" cy="500" r="444" />
+        {#if rawSectorReference}
+          <g
+            class="wind-sectors"
+            data-reference={sectorReference}
+            transform="rotate({sectorRotation} 500 500)"
+          >
+            <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
+            <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
           </g>
-        {/each}
-      </g>
+        {/if}
 
-      {#if rawSectorReference}
-        <g class="wind-sector-lines" transform="rotate({sectorRotation} 500 500)">
-          <path class="port-sector-line" d="M186 186 L500 500" />
-          <path class="starboard-sector-line" d="M814 186 L500 500" />
+        <g class="compass-card" transform="rotate({cardRotation} 500 500)">
+          <circle class="card-backplate" cx="500" cy="500" r="354" />
+          {#each dialTicks as tick (tick.angle)}
+            <line
+              class:major-tick={tick.major}
+              class="dial-tick"
+              x1="500"
+              y1={tick.major ? 61 : 69}
+              x2="500"
+              y2={tick.major ? 99 : 89}
+              transform="rotate({tick.angle} 500 500)"
+            />
+          {/each}
+          {#each dialLabels as item (item.angle)}
+            <g transform="rotate({item.angle} 500 500)">
+              <text
+                class:cardinal={item.label.length === 1}
+                class="dial-label"
+                x="500"
+                y="158"
+                transform="rotate({-item.angle} 500 158)"
+              >
+                {item.label}
+              </text>
+            </g>
+          {/each}
         </g>
-      {/if}
 
-      <g class="crosshair">
-        <path d="M500 166 V360 M500 640 V834" />
-        <path d="M166 500 H360 M640 500 H834" />
-      </g>
-      <path
-        class="boat-outline"
-        d="M500 260 C430 342 397 512 410 720 M500 260 C570 342 603 512 590 720"
-      />
+        {#if rawSectorReference}
+          <g class="wind-sector-lines" transform="rotate({sectorRotation} 500 500)">
+            <path class="port-sector-line" d="M186 186 L500 500" />
+            <path class="starboard-sector-line" d="M814 186 L500 500" />
+          </g>
+        {/if}
 
-      {#if rose?.apparent.angleRad !== undefined}
-        <g class="wind-pointer wind-pointer--apparent" transform="rotate({apparentDeg} 500 500)">
-          <path class="apparent-pointer" d="M447 67 L500 24 L553 67 L512 294 Q500 326 488 294 Z" />
-          <text class="pointer-label" x="500" y="113">A</text>
+        <g class="crosshair">
+          <path d="M500 166 V360 M500 640 V834" />
+          <path d="M166 500 H360 M640 500 H834" />
         </g>
-      {/if}
-      {#if rose?.trueWind.angleRad !== undefined}
-        <g class="wind-pointer wind-pointer--true" transform="rotate({trueDeg} 500 500)">
-          <path class="true-pointer" d="M462 75 L500 42 L538 75 L508 260 Q500 284 492 260 Z" />
-          <text class="pointer-label" x="500" y="113">T</text>
-        </g>
-      {/if}
+        <path
+          class="boat-outline"
+          d="M500 260 C430 342 397 512 410 720 M500 260 C570 342 603 512 590 720"
+        />
 
-      <!-- This group is intentionally last so the heading remains legible above every moving mark. -->
-      <g class="heading-center">
-        <circle class="heading-halo" cx="500" cy="500" r="104" />
-        <circle class="heading-disc" cx="500" cy="500" r="82" />
-        <text class="heading-value" x="500" y="532">
-          {rose?.heading.value ?? '---'}
-        </text>
-      </g>
-    </svg>
+        {#if rose?.apparent.angleRad !== undefined}
+          <g class="wind-pointer wind-pointer--apparent" transform="rotate({apparentDeg} 500 500)">
+            <path
+              class="apparent-pointer"
+              d="M447 67 L500 24 L553 67 L512 294 Q500 326 488 294 Z"
+            />
+            <text class="pointer-label" x="500" y="113">A</text>
+          </g>
+        {/if}
+        {#if rose?.trueWind.angleRad !== undefined}
+          <g class="wind-pointer wind-pointer--true" transform="rotate({trueDeg} 500 500)">
+            <path class="true-pointer" d="M462 75 L500 42 L538 75 L508 260 Q500 284 492 260 Z" />
+            <text class="pointer-label" x="500" y="113">T</text>
+          </g>
+        {/if}
+      </svg>
+
+      <!-- The degree mark is positioned independently so the middle digit stays on the axis. -->
+      <div class="heading-pill" aria-hidden="true">
+        <span class="heading-digits">{headingDigits}</span>
+        {#if headingHasDegree}
+          <span class="heading-degree">°</span>
+        {/if}
+      </div>
+    </div>
 
     <div class="rose-readouts rose-readouts--bottom" aria-hidden="true">
       <div class="rose-readout rose-readout--sog">
@@ -357,11 +369,17 @@ const sectorRotation = $derived(
      complete face by viewport block size so neither row can be pushed beyond the screen. */
   inline-size: min(82vw, calc(64 * var(--dvh)), 54rem);
 }
+.rose-face {
+  position: relative;
+  inline-size: 90%;
+  aspect-ratio: 1;
+  container-type: inline-size;
+  flex: 0 0 auto;
+}
 .rose {
   display: block;
-  inline-size: 90%;
-  block-size: auto;
-  flex: 0 0 auto;
+  inline-size: 100%;
+  block-size: 100%;
 }
 .fixed-dial,
 .port-sector,
@@ -455,29 +473,49 @@ const sectorRotation = $derived(
 .wind-pointer--true .pointer-label {
   font-size: 50px;
 }
-.heading-center {
+.heading-pill {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 34cqi;
+  block-size: 18cqi;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border: 0.3cqi solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-raised) 58%, transparent);
+  box-shadow: 0 0 3cqi color-mix(in srgb, var(--surface-overlay) 68%, transparent);
+  -webkit-backdrop-filter: blur(1.5cqi);
+  backdrop-filter: blur(1.5cqi);
+  transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.heading-halo {
-  fill: color-mix(in srgb, var(--surface-overlay) 72%, transparent);
-  filter: blur(18px);
-}
-.heading-disc {
-  fill: color-mix(in srgb, var(--surface-raised) 92%, transparent);
-  stroke: color-mix(in srgb, var(--border) 80%, transparent);
-  stroke-width: 3;
-}
-.heading-value {
-  fill: var(--text);
+.heading-digits,
+.heading-degree {
+  color: var(--text);
   font-family: var(--font-mono);
-  text-anchor: middle;
-  font-size: 100px;
+}
+.heading-digits {
+  font-size: 10cqi;
   font-weight: 900;
+  line-height: 1;
+}
+.heading-degree {
+  position: absolute;
+  inset-block-start: 3cqi;
+  inset-inline-start: calc(50% + 9.5cqi);
+  font-size: 5cqi;
+  font-weight: 800;
+  line-height: 1;
 }
 .tile--stale .apparent-pointer,
-.tile--stale .true-pointer,
-.tile--stale .heading-value {
+.tile--stale .true-pointer {
   fill: var(--text-muted);
+}
+.tile--stale .heading-digits,
+.tile--stale .heading-degree {
+  color: var(--text-muted);
 }
 .rose-readouts {
   inline-size: 100%;
@@ -566,7 +604,7 @@ const sectorRotation = $derived(
   .tile--expanded .rose-layout {
     inline-size: 100%;
   }
-  .rose {
+  .rose-face {
     position: absolute;
     inset-block-start: 50%;
     inset-inline-start: 50%;
