@@ -107,11 +107,13 @@ describe('InstrumentsPanel', () => {
     expect(body).toContain('aria-label="Close instruments dock"');
   });
 
-  it('renders the Customize instruments button when in tile-display mode', () => {
+  it('renders the Customize instruments button as an accessible pencil icon', () => {
     const controller = makeController();
     const deps = makeDeps();
     const { body } = render(InstrumentsPanel, { props: { controller, deps } });
-    expect(body).toContain('Customize instruments');
+    expect(body).toContain('aria-label="Customize instruments"');
+    expect(body).toContain('lucide-pencil');
+    expect(body).not.toContain('>Customize<');
   });
 
   it('uses the tile to expand and a separate question-mark control for information', () => {

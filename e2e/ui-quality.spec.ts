@@ -178,7 +178,9 @@ test('keeps chart controls legible and the instrument title on one line', async 
       }),
     )
     .toBe(1);
-  await expect(page.getByRole('button', { name: 'Customize instruments' })).toHaveText('Customize');
+  const customizeInstruments = page.getByRole('button', { name: 'Customize instruments' });
+  await expect(customizeInstruments.locator('svg.lucide-pencil')).toBeVisible();
+  await expect(customizeInstruments).toHaveText('');
   await expect
     .poll(async () => {
       const [mapBox, scaleBox] = await Promise.all([

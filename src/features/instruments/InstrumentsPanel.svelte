@@ -122,6 +122,7 @@ $effect(() => {
         object="instruments"
         editing={customizing}
         compact
+        iconOnly
         onToggle={() => {
           detailId = undefined;
           customizing = !customizing;
