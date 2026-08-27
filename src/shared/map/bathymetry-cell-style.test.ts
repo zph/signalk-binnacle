@@ -35,15 +35,17 @@ describe('bathymetry cell style', () => {
     });
     const label = layer(layers, 'soundg-bathymetry-label') as SymbolLayerSpecification;
     expect(label.minzoom).toBe(13);
+    expect(label.filter).toEqual([
+      'all',
+      ['has', 'BATHY_LABEL'],
+      ['==', ['get', 'BATHY_SHOW_DEPTH_LABELS'], true],
+    ]);
+    expect(label.layout?.['text-field']).toEqual(['get', 'BATHY_LABEL']);
     expect(label.layout?.['text-font']).toEqual(['Noto Sans Bold']);
     expect(label.layout?.['text-size']).toEqual([
-      'interpolate',
-      ['linear'],
-      ['zoom'],
-      13,
-      17,
-      20,
-      20,
+      '*',
+      ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
+      ['get', 'BATHY_LABEL_RELATIVE_SIZE'],
     ]);
     expect(label.paint?.['text-halo-width']).toBe(2.25);
   });

@@ -78,25 +78,6 @@ function metadata(paint: BathymetryThemePaintMap): Record<string, BathymetryThem
   return { [BATHYMETRY_THEME_PAINT_KEY]: paint };
 }
 
-function soundingValue(): ExpressionSpecification {
-  return ['to-number', ['coalesce', ['get', 'BATHY_DEPTH_M'], ['get', 'DEPTH']], -9999];
-}
-
-function formattedDepth(unit: 'm' | 'ft' | 'fm'): ExpressionSpecification {
-  const value = soundingValue();
-  const converted: ExpressionSpecification =
-    unit === 'ft' ? ['*', value, 3.28084] : unit === 'fm' ? ['/', value, 1.8288] : value;
-  return ['number-format', converted, { 'max-fraction-digits': 1, 'min-fraction-digits': 0 }];
-}
-
-function depthLabel(fallback: 'm' | 'ft' | 'fm'): ExpressionSpecification {
-  const meters = formattedDepth('m');
-  const feet = formattedDepth('ft');
-  const fathoms = formattedDepth('fm');
-  const fallbackLabel = fallback === 'ft' ? feet : fallback === 'fm' ? fathoms : meters;
-  return ['match', ['global-state', 'unit'], 'ft', feet, 'fm', fathoms, 'm', meters, fallbackLabel];
-}
-
 export function bathymetryCellLayers(
   sourceId: string,
   availableLayers: readonly string[],
@@ -134,20 +115,23 @@ export function bathymetryCellLayers(
   }
 
   if (available.has('SOUNDG')) {
-    const fallbackUnit = options.depthUnit ?? 'm';
     const labels: SymbolLayerSpecification = {
       id: `${sourceId}-soundg-bathymetry-label`,
       type: 'symbol',
       source: sourceId,
       'source-layer': 'SOUNDG',
-      filter: ['any', ['has', 'BATHY_DEPTH_M'], ['has', 'DEPTH']],
+      filter: ['all', ['has', 'BATHY_LABEL'], ['==', ['get', 'BATHY_SHOW_DEPTH_LABELS'], true]],
       minzoom: 13,
       layout: {
-        'text-field': depthLabel(fallbackUnit),
+        'text-field': ['get', 'BATHY_LABEL'],
         'text-font': ['Noto Sans Bold'],
         // H3 cells remain nearly constant in screen size as their resolution changes. A 17 to 20
         // pixel label occupies roughly one-third of the cell height while retaining breathing room.
-        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
+        'text-size': [
+          '*',
+          ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
+          ['get', 'BATHY_LABEL_RELATIVE_SIZE'],
+        ],
         'text-padding': 2,
       },
       paint: {

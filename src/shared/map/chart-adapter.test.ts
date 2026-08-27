@@ -226,7 +226,8 @@ describe('chartToSpecs', () => {
       'chart-local-bathymetry-soundg-bathymetry-label',
     ]);
     expect(JSON.stringify(layers[0]?.paint)).toContain('BATHY_DEPTH_M');
-    expect(JSON.stringify(layers[2]?.layout)).toContain('3.28084');
+    expect(JSON.stringify(layers[2]?.layout)).toContain('BATHY_LABEL');
+    expect(JSON.stringify(layers[2]?.layout)).toContain('BATHY_LABEL_RELATIVE_SIZE');
   });
 
   it('treats S-57 as vector without relying on a format hint', () => {
