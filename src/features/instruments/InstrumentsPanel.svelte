@@ -4,7 +4,10 @@ import Lock from '@lucide/svelte/icons/lock';
 import LockOpen from '@lucide/svelte/icons/lock-open';
 import { type Snippet, untrack } from 'svelte';
 import type { Action } from 'svelte/action';
+import type { AisTargets } from '$entities/ais';
+import type { CollisionAssessment } from '$entities/collision';
 import { CustomizeToggle, createReorder, dialog, PanelHeader, trapFocus } from '$shared/ui';
+import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
 import InstrumentContextMenu from './InstrumentContextMenu.svelte';
 import InstrumentDetail from './InstrumentDetail.svelte';
@@ -18,6 +21,12 @@ import { createTileHistory } from './tile-history.svelte';
 interface Props {
   controller: InstrumentsController;
   deps: TileDeps;
+  aisTargets?: AisTargets;
+  collision?: CollisionAssessment;
+  aisRadarRangeNm?: AisRadarRangeNm;
+  onAisRadarRangeChange?: (rangeNm: AisRadarRangeNm) => void;
+  initialExpandedRequest?: { id: string; sequence: number };
+  onExpandedRequestHandled?: () => void;
   initialDetailId?: string;
   restoreTrendFocusId?: string;
   onViewTrend?: (id: string) => void;
@@ -38,6 +47,12 @@ interface Props {
 const {
   controller,
   deps,
+  aisTargets,
+  collision,
+  aisRadarRangeNm = DEFAULT_AIS_RADAR_RANGE_NM,
+  onAisRadarRangeChange = () => {},
+  initialExpandedRequest,
+  onExpandedRequestHandled,
   initialDetailId,
   restoreTrendFocusId,
   onViewTrend,
@@ -51,6 +66,17 @@ const {
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
+const aisRadar = $derived(
+  aisTargets && collision
+    ? {
+        vessel: deps.vessel,
+        targets: aisTargets,
+        collision,
+        rangeNm: aisRadarRangeNm,
+        onRangeChange: onAisRadarRangeChange,
+      }
+    : undefined,
+);
 
 let customizing = $state(false);
 let reordering = $state(false);
@@ -69,12 +95,21 @@ let instrumentMenu = $state<{
 $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
 });
+$effect(() => {
+  if (!initialExpandedRequest) return;
+  void initialExpandedRequest.sequence;
+  detailId = undefined;
+  customizing = false;
+  reordering = false;
+  expandedId = initialExpandedRequest.id;
+  onExpandedRequestHandled?.();
+});
 
 // Hoisted so the tile selection resolves (validate the persisted ids, scan the catalog) once per
 // real change instead of once per clock tick: both the effect below and the template read this.
 const tiles = $derived(controller.tiles);
 const detailDef = $derived(detailId ? tiles.find((def) => def.id === detailId) : undefined);
-const expandedDef = $derived(expandedId ? tiles.find((def) => def.id === expandedId) : undefined);
+const expandedDef = $derived(expandedId ? controller.resolve(expandedId) : undefined);
 
 const reorder = createReorder({
   getItems: () => tiles.map((def) => ({ id: def.id, title: controller.resolvedLabel(def) })),
@@ -87,7 +122,11 @@ const reorder = createReorder({
 });
 
 function spansWholeRow(kind: string, state: string): boolean {
-  return kind === 'wind-rose' || (state !== 'never' && (kind === 'wind' || kind === 'position'));
+  return (
+    kind === 'wind-rose' ||
+    kind === 'ais-radar' ||
+    (state !== 'never' && (kind === 'wind' || kind === 'position'))
+  );
 }
 
 interface InstrumentMenuTarget {
@@ -322,6 +361,7 @@ $effect(() => {
             {depthZone}
             staleAgeText={staleAge}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
+            {aisRadar}
             onActivate={() => (expandedId = def.id)}
           />
           {#if reordering}
@@ -372,6 +412,7 @@ $effect(() => {
         {depthZone}
         staleAgeText={staleAge}
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
+        {aisRadar}
         expanded
         onActivate={() => (expandedId = undefined)}
       />

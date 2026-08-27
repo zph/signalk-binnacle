@@ -76,13 +76,16 @@ import {
 import { NOAA_ENC_SOURCE_ID, shouldOfferNoaaEnc } from '$features/depth-charts';
 import { createHandoffClient, createHandoffController } from '$features/handoff';
 import {
+  type AisRadarRangeNm,
   BINNACLE_INSTRUMENT_PLUGIN,
   createInstrumentRegistry,
   createInstrumentsController,
+  DEFAULT_AIS_RADAR_RANGE_NM,
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
   type InstrumentDockLayout,
   instrumentDockWidthForLayout,
+  isAisRadarRangeNm,
   loadInstrumentsPanel,
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
@@ -646,6 +649,18 @@ function finishOpeningInstrumentsPanel(): void {
   instruments.setOpen(true);
 }
 
+let instrumentOpenSequence = 0;
+let instrumentExpandedRequest = $state<{ id: string; sequence: number } | undefined>();
+
+function openExpandedInstrument(id: string): void {
+  instrumentExpandedRequest = { id, sequence: ++instrumentOpenSequence };
+  finishOpeningInstrumentsPanel();
+}
+
+function openAisRadarInstrument(): void {
+  openExpandedInstrument('ais-radar');
+}
+
 function toggleInstrumentsPanel(): void {
   if (instruments.open) {
     instruments.setOpen(false);
@@ -781,6 +796,12 @@ const instrumentTiles = new PersistedValue<string[]>(
   [...DEFAULT_TILES],
   undefined,
   stringArrayPersistedCodec({ maxItems: 100, maxLength: 256 }),
+);
+const aisRadarRangeNm = new PersistedValue<AisRadarRangeNm>(
+  binnacleStorageKey('aisRadarRangeNm'),
+  DEFAULT_AIS_RADAR_RANGE_NM,
+  undefined,
+  createPersistedCodec(isAisRadarRangeNm),
 );
 // Chart orientation mode, profile-owned; the resolver and bearing effect live beside follow.
 const chartOrientation = new PersistedValue<ChartOrientationMode>(
@@ -2187,6 +2208,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       onSelect: backToMenu,
     },
     {
+      id: 'ais-radar-instrument',
+      label: 'AIS radar',
+      description: `Open traffic radar and range controls, currently ${aisRadarRangeNm.value} nm`,
+      group: 'Instruments',
+      keywords: ['traffic', 'targets', 'CPA', 'TCPA', 'range', 'configuration'],
+      icon: Radar,
+      onSelect: openAisRadarInstrument,
+    },
+    {
       id: 'theme',
       label: 'Appearance',
       description: `Current theme: ${theme.theme}`,
@@ -3320,6 +3350,11 @@ const plotterActions = {
           deps={{ vessel, store, units, clock, course: courseGuidance }}
           fullscreen={instrumentsFullScreen}
           dockWidth={instrumentDockWidth}
+          {aisTargets}
+          {collision}
+          aisRadarRangeNm={aisRadarRangeNm.value}
+          onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
+          initialExpandedRequest={instrumentExpandedRequest}
           onDockResize={resizeInstrumentDock}
           onDockResizeCommit={commitInstrumentDockWidth}
           emergencyAction={instrumentsMobAction}

@@ -38,6 +38,7 @@ const BINNACLE_STORAGE_KEYS = {
   instrumentsOpen: { key: 'binnacle-custom:instruments-open', scope: 'device' },
   interfaceLocked: { key: 'binnacle-custom:interface-locked', scope: 'device' },
   instrumentDockWidth: { key: 'binnacle-custom:instrument-dock-width', scope: 'device' },
+  aisRadarRangeNm: { key: 'binnacle-custom:ais-radar-range-nm', scope: 'device' },
   layerCategories: { key: 'binnacle-custom:layer-categories', scope: 'device' },
   userCharts: { key: 'binnacle-custom:user-charts', scope: 'server-resource' },
   anchorWatch: { key: 'binnacle-custom:anchor-watch', scope: 'safety' },

@@ -1,0 +1,402 @@
+<script lang="ts">
+import X from '@lucide/svelte/icons/x';
+import type { AisTargets } from '$entities/ais';
+import type { CollisionAssessment } from '$entities/collision';
+import type { OwnVessel } from '$entities/vessel';
+import { RAD_TO_DEG } from '$shared/lib';
+import {
+  AIS_RADAR_RANGES_NM,
+  type AisRadarRangeNm,
+  buildAisRadarContacts,
+} from './ais-radar-model';
+import type { TileReading } from './tile-catalog';
+
+interface Props {
+  label: string;
+  reading: TileReading;
+  vessel: OwnVessel;
+  targets: AisTargets;
+  collision: CollisionAssessment;
+  rangeNm: AisRadarRangeNm;
+  onRangeChange: (rangeNm: AisRadarRangeNm) => void;
+  expanded?: boolean;
+  actionLabel: string;
+  onOpen: () => void;
+}
+
+const {
+  label,
+  reading,
+  vessel,
+  targets,
+  collision,
+  rangeNm,
+  onRangeChange,
+  expanded = false,
+  actionLabel,
+  onOpen,
+}: Props = $props();
+
+const ownPosition = $derived(vessel.position);
+const contacts = $derived.by(() => {
+  void targets.version;
+  return ownPosition
+    ? buildAisRadarContacts({
+        ownPosition,
+        targets: targets.list(),
+        assessment: collision.assessment,
+        rangeNm,
+      })
+    : [];
+});
+const ownDirectionDeg = $derived((vessel.headingRad ?? vessel.cogRad ?? 0) * RAD_TO_DEG);
+const statusText = $derived(
+  reading.state === 'never'
+    ? 'Waiting for GPS position'
+    : reading.state === 'stale'
+      ? 'GPS position is stale'
+      : `${contacts.length} ${contacts.length === 1 ? 'target' : 'targets'} in ${rangeNm} nm`,
+);
+const accessibleLabel = $derived(`${label}, ${statusText}. ${actionLabel}`);
+
+const CENTER = 200;
+const PLOT_RADIUS = 176;
+const RINGS = [0.25, 0.5, 0.75, 1] as const;
+const labelForRing = (fraction: number): string => `${Number((rangeNm * fraction).toFixed(2))} nm`;
+const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RADIUS;
+</script>
+
+{#snippet radarFace()}
+  <svg class="radar" viewBox="0 0 400 400" aria-hidden="true">
+    <circle class="sector sector--outer" cx={CENTER} cy={CENTER} r={PLOT_RADIUS} />
+    <circle class="sector sector--yellow" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.75} />
+    <circle class="sector sector--amber" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.5} />
+    <circle class="sector sector--red" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.25} />
+    <path
+      class="heading-sector"
+      d="M 200 200 L 154.45 30 A 176 176 0 0 1 245.55 30 Z"
+      transform={`rotate(${ownDirectionDeg} ${CENTER} ${CENTER})`}
+    />
+    <line class="bearing-line" x1={CENTER} y1={24} x2={CENTER} y2={376} />
+    <line class="bearing-line" x1={24} y1={CENTER} x2={376} y2={CENTER} />
+    <g class="north-compass" transform="translate(42 42)">
+      <circle r="17" />
+      <path d="M 0 -13 L 4 2 L 0 -1 L -4 2 Z" />
+      <line x1="0" y1="-1" x2="0" y2="11" />
+      <text y="-21" text-anchor="middle">N</text>
+    </g>
+    {#each RINGS as fraction (fraction)}
+      <text class="ring-label" x={CENTER + 5} y={CENTER - PLOT_RADIUS * fraction + 11}>
+        {labelForRing(fraction)}
+      </text>
+    {/each}
+
+    {#each contacts as contact (contact.id)}
+      {@const x = coordinate(contact.x)}
+      {@const y = coordinate(contact.y)}
+      {@const anchor = contact.x > 0.42 ? 'end' : 'start'}
+      {@const labelX = contact.x > 0.42 ? x - 9 : x + 9}
+      <g
+        class:danger={contact.severity === 'danger'}
+        class:warning={contact.severity === 'warning'}
+        class:unassessed={contact.severity === 'unassessed'}
+      >
+        <title>{contact.name}, {contact.sogText}, {contact.cpaText}</title>
+        {#if contact.vectorX !== 0 || contact.vectorY !== 0}
+          <line
+            class="motion-vector"
+            x1={x}
+            y1={y}
+            x2={coordinate(contact.x + contact.vectorX)}
+            y2={coordinate(contact.y + contact.vectorY)}
+          />
+        {/if}
+        <path
+          class="target"
+          d="M 0 -8 L 5.5 7 L 0 4.5 L -5.5 7 Z"
+          transform={`translate(${x} ${y}) rotate(${contact.directionDeg})`}
+        />
+        {#if contact.severity === 'unassessed'}
+          <text class="quality-mark" {x} y={y - 10} text-anchor="middle">?</text>
+        {/if}
+        <text class="target-label" x={labelX} y={y - 2} text-anchor={anchor}>
+          <tspan class="target-name" x={labelX}>{contact.name}</tspan>
+          <tspan x={labelX} dy="9">{contact.sogText}</tspan>
+          <tspan x={labelX} dy="9">{contact.cpaText}</tspan>
+        </text>
+      </g>
+    {/each}
+
+    <g class="own-ship" transform={`translate(${CENTER} ${CENTER}) rotate(${ownDirectionDeg})`}>
+      <path d="M 0 -13 L 7 7 L 5 11 L -5 11 L -7 7 Z" />
+      <circle cx="0" cy="0" r="12" />
+    </g>
+  </svg>
+  {#if reading.state !== 'live'}
+    <div class="radar-message">{statusText}</div>
+  {/if}
+  <div class="radar-caption">
+    <span>{label}</span>
+    <span>{rangeNm} nm · {contacts.length} AIS</span>
+  </div>
+{/snippet}
+
+{#if expanded}
+  <section class="tile tile--expanded ais-radar" aria-label={accessibleLabel}>
+    <button
+      class="icon-btn close"
+      type="button"
+      aria-label={actionLabel}
+      title={actionLabel}
+      onclick={onOpen}
+    >
+      <X size={20} aria-hidden="true" />
+    </button>
+    <div class="range-control" role="group" aria-label="AIS radar range">
+      {#each AIS_RADAR_RANGES_NM as range (range)}
+        <button
+          type="button"
+          class:active={range === rangeNm}
+          aria-pressed={range === rangeNm}
+          onclick={() => onRangeChange(range)}
+        >
+          {range}
+          nm
+        </button>
+      {/each}
+    </div>
+    <div class="face face--expanded">{@render radarFace()}</div>
+  </section>
+{:else}
+  <button
+    class="tile ais-radar"
+    type="button"
+    aria-label={accessibleLabel}
+    title={accessibleLabel}
+    onclick={onOpen}
+  >
+    <div class="face">{@render radarFace()}</div>
+  </button>
+{/if}
+
+<style>
+.ais-radar {
+  position: relative;
+  display: flex;
+  min-block-size: 15rem;
+  overflow: hidden;
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+.face {
+  position: relative;
+  display: grid;
+  inline-size: 100%;
+  min-inline-size: 0;
+  place-items: center;
+}
+.radar {
+  display: block;
+  inline-size: min(100%, 28rem);
+  block-size: 100%;
+  max-block-size: 100%;
+  color: var(--accent);
+}
+.sector {
+  stroke: color-mix(in srgb, var(--text-muted) 56%, transparent);
+  stroke-width: 1;
+}
+.sector--outer {
+  fill: transparent;
+}
+.sector--yellow {
+  fill: color-mix(in srgb, var(--select) 8%, transparent);
+}
+.sector--amber {
+  fill: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.sector--red {
+  fill: color-mix(in srgb, var(--alarm) 13%, transparent);
+}
+.bearing-line {
+  stroke: color-mix(in srgb, var(--text-muted) 24%, transparent);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 5;
+}
+.heading-sector {
+  fill: color-mix(in srgb, var(--accent) 7%, transparent);
+  stroke: color-mix(in srgb, var(--accent) 24%, transparent);
+  stroke-width: 0.8;
+}
+.north-compass text,
+.ring-label,
+.target-label,
+.quality-mark {
+  font-family: var(--font-mono);
+  fill: var(--text-muted);
+  paint-order: stroke;
+  stroke: var(--surface-raised);
+  stroke-linejoin: round;
+  stroke-width: 1.5px;
+}
+.north-compass circle {
+  fill: color-mix(in srgb, var(--surface-raised) 86%, transparent);
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+.north-compass path {
+  fill: var(--text);
+}
+.north-compass line {
+  stroke: var(--text);
+  stroke-width: 1.4;
+}
+.north-compass text {
+  font-size: 9px;
+  font-weight: 800;
+  fill: var(--text);
+  stroke-width: 2px;
+}
+.ring-label {
+  font-size: 7px;
+  fill: var(--text);
+  stroke: none;
+}
+.target-label {
+  font-size: 7px;
+  fill: var(--text);
+  stroke-width: 3px;
+}
+.target-name {
+  font-size: 8px;
+  font-weight: 800;
+  fill: var(--text);
+}
+.target {
+  fill: var(--surface-raised);
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.motion-vector {
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.danger .target {
+  fill: var(--alarm);
+  stroke: var(--alarm);
+  stroke-width: 3;
+}
+.danger .motion-vector,
+.danger .target-name {
+  stroke: var(--surface-raised);
+  fill: var(--alarm);
+}
+.warning .target {
+  stroke: var(--warning);
+  stroke-width: 2.5;
+}
+.warning .motion-vector,
+.warning .target-name {
+  stroke: var(--surface-raised);
+  fill: var(--warning);
+}
+.unassessed .target,
+.unassessed .motion-vector {
+  stroke: var(--warning);
+  stroke-dasharray: 2 2;
+}
+.quality-mark {
+  fill: var(--warning);
+  font-size: 8px;
+  font-weight: 800;
+}
+.own-ship path {
+  fill: var(--text);
+  stroke: var(--surface-raised);
+  stroke-width: 1.5;
+}
+.own-ship circle {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1;
+}
+.radar-caption {
+  position: absolute;
+  inset-inline: var(--space-2);
+  inset-block-end: var(--space-1);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.radar-caption span:first-child {
+  color: var(--text);
+  font-weight: 700;
+}
+.radar-message {
+  position: absolute;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.close {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  z-index: 2;
+}
+.range-control {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-start: 50%;
+  z-index: 2;
+  display: flex;
+  max-inline-size: calc(100% - 7rem);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+  transform: translateX(-50%);
+}
+.range-control button {
+  min-block-size: var(--touch-target);
+  padding-inline: var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.range-control button.active {
+  background: var(--accent);
+  color: var(--surface);
+}
+.face--expanded {
+  padding: calc(var(--touch-target) + var(--space-3)) var(--space-3) var(--space-3);
+}
+.face--expanded .radar {
+  inline-size: min(78vmin, 100%);
+  max-inline-size: 70rem;
+}
+@media (max-width: 600px) {
+  .ais-radar {
+    min-block-size: 13rem;
+  }
+  .range-control {
+    inset-inline-start: var(--space-2);
+    max-inline-size: calc(100% - 4.5rem);
+    transform: none;
+  }
+  .range-control button {
+    padding-inline: var(--space-2);
+    font-size: var(--text-xs);
+  }
+}
+</style>

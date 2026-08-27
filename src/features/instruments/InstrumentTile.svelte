@@ -1,6 +1,11 @@
 <script lang="ts">
+import type { AisTargets } from '$entities/ais';
+import type { CollisionAssessment } from '$entities/collision';
+import type { OwnVessel } from '$entities/vessel';
 import type { ZoneState } from '$shared/signalk';
+import AisRadarTile from './AisRadarTile.svelte';
 import AttitudeTile from './AttitudeTile.svelte';
+import type { AisRadarRangeNm } from './ais-radar-model';
 import CompassTile from './CompassTile.svelte';
 import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
@@ -17,6 +22,13 @@ interface Props {
   staleAgeText?: string;
   sparkPoints?: number[];
   expanded?: boolean;
+  aisRadar?: {
+    vessel: OwnVessel;
+    targets: AisTargets;
+    collision: CollisionAssessment;
+    rangeNm: AisRadarRangeNm;
+    onRangeChange: (rangeNm: AisRadarRangeNm) => void;
+  };
   onActivate: () => void;
 }
 
@@ -29,12 +41,26 @@ const {
   staleAgeText,
   sparkPoints,
   expanded = false,
+  aisRadar,
   onActivate,
 }: Props = $props();
 const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrument');
 </script>
 
-{#if def.kind === 'wind-rose'}
+{#if def.kind === 'ais-radar' && aisRadar}
+  <AisRadarTile
+    {label}
+    {reading}
+    vessel={aisRadar.vessel}
+    targets={aisRadar.targets}
+    collision={aisRadar.collision}
+    rangeNm={aisRadar.rangeNm}
+    onRangeChange={aisRadar.onRangeChange}
+    {expanded}
+    {actionLabel}
+    onOpen={onActivate}
+  />
+{:else if def.kind === 'wind-rose'}
   <WindRoseTile
     {label}
     {reading}

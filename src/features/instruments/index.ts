@@ -1,5 +1,11 @@
 import { createRetryableLazyUiLoader } from '$shared/lib';
 
+export {
+  AIS_RADAR_RANGES_NM,
+  type AisRadarRangeNm,
+  DEFAULT_AIS_RADAR_RANGE_NM,
+  isAisRadarRangeNm,
+} from './ais-radar-model';
 export { BINNACLE_INSTRUMENT_PLUGIN } from './builtin-instrument-plugin';
 export {
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
