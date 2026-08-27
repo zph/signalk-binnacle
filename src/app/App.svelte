@@ -651,6 +651,7 @@ function finishOpeningInstrumentsPanel(): void {
 
 let instrumentOpenSequence = 0;
 let instrumentExpandedRequest = $state<{ id: string; sequence: number } | undefined>();
+let tideInstrumentRequested = $state(false);
 
 function openExpandedInstrument(id: string): void {
   instrumentExpandedRequest = { id, sequence: ++instrumentOpenSequence };
@@ -659,6 +660,21 @@ function openExpandedInstrument(id: string): void {
 
 function openAisRadarInstrument(): void {
   openExpandedInstrument('ais-radar');
+}
+
+function openTideInstrument(): void {
+  tideInstrumentRequested = true;
+  openExpandedInstrument('tides');
+  loadTides();
+}
+
+function openTideStationSettings(): void {
+  tideInstrumentRequested = false;
+  instrumentExpandedRequest = undefined;
+  instruments.setOpen(false);
+  tidesOpenedFrom = 'menu';
+  openPanel('tides');
+  loadTides();
 }
 
 function toggleInstrumentsPanel(): void {
@@ -1242,8 +1258,14 @@ const userCharts = new UserCharts(
 // panel. With both off (the default) a pan must not issue NOAA station and prediction fetches that
 // nothing renders.
 const tidesWanted = $derived(
-  (layerSettings.value[TIDES_OVERLAY_ID]?.visible ?? false) || activePanel === 'tides',
+  (layerSettings.value[TIDES_OVERLAY_ID]?.visible ?? false) ||
+    activePanel === 'tides' ||
+    tideInstrumentRequested ||
+    (instruments.open && instruments.tiles.some((def) => def.id === 'tides')),
 );
+$effect(() => {
+  if (!instruments.open) tideInstrumentRequested = false;
+});
 
 // The view changes once per animation frame while panning; persist only after it
 // settles so a drag is one write, not hundreds.
@@ -1429,7 +1451,11 @@ let radarOpenedFrom = $state<'menu' | 'layers'>('menu');
 let radarDraftDirty = $state(false);
 let radarPanelRequest = $state<'close' | 'instruments' | undefined>();
 const bottomTabObscured = $derived(
-  activePanel !== null || weatherPanelOpen || radarControlsOpen || selectedNote !== undefined,
+  activePanel !== null ||
+    weatherPanelOpen ||
+    radarControlsOpen ||
+    selectedNote !== undefined ||
+    (instrumentsFullScreen && instruments.open),
 );
 
 // Auto-enable the radar echo the first time a radar is discovered, then latch so a later manual
@@ -1945,22 +1971,12 @@ const menuItems = $derived<MenuItem[]>([
   },
   {
     id: 'tides',
-    // The panel picks tidal-current stations as well as tide heights, which the shorter name hid;
-    // the pill keeps the bare word.
-    label: 'Tides and currents',
+    label: 'Tide instrument',
     shortLabel: 'Tides',
     icon: Waves,
     group: 'Weather',
-    pressed: activePanel === 'tides',
-    onSelect: () => {
-      if (activePanel === 'tides') {
-        closePanel();
-        return;
-      }
-      tidesOpenedFrom = 'menu';
-      openPanel('tides');
-      loadTides();
-    },
+    pressed: instruments.open && tideInstrumentRequested,
+    onSelect: openTideInstrument,
   },
   {
     id: 'instruments',
@@ -2215,6 +2231,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       keywords: ['traffic', 'targets', 'CPA', 'TCPA', 'range', 'configuration'],
       icon: Radar,
       onSelect: openAisRadarInstrument,
+    },
+    {
+      id: 'tide-station-settings',
+      label: 'Tide station settings',
+      description: 'Choose tide and tidal-current stations',
+      group: 'Settings',
+      keywords: ['tides', 'NOAA', 'station', 'configuration'],
+      icon: Waves,
+      onSelect: openTideStationSettings,
     },
     {
       id: 'theme',
@@ -3347,14 +3372,16 @@ const plotterActions = {
       <ErrorBoundary>
         <module.default
           controller={instruments}
-          deps={{ vessel, store, units, clock, course: courseGuidance }}
-          fullscreen={instrumentsFullScreen}
-          dockWidth={instrumentDockWidth}
+          deps={{ vessel, store, units, clock, course: courseGuidance, tides: tidesStore }}
           {aisTargets}
           {collision}
           aisRadarRangeNm={aisRadarRangeNm.value}
           onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
           initialExpandedRequest={instrumentExpandedRequest}
+          onExpandedRequestHandled={() => (instrumentExpandedRequest = undefined)}
+          onOpenTideSettings={openTideStationSettings}
+          fullscreen={instrumentsFullScreen}
+          dockWidth={instrumentDockWidth}
           onDockResize={resizeInstrumentDock}
           onDockResizeCommit={commitInstrumentDockWidth}
           emergencyAction={instrumentsMobAction}

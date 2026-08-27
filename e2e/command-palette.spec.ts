@@ -25,10 +25,9 @@ test('Command K searches commands and chains into instrument layouts', async ({ 
     '8',
     '9',
   ]);
-  await expect(palette.getByRole('option', { name: /Instruments/ })).toHaveAttribute(
-    'aria-keyshortcuts',
-    '2',
-  );
+  await expect(
+    palette.getByRole('option').filter({ hasText: 'Open the instrument dock' }),
+  ).toHaveAttribute('aria-keyshortcuts', '2');
   await search.fill('center');
   await expect(palette.getByRole('option', { name: /Center on boat/ })).not.toHaveAttribute(
     'aria-keyshortcuts',
@@ -165,6 +164,7 @@ test('adjustable surfaces are direct command palette results', async ({ page }) 
     ['alarm settings', /Alarms/],
     ['track settings', /Tracks/],
     ['instrument settings', /^Instruments /],
+    ['tide station settings', /Tide station settings/],
     ['profile settings', /Profiles/],
   ] as const;
 
@@ -172,6 +172,21 @@ test('adjustable surfaces are direct command palette results', async ({ page }) 
     await search.fill(query);
     await expect(palette.getByRole('option', { name: optionName })).toBeVisible();
   }
+});
+
+test('opens the tide instrument full screen from the command palette', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('tide instrument');
+  await palette.getByRole('option', { name: /^Tide instrument Weather/ }).click();
+
+  const tide = page.getByRole('dialog', { name: 'Tides full-screen instrument' });
+  await expect(tide).toBeVisible();
+  await tide.getByRole('button', { name: 'Tide station settings' }).click();
+  await expect(tide).toHaveCount(0);
+  await expect(page.getByRole('complementary', { name: 'Tide station settings' })).toBeVisible();
 });
 
 test('the interface lock command changes to unlock while Binnacle is locked', async ({ page }) => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CourseGuidance } from '$entities/course';
+import { TidesStore } from '$entities/tides';
 import { UnitsStore } from '$entities/units';
 import { OwnVessel } from '$entities/vessel';
 import type { ReactiveClock, UnitsMode } from '$shared/lib';
@@ -285,6 +286,31 @@ describe('depth tile', () => {
     expect(reading.state).toBe('stale');
     expect(reading.value).toBe('7.0');
     expect(reading.referenceLabel).toBe('Keel');
+  });
+});
+
+describe('tide tile', () => {
+  it('reads the shared tide store and keeps tide height in SI', () => {
+    const clock = { now: 1500 };
+    const tides = new TidesStore();
+    tides.setReadings(
+      {
+        station: { id: 'T1', name: 'Test Harbor', latitude: 1, longitude: 2 },
+        distanceMeters: 1000,
+        events: [
+          { timeMs: 1000, heightMeters: 0.2, kind: 'low' },
+          { timeMs: 2000, heightMeters: 1.2, kind: 'high' },
+        ],
+        samples: [{ timeMs: 1500, heightMeters: 0.7 }],
+      },
+      undefined,
+      'noaa-coops',
+    );
+    const reading = readTile('tides', { ...makeDeps(clock), tides });
+
+    expect(reading.state).toBe('live');
+    expect(reading.siValue).toBe(0.7);
+    expect(reading.tide?.station.name).toBe('Test Harbor');
   });
 });
 

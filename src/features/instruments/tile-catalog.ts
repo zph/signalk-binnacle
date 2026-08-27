@@ -5,6 +5,7 @@ import type {
   InstrumentTrendDescriptor,
   InstrumentTrendDisplayKind,
 } from '$entities/instrument-trend';
+import type { TideReading, TidesStore } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
 import { DEPTH_SOURCE_LABELS, type OwnVessel } from '$entities/vessel';
 import { asNumber, isLatLon } from '$shared/geo';
@@ -42,6 +43,7 @@ export interface TileDeps {
   units: UnitsStore;
   clock: ReactiveClock;
   course: CourseGuidance;
+  tides?: TidesStore;
 }
 
 export type TileValueState = 'never' | 'placeholder' | 'stale' | 'live';
@@ -73,6 +75,11 @@ export interface TileReading {
   };
   pitchRad?: number;
   rollRad?: number;
+  tide?: TideReading;
+  tideDepthMeters?: number;
+  tideDepthStale?: boolean;
+  tideUnitsMode?: UnitsMode;
+  tideNowMs?: number;
 }
 
 export interface InstrumentMetric {
@@ -115,7 +122,8 @@ export interface TileDef {
     | 'compass'
     | 'heel'
     | 'attitude'
-    | 'ais-radar';
+    | 'ais-radar'
+    | 'tide';
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
   viz?: 'spark' | 'battery' | 'rot';
   trend?: {
@@ -1027,6 +1035,64 @@ const ATTITUDE_DEF: TileDef = {
   },
 };
 
+function nearestTideHeight(tide: TideReading, nowMs: number): number | undefined {
+  const samples = tide.samples;
+  if (samples?.length) {
+    let nearest = samples[0];
+    for (const sample of samples) {
+      if (Math.abs(sample.timeMs - nowMs) < Math.abs(nearest.timeMs - nowMs)) nearest = sample;
+    }
+    return nearest.heightMeters;
+  }
+  const events = tide.events;
+  if (events.length === 0 || nowMs < events[0].timeMs || nowMs > events[events.length - 1].timeMs) {
+    return undefined;
+  }
+  for (let index = 1; index < events.length; index++) {
+    const before = events[index - 1];
+    const after = events[index];
+    if (nowMs > after.timeMs) continue;
+    const fraction = (nowMs - before.timeMs) / (after.timeMs - before.timeMs || 1);
+    const eased = (1 - Math.cos(Math.PI * fraction)) / 2;
+    return before.heightMeters + (after.heightMeters - before.heightMeters) * eased;
+  }
+  return events.at(-1)?.heightMeters;
+}
+
+const TIDE_DEF: TileDef = {
+  id: 'tides',
+  label: 'Tides',
+  description: 'Predicted tide height and sounder-adjusted depth for the selected station.',
+  sensorGloss: 'No tide prediction',
+  paths: [],
+  zonesPath: SK_PATHS.depthBelowSurface,
+  category: 'weather',
+  kind: 'tide',
+  read({ tides, vessel, units, clock }) {
+    const tide = tides?.tide;
+    const tideHeight = tide ? nearestTideHeight(tide, clock.now) : undefined;
+    const anchorDepth = vessel.anchorDepth;
+    return {
+      state:
+        tideHeight === undefined ? (tides?.status === 'loading' ? 'placeholder' : 'never') : 'live',
+      value:
+        tideHeight === undefined
+          ? PLACEHOLDER
+          : units.mode === 'imperial'
+            ? formatFixed(metersToFeet(tideHeight), 1)
+            : formatFixed(tideHeight, 2),
+      unit: units.mode === 'imperial' ? 'ft' : 'm',
+      siValue: tideHeight,
+      secondary: tide?.station.name,
+      tide,
+      tideDepthMeters: anchorDepth.meters,
+      tideDepthStale: anchorDepth.stale,
+      tideUnitsMode: units.mode,
+      tideNowMs: clock.now,
+    };
+  },
+};
+
 export const TILE_CATALOG: readonly TileDef[] = [
   SOG_DEF,
   HDG_DEF,
@@ -1049,6 +1115,7 @@ export const TILE_CATALOG: readonly TileDef[] = [
   ROT_DEF,
   HEEL_DEF,
   ATTITUDE_DEF,
+  TIDE_DEF,
 ];
 
 export const DEFAULT_TILES: readonly string[] = ['sog', 'heading', 'depth', 'wind-apparent'];

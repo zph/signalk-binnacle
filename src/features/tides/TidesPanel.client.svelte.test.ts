@@ -70,23 +70,6 @@ afterEach(() => {
 });
 
 describe('TidesPanel interactions', () => {
-  it('expands and restores the tide panel width from its header control', () => {
-    const panel = mountPanel();
-    const expandControl = panel.target.querySelector<HTMLButtonElement>(
-      'button[aria-label="Expand tide chart"]',
-    );
-    if (!expandControl) throw new Error('missing expand tide chart control');
-
-    expandControl.click();
-    flushSync();
-    expect(panel.target.querySelector('aside')?.classList).toContain('slide-over--wide');
-    expect(
-      panel.target.querySelector<HTMLButtonElement>(
-        'button[aria-label="Use standard tide panel width"]',
-      ),
-    ).not.toBeNull();
-  });
-
   it('scrubs predicted tide and estimated depth with the keyboard', () => {
     const panel = mountPanel();
     const now = Date.now();

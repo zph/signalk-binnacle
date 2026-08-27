@@ -1,6 +1,4 @@
 <script lang="ts">
-import Maximize2 from '@lucide/svelte/icons/maximize-2';
-import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onDestroy, untrack } from 'svelte';
 import type {
@@ -140,7 +138,6 @@ const followingFlow = $derived(
 );
 const sourceNote = $derived(tideSourceNote(store.source, store.loadedTide));
 const minimize = createPanelMinimize();
-let wide = $state(false);
 let chartNode = $state<SVGSVGElement | undefined>();
 let hover = $state<
   | {
@@ -301,30 +298,13 @@ function onChartKeydown(event: KeyboardEvent): void {
 </script>
 
 <SlideOver
-  title="Tides and currents"
+  title="Tide station settings"
   closeLabel="Close tides panel"
   {onClose}
   {onBack}
   bodyFlex
   {minimize}
-  {wide}
 >
-  {#snippet headerExtra()}
-    <button
-      type="button"
-      class="icon-btn"
-      aria-label={wide ? 'Use standard tide panel width' : 'Expand tide chart'}
-      title={wide ? 'Use standard tide panel width' : 'Expand tide chart'}
-      aria-pressed={wide}
-      onclick={() => (wide = !wide)}
-    >
-      {#if wide}
-        <Minimize2 size={18} aria-hidden="true" />
-      {:else}
-        <Maximize2 size={18} aria-hidden="true" />
-      {/if}
-    </button>
-  {/snippet}
   <p class="muted-note">
     Automatic mode finds nearby stations. Manual choices use NOAA CO-OPS and stay selected while you
     pan.
@@ -495,7 +475,6 @@ function onChartKeydown(event: KeyboardEvent): void {
             <svg
               bind:this={chartNode}
               class="curve"
-              class:curve--wide={wide}
               viewBox={`0 0 ${CURVE_W} ${CURVE_H}`}
               aria-hidden="true"
             >
@@ -766,9 +745,6 @@ function onChartKeydown(event: KeyboardEvent): void {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-}
-.curve--wide {
-  block-size: clamp(16rem, 42vh, 24rem);
 }
 .chart-interactive {
   position: relative;

@@ -9,6 +9,7 @@ import type { AisRadarRangeNm } from './ais-radar-model';
 import CompassTile from './CompassTile.svelte';
 import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
+import TideTile from './TideTile.svelte';
 import type { TileDef, TileReading } from './tile-catalog';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
@@ -30,6 +31,7 @@ interface Props {
     onRangeChange: (rangeNm: AisRadarRangeNm) => void;
   };
   onActivate: () => void;
+  onTideSettings?: () => void;
 }
 
 const {
@@ -43,6 +45,7 @@ const {
   expanded = false,
   aisRadar,
   onActivate,
+  onTideSettings,
 }: Props = $props();
 const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrument');
 </script>
@@ -59,6 +62,16 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     {expanded}
     {actionLabel}
     onOpen={onActivate}
+  />
+{:else if def.kind === 'tide'}
+  <TideTile
+    {label}
+    {reading}
+    sensorGloss={def.sensorGloss}
+    {expanded}
+    {actionLabel}
+    onOpen={onActivate}
+    onSettings={onTideSettings}
   />
 {:else if def.kind === 'wind-rose'}
   <WindRoseTile

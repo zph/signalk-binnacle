@@ -5,6 +5,7 @@ import AttitudeTile from './AttitudeTile.svelte';
 import CompassTile from './CompassTile.svelte';
 import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
+import TideTile from './TideTile.svelte';
 import type { TileReading } from './tile-catalog';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
@@ -184,6 +185,43 @@ describe('NumericTile', () => {
       props: { label: 'Speed', reading: LIVE, zone: normal, sensorGloss: GLOSS, abbr: 'SOG' },
     }).body;
     expect(html).toContain('<span class="abbr">SOG</span>');
+  });
+});
+
+describe('TideTile', () => {
+  it('renders the selected station, prediction curve, and full-screen settings action', () => {
+    const html = render(TideTile, {
+      props: {
+        label: 'Tides',
+        sensorGloss: 'No tide prediction',
+        reading: {
+          state: 'live',
+          value: '1.2',
+          unit: 'm',
+          tideUnitsMode: 'metric',
+          tideNowMs: 1500,
+          tideDepthMeters: 4,
+          tide: {
+            station: { id: 'T1', name: 'Test Harbor', latitude: 1, longitude: 2 },
+            distanceMeters: 1000,
+            events: [
+              { timeMs: 1000, heightMeters: 0.2, kind: 'low' },
+              { timeMs: 2000, heightMeters: 1.2, kind: 'high' },
+            ],
+          },
+        },
+        expanded: true,
+        actionLabel: 'Collapse instrument',
+        onOpen: () => {},
+        onSettings: () => {},
+      },
+    }).body;
+
+    expect(html).toContain('Test Harbor');
+    expect(html).toMatch(/class="curve\s/);
+    expect(html).toMatch(/class="depth-curve\s/);
+    expect(html).toContain('Tide station settings');
+    expect(html).toContain('aria-label="Collapse instrument: Tides, 1.2 m"');
   });
 });
 

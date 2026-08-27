@@ -4,19 +4,6 @@ import { describe, expect, it } from 'vitest';
 import SlideOver from './SlideOver.svelte';
 
 describe('SlideOver', () => {
-  it('opts into the wider desktop panel surface', () => {
-    const { body } = render(SlideOver, {
-      props: {
-        title: 'Tides',
-        wide: true,
-        onClose: () => {},
-        children: createRawSnippet(() => ({ render: () => '<p>Tide chart</p>' })),
-      },
-    });
-
-    expect(body).toContain('slide-over--wide');
-  });
-
   it('keeps a pinned workflow footer rendered while the phone body is collapsed', () => {
     const { body } = render(SlideOver, {
       props: {

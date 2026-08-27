@@ -42,6 +42,7 @@ interface Props {
   emergencyAction?: Snippet;
   // The shell lock remains reachable when this panel covers the normal bottom toolbar.
   lockAction?: Snippet;
+  onOpenTideSettings?: () => void;
 }
 
 const {
@@ -63,6 +64,7 @@ const {
   onDockResizeCommit = () => {},
   emergencyAction,
   lockAction,
+  onOpenTideSettings,
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -125,6 +127,7 @@ function spansWholeRow(kind: string, state: string): boolean {
   return (
     kind === 'wind-rose' ||
     kind === 'ais-radar' ||
+    kind === 'tide' ||
     (state !== 'never' && (kind === 'wind' || kind === 'position'))
   );
 }
@@ -363,6 +366,7 @@ $effect(() => {
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
             {aisRadar}
             onActivate={() => (expandedId = def.id)}
+            onTideSettings={def.kind === 'tide' ? onOpenTideSettings : undefined}
           />
           {#if reordering}
             <button
@@ -415,6 +419,7 @@ $effect(() => {
         {aisRadar}
         expanded
         onActivate={() => (expandedId = undefined)}
+        onTideSettings={expandedDef.kind === 'tide' ? onOpenTideSettings : undefined}
       />
       {@render fixedLockAction()}
       {@render instrumentActionsMenu()}

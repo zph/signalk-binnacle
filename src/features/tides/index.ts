@@ -5,6 +5,12 @@ export {
   SIGNALK_TIDES_PLUGIN_ID,
 } from './signalk-tides-client';
 export { createTidesController, type TidesController } from './tides-controller.svelte';
+export {
+  formatTideHeight,
+  tideCurveSamples,
+  tideHeightAt,
+  tideHoverReading,
+} from './tides-display';
 export type { TideStationSelectionEvent } from './tides-hit-handlers';
 export { createTidesLoader, type TidesLoader } from './tides-loader';
 export { createTidesOverlay, TIDES_OVERLAY_ID } from './tides-overlay';
