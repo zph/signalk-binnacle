@@ -236,8 +236,8 @@ source, and surrounding traffic before relying on it.
   and resolved Depth sit below. Each unit appears in parentheses on its title line, and the pointer
   positions make separate AWA and TWA numerics unnecessary. Depth uses the server's Signal K zone
   and notification state for its warning and alarm color. Tapping any instrument expands that
-  face across Binnacle, and tapping the large face restores the grid. A small question-mark control
-  at the lower right opens the instrument's source and trend details. The header lock opens a
+  face across Binnacle, and tapping the large face restores the grid. The right-click actions menu
+  opens the instrument's source and trend details through Inspect. The header lock opens a
   dashboard-reorder mode with touch, pointer, and keyboard handles on the live tiles. Every move
   writes the same persisted order shown by Customize, so the two views cannot diverge. Customize
   can show, hide, and reorder tiles,

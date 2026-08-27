@@ -5,6 +5,7 @@ import {
   openMenuItem,
   stubVesselsSelf,
 } from './helpers';
+import { inspectInstrument } from './instrument-helpers';
 import { installMapLibreWorkerProof } from './maplibre-worker-proof';
 
 // Smoke tests route selected external APIs. Blocking service workers keeps those requests visible
@@ -1012,7 +1013,9 @@ test('instrument dock opens beside a still-present chart and closes from its hea
   await expect(page.getByRole('region', { name: 'Chart' })).toBeVisible();
   // Default tiles render their plain labels.
   await expect(dock.getByText('Speed', { exact: false }).first()).toBeVisible();
-  await dock.getByRole('button', { name: /^Speed,.*Expand instrument$/ }).click();
+  await expect(dock.locator('.tile-info')).toHaveCount(0);
+  const speedTile = dock.getByRole('button', { name: /^Speed,.*Expand instrument$/ });
+  await speedTile.click();
   const expanded = page.getByRole('dialog', { name: 'Speed full-screen instrument' });
   await expect(expanded).toBeVisible();
   const viewport = page.viewportSize();
@@ -1021,9 +1024,26 @@ test('instrument dock opens beside a still-present chart and closes from its hea
   expect(expandedBox?.y).toBe(0);
   expect(expandedBox?.width).toBe(viewport?.width);
   expect(expandedBox?.height).toBe(viewport?.height);
-  await expanded.getByRole('button', { name: /^Speed,.*Collapse instrument$/ }).click();
+  const expandedTile = expanded.getByRole('button', { name: /^Speed,.*Collapse instrument$/ });
+  await expandedTile.click({ button: 'right' });
+  const expandedActions = page.getByRole('menu', { name: 'Speed actions' });
+  await expect(expandedActions).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(expandedActions).not.toBeVisible();
+  await expect(expandedTile).toBeFocused();
+  await expandedTile.click();
   await expect(expanded).not.toBeVisible();
-  await dock.getByRole('button', { name: 'Show information for Speed' }).click();
+  await speedTile.click({ button: 'right' });
+  const actions = page.getByRole('menu', { name: 'Speed actions' });
+  await expect(actions).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(actions).not.toBeVisible();
+  await expect(speedTile).toBeFocused();
+  await page.keyboard.press('Shift+F10');
+  await expect(actions).toBeVisible();
+  await expect(actions.getByRole('menuitem', { name: 'Inspect' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await inspectInstrument(speedTile);
   await expect(dock.getByRole('button', { name: 'Back to instruments' })).toBeVisible();
   await expect(dock.getByRole('heading', { name: 'Signal K paths' })).toBeVisible();
   await expect(dock.getByText('navigation.speedOverGround')).toBeVisible();
@@ -1297,7 +1317,9 @@ test('history-only engine readings stay identifiable through selection and detai
   await portEngine.check();
   await expect(rpmHistoryNote).toHaveText('Previously seen, no live data');
   await dock.getByRole('button', { name: 'Done' }).click();
-  await dock.getByRole('button', { name: 'Show information for RPM · Port engine' }).click();
+  await inspectInstrument(
+    dock.getByRole('button', { name: /^RPM · Port engine,.*Expand instrument$/ }),
+  );
   await expect(dock.getByText('Previously recorded, but not reporting live now.')).toBeVisible();
   await dock.getByRole('button', { name: 'View recent trend' }).click();
   const trends = page.locator('.slide-over[aria-label="Data trends"]');
@@ -1324,7 +1346,7 @@ test('focused trends return to instrument detail without changing the saved over
   await dock.getByRole('button', { name: 'Customize instruments' }).click();
   await dock.getByRole('checkbox', { name: 'Water speed', exact: true }).check();
   await dock.getByRole('button', { name: 'Done' }).click();
-  await dock.getByRole('button', { name: 'Show information for Water speed' }).click();
+  await inspectInstrument(dock.getByRole('button', { name: /^Water speed,.*Expand instrument$/ }));
   const trendAction = dock.getByRole('button', { name: 'View recent trend' });
   await trendAction.click();
 

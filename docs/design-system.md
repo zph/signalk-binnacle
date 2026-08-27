@@ -277,9 +277,9 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   takes the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
   The face carries no redundant Wind rose caption.
   Every instrument face is the zoom control: activating a tile expands that one face over the full
-  Binnacle surface, and activating the expanded face restores the grid. A quiet question-mark icon
-  in the tile's lower-right corner is the separate path to source details and recent trends. Its icon
-  is small, but its transparent target remains the full `--control-size` touch area.
+  Binnacle surface, and activating the expanded face restores the grid. Right-clicking an instrument
+  opens its actions menu, where Inspect leads to source details and recent trends without adding
+  secondary chrome to every tile.
   The header lock toggles a separate dashboard-reorder mode. In that mode every live tile exposes a
   full-size drag handle, the grid uses `createReorder` with visual row and column targeting, and
   keyboard ArrowUp and ArrowDown moves remain available. A drop commits through the instruments

@@ -1,6 +1,7 @@
 import { createRawSnippet } from 'svelte';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
+import InstrumentContextMenu from './InstrumentContextMenu.svelte';
 import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentsPanel from './InstrumentsPanel.svelte';
@@ -92,6 +93,23 @@ function detailBody(cell: Record<string, unknown>, reading: TileReading, now = 7
 }
 
 describe('InstrumentsPanel', () => {
+  it('offers Inspect in the instrument actions menu', () => {
+    const { body } = render(InstrumentContextMenu, {
+      props: {
+        label: 'Speed',
+        x: 200,
+        y: 120,
+        viewportWidth: 320,
+        viewportHeight: 240,
+        onInspect: () => {},
+        onClose: () => {},
+      },
+    });
+    expect(body).toContain('aria-label="Speed actions"');
+    expect(body).toContain('role="menuitem"');
+    expect(body).toContain('Inspect</button>');
+  });
+
   it('renders the Instruments heading in the panel header', () => {
     const controller = makeController();
     const deps = makeDeps();
@@ -129,7 +147,7 @@ describe('InstrumentsPanel', () => {
     expect(body).toContain('aria-label="Customize instruments"');
   });
 
-  it('uses the tile to expand and a separate question-mark control for information', () => {
+  it('uses the tile to expand without rendering a separate information control', () => {
     const { body } = render(InstrumentsPanel, {
       props: {
         controller: makeController({ selectedIds: ['sog'] }),
@@ -137,7 +155,8 @@ describe('InstrumentsPanel', () => {
       },
     });
     expect(body).toContain('Expand instrument');
-    expect(body).toContain('aria-label="Show information for Speed"');
+    expect(body).not.toContain('Show information for Speed');
+    expect(body).not.toContain('lucide-circle-help');
     expect(body).not.toContain('Open details');
   });
 

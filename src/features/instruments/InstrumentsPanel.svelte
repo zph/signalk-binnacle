@@ -1,11 +1,12 @@
 <script lang="ts">
-import CircleHelp from '@lucide/svelte/icons/circle-help';
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import Lock from '@lucide/svelte/icons/lock';
 import LockOpen from '@lucide/svelte/icons/lock-open';
 import { type Snippet, untrack } from 'svelte';
+import type { Action } from 'svelte/action';
 import { CustomizeToggle, createReorder, dialog, PanelHeader, trapFocus } from '$shared/ui';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
+import InstrumentContextMenu from './InstrumentContextMenu.svelte';
 import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentDockResize from './InstrumentDockResize.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
@@ -56,6 +57,15 @@ let reordering = $state(false);
 let detailId = $state<string | undefined>();
 let expandedId = $state<string | undefined>();
 let tilesEl = $state<HTMLElement | undefined>();
+let instrumentMenu = $state<{
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  trigger: HTMLButtonElement;
+}>();
 $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
 });
@@ -78,6 +88,76 @@ const reorder = createReorder({
 
 function spansWholeRow(kind: string, state: string): boolean {
   return kind === 'wind-rose' || (state !== 'never' && (kind === 'wind' || kind === 'position'));
+}
+
+interface InstrumentMenuTarget {
+  id: string;
+  label: string;
+}
+
+const instrumentContextMenu: Action<HTMLElement, InstrumentMenuTarget> = (node, initialTarget) => {
+  let target = initialTarget;
+  const tileFromTarget = (eventTarget: EventTarget | null): HTMLButtonElement | undefined => {
+    const tile =
+      eventTarget instanceof Element
+        ? eventTarget.closest<HTMLButtonElement>('button.tile')
+        : undefined;
+    return tile && node.contains(tile) ? tile : undefined;
+  };
+  const openMenu = (tile: HTMLButtonElement, x?: number, y?: number): void => {
+    const bounds = tile.getBoundingClientRect();
+    instrumentMenu = {
+      ...target,
+      x: x ?? bounds.left + bounds.width / 2,
+      y: y ?? bounds.top + bounds.height / 2,
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: document.documentElement.clientHeight,
+      trigger: tile,
+    };
+  };
+  const handleContextMenu = (event: MouseEvent): void => {
+    const tile = tileFromTarget(event.target);
+    if (!tile) return;
+    event.preventDefault();
+    const keyboardPosition = event.clientX === 0 && event.clientY === 0;
+    openMenu(
+      tile,
+      keyboardPosition ? undefined : event.clientX,
+      keyboardPosition ? undefined : event.clientY,
+    );
+  };
+  const handleKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
+    const tile = tileFromTarget(event.target);
+    if (!tile) return;
+    event.preventDefault();
+    openMenu(tile);
+  };
+  node.addEventListener('contextmenu', handleContextMenu);
+  node.addEventListener('keydown', handleKeydown);
+  return {
+    update(nextTarget): void {
+      target = nextTarget;
+    },
+    destroy(): void {
+      node.removeEventListener('contextmenu', handleContextMenu);
+      node.removeEventListener('keydown', handleKeydown);
+    },
+  };
+};
+
+function closeInstrumentMenu(): void {
+  const trigger = instrumentMenu?.trigger;
+  instrumentMenu = undefined;
+  requestAnimationFrame(() => trigger?.isConnected && trigger.focus({ preventScroll: true }));
+}
+
+function inspectInstrument(): void {
+  const id = instrumentMenu?.id;
+  if (!id) return;
+  instrumentMenu = undefined;
+  expandedId = undefined;
+  detailId = id;
 }
 
 // Session-only sparkline history: sampled here on the shared reactive clock so the buffers only
@@ -107,6 +187,20 @@ $effect(() => {
     <div class="instrument-lock-action">
       {@render lockAction()}
     </div>
+  {/if}
+{/snippet}
+
+{#snippet instrumentActionsMenu()}
+  {#if instrumentMenu}
+    <InstrumentContextMenu
+      label={instrumentMenu.label}
+      x={instrumentMenu.x}
+      y={instrumentMenu.y}
+      viewportWidth={instrumentMenu.viewportWidth}
+      viewportHeight={instrumentMenu.viewportHeight}
+      onInspect={inspectInstrument}
+      onClose={closeInstrumentMenu}
+    />
   {/if}
 {/snippet}
 
@@ -218,6 +312,7 @@ $effect(() => {
           class:dragging={reordering && reorder.dragId === def.id}
           class:drop-before={reordering && indicator.before}
           class:drop-after={reordering && indicator.after}
+          use:instrumentContextMenu={{ id: def.id, label: resolvedLabel }}
         >
           <InstrumentTile
             {def}
@@ -240,16 +335,6 @@ $effect(() => {
               onkeydown={(event) => reorder.handleKeydown(def.id, event)}
             >
               <GripVertical size={18} aria-hidden="true" />
-            </button>
-          {:else}
-            <button
-              type="button"
-              class="tile-info"
-              aria-label={`Show information for ${resolvedLabel}`}
-              title={`Show information for ${resolvedLabel}`}
-              onclick={() => (detailId = def.id)}
-            >
-              <CircleHelp size={15} aria-hidden="true" />
             </button>
           {/if}
         </div>
@@ -274,6 +359,10 @@ $effect(() => {
       tabindex="-1"
       use:dialog={() => (expandedId = undefined)}
       use:trapFocus={true}
+      use:instrumentContextMenu={{
+        id: expandedDef.id,
+        label: controller.resolvedLabel(expandedDef),
+      }}
     >
       <InstrumentTile
         def={expandedDef}
@@ -287,7 +376,12 @@ $effect(() => {
         onActivate={() => (expandedId = undefined)}
       />
       {@render fixedLockAction()}
+      {@render instrumentActionsMenu()}
     </div>
+  {/if}
+
+  {#if !expandedDef}
+    {@render instrumentActionsMenu()}
   {/if}
 </aside>
 
@@ -359,29 +453,6 @@ $effect(() => {
 .tile-shell.reorder-row.drop-after::after {
   inset-inline: auto;
   inset-inline-end: calc(var(--space-1) * -1);
-}
-/* The question mark is visually quiet, but its transparent target keeps the full 44 px touch
-   contract. It is a sibling of the tile button, never a nested interactive control. */
-.tile-info {
-  appearance: none;
-  position: absolute;
-  inset-inline-end: 0;
-  inset-block-end: 0;
-  display: grid;
-  place-items: center;
-  inline-size: var(--control-size);
-  block-size: var(--control-size);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: help;
-}
-.tile-info:hover,
-.tile-info:focus-visible {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
 }
 .expanded-instrument {
   position: fixed;

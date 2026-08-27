@@ -12,6 +12,8 @@ interface Props {
   onClose: () => void;
   // The aria-label for the transparent backdrop dismiss button.
   backdropLabel: string;
+  // Optional class for a consumer whose own full-screen stacking context needs the backdrop raised.
+  backdropClass?: string;
   // A CSS class forwarded onto the surface element so each consumer can position it via a
   // :global block in its own scoped style. The primitive adds no position: relative or
   // container-type, so it never inserts a containing block between the consumer and its ancestor.
@@ -51,6 +53,7 @@ let {
   open,
   onClose,
   backdropLabel,
+  backdropClass,
   surfaceClass,
   surfaceStyle,
   anchor,
@@ -131,7 +134,9 @@ $effect(() => {
        viewport regardless of the containing block, so a tap anywhere outside the surface closes. -->
   <button
     type="button"
-    class="overlay-backdrop anchored-menu-backdrop"
+    class={backdropClass
+      ? `overlay-backdrop anchored-menu-backdrop ${backdropClass}`
+      : 'overlay-backdrop anchored-menu-backdrop'}
     aria-label={backdropLabel}
     tabindex="-1"
     onclick={onClose}

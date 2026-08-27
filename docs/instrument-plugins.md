@@ -111,8 +111,8 @@ the provider contract small and declarative:
   bright stray pixels in night-red.
 
 Binnacle also owns the standard tile interactions. Activating a face expands it to the full app
-surface, activating the expanded face restores the grid, and the lower-right question-mark control
-opens metadata and trend details. Instrument manifests do not declare, replace, or style these
+surface, activating the expanded face restores the grid, and the right-click Inspect action opens
+metadata and trend details. Instrument manifests do not declare, replace, or style these
 controls.
 
 The visible label, value, unit, freshness, and zone must also form a complete spoken description.

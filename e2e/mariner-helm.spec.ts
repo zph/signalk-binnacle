@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { FIXTURE_SERVER, openMenuItem, stubVesselsSelf } from './helpers';
+import { inspectInstrument } from './instrument-helpers';
 
 // The mariner helm scenarios: emergency reachability, alarm pileups, and staleness honesty under
 // phone-sized, landscape, large-text, and safe-area conditions. This project runs against the
@@ -646,7 +647,7 @@ test('a server staleness declaration relabels the fix and names the quiet source
   // The instrument detail names the declaration and the source that went quiet, not "Unknown".
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Show information for Speed' }).click();
+  await inspectInstrument(dock.getByRole('button', { name: /^Speed,.*Expand instrument$/ }));
   await expect(dock).toContainText('The Signal K server reports this sensor stopped updating.');
   await expect(dock).toContainText('No update from gps0.GP.');
 });
