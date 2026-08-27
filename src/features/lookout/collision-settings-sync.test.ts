@@ -88,4 +88,45 @@ describe('collision settings synchronization', () => {
     expect(fetchMock.mock.calls[1]?.[1]?.body).toContain('"dangerTcpaSeconds":900');
     sync.dispose();
   });
+
+  it('recovers a stored customization from a factory-default server record', async () => {
+    const localThresholds = {
+      ...DEFAULT_THRESHOLDS,
+      dangerCpaMeters: 0,
+      dangerTcpaSeconds: 0,
+      warningCpaMeters: 0,
+      warningTcpaSeconds: 0,
+    };
+    const storage = createFakeStorage({
+      'binnacle-custom:lookout-thresholds': JSON.stringify(localThresholds),
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(response({ thresholds: DEFAULT_THRESHOLDS }))
+      .mockResolvedValueOnce(response({ thresholds: localThresholds }));
+    const thresholds = createThresholds(storage);
+    const sync = createCollisionSettingsSync({
+      origin: 'http://boat',
+      thresholds,
+      getToken: () => 'token',
+    });
+
+    sync.observe(thresholds.value);
+    await sync.hydrate();
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(thresholds.value).toEqual(localThresholds);
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: 'PUT',
+      body: JSON.stringify({
+        thresholds: {
+          dangerCpaMeters: 0,
+          dangerTcpaSeconds: 0,
+          warningCpaMeters: 0,
+          warningTcpaSeconds: 0,
+        },
+      }),
+    });
+    sync.dispose();
+  });
 });

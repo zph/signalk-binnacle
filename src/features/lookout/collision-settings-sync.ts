@@ -1,5 +1,5 @@
 import { createLatestWriter } from '$shared/lib';
-import type { PersistedValue, Thresholds } from '$shared/settings';
+import { DEFAULT_THRESHOLDS, type PersistedValue, type Thresholds } from '$shared/settings';
 import type { ResourceMutationResult } from '$shared/signalk';
 import {
   type CollisionThresholdSettings,
@@ -21,6 +21,7 @@ interface ServerSettingSyncDeps<TLocal, TRemote> {
   load: () => Promise<ServerSettingLoad<TRemote>>;
   save: (remote: TRemote) => Promise<ResourceMutationResult>;
   writeError: string;
+  preferLocal?: (local: TRemote, remote: TRemote) => boolean;
 }
 
 export interface ServerSettingSync<TLocal> {
@@ -96,7 +97,11 @@ export function createServerSettingSync<TLocal, TRemote>(
     lastSavedSignature = serverSignature;
     submittedSignature = undefined;
     const current = deps.toRemote(deps.store.value);
-    if (dirtySignature || deps.signature(current) !== startingSignature) {
+    if (
+      dirtySignature ||
+      deps.signature(current) !== startingSignature ||
+      deps.preferLocal?.(current, result.value)
+    ) {
       latest = current;
       submit(current);
       return;
@@ -143,5 +148,14 @@ export function createCollisionSettingsSync(
     },
     save: (value) => saveCollisionSettings(deps.origin, deps.getToken(), value),
     writeError: 'Collision settings write failed',
+    // Early server-backed builds could seed the plugin with factory defaults before reading an
+    // existing browser customization. Treat only that exact legacy shape as unconfigured so the
+    // user's narrower or disabled CPA thresholds survive an upgrade. Once the server contains any
+    // non-default value, it remains authoritative across displays.
+    preferLocal: (local, remote) =>
+      collisionSignature(remote) ===
+        collisionSignature(collisionThresholdSettings(DEFAULT_THRESHOLDS)) &&
+      collisionSignature(local) !==
+        collisionSignature(collisionThresholdSettings(DEFAULT_THRESHOLDS)),
   });
 }
