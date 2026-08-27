@@ -21,6 +21,18 @@ describe('PinnedActions', () => {
     expect(body).toContain('Center');
   });
 
+  it('keeps labels accessible but visually hides them in icons-only mode', () => {
+    const body = render(PinnedActions, {
+      props: {
+        actions: [action('center', { label: 'Center' })],
+        showLabels: false,
+      },
+    }).body;
+
+    expect(body).toContain('class="visually-hidden">Center</span>');
+    expect(body).toContain('title="Center"');
+  });
+
   it('collapses actions beyond the bar limit behind a menu trigger', () => {
     const actions = Array.from({ length: 8 }, (_, index) =>
       action(`a${index}`, { label: `A${index}` }),

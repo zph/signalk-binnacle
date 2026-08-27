@@ -10,14 +10,16 @@ import { MAX_BAR_PILLS, MAX_COMPACT_BAR_PILLS, splitBarActions } from './pinned-
 
 interface Props {
   actions: MenuItem[];
+  showLabels?: boolean;
 }
 
-const { actions }: Props = $props();
+const { actions, showLabels = true }: Props = $props();
 const compactPhone = createMediaQuery('(max-width: 600px)');
 // Below 480px the four default pills exceed the strip's width with labels on, so the pills go
 // icon-only: the label collapses to visually-hidden, keeping the accessible name and the 44px
 // target while all pinned actions stay one tap away.
 const iconOnlyPills = createMediaQuery('(max-width: 480px)');
+const labelsHidden = $derived(!showLabels || iconOnlyPills.matches);
 let moreOpen = $state(false);
 let moreTrigger = $state<HTMLButtonElement>();
 let moreSurface = $state<HTMLElement>();
@@ -72,7 +74,7 @@ $effect(() => machine.syncOpen(moreOpen));
     >
       <UnavailableHint hint={action.available === false ? action.unavailableHint : undefined} />
       <MenuItemIcon item={action} size={16} />
-      <span class:visually-hidden={iconOnlyPills.matches}>{action.shortLabel ?? action.label}</span>
+      <span class:visually-hidden={labelsHidden}>{action.shortLabel ?? action.label}</span>
       <MenuItemCount item={action} />
     </button>
   {/each}
@@ -91,7 +93,7 @@ $effect(() => machine.syncOpen(moreOpen));
         onclick={() => (moreOpen = !moreOpen)}
       >
         <Ellipsis size={16} aria-hidden="true" />
-        <span class:visually-hidden={iconOnlyPills.matches}>More</span>
+        <span class:visually-hidden={labelsHidden}>More</span>
         {#if split.overflow.length > 1}
           <span class="pill-count" aria-hidden="true">{split.overflow.length}</span>
         {/if}

@@ -32,6 +32,7 @@ const BINNACLE_STORAGE_KEYS = {
   aisIconMode: { key: 'binnacle-custom:ais-icon-mode', scope: 'device' },
   radarAutoEnabled: { key: 'binnacle-custom:radar-autoenabled', scope: 'device' },
   pinnedActions: { key: 'binnacle-custom:pinned-actions', scope: 'profile' },
+  bottomToolbarLabels: { key: 'binnacle-custom:bottom-toolbar-labels', scope: 'device' },
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },
   trendInstruments: { key: 'binnacle-custom:trend-instruments', scope: 'profile' },
   instrumentsOpen: { key: 'binnacle-custom:instruments-open', scope: 'device' },

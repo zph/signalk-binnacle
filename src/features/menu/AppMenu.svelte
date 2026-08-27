@@ -32,6 +32,8 @@ interface Props {
   onTogglePin?: (id: string) => void;
   onReorderPinned?: (id: string, slot: number) => void;
   onResetPinned?: () => void;
+  showToolbarLabels?: boolean;
+  onShowToolbarLabelsChange?: (shown: boolean) => void;
 }
 
 const {
@@ -46,6 +48,8 @@ const {
   onTogglePin,
   onReorderPinned,
   onResetPinned,
+  showToolbarLabels = true,
+  onShowToolbarLabelsChange,
 }: Props = $props();
 
 const pinnedSet = $derived(
@@ -182,6 +186,8 @@ function onCardKeydown(event: KeyboardEvent): void {
               items={pinnedItems}
               onReorder={onReorderPinned}
               onReset={onResetPinned}
+              showLabels={showToolbarLabels}
+              onShowLabelsChange={onShowToolbarLabelsChange}
             />
           {/if}
           {#each groups as group, gi (gi)}

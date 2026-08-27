@@ -766,6 +766,12 @@ const pinnedActions = new PersistedValue<string[]>(
   undefined,
   stringArrayPersistedCodec({ maxItems: 64, maxLength: 128 }),
 );
+const bottomToolbarLabels = new PersistedValue<boolean>(
+  binnacleStorageKey('bottomToolbarLabels'),
+  true,
+  undefined,
+  booleanPersistedCodec,
+);
 
 // The instrument dock: tile selection rides profiles through this PersistedValue (the bindings
 // entry reads and writes it), while the open flag stays local so a casual dock toggle never
@@ -2208,6 +2214,18 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       },
     },
     {
+      id: 'bottom-toolbar-labels',
+      label: bottomToolbarLabels.value
+        ? 'Hide bottom toolbar labels'
+        : 'Show bottom toolbar labels',
+      description: bottomToolbarLabels.value
+        ? 'Use icons only in the bottom toolbar'
+        : 'Show text beside bottom toolbar icons',
+      group: 'Display',
+      icon: MenuIcon,
+      onSelect: () => bottomToolbarLabels.set(!bottomToolbarLabels.value),
+    },
+    {
       id: 'lock-interface',
       label: interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle',
       description: interfaceLock.locked
@@ -3098,6 +3116,8 @@ const plotterActions = {
     {onTogglePin}
     {onReorderPinned}
     {onResetPinned}
+    showToolbarLabels={bottomToolbarLabels.value}
+    onShowToolbarLabelsChange={(shown) => bottomToolbarLabels.set(shown)}
   />
   <PlotterView
     services={plotterServices}
@@ -3332,19 +3352,22 @@ const plotterActions = {
         onclick={() => collisionMute.unmute()}
       >
         <VolumeX size={16} aria-hidden="true" />
-        Muted {muteRemainingMin}min
+        <span class="fixed-action-label">Muted {muteRemainingMin}min</span>
       </button>
     {/if}
     {#if updateReady}
       <button
         type="button"
         class="btn btn-primary btn-pill"
+        aria-label="Install update"
+        title="Install update"
         onclick={() => {
           updateReady = false;
           pwa.update();
         }}
       >
-        Update
+        <DownloadCloud size={16} aria-hidden="true" />
+        <span class="fixed-action-label">Update</span>
       </button>
     {/if}
     <ProfileSwitcher
@@ -3397,6 +3420,7 @@ const plotterActions = {
             : undefined}
           onResetOrientation={() => chartOrientation.set('north')}
           pinnedActions={resolvedPinned}
+          showActionLabels={bottomToolbarLabels.value}
           fixedActions={statusStripFixedActions}
           editing={menuEditing}
           {clock}

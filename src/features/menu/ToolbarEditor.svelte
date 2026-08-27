@@ -1,7 +1,7 @@
 <script lang="ts">
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-import { createReorder, InlineConfirm, UnavailableHint } from '$shared/ui';
+import { createReorder, InlineConfirm, LayerToggle, UnavailableHint } from '$shared/ui';
 import MenuItemIcon from './MenuItemIcon.svelte';
 import { blockedReason, type MenuItem } from './menu-item';
 
@@ -9,9 +9,11 @@ interface Props {
   items: MenuItem[];
   onReorder?: (id: string, slot: number) => void;
   onReset?: () => void;
+  showLabels?: boolean;
+  onShowLabelsChange?: (shown: boolean) => void;
 }
 
-const { items, onReorder, onReset }: Props = $props();
+const { items, onReorder, onReset, showLabels = true, onShowLabelsChange }: Props = $props();
 let list: HTMLElement | undefined = $state(undefined);
 let resetArmed = $state(false);
 
@@ -40,6 +42,12 @@ function handleKeydown(id: string, event: KeyboardEvent): void {
       </button>
     {/if}
   </div>
+  <LayerToggle
+    label="Show button labels"
+    visible={showLabels}
+    description="Show text beside icons in the bottom toolbar"
+    onToggle={(shown) => onShowLabelsChange?.(shown)}
+  />
   {#if resetArmed}
     <InlineConfirm
       question="Reset to defaults?"

@@ -45,6 +45,7 @@ let {
   orientation = undefined,
   onResetOrientation = undefined,
   pinnedActions,
+  showActionLabels = true,
   editing = false,
   clock,
   onReconnect,
@@ -84,6 +85,7 @@ let {
   orientation?: { label: string; active: boolean };
   onResetOrientation?: () => void;
   pinnedActions: MenuItem[];
+  showActionLabels?: boolean;
   editing?: boolean;
   clock: ReactiveClock;
   onReconnect: () => void;
@@ -181,9 +183,9 @@ const depthWatchPaused = $derived(
 );
 </script>
 
-<footer class="status-strip" class:editing>
+<footer class="status-strip" class:editing class:labels-hidden={!showActionLabels}>
   <div class="strip-actions">
-    <PinnedActions actions={pinnedActions} />
+    <PinnedActions actions={pinnedActions} showLabels={showActionLabels} />
     {#if fixedActions}
       {@render fixedActions()}
     {/if}
@@ -506,6 +508,18 @@ const depthWatchPaused = $derived(
     min-inline-size: var(--control-size);
     padding-inline: 0;
   }
+}
+.labels-hidden :global(.strip-actions .fixed-action-label),
+.labels-hidden :global(.strip-actions .mob-label),
+.labels-hidden :global(.strip-actions .profile-switcher .name) {
+  display: none;
+}
+.labels-hidden :global(.strip-actions .fixed-toolbar-action),
+.labels-hidden :global(.strip-actions .mob-btn),
+.labels-hidden :global(.strip-actions .profile-switcher .switcher) {
+  min-inline-size: var(--control-size);
+  justify-content: center;
+  padding-inline: 0;
 }
 .offline {
   color: var(--alarm);

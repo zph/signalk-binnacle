@@ -9,13 +9,19 @@ const action = (id: string): MenuItem => ({ id, label: id, onSelect: () => {} })
 
 function mountEditor() {
   const onReset = vi.fn();
+  const onShowLabelsChange = vi.fn();
   const target = document.createElement('div');
   document.body.append(target);
   let component!: ReturnType<typeof mount>;
   flushSync(() => {
     component = mount(ToolbarEditor, {
       target,
-      props: { items: [action('center'), action('follow')], onReset },
+      props: {
+        items: [action('center'), action('follow')],
+        onReset,
+        showLabels: true,
+        onShowLabelsChange,
+      },
     });
   });
   mounted.push(() => {
@@ -29,6 +35,8 @@ function mountEditor() {
     );
   return {
     onReset,
+    onShowLabelsChange,
+    labelsCheckbox: () => target.querySelector<HTMLInputElement>('input[type="checkbox"]'),
     click: (text: string) => {
       const button = byText(text);
       if (!button) throw new Error(`no button labeled ${text}`);
@@ -74,5 +82,17 @@ describe('ToolbarEditor reset', () => {
     expect(editor.onReset).not.toHaveBeenCalled();
     expect(editor.question()).toBeUndefined();
     expect(editor.has('Reset toolbar')).toBe(true);
+  });
+});
+
+describe('ToolbarEditor labels', () => {
+  it('exposes the persistent bottom-toolbar label preference', () => {
+    const editor = mountEditor();
+    const checkbox = editor.labelsCheckbox();
+
+    expect(checkbox?.checked).toBe(true);
+    checkbox?.click();
+
+    expect(editor.onShowLabelsChange).toHaveBeenCalledWith(false);
   });
 });
