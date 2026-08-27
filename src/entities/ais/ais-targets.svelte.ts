@@ -228,6 +228,12 @@ export class AisTargets {
     return target.epochs.get(SK_PATHS.position);
   }
 
+  // A per-target value-change counter for consumers that need to distinguish a genuinely new AIS
+  // measurement from a clock-driven view rebuild at a freshness boundary.
+  revision(id: string): number | undefined {
+    return this.#store.aisTargets.get(id)?.revision;
+  }
+
   #numField(value: unknown, key: string): number | undefined {
     return isRecord(value) ? asNumber(value[key]) : undefined;
   }

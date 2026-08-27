@@ -328,10 +328,13 @@ describe('CollisionAssessment acknowledge', () => {
 
   it('re-arms when the situation clears and the same contact returns', () => {
     const store = dangerStore('vessels.a');
+    let now = 100_000;
     const collision = new CollisionAssessment(
       new OwnVessel(store),
       new AisTargets(store),
       createThresholds(),
+      () => false,
+      () => now,
     );
     collision.acknowledge();
     expect(collision.suppressed).toBe(true);
@@ -344,6 +347,23 @@ describe('CollisionAssessment acknowledge', () => {
           'vessels.a',
           new Map<string, unknown>([
             ['navigation.closestApproach', { distance: 100, timeTo: -10 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    expect(collision.assessment.worst).toBe('danger');
+
+    // A clear reading must hold continuously for 30 seconds before the alert stands down.
+    now += 30_000;
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 101, timeTo: -11 }],
           ]),
         ],
       ]),
@@ -370,14 +390,17 @@ describe('CollisionAssessment acknowledge', () => {
 });
 
 describe('CollisionAssessment hysteresis', () => {
-  it('holds a danger grade through threshold-level scatter', () => {
+  it('holds a danger grade through threshold scatter and a 30-second downgrade window', () => {
     // The contact starts well inside danger, scatters just past the 926 m danger CPA, and must
     // hold danger; a real retreat past the margin downgrades.
     const store = dangerStore('vessels.a');
+    let now = 100_000;
     const collision = new CollisionAssessment(
       new OwnVessel(store),
       new AisTargets(store),
       createThresholds(),
+      () => false,
+      () => now,
     );
     expect(collision.assessment.worst).toBe('danger');
 
@@ -407,7 +430,149 @@ describe('CollisionAssessment hysteresis', () => {
       connection: { phase: 'open', attempt: 0 },
       epoch: Date.now(),
     });
+    expect(collision.assessment.worst).toBe('danger');
+
+    now += 30_000;
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 1101, timeTo: 60 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
     expect(collision.assessment.worst).toBe('warning');
+  });
+
+  it('requires warning risk on two distinct AIS updates', () => {
+    const store = new SignalKStore();
+    store.applyFrame({
+      self: new Map<string, unknown>([['navigation.position', { latitude: 0, longitude: 0 }]]),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.position', { latitude: 0.01, longitude: 0 }],
+            ['navigation.closestApproach', { distance: 1500, timeTo: 900 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    const collision = new CollisionAssessment(
+      new OwnVessel(store),
+      new AisTargets(store),
+      createThresholds(),
+    );
+
+    expect(collision.assessment.worst).toBe('clear');
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 1490, timeTo: 899 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    expect(collision.assessment.worst).toBe('warning');
+  });
+
+  it('clears a warning only after 30 continuous seconds beyond the margin', () => {
+    const store = new SignalKStore();
+    let now = 100_000;
+    store.applyFrame({
+      self: new Map<string, unknown>([['navigation.position', { latitude: 0, longitude: 0 }]]),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.position', { latitude: 0.01, longitude: 0 }],
+            ['navigation.closestApproach', { distance: 1500, timeTo: 900 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    const collision = new CollisionAssessment(
+      new OwnVessel(store),
+      new AisTargets(store),
+      createThresholds(),
+      () => false,
+      () => now,
+    );
+    void collision.assessment;
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 1490, timeTo: 899 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    expect(collision.assessment.worst).toBe('warning');
+
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 2100, timeTo: 900 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    expect(collision.assessment.worst).toBe('warning');
+    now += 29_000;
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 2101, timeTo: 899 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    expect(collision.assessment.worst).toBe('warning');
+
+    now += 1_000;
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.a',
+          new Map<string, unknown>([
+            ['navigation.closestApproach', { distance: 2102, timeTo: 898 }],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: Date.now(),
+    });
+    expect(collision.assessment.worst).toBe('clear');
   });
 });
 

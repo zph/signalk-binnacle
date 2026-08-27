@@ -63,6 +63,16 @@ const SLOW_TARGET_SOG_MPS = knotsToMetersPerSecond(1);
 // delayed), but a downgrade only happens once the value clears its old band by this margin, so GPS
 // scatter right at a threshold cannot flap the tone off and on or bust an acknowledge.
 const DOWNGRADE_MARGIN = 1.1;
+const WARNING_CONFIRMATION_UPDATES = 2;
+const DOWNGRADE_HOLD_MS = 30_000;
+
+interface ContactStability {
+  stable?: DangerContact;
+  warningUpdates: number;
+  lastWarningRevision?: number;
+  outsideDangerSince?: number;
+  outsideWarningSince?: number;
+}
 
 // The identity-stable all-clear result: empty water yields this same object every pass, so
 // consumers that dirty-check the assessment by reference (the chart overlay does, every animation
@@ -234,9 +244,11 @@ export class CollisionAssessment {
   // reader anyway.
   #ackExpired = false;
 
-  // Contact severities from the previous pass, feeding the downgrade hysteresis in classify.
-  // A plain field for the same reason as #ackExpired.
-  #lastSeverities: Map<string, Severity> | undefined;
+  // Per-contact confirmation and clearance state. Upgrades to danger remain immediate, warnings
+  // need two distinct AIS updates, and a downgrade needs 30 continuous seconds beyond the existing
+  // 10 percent margin. Plain fields are used for the same reason as #ackExpired.
+  #stability = new Map<string, ContactStability>();
+  #now: () => number;
 
   // Memoized so the O(targets) CPA loop runs once per real change, not once per read. The
   // assessment is read several times per frame (alarm, notifier, danger strip, overlay), and
@@ -260,20 +272,21 @@ export class CollisionAssessment {
       !this.#vessel.cogStale
         ? { position, sogMps, cogRad }
         : undefined;
-    const next = assessContacts(
+    const targets = this.#targets.list();
+    const previous = new Map<string, Severity>();
+    for (const [id, state] of this.#stability) {
+      if (state.stable) previous.set(id, state.stable.severity);
+    }
+    const immediate = assessContacts(
       own,
-      this.#targets.list(),
+      targets,
       this.#thresholds.value,
-      this.#lastSeverities,
+      previous,
       this.#anchored(),
     );
+    const next = this.#stabilize(immediate, targets, this.#now());
     if (next.contacts.length === 0) {
-      this.#lastSeverities = undefined;
       this.#ackExpired = true;
-    } else {
-      const severities = new Map<string, Severity>();
-      for (const c of next.contacts) severities.set(c.id, c.severity);
-      this.#lastSeverities = severities;
     }
     return next;
   });
@@ -283,11 +296,109 @@ export class CollisionAssessment {
     targets: AisTargets,
     thresholds: PersistedValue<Thresholds>,
     anchored: () => boolean = () => false,
+    now: () => number = Date.now,
   ) {
     this.#vessel = vessel;
     this.#targets = targets;
     this.#thresholds = thresholds;
     this.#anchored = anchored;
+    this.#now = now;
+  }
+
+  #stabilize(immediate: Assessment, targets: AisTargetView[], now: number): Assessment {
+    const immediateById = new Map(immediate.contacts.map((contact) => [contact.id, contact]));
+    const targetById = new Map(targets.map((target) => [target.id, target]));
+    const ids = new Set([...this.#stability.keys(), ...immediateById.keys()]);
+    const contacts: DangerContact[] = [];
+
+    for (const id of ids) {
+      const contact = immediateById.get(id);
+      const severity = contact?.severity ?? 'clear';
+      let state = this.#stability.get(id);
+      if (!state) {
+        state = { warningUpdates: 0 };
+        this.#stability.set(id, state);
+      }
+
+      if (severity === 'danger' && contact) {
+        state.stable = contact;
+        state.warningUpdates = 0;
+        state.lastWarningRevision = undefined;
+        state.outsideDangerSince = undefined;
+        state.outsideWarningSince = undefined;
+        contacts.push(contact);
+        continue;
+      }
+
+      if (severity === 'warning') {
+        state.outsideDangerSince ??= now;
+        state.outsideWarningSince = undefined;
+      } else {
+        state.outsideDangerSince ??= now;
+        state.outsideWarningSince ??= now;
+      }
+
+      if (state.stable?.severity === 'danger') {
+        const clearsWarning =
+          state.outsideWarningSince !== undefined &&
+          now - state.outsideWarningSince >= DOWNGRADE_HOLD_MS;
+        if (clearsWarning) {
+          this.#stability.delete(id);
+          continue;
+        }
+        const clearsDanger =
+          state.outsideDangerSince !== undefined &&
+          now - state.outsideDangerSince >= DOWNGRADE_HOLD_MS;
+        if (clearsDanger) {
+          state.stable = { ...(contact ?? state.stable), severity: 'warning' };
+          state.outsideDangerSince = undefined;
+        } else {
+          state.stable = { ...(contact ?? state.stable), severity: 'danger' };
+        }
+        contacts.push(state.stable);
+        continue;
+      }
+
+      if (state.stable?.severity === 'warning') {
+        if (
+          state.outsideWarningSince !== undefined &&
+          now - state.outsideWarningSince >= DOWNGRADE_HOLD_MS
+        ) {
+          this.#stability.delete(id);
+          continue;
+        }
+        if (contact) state.stable = contact;
+        contacts.push(state.stable);
+        continue;
+      }
+
+      if (severity === 'warning' && contact) {
+        const revision = targetById.has(id) ? this.#targets.revision(id) : undefined;
+        if (revision !== undefined && revision !== state.lastWarningRevision) {
+          state.lastWarningRevision = revision;
+          state.warningUpdates += 1;
+        }
+        if (state.warningUpdates >= WARNING_CONFIRMATION_UPDATES) {
+          state.stable = contact;
+          state.outsideDangerSince = undefined;
+          contacts.push(contact);
+        }
+        continue;
+      }
+
+      this.#stability.delete(id);
+    }
+
+    if (contacts.length === 0 && immediate.unassessed.length === 0) return EMPTY_ASSESSMENT;
+    contacts.sort(
+      (a, b) =>
+        SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.tcpaSeconds - b.tcpaSeconds,
+    );
+    return {
+      contacts,
+      worst: contacts[0]?.severity ?? 'clear',
+      unassessed: immediate.unassessed,
+    };
   }
 
   get assessment(): Assessment {
