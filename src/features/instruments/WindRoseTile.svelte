@@ -528,14 +528,12 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   pointer-events: none;
 }
 .rose-readouts--top {
-  inset-block-start: 25%;
+  inset-block-start: var(--space-1);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  transform: translateY(-50%);
 }
 .rose-readouts--bottom {
-  inset-block-start: 75%;
+  inset-block-end: var(--space-1);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  transform: translateY(-50%);
 }
 .rose-readout {
   min-inline-size: 0;
@@ -633,8 +631,9 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
     inset-block-start: 50%;
     inset-inline-start: 50%;
     inline-size: auto;
-    block-size: min(100%, 100vi);
-    max-inline-size: 100%;
+    /* Reserve responsive side gutters for the four corner instruments. Landscape faces use their
+       block size, while square and portrait faces reserve 14 percent on each side. */
+    block-size: min(100%, 72cqi);
     transform: translate(-50%, -50%);
   }
   .rose-readouts {
@@ -670,7 +669,12 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
     text-align: end;
   }
   .rose-readout .num {
-    font-size: clamp(var(--text-readout-lg), min(7cqi, 16cqb), 9rem);
+    /* Three-character values fill the available gutter without crossing into the compass. */
+    font-size: clamp(
+      var(--text-readout-lg),
+      min(calc((100cqi - min(100cqb, 72cqi)) / 3.8), 22cqb),
+      11rem
+    );
   }
   .readout-title {
     font-size: clamp(var(--text-sm), min(1.8cqi, 5cqb), var(--text-readout-lg));

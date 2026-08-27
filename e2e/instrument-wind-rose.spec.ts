@@ -16,14 +16,13 @@ function expectTinyEdgeGap(gap: number): void {
   expect(gap).toBeLessThanOrEqual(8);
 }
 
-function expectNearRailPosition(
-  row: { y: number; height: number },
+function expectPinnedToCorners(
+  topRow: { y: number; height: number },
+  bottomRow: { y: number; height: number },
   tile: { y: number; height: number },
-  fraction: number,
 ): void {
-  const actualCenter = row.y + row.height / 2;
-  const expectedCenter = tile.y + tile.height * fraction;
-  expect(Math.abs(actualCenter - expectedCenter)).toBeLessThan(tile.height * 0.08);
+  expectTinyEdgeGap(topRow.y - tile.y);
+  expectTinyEdgeGap(tile.y + tile.height - (bottomRow.y + bottomRow.height));
 }
 
 test('the compact full-screen wind rose keeps every readout and compass visible', async ({
@@ -74,8 +73,7 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expectTinyEdgeGap(topRowBox.x - tileBox.x);
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
   expectTinyEdgeGap(bottomRowBox.x - tileBox.x);
-  expectNearRailPosition(topRowBox, tileBox, 0.25);
-  expectNearRailPosition(bottomRowBox, tileBox, 0.75);
+  expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
   expect(Math.abs(awsBox.x - topRowBox.x)).toBeLessThan(2);
   expect(Math.abs(twsBox.x + twsBox.width - (topRowBox.x + topRowBox.width))).toBeLessThan(2);
   expect(Math.abs(sogBox.x - bottomRowBox.x)).toBeLessThan(2);
@@ -89,7 +87,7 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expect(depthBackground).toBe('rgba(0, 0, 0, 0)');
 });
 
-test('the wide full-screen wind rose uses its height and keeps readouts on side rails', async ({
+test('the wide full-screen wind rose fills its four corner gutters with large readouts', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -162,16 +160,15 @@ test('the wide full-screen wind rose uses its height and keeps readouts on side 
   expect(depthValueBox.x).toBeGreaterThan(compassBox.x + compassBox.width);
   expectTinyEdgeGap(topRowBox.x - tileBox.x);
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
-  expectNearRailPosition(topRowBox, tileBox, 0.25);
-  expectNearRailPosition(bottomRowBox, tileBox, 0.75);
+  expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
 
   const valueSize = await focused
     .locator('.rose-readout--aws .num')
     .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
-  expect(valueSize).toBeGreaterThanOrEqual(80);
+  expect(valueSize).toBeGreaterThanOrEqual(120);
 });
 
-test('a half-page docked wind rose switches to the spacious side-rail layout', async ({ page }) => {
+test('a half-page docked wind rose reserves gutters for its corner readouts', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
@@ -184,23 +181,45 @@ test('a half-page docked wind rose switches to the spacious side-rail layout', a
   await page.getByRole('slider', { name: 'Resize instruments dock' }).press('End');
 
   const tile = page.getByRole('button', { name: /^Wind rose\./ });
-  const [tileBox, compassBox, topRowBox, bottomRowBox] = await Promise.all([
-    tile.boundingBox(),
-    tile.locator('svg.rose').boundingBox(),
-    tile.locator('.rose-readouts--top').boundingBox(),
-    tile.locator('.rose-readouts--bottom').boundingBox(),
-  ]);
+  const [tileBox, compassBox, topRowBox, bottomRowBox, awsBox, twsBox, sogBox, depthBox] =
+    await Promise.all([
+      tile.boundingBox(),
+      tile.locator('svg.rose').boundingBox(),
+      tile.locator('.rose-readouts--top').boundingBox(),
+      tile.locator('.rose-readouts--bottom').boundingBox(),
+      tile.locator('.rose-readout--aws .num').boundingBox(),
+      tile.locator('.rose-readout--tws .num').boundingBox(),
+      tile.locator('.rose-readout--sog .num').boundingBox(),
+      tile.locator('.rose-readout--depth .num').boundingBox(),
+    ]);
   expect(tileBox).not.toBeNull();
   expect(compassBox).not.toBeNull();
   expect(topRowBox).not.toBeNull();
   expect(bottomRowBox).not.toBeNull();
-  if (!tileBox || !compassBox || !topRowBox || !bottomRowBox) return;
+  expect(awsBox).not.toBeNull();
+  expect(twsBox).not.toBeNull();
+  expect(sogBox).not.toBeNull();
+  expect(depthBox).not.toBeNull();
+  if (
+    !tileBox ||
+    !compassBox ||
+    !topRowBox ||
+    !bottomRowBox ||
+    !awsBox ||
+    !twsBox ||
+    !sogBox ||
+    !depthBox
+  )
+    return;
   expect(compassBox.height).toBeGreaterThan(tileBox.height * 0.9);
   expect(compassBox.width).toBeLessThan(tileBox.width * 0.85);
+  expect(awsBox.x + awsBox.width).toBeLessThanOrEqual(compassBox.x);
+  expect(sogBox.x + sogBox.width).toBeLessThanOrEqual(compassBox.x);
+  expect(twsBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
+  expect(depthBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
   expectTinyEdgeGap(topRowBox.x - tileBox.x);
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
-  expectNearRailPosition(topRowBox, tileBox, 0.25);
-  expectNearRailPosition(bottomRowBox, tileBox, 0.75);
+  expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
 });
 
 test('a half-width short wind rose shrinks its side values around the compass', async ({
@@ -261,8 +280,7 @@ test('a half-width short wind rose shrinks its side values around the compass', 
   expect(depthBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
   expectTinyEdgeGap(topRowBox.x - tileBox.x);
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
-  expectNearRailPosition(topRowBox, tileBox, 0.25);
-  expectNearRailPosition(bottomRowBox, tileBox, 0.75);
+  expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
   expect(Math.abs(awsBox.x - topRowBox.x)).toBeLessThan(2);
   expect(Math.abs(twsBox.x + twsBox.width - (topRowBox.x + topRowBox.width))).toBeLessThan(2);
   expect(Math.abs(sogBox.x - bottomRowBox.x)).toBeLessThan(2);
@@ -279,7 +297,8 @@ test('a half-width short wind rose shrinks its side values around the compass', 
   const valueSize = await focused
     .locator('.rose-readout--aws .num')
     .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
-  expect(valueSize).toBeLessThan(64);
+  expect(valueSize).toBeGreaterThanOrEqual(56);
+  expect(valueSize).toBeLessThan(100);
 
   const backdropFilter = await focused
     .locator('.heading-pill')
