@@ -238,7 +238,9 @@ function onCardKeydown(event: KeyboardEvent): void {
 <style>
 .app-menu-dock {
   position: relative;
-  z-index: var(--z-panel);
+  /* The collapsed tab must stay above chart panels and their transient notes. The dock creates a
+     stacking context, so a child z-index alone cannot escape a panel painted later in the shell. */
+  z-index: calc(var(--z-menu) + 1);
   min-inline-size: 0;
   min-block-size: 0;
   inline-size: 0;
@@ -255,6 +257,7 @@ function onCardKeydown(event: KeyboardEvent): void {
   inline-size: 100%;
   block-size: 100%;
   padding: var(--space-3);
+  padding-block-start: calc(var(--space-3) + env(safe-area-inset-top));
   border-block: 0;
   border-inline-start: 0;
   border-radius: 0;
@@ -289,10 +292,11 @@ function onCardKeydown(event: KeyboardEvent): void {
 }
 .app-menu-tabs {
   position: absolute;
-  inset-block-start: calc(max(var(--space-2), env(safe-area-inset-top)) + var(--rail-clearance));
+  inset-block-start: 50%;
   inset-inline-start: 100%;
   z-index: var(--z-menu);
   display: flex;
+  transform: translateY(-50%);
 }
 .app-menu-tab {
   display: grid;

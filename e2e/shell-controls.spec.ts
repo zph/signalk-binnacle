@@ -60,14 +60,18 @@ test('the attached left tab expands and collapses the app-menu dock', async ({ p
   await menuButton.click();
   await expect(page.locator('#app-menu-launcher')).toBeVisible();
   await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
+  await expect
+    .poll(async () => {
+      const expandedMenu = await page.locator('#app-menu-launcher').boundingBox();
+      const expandedTab = await menuButton.boundingBox();
+      return Math.abs(
+        (expandedMenu?.x ?? 0) + (expandedMenu?.width ?? 0) - (expandedTab?.x ?? 0),
+      );
+    })
+    .toBeLessThan(2);
   const expandedChart = await chart.boundingBox();
-  const expandedMenu = await page.locator('#app-menu-launcher').boundingBox();
-  const expandedTab = await menuButton.boundingBox();
   expect(expandedChart?.x).toBeGreaterThan(initialChart?.x ?? 0);
   expect(expandedChart?.width).toBeLessThan(initialChart?.width ?? 0);
-  expect(
-    Math.abs((expandedMenu?.x ?? 0) + (expandedMenu?.width ?? 0) - (expandedTab?.x ?? 0)),
-  ).toBeLessThan(2);
 
   await menuButton.click();
   await expect(page.locator('#app-menu-launcher')).toHaveCount(0);
