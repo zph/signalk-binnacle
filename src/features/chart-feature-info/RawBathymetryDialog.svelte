@@ -42,6 +42,11 @@ function depth(meters: number): string {
   return formatFixed(value, 1);
 }
 
+function signedDepth(meters: number): string {
+  const sign = meters < 0 ? '−' : '+';
+  return `${sign}${depth(Math.abs(meters))}`;
+}
+
 function observedAt(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'medium' }).format(
     new Date(value),
@@ -110,7 +115,8 @@ function qcLabel(row: BathymetrySounding): string {
               <th scope="col">Below surface</th>
               <th scope="col">Sensor reading</th>
               <th scope="col">Waterline offset</th>
-              <th scope="col">Tide</th>
+              <th scope="col">Tide level</th>
+              <th scope="col">Datum correction</th>
               <th scope="col">Uncertainty</th>
               <th scope="col">Samples</th>
               <th scope="col">QC</th>
@@ -135,10 +141,14 @@ function qcLabel(row: BathymetrySounding): string {
                   {depth(row.rawDepthM)} {depthUnit}
                   <small>{depthReference(row.depthReference)}</small>
                 </td>
-                <td class="numeric">+{depth(appliedOffset(row))} {depthUnit}</td>
+                <td class="numeric">{signedDepth(appliedOffset(row))} {depthUnit}</td>
                 <td class="numeric">
-                  −{depth(row.tideHeightM)} {depthUnit}
-                  <small>{row.tideStationName}</small>
+                  {signedDepth(row.tideHeightM)} {depthUnit}
+                  <small>above {row.datum} · {row.tideStationName}</small>
+                </td>
+                <td class="numeric">
+                  {signedDepth(-row.tideHeightM)} {depthUnit}
+                  <small>applied to {row.datum}</small>
                 </td>
                 <td class="numeric">±{depth(row.verticalSigmaM)} {depthUnit}</td>
                 <td class="numeric">{row.sampleCount}</td>

@@ -225,6 +225,11 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await expect(rawDialog).toContainText('Datum depth = sensor reading + waterline offset');
     await expect(rawDialog.getByRole('columnheader', { name: 'Below surface' })).toBeVisible();
     await expect(rawDialog.getByRole('columnheader', { name: 'Sensor reading' })).toBeVisible();
+    await expect(rawDialog.getByRole('columnheader', { name: 'Tide level' })).toBeVisible();
+    await expect(rawDialog.getByRole('columnheader', { name: 'Datum correction' })).toBeVisible();
+    await expect(rawDialog).toContainText('+0.4 m');
+    await expect(rawDialog).toContainText('−0.4 m');
+    await expect(rawDialog).toContainText('above MLLW · Fixture station');
     await expect(rawDialog).toContainText('below keel');
     await expect(rawDialog).toContainText('MLLW');
     await expect(rawDialog).toContainText('environment.depth.belowKeel');
