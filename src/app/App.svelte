@@ -14,6 +14,7 @@ import Layers from '@lucide/svelte/icons/layers';
 import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 import Lock from '@lucide/svelte/icons/lock';
+import LockOpen from '@lucide/svelte/icons/lock-open';
 import MapPin from '@lucide/svelte/icons/map-pin';
 import Maximize2 from '@lucide/svelte/icons/maximize-2';
 import MenuIcon from '@lucide/svelte/icons/menu';
@@ -2187,11 +2188,13 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     },
     {
       id: 'lock-interface',
-      label: 'Lock Binnacle',
-      description: 'Prevent accidental helm changes',
+      label: interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle',
+      description: interfaceLock.locked
+        ? 'Restore helm controls'
+        : 'Prevent accidental helm changes',
       group: 'Safety',
-      icon: Lock,
-      onSelect: interfaceLock.lock,
+      icon: interfaceLock.locked ? LockOpen : Lock,
+      onSelect: interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock,
     },
     {
       id: 'mob',

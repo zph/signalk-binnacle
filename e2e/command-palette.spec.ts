@@ -135,3 +135,27 @@ test('the man overboard command opens the guarded confirmation', async ({ page }
   await expect(confirm.getByRole('button', { name: 'Mark man overboard' })).toBeVisible();
   await cancel.click();
 });
+
+test('the interface lock command changes to unlock while Binnacle is locked', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const search = palette.getByRole('searchbox', { name: 'Search commands' });
+  await search.fill('lock binnacle');
+  await expect(palette.getByRole('option', { name: /Lock Binnacle/ })).toBeVisible();
+  await expect(palette.getByText('Unlock Binnacle', { exact: true })).toHaveCount(0);
+  await palette.getByRole('option', { name: /Lock Binnacle/ }).click();
+
+  const lockLayer = page.getByRole('dialog', { name: 'Binnacle controls locked' });
+  await expect(lockLayer).toBeVisible();
+
+  await page.keyboard.press('Control+K');
+  await expect(palette).toBeVisible();
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('lock binnacle');
+  await expect(palette.getByRole('option', { name: /Unlock Binnacle/ })).toBeVisible();
+  await expect(palette.getByText('Lock Binnacle', { exact: true })).toHaveCount(0);
+  await palette.getByRole('option', { name: /Unlock Binnacle/ }).click();
+
+  await expect(lockLayer).toHaveCount(0);
+});
