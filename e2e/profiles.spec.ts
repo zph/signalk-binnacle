@@ -80,7 +80,10 @@ function applyPatch(document: Record<string, unknown>, patch: JsonPatchOperation
 
 async function installProfileServer(page: Page, document: Record<string, unknown>): Promise<void> {
   await page.addInitScript(() => {
-    localStorage.clear();
+    if (sessionStorage.getItem('binnacle-e2e-profile-initialized') !== 'true') {
+      localStorage.clear();
+      sessionStorage.setItem('binnacle-e2e-profile-initialized', 'true');
+    }
     localStorage.setItem('binnacle-custom:help-orientation', 'true');
     localStorage.setItem(
       'binnacle-custom:signalk-auth',
@@ -253,7 +256,7 @@ test('a locally cached profile applies at boot without a startup error', async (
   expect(pageErrors.filter((message) => message.includes('before initialization'))).toEqual([]);
 });
 
-test('profiles restore discovered chart facets and overlay settings as one arrangement', async ({
+test('profiles restore chart state and order across restart and provider upgrade', async ({
   page,
 }) => {
   const chartId = 'profile-fixture-enc';
@@ -319,6 +322,7 @@ test('profiles restore discovered chart facets and overlay settings as one arran
 
   await installProfileServer(page, serverDocument);
   const workerProof = await installMapLibreWorkerProof(page);
+  let chartRevision = 1;
   await page.route(/\/signalk\/v2\/api\/resources\/charts\/?$/, (route) =>
     route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
   );
@@ -329,7 +333,7 @@ test('profiles restore discovered chart facets and overlay settings as one arran
       body: JSON.stringify({
         [chartId]: {
           identifier: chartId,
-          name: 'Profile fixture ENC',
+          name: chartRevision === 1 ? 'Profile fixture ENC' : 'Profile fixture ENC upgraded',
           description: 'Synthetic chart used to verify profile restoration',
           type: 'S-57',
           featureInfo: 'bathymetry-cell',
@@ -468,4 +472,50 @@ test('profiles restore discovered chart facets and overlay settings as one arran
     'aria-pressed',
     'false',
   );
+
+  // Finish with a browser restart and a changed provider descriptor. Visibility and order are
+  // keyed by the stable Signal K resource id, so an upgraded chart keeps the navigator's choices
+  // even when its display metadata and tile generation change.
+  await ais.getByRole('button', { name: 'AIS targets', exact: true }).click();
+  await panel.getByRole('button', { name: 'Charts', exact: true }).click();
+  const chartRowIds = () =>
+    panel
+      .locator('[data-layer-row]')
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer-row')));
+  await expect
+    .poll(async () => {
+      const ids = await chartRowIds();
+      return ids.indexOf(chartLayerId) < ids.indexOf('basemap');
+    })
+    .toBe(true);
+  const chartMoveHandle = row.getByRole('button', {
+    name: /Move Profile fixture ENC, position \d+ of \d+/,
+  });
+  for (let step = 0; step < 12; step += 1) await chartMoveHandle.press('ArrowDown');
+  await expect
+    .poll(async () => {
+      const ids = await chartRowIds();
+      return ids.indexOf('basemap') < ids.indexOf(chartLayerId);
+    })
+    .toBe(true);
+
+  chartRevision = 2;
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Profile Passage, switch profile' })).toBeVisible();
+  await openMenuItem(page, 'Layers and charts');
+  const restartedPanel = page.getByRole('complementary', { name: 'Layers and charts' });
+  const restartedChart = restartedPanel.locator(`[data-layer-row="${chartLayerId}"]`);
+  await expect(
+    restartedChart.getByRole('button', { name: 'Profile fixture ENC upgraded', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const restartedIds = await restartedPanel
+    .locator('[data-layer-row]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer-row')));
+  expect(restartedIds.indexOf('basemap')).toBeLessThan(restartedIds.indexOf(chartLayerId));
+  await restartedPanel.getByRole('button', { name: 'Overlays', exact: true }).click();
+  await expect(
+    restartedPanel
+      .locator('[data-layer-row="ais"]')
+      .getByRole('button', { name: 'AIS targets', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
