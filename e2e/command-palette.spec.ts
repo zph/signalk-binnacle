@@ -136,6 +136,23 @@ test('the man overboard command opens the guarded confirmation', async ({ page }
   await cancel.click();
 });
 
+test('the Settings command opens the left app menu', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('settings');
+  await palette.getByRole('option').filter({ hasText: 'Open the settings menu' }).click();
+
+  await expect(palette).toHaveCount(0);
+  await expect(page.locator('#app-menu-launcher')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(page.getByRole('group', { name: 'Settings' })).toBeVisible();
+});
+
 test('the interface lock command changes to unlock while Binnacle is locked', async ({ page }) => {
   await page.goto('/');
 

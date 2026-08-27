@@ -25,6 +25,7 @@ import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
 import Ruler from '@lucide/svelte/icons/ruler';
 import Search from '@lucide/svelte/icons/search';
+import Settings from '@lucide/svelte/icons/settings';
 import Ship from '@lucide/svelte/icons/ship';
 import Spline from '@lucide/svelte/icons/spline';
 import Sun from '@lucide/svelte/icons/sun';
@@ -2169,6 +2170,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
           onSelect: () => instruments.setOpen(false),
         },
       ],
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      description: 'Open the settings menu',
+      group: 'Settings',
+      keywords: ['configuration preferences'],
+      icon: Settings,
+      onSelect: backToMenu,
     },
     {
       id: 'theme',
