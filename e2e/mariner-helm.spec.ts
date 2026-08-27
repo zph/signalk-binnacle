@@ -510,6 +510,58 @@ test('MOB actions stay reachable in landscape 568x320', async ({ page }) => {
   await expectMobActionsReachable(strip);
 });
 
+test('numeric drawer tiles fill their faces above bottom-pinned labels', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route(/\/signalk\/v1\/api\/vessels\/self\/electrical\/batteries$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        277: {
+          capacity: { stateOfCharge: { value: 1 } },
+        },
+      }),
+    }),
+  );
+  await openApp(page);
+  await sendDelta(page, [
+    { path: 'environment.depth.belowKeel', value: 0.46 },
+    { path: 'electrical.batteries.277.capacity.stateOfCharge', value: 1 },
+  ]);
+  await openMenuItem(page, 'Instrument dock');
+
+  const dock = page.getByRole('complementary', { name: 'Instruments' });
+  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await dock.getByRole('checkbox', { name: 'State of charge · 277 battery', exact: true }).check();
+  await dock.getByRole('button', { name: 'Done', exact: true }).click();
+  const numericTiles = [
+    dock.getByRole('button', { name: /^State of charge · 277 battery, 100 %/ }),
+    dock.getByRole('button', { name: /^Depth \(Keel\), 0\.5 m/ }),
+  ];
+  for (const tile of numericTiles) {
+    await expect(tile).toBeVisible();
+    const geometry = await tile.evaluate((element) => {
+      const tileBox = element.getBoundingClientRect();
+      const number = element.querySelector('.num');
+      const footer = element.querySelector('.tile-footer');
+      if (!number || !footer) throw new Error('Numeric tile layout is incomplete.');
+      const numberBox = number.getBoundingClientRect();
+      const footerBox = footer.getBoundingClientRect();
+      return {
+        tileWidth: tileBox.width,
+        fontSize: Number.parseFloat(getComputedStyle(number).fontSize),
+        inlineGap: Math.min(numberBox.x - tileBox.x, tileBox.right - numberBox.right),
+        footerGap: tileBox.bottom - footerBox.bottom,
+      };
+    });
+    expect(geometry.footerGap).toBeGreaterThanOrEqual(3);
+    expect(geometry.footerGap).toBeLessThanOrEqual(8);
+    expect(geometry.fontSize).toBeGreaterThanOrEqual(geometry.tileWidth * 0.43);
+    expect(geometry.inlineGap).toBeGreaterThanOrEqual(7);
+    expect(geometry.inlineGap).toBeLessThanOrEqual(20);
+  }
+});
+
 test('the alarm panel can move a centered alert on a short landscape display', async ({ page }) => {
   await page.setViewportSize({ width: 568, height: 320 });
   await openApp(page);

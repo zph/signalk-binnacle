@@ -38,7 +38,7 @@
   justify-content: center;
 }
 .tile--numeric .value--short .num {
-  font-size: clamp(var(--text-readout-lg), 48cqi, 8rem);
+  font-size: clamp(var(--text-readout-lg), 54cqi, 10rem);
 }
 .tile--numeric .value--medium .num {
   font-size: clamp(var(--text-readout-lg), 36cqi, 7rem);
