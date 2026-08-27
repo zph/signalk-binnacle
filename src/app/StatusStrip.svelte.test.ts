@@ -63,19 +63,6 @@ describe('StatusStrip depth alarm', () => {
     expect(actions).toContain('>MOB</button>');
   });
 
-  it('renders a fixed leading menu before customizable actions', () => {
-    const html = body({
-      ...baseProps(),
-      leadingActions: createRawSnippet(() => ({
-        render: () => '<button type="button">Menu</button>',
-      })),
-    });
-    const actionsStart = html.indexOf('strip-actions');
-    const actions = html.slice(actionsStart, html.indexOf('center-cluster', actionsStart));
-
-    expect(actions.indexOf('>Menu</button>')).toBeLessThan(actions.indexOf('pinned-actions'));
-  });
-
   it('carries no alarm-audio chip: a browser-permission condition is not a helm readout', () => {
     // The Alarms and Anchor panels state the grade instead, so the readout row is not spent on a
     // silence that a boat with nothing audible armed could not have anyway.

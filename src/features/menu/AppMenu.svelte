@@ -1,12 +1,12 @@
 <script lang="ts">
-import Menu from '@lucide/svelte/icons/menu';
+import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+import ChevronRight from '@lucide/svelte/icons/chevron-right';
 import { onDestroy } from 'svelte';
 import { Toast } from '$shared/lib';
 import {
-  AnchoredMenu,
   CustomizeToggle,
-  menuFocusLeft,
   nextRovingIndex,
+  onKeydownAction,
   type RovingKey,
   TransientNote,
   UnavailableHint,
@@ -20,10 +20,8 @@ import ToolbarEditor from './ToolbarEditor.svelte';
 interface Props {
   items?: MenuItem[];
   label?: string;
-  // Whether to render the trigger. A caller can omit it when another control owns the open state.
-  showTrigger?: boolean;
-  // The open state is controlled by the parent, so a panel's "back to menu" action can reopen the
-  // menu after it closed on selection. The menu renders the current state and requests transitions.
+  // The open state is controlled by the parent, so a panel's "back to menu" action can expand the
+  // dock after it collapsed on selection. The menu renders the current state and requests changes.
   open: boolean;
   onOpenChange: (open: boolean) => void;
   // The ids currently pinned to the bottom bar, and the edit-mode state, controlled by the parent.
@@ -38,7 +36,6 @@ interface Props {
 const {
   items = [],
   label = 'Menu',
-  showTrigger = true,
   open,
   onOpenChange,
   pinnedIds = [],
@@ -69,9 +66,6 @@ onDestroy(() => blockedNote.dispose());
 const groups = $derived.by(() => {
   const out: { label: string; items: MenuItem[] }[] = [];
   for (const item of items) {
-    // A bar-only action (the Menu opener) is not a launcher tile: it would sit inside the menu it
-    // opens. It still appears while customizing, because tapping a tile is the only pin control.
-    if (item.barOnly && !editing) continue;
     const label = item.group ?? '';
     const last = out.at(-1);
     if (last && last.label === label) last.items.push(item);
@@ -132,6 +126,12 @@ const MENU_ROVING_KEYS: Partial<Record<string, RovingKey>> = {
 };
 
 function onCardKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    event.stopPropagation();
+    closeMenu(true);
+    return;
+  }
   const key = MENU_ROVING_KEYS[event.key];
   if (key === undefined) return;
   // Keep blocked tiles in arrow navigation. They remain focusable so keyboard users can invoke them
@@ -142,120 +142,128 @@ function onCardKeydown(event: KeyboardEvent): void {
   const at = tiles.indexOf(document.activeElement as HTMLButtonElement);
   tiles[nextRovingIndex(key, at, tiles.length)]?.focus();
 }
-
-function onCardFocusOut(event: FocusEvent): void {
-  const next = event.relatedTarget;
-  if (next === trigger) return;
-  // The shared focus-left test ignores a transient loss to the body (relatedTarget null), which is
-  // what an in-place content swap fires when it unmounts the focused control: arming the toolbar
-  // Reset confirm replaces its trigger and must not close the whole menu.
-  if (!menuFocusLeft(next, card)) return;
-  closeMenu(false);
-}
 </script>
 
-{#if showTrigger}
-  <button
-    type="button"
-    class="icon-pill"
-    class:is-on={open}
-    bind:this={trigger}
-    aria-haspopup="true"
-    aria-expanded={open}
-    aria-controls={open ? 'app-menu-launcher' : undefined}
-    aria-label={label}
-    title={label}
-    onclick={() => onOpenChange(!open)}
-  >
-    <Menu size={20} aria-hidden="true" />
-  </button>
-{/if}
-<AnchoredMenu
-  {open}
-  onClose={() => closeMenu(true)}
-  backdropLabel="Close menu"
-  surfaceClass={editing ? 'launcher surface-elevated editing' : 'launcher surface-elevated'}
-  ariaLabel={label}
-  id="app-menu-launcher"
-  bind:surfaceRef={card}
-  onKeydown={onCardKeydown}
-  onFocusOut={onCardFocusOut}
->
-  {#if items.length === 0}
-    <span class="muted-note">No options</span>
-  {:else}
-    <TransientNote message={blockedNote.message} noteClass="blocked-note-slot" />
-    <div class="launcher-scroll">
-      <div class="menu-head">
-        <CustomizeToggle object="toolbar" {editing} onToggle={() => onEditingChange?.(!editing)} />
-      </div>
-      {#if editing}
-        <!-- Announce the mode change: in edit mode the tile accent means "pinned to the bar", not
-             "panel open", which is invisible to a screen reader without this. -->
-        <p class="muted-note">
-          Tap an action to pin or unpin it on the bottom toolbar. Fixed actions stay shown.
-        </p>
-        <ToolbarEditor items={pinnedItems} onReorder={onReorderPinned} onReset={onResetPinned} />
-      {/if}
-      {#each groups as group, gi (gi)}
-        <!-- Every menu item carries a group label, so role="group" always has an accessible name
-             here; the static role is required by the linter's valid-role rule. -->
-        <section class="group" role="group" aria-label={group.label || undefined}>
-          {#if group.label}
-            <div class="group-label caps-label" aria-hidden="true">{group.label}</div>
-          {/if}
-          <div class="tiles">
-            {#each group.items as item (item.id)}
-              <button
-                type="button"
-                class="menu-tile"
-                class:is-on={editing ? pinnedSet.has(item.id) : item.pressed === true}
-                aria-pressed={editing ? pinnedSet.has(item.id) : item.pressed}
-                aria-disabled={!editing && itemBlocked(item) ? true : undefined}
-                title={!editing ? blockedReason(item) : undefined}
-                onclick={() => select(item)}
-              >
-                <UnavailableHint
-                  hint={item.available === false ? item.unavailableHint : undefined}
-                />
-                <MenuItemIcon {item} size={28} />
-                <span class="tile-label">{item.label}</span>
-                {#if item.sublabel}
-                  <span class="tile-sublabel">{item.sublabel}</span>
-                {/if}
-                <MenuItemCount {item} />
-              </button>
-            {/each}
+<aside class="app-menu-dock" class:is-open={open} aria-label={label}>
+  {#if open}
+    <section
+      class="launcher surface-elevated"
+      class:editing
+      id="app-menu-launcher"
+      aria-label={label}
+      bind:this={card}
+      use:onKeydownAction={onCardKeydown}
+    >
+      {#if items.length === 0}
+        <span class="muted-note">No options</span>
+      {:else}
+        <TransientNote message={blockedNote.message} noteClass="blocked-note-slot" />
+        <div class="launcher-scroll">
+          <div class="menu-head">
+            <CustomizeToggle
+              object="toolbar"
+              {editing}
+              onToggle={() => onEditingChange?.(!editing)}
+            />
           </div>
-        </section>
-      {/each}
-    </div>
+          {#if editing}
+            <!-- Announce the mode change: in edit mode the tile accent means "pinned to the bar", not
+             "panel open", which is invisible to a screen reader without this. -->
+            <p class="muted-note">
+              Tap an action to pin or unpin it on the bottom toolbar. Fixed actions stay shown.
+            </p>
+            <ToolbarEditor
+              items={pinnedItems}
+              onReorder={onReorderPinned}
+              onReset={onResetPinned}
+            />
+          {/if}
+          {#each groups as group, gi (gi)}
+            <!-- Every menu item carries a group label, so role="group" always has an accessible name
+             here; the static role is required by the linter's valid-role rule. -->
+            <section class="group" role="group" aria-label={group.label || undefined}>
+              {#if group.label}
+                <div class="group-label caps-label" aria-hidden="true">{group.label}</div>
+              {/if}
+              <div class="tiles">
+                {#each group.items as item (item.id)}
+                  <button
+                    type="button"
+                    class="menu-tile"
+                    class:is-on={editing ? pinnedSet.has(item.id) : item.pressed === true}
+                    aria-pressed={editing ? pinnedSet.has(item.id) : item.pressed}
+                    aria-disabled={!editing && itemBlocked(item) ? true : undefined}
+                    title={!editing ? blockedReason(item) : undefined}
+                    onclick={() => select(item)}
+                  >
+                    <UnavailableHint
+                      hint={item.available === false ? item.unavailableHint : undefined}
+                    />
+                    <MenuItemIcon {item} size={28} />
+                    <span class="tile-label">{item.label}</span>
+                    {#if item.sublabel}
+                      <span class="tile-sublabel">{item.sublabel}</span>
+                    {/if}
+                    <MenuItemCount {item} />
+                  </button>
+                {/each}
+              </div>
+            </section>
+          {/each}
+        </div>
+      {/if}
+    </section>
   {/if}
-</AnchoredMenu>
+  <nav class="app-menu-tabs" aria-label="App menu visibility">
+    <button
+      type="button"
+      class="app-menu-tab"
+      class:menu-visible={open}
+      bind:this={trigger}
+      aria-expanded={open}
+      aria-controls="app-menu-launcher"
+      aria-label={label}
+      title={open ? 'Hide menu' : 'Show menu'}
+      onclick={() => (open ? closeMenu(false) : onOpenChange(true))}
+    >
+      {#if open}
+        <ChevronLeft size={18} aria-hidden="true" />
+      {:else}
+        <ChevronRight size={18} aria-hidden="true" />
+      {/if}
+    </button>
+  </nav>
+</aside>
 
 <style>
-/* Position the launcher above its bottom-toolbar trigger. The caller supplies the positioned
-   anchor wrapper, while short and narrow displays switch to the full-width bottom sheet below. */
-:global(.launcher) {
-  position: absolute;
-  inset-block-end: 100%;
-  inset-inline-start: 0;
-  margin-block-end: var(--space-1);
-  z-index: var(--z-menu);
+.app-menu-dock {
+  position: relative;
+  z-index: var(--z-panel);
+  min-inline-size: 0;
+  min-block-size: 0;
+  inline-size: 0;
+  transition: inline-size var(--transition-fast);
+}
+.app-menu-dock.is-open {
+  inline-size: min(22rem, calc(100dvw - var(--control-size) - var(--space-2)));
+}
+.launcher {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  inline-size: min(22rem, calc(100dvw - 2 * var(--space-2)));
-  /* Leave one control row and a small margin outside the launcher. A short helm display still caps
-     here and scrolls. */
-  max-block-size: calc(100 * var(--dvh) - var(--control-size) - var(--space-6));
+  inline-size: 100%;
+  block-size: 100%;
   padding: var(--space-3);
-  /* The surface, border, radius, and shadow come from the shared .surface-elevated frame. */
+  border-block: 0;
+  border-inline-start: 0;
+  border-radius: 0;
+  overflow: hidden;
 }
 /* The scroll region is an inner wrapper rather than the surface itself, so the blocked-note toast
    can anchor absolutely to the surface: it stays over the visible window at any scroll position
    while contributing no layout height, so blocked feedback never shifts the groups. */
-:global(.launcher) .launcher-scroll {
+.launcher-scroll {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -279,39 +287,44 @@ function onCardFocusOut(event: FocusEvent): void {
     100% 12px;
   background-attachment: local, local, scroll, scroll;
 }
-/* Matches the StatusStrip's own 900px stack breakpoint, so a landscape tablet never lands in the
-   gap where the menu is still a corner dropdown but the status strip below it has already
-   stacked to a single column. */
-@media (max-width: 900px) {
-  :global(.launcher) {
-    position: fixed;
-    inset-block-start: auto;
-    inset-block-end: 0;
-    inset-inline-start: 0;
-    margin-block-end: 0;
-    transform-origin: bottom center;
-    inline-size: 100dvw;
-    max-inline-size: none;
-    max-block-size: calc(80 * var(--dvh));
-    padding-block-end: calc(var(--space-3) + var(--system-bar-clearance));
+.app-menu-tabs {
+  position: absolute;
+  inset-block-start: calc(max(var(--space-2), env(safe-area-inset-top)) + var(--rail-clearance));
+  inset-inline-start: 100%;
+  z-index: var(--z-menu);
+  display: flex;
+}
+.app-menu-tab {
+  display: grid;
+  place-items: center;
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-inline-start: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  box-shadow: var(--shadow-overlay);
+  background: var(--surface-overlay);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.app-menu-tab.menu-visible {
+  background: var(--surface);
+}
+.app-menu-tab:hover {
+  color: var(--text);
+}
+.app-menu-tab:active {
+  filter: brightness(var(--brightness-press));
+}
+@media (max-width: 600px) {
+  .launcher {
     padding-inline-start: calc(var(--space-3) + env(safe-area-inset-left, 0px));
-    padding-inline-end: calc(var(--space-3) + env(safe-area-inset-right, 0px));
-    border-inline: 0;
-    border-block-end: 0;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
-  /* A grab-handle affordance, the standard mobile cue that this surface is a dismissible sheet
-     rather than a fixed panel; purely decorative, so aria-hidden via ::before's default absence
-     from the accessibility tree. */
-  :global(.launcher)::before {
-    content: "";
-    display: block;
-    inline-size: 2.5rem;
-    block-size: 0.25rem;
-    border-radius: var(--radius-pill);
-    background: var(--text-muted);
-    margin: 0 auto var(--space-2);
-    opacity: 0.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-dock {
+    transition: none;
   }
 }
 /* Edit mode is a distinct interaction (tapping a tile pins or unpins it rather than opening it),
@@ -323,7 +336,7 @@ function onCardFocusOut(event: FocusEvent): void {
    keyword none, and none is not a valid entry inside a comma-separated box-shadow list, so
    appending it here would make the whole declaration invalid at computed-value time and drop the
    ring in exactly the theme where a clear mode cue matters most. */
-:global(.launcher.editing) {
+.launcher.editing {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }

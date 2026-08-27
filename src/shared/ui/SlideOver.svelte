@@ -25,7 +25,7 @@ interface Props {
   closeLabel?: string;
   onClose: () => void;
   // When supplied, a leading back button returns to the menu instead of dismissing to the chart, so
-  // the navigator can move menu to panel to menu to another panel without reopening the hamburger.
+  // the navigator can move menu to panel to menu to another panel without re-expanding the dock.
   // Panels opened from the chart (the note detail) omit it, so no back arrow renders.
   onBack?: () => void;
   backLabel?: string;

@@ -14,7 +14,6 @@ import Layers from '@lucide/svelte/icons/layers';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 import Lock from '@lucide/svelte/icons/lock';
 import MapPin from '@lucide/svelte/icons/map-pin';
-import Menu from '@lucide/svelte/icons/menu';
 import Navigation from '@lucide/svelte/icons/navigation';
 import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
@@ -513,8 +512,8 @@ let instrumentsPanelAttempt = $state(0);
 // each request's new identity, so repeating the same tab still re-targets it, while the
 // navigator's own tab clicks stay untouched between requests.
 let layersOpenRequest = $state<{ mode: 'charts' | 'overlays' }>({ mode: 'charts' });
-// The hamburger's open state is owned here, not inside AppMenu, so a panel's back action can reopen
-// the menu after it closed on selection.
+// The left dock's open state is owned here, not inside AppMenu, so a panel's back action can expand
+// the menu after it collapsed on selection.
 let menuOpen = $state(false);
 let menuEditing = $state(false);
 // The helm toolbar can be tucked away without entering browser fullscreen. Its attached tab stays
@@ -537,7 +536,7 @@ const closePanel = (): void => {
   if (activePanel === 'poi-search') hoveredPoi = undefined;
   activePanel = null;
 };
-// Back returns to the menu: close the panel and reopen the hamburger in one update, so the navigator
+// Back returns to the menu: close the panel and expand the dock in one update, so the navigator
 // can move menu to panel to back to another panel without reopening the menu by hand. It delegates
 // the teardown rather than restating it, so the two paths cannot drift.
 const backToMenu = (): void => {
@@ -1935,17 +1934,6 @@ const menuItems = $derived<MenuItem[]>([
     pressed: activePanel === 'profiles',
     onSelect: () => togglePanel('profiles'),
   },
-  // The bottom bar's own opener. It is fixed at the start of the toolbar and remains visible in
-  // customization mode so the fixed placement is explicit.
-  {
-    id: 'menu',
-    label: 'Menu',
-    icon: Menu,
-    barOnly: true,
-    fixedToBar: true,
-    pressed: menuOpen,
-    onSelect: () => (menuOpen = !menuOpen),
-  },
   {
     id: 'help',
     label: 'Help',
@@ -2769,6 +2757,17 @@ const plotterActions = {
     mute={muteAlert}
     companion={companionAnnounce}
   />
+  <AppMenu
+    items={menuItems}
+    open={menuOpen}
+    onOpenChange={(next) => (menuOpen = next)}
+    pinnedIds={pinnedActions.value}
+    editing={menuEditing}
+    onEditingChange={(next) => (menuEditing = next)}
+    {onTogglePin}
+    {onReorderPinned}
+    {onResetPinned}
+  />
   <PlotterView
     services={plotterServices}
     controllers={plotterControllers}
@@ -2990,23 +2989,6 @@ const plotterActions = {
     {/await}
   {/if}
 
-  {#snippet statusStripLeadingActions()}
-    <span class="bottom-menu-anchor">
-      <AppMenu
-        items={menuItems}
-        showTrigger={true}
-        open={menuOpen}
-        onOpenChange={(next) => (menuOpen = next)}
-        pinnedIds={pinnedActions.value}
-        editing={menuEditing}
-        onEditingChange={(next) => (menuEditing = next)}
-        {onTogglePin}
-        {onReorderPinned}
-        {onResetPinned}
-      />
-    </span>
-  {/snippet}
-
   {#snippet statusStripFixedActions()}
     {#if collisionMute.active}
       <button
@@ -3091,7 +3073,6 @@ const plotterActions = {
             : undefined}
           onResetOrientation={() => chartOrientation.set('north')}
           pinnedActions={resolvedPinned}
-          leadingActions={statusStripLeadingActions}
           fixedActions={statusStripFixedActions}
           editing={menuEditing}
           {clock}
@@ -3109,10 +3090,7 @@ const plotterActions = {
     {/if}
     <ShellBarTabs
       {bottomBarVisible}
-      onToggleBottom={() => {
-        bottomBarVisible = !bottomBarVisible;
-        if (!bottomBarVisible) menuOpen = false;
-      }}
+      onToggleBottom={() => (bottomBarVisible = !bottomBarVisible)}
     />
   </div>
 </main>
@@ -3223,10 +3201,9 @@ const plotterActions = {
 .binnacle-shell {
   display: grid;
   grid-template-rows: 1fr auto;
-  /* The second column is the instrument dock; it collapses to zero when the dock is closed. Every
-     in-flow child is placed explicitly, so auto-placement cannot flow chart content into the dock
-     column. The toggle is instant by design: animating the track would resize the map per frame. */
-  grid-template-columns: 1fr auto;
+  /* The outer columns are the app-menu and instrument docks. Every in-flow child is placed
+     explicitly, so auto-placement cannot flow chart content into either dock column. */
+  grid-template-columns: auto 1fr auto;
   /* #app is this component's sole mount target (see main.ts) and already carries the dvh-tracked
      (with a vh fallback) block-size, so inheriting it here keeps that fallback in one place. */
   block-size: 100%;
@@ -3236,19 +3213,19 @@ const plotterActions = {
   background: var(--surface);
   color: var(--text);
 }
-.bottom-menu-anchor {
-  position: relative;
-  display: flex;
+.binnacle-shell > :global(.app-menu-dock) {
+  grid-row: 1;
+  grid-column: 1;
 }
 /* PlotterView's root is the chart host; place it explicitly like every other shell child, so
    auto-placement can never drift it into the dock column. */
 .binnacle-shell > :global(.chart-host) {
   grid-row: 1;
-  grid-column: 1;
+  grid-column: 2;
 }
 .binnacle-shell > :global(.instruments) {
   grid-row: 1;
-  grid-column: 2;
+  grid-column: 3;
   display: flex;
   flex-direction: column;
   position: relative;

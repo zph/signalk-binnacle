@@ -320,7 +320,7 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   and the profile switcher; a consumer declares only its width and, when it opens upward or
   right-aligned, its origin corner), `.surface-elevated`
   (the larger floating-panel frame: surface + border + radius-lg + shadow-lg + edge-light, used by the
-  app-menu launcher and the weather panel), `.menu-item` (the flat control-height interactive menu row),
+  app-menu dock and the weather panel), `.menu-item` (the flat control-height interactive menu row),
   `.row-interactive` (the shared control-height transparent interactive row that tints on hover and
   lights via `.is-on`; composed by the weather and route menu rows, the icon picker, and the layers
   category header), `.overlay-backdrop` (the transparent dismiss backdrop), `.unavailable` (the
@@ -377,8 +377,8 @@ Shared behavior lives here. Compose these; do not re-implement them.
   before calling reset. Use it for nested lazy charts and dialogs as well as docked panels so a
   successful import cannot leave the surrounding workflow trapped after a render or effect failure.
 - `AnchoredMenu`: the popover primitive (a backdrop plus a positioned surface with a scale transition
-  and the dismiss-stack registration). Use it for any anchored menu (the app-menu launcher, the
-  bottom-bar More menu, the opacity popover). Pass it a `surfaceClass` to position and frame the
+  and the dismiss-stack registration). Use it for anchored menus such as the bottom-bar More menu and
+  the opacity popover. Pass it a `surfaceClass` to position and frame the
   surface, a `role` (`group` by default, `menu` for a true menu with roving focus), and a `surfaceStyle`
   for a bespoke coordinate system. Pass `anchor`, `preferredPlacement`, and `anchorAlign` for shared
   viewport-fixed placement that flips and clamps at every screen edge. Pass `onFocusLeft` with the
@@ -592,15 +592,15 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
 
 ## 8. Menus
 
-- The app menu is the `AppMenu` launcher: a `.surface-elevated` frame holding a grid of tiles grouped by
-  helm intent. A menu entry is a `MenuItem` (`id`, `label`, `shortLabel` for the bottom-bar pill,
+- The app menu is the `AppMenu` left-edge dock: a `.surface-elevated` frame holding a grid of tiles
+  grouped by helm intent. Its attached chevron tab remains on the viewport edge while collapsed and
+  expands the dock in flow, resizing the chart instead of covering it with a popover. A menu entry is
+  a `MenuItem` (`id`, `label`, `shortLabel` for the bottom-bar pill,
   `sublabel` for a quiet second tile line when an item's current state is part of its identity
   (the Orientation tile's mode, the instrument dashboard's KIP acronym) so the label keeps one
   voice across the grid, `icon` a lucide component, `group` a section heading, `pressed` for a
   toggle's lit state, `disabled` plus `disabledLabel`, `available` plus `unavailableHint`,
-  `barOnly` for an action whose home is the bottom bar (the Menu opener, which would otherwise be
-  a tile inside the menu it opens; it still renders as a tile while customizing, since tapping a
-  tile is the pin control), `fixedToBar` for an app-shell action that stays in the bottom toolbar
+  `fixedToBar` for an app-shell action that stays in the bottom toolbar
   while remaining available in the launcher, and `onSelect`). Groups today:
   Chart, Navigate, Safety, Weather, Instruments, and Settings.
   Safety stays before Weather and Instruments; Settings stays last. Adding a menu option is one more
@@ -628,13 +628,15 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   (a native `<dialog class="modal-card">` opened via the `dialog` action, which calls `showModal()`),
   used for the waypoint editor and the MOB confirm.
 - The bottom bar renders the pinned `MenuItem`s in stored order (using `shortLabel`) plus a More
-  overflow, followed by the fixed interface lock, Instruments toggle, and MOB key. Fixed actions stay
-  outside toolbar customization and remain in the thumb-reachable action row. Interface lock opens a
+  overflow, followed by the fixed profile, theme, app information, interface lock, and MOB controls.
+  Fixed actions stay outside toolbar customization and remain in the thumb-reachable action row.
+  Interface lock opens a
   transparent, full-viewport native modal that intercepts interaction everywhere and leaves one
-  open-lock control to unlock. It persists on this device across reloads. Instruments reflects its
-  open state and toggles the dock; MOB opens its confirmation dialog before marking. The app menu's
-  toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar only
-  renders the resolved customizable list.
+  open-lock control to unlock. It persists on this device across reloads. MOB opens its confirmation
+  dialog before marking. Instruments has its own attached right-edge tab, which reflects its open
+  state and moves with the dock edge while the dock is open. The left app
+  menu's toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar
+  only renders the resolved customizable list.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
   sources. Each compact row has one separate drag grip, a name-sized visibility button whose enabled
   state lights the row, a child-layer caret, and one chart-detail action. A chart with facets discloses

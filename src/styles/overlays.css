@@ -87,7 +87,7 @@ dialog.modal-card {
   transform-origin: left var(--anchored-origin-y, top);
 }
 
-/* The larger elevated-panel frame shared by the full app-menu launcher and the floating weather panel:
+/* The larger elevated-panel frame shared by the full app-menu dock and the floating weather panel:
    the same surface, hairline border, large radius, and lifted shadow so those big floating surfaces
    cannot drift apart. Consumers keep their own position, sizing, padding, and z-index. The slide-over
    dock is deliberately not part of this: it is full-height with no radius and only shares the surface

@@ -32,10 +32,6 @@ export interface MenuItem {
   // launcher renders the tile with aria-pressed and the accent on-state; when undefined, the item
   // is a plain action and carries no pressed semantics.
   pressed?: boolean;
-  // An action whose home is the bottom bar, not the launcher grid: the Menu opener itself, which
-  // would otherwise render as a tile inside the menu it opens. The launcher still shows it while
-  // customizing the toolbar, because tapping a tile is the only way to pin or unpin.
-  barOnly?: boolean;
   // An action that is always rendered in the bottom toolbar by the app shell. It remains a normal
   // launcher tile, but toolbar customization cannot remove, duplicate, or reorder it.
   fixedToBar?: boolean;

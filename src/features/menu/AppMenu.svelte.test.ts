@@ -69,39 +69,28 @@ describe('AppMenu group order', () => {
   });
 });
 
-describe('AppMenu bar-only actions', () => {
-  function renderWithEditing(editing: boolean): string {
-    return render(AppMenu, {
-      props: {
-        items: [
-          item('menu', { barOnly: true, group: 'Chart' }),
-          item('center', { group: 'Chart' }),
-        ],
-        open: true,
-        onOpenChange: () => {},
-        editing,
-        pinnedIds: ['menu'],
-      },
-    }).body;
-  }
-
-  it('keeps a bar-only action out of the launcher it opens, but pinnable while customizing', () => {
-    const browsing = renderWithEditing(false);
-    expect(browsing).toContain('>center<');
-    expect(browsing).not.toContain('>menu<');
-    // Tapping a tile is the only pin control, so the tile must exist in edit mode.
-    expect(renderWithEditing(true)).toContain('>menu<');
-  });
-
-  it('can omit its trigger when another control owns the open state', () => {
-    const withTrigger = render(AppMenu, {
+describe('AppMenu edge dock', () => {
+  it('keeps an attached visibility tab rendered while the dock is collapsed', () => {
+    const collapsed = render(AppMenu, {
       props: { items: [], open: false, onOpenChange: () => {} },
     }).body;
-    expect(withTrigger).toContain('aria-label="Menu"');
-    const without = render(AppMenu, {
-      props: { items: [], open: false, onOpenChange: () => {}, showTrigger: false },
+    const expanded = render(AppMenu, {
+      props: { items: [], open: true, onOpenChange: () => {} },
     }).body;
-    expect(without).not.toContain('aria-label="Menu"');
+
+    expect(collapsed).toContain('aria-label="App menu visibility"');
+    expect(collapsed).toContain('aria-expanded="false"');
+    expect(collapsed).toContain('title="Show menu"');
+    expect(collapsed).not.toContain('id="app-menu-launcher"');
+    expect(expanded).toContain('aria-expanded="true"');
+    expect(expanded).toContain('title="Hide menu"');
+    expect(expanded).toContain('id="app-menu-launcher"');
+  });
+
+  it('is an in-flow edge dock rather than an anchored popover', () => {
+    expect(APP_MENU_SOURCE).toContain('class="app-menu-dock"');
+    expect(APP_MENU_SOURCE).toContain('inset-inline-start: 100%');
+    expect(APP_MENU_SOURCE).not.toContain('AnchoredMenu');
   });
 });
 
