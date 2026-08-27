@@ -171,7 +171,6 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   class="tile card-frame tile--wide tile--wind-rose"
   class:tile--warning={zone === 'warning'}
   class:tile--alarm={zone === 'alarm'}
-  class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
   class:tile--expanded={expanded}
   aria-label={accessibleLabel}
@@ -509,14 +508,6 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   font-size: 5cqi;
   font-weight: 800;
   line-height: 1;
-}
-.tile--stale .apparent-pointer,
-.tile--stale .true-pointer {
-  fill: var(--text-muted);
-}
-.tile--stale .heading-digits,
-.tile--stale .heading-degree {
-  color: var(--text-muted);
 }
 .rose-readouts {
   position: absolute;

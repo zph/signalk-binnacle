@@ -390,6 +390,21 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('class="true-pointer ');
     expect(html).toContain('rotate(-57.295');
 
+    const staleHtml = render(WindRoseTile, {
+      props: {
+        label: 'Wind rose',
+        reading: { ...reading, state: 'stale' },
+        zone: normal,
+        depthZone: normal,
+        sensorGloss: 'No wind data',
+        staleAgeText: '19 s ago',
+      },
+    }).body;
+    expect(staleHtml).not.toContain('tile--stale');
+    expect(staleHtml).toContain('>Stale<');
+    expect(staleHtml).toContain('19 s ago');
+    expect(staleHtml).toContain('Wind data stale');
+
     const windRose = reading.windRose;
     if (!windRose) throw new Error('Test reading must include a wind rose');
     const apparentOnlyHtml = render(WindRoseTile, {
