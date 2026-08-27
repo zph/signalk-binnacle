@@ -26,6 +26,8 @@ import {
   isRecord,
   JOULES_PER_KWH,
   lengthUnit,
+  metersPerSecondToKnots,
+  metersToFeet,
   PLACEHOLDER,
   pressureUnit,
   RAD_TO_DEG,
@@ -309,6 +311,16 @@ function instrumentMetric(reading: TileReading): InstrumentMetric {
     angleEpoch: reading.angleEpoch,
     angleState: reading.angleState,
     referenceLabel: reading.referenceLabel,
+  };
+}
+
+function windRoseNumericMetric(
+  reading: TileReading,
+  displayValue: number | undefined,
+): InstrumentMetric {
+  return {
+    ...instrumentMetric(reading),
+    value: formatFixed(displayValue, displayValue !== undefined && displayValue >= 10 ? 0 : 1),
   };
 }
 
@@ -627,6 +639,8 @@ const WIND_ROSE_DEF: TileDef = {
     const heading = HDG_DEF.read(deps);
     const speedOverGround = SOG_DEF.read(deps);
     const depth = DEPTH_DEF.read(deps);
+    const depthDisplayValue =
+      deps.units.mode === 'imperial' ? metersToFeet(depth.siValue) : depth.siValue;
     const windStates = [apparent.state, trueWind.state];
     const state: TileValueState = windStates.includes('live')
       ? 'live'
@@ -640,11 +654,14 @@ const WIND_ROSE_DEF: TileDef = {
       ...primary,
       state,
       windRose: {
-        apparent: instrumentMetric(apparent),
-        trueWind: instrumentMetric(trueWind),
+        apparent: windRoseNumericMetric(apparent, metersPerSecondToKnots(apparent.siValue)),
+        trueWind: windRoseNumericMetric(trueWind, metersPerSecondToKnots(trueWind.siValue)),
         heading: instrumentMetric(heading),
-        speedOverGround: instrumentMetric(speedOverGround),
-        depth: instrumentMetric(depth),
+        speedOverGround: windRoseNumericMetric(
+          speedOverGround,
+          metersPerSecondToKnots(speedOverGround.siValue),
+        ),
+        depth: windRoseNumericMetric(depth, depthDisplayValue),
       },
     };
   },

@@ -3,7 +3,7 @@ import type { CourseGuidance } from '$entities/course';
 import { UnitsStore } from '$entities/units';
 import { OwnVessel } from '$entities/vessel';
 import type { ReactiveClock, UnitsMode } from '$shared/lib';
-import { PLACEHOLDER } from '$shared/lib';
+import { feetToMeters, knotsToMetersPerSecond, PLACEHOLDER } from '$shared/lib';
 import { PersistedValue } from '$shared/settings';
 import type { SKFrame } from '$shared/signalk';
 import { SignalKStore, SK_PATHS } from '$shared/signalk';
@@ -522,6 +522,55 @@ describe('wind rose tile', () => {
     const reading = readTile('wind-rose', deps);
     expect(reading.state).toBe('live');
     expect(reading.siValue).toBe(4);
+  });
+
+  it('rounds each numeric readout to a whole value at 10 and above', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock, 'metric');
+    deps.store.applyFrame(
+      skFrame(
+        {
+          [SK_PATHS.windSpeedApparent]: knotsToMetersPerSecond(10),
+          [SK_PATHS.windSpeedTrue]: knotsToMetersPerSecond(10.49),
+          [SK_PATHS.speedOverGround]: knotsToMetersPerSecond(10.5),
+          [SK_PATHS.depthBelowKeel]: 12.6,
+        },
+        1000,
+      ),
+    );
+
+    const reading = readTile('wind-rose', deps);
+    expect(reading.windRose?.apparent.value).toBe('10');
+    expect(reading.windRose?.trueWind.value).toBe('10');
+    expect(reading.windRose?.speedOverGround.value).toBe('11');
+    expect(reading.windRose?.depth.value).toBe('13');
+
+    // The precision change belongs to the combined rose, not the standalone instruments.
+    expect(readTile('wind-apparent', deps).value).toBe('10.0');
+    expect(readTile('depth', deps).value).toBe('12.6');
+  });
+
+  it('keeps tenths below 10 and applies the threshold after depth unit conversion', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock, 'imperial');
+    deps.store.applyFrame(
+      skFrame(
+        {
+          [SK_PATHS.windSpeedApparent]: knotsToMetersPerSecond(9.94),
+          [SK_PATHS.windSpeedTrue]: knotsToMetersPerSecond(9.9),
+          [SK_PATHS.speedOverGround]: knotsToMetersPerSecond(9.94),
+          [SK_PATHS.depthBelowKeel]: feetToMeters(10.49),
+        },
+        1000,
+      ),
+    );
+
+    const reading = readTile('wind-rose', deps);
+    expect(reading.windRose?.apparent.value).toBe('9.9');
+    expect(reading.windRose?.trueWind.value).toBe('9.9');
+    expect(reading.windRose?.speedOverGround.value).toBe('9.9');
+    expect(reading.windRose?.depth.value).toBe('10');
+    expect(reading.windRose?.depth.unit).toBe('ft');
   });
 });
 
