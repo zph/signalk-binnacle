@@ -677,7 +677,11 @@ test('offline charts stays discoverable when Chart Locker is not installed', asy
   const offline = menu.getByRole('button', { name: /Offline charts/ });
   await expect(offline).toBeVisible();
   await expect(offline).toHaveAttribute('aria-disabled', 'true');
-  await offline.click({ force: true });
+  await expect(offline).toHaveAttribute('title', /signalk-chart-locker/);
+  // aria-disabled correctly makes Playwright treat the tile as unavailable, while the product
+  // deliberately keeps its click handler so the user can ask why. Dispatch the activation event
+  // directly to verify that explanatory path without bypassing unrelated hit-testing checks.
+  await offline.dispatchEvent('click');
   await expect(menu.locator('.transient-note')).toContainText('signalk-chart-locker');
 });
 

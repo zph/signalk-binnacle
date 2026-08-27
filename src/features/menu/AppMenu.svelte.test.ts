@@ -113,4 +113,19 @@ describe('AppMenu fixed bottom-bar actions', () => {
     expect(body).toMatch(/aria-pressed="true"[^>]*>[\s\S]*instruments/);
     expect(body.match(/Move instruments/g)).toBeNull();
   });
+
+  it('marks an edge-owned action unavailable for toolbar pinning', () => {
+    const body = render(AppMenu, {
+      props: {
+        items: [item('instruments', { toolbarEligible: false, group: 'Instruments' })],
+        open: true,
+        onOpenChange: () => {},
+        editing: true,
+      },
+    }).body;
+
+    expect(body).toContain('aria-disabled="true"');
+    expect(body).toContain('title="instruments uses its own edge control."');
+    expect(body).toContain('aria-pressed="false"');
+  });
 });

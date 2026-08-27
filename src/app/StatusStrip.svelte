@@ -492,6 +492,20 @@ const depthWatchPaused = $derived(
   }
   .strip-actions {
     gap: var(--space-1);
+    inline-size: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  /* Large text can make each full-size touch target nearly 6rem wide. Keep the emergency action
+     at the visible edge while the lower-priority controls remain reachable by horizontal scroll,
+     rather than wrapping the toolbar until it displaces the emergency rail above the viewport. */
+  :global(.strip-actions .mob-btn) {
+    order: -1;
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
   }
 }
 @media (max-width: 480px) {

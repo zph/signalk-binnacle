@@ -279,7 +279,25 @@ export function createMeasureOverlay(
               return vertexId;
             }
           }
-          return undefined;
+          // GeoJSON source updates reach the store before MapLibre's worker paints the new hit
+          // layer. During that short window, use the same 22 px radius against the current store
+          // geometry so a deliberate vertex tap selects it instead of appending a new point.
+          const pointX = Array.isArray(point) ? point[0] : point.x;
+          const pointY = Array.isArray(point) ? point[1] : point.y;
+          let nearest: { id: string; distanceSquared: number } | undefined;
+          for (const vertex of measure.vertices) {
+            const projected = map.project([vertex.position.longitude, vertex.position.latitude]);
+            const dx = projected.x - pointX;
+            const dy = projected.y - pointY;
+            const distanceSquared = dx * dx + dy * dy;
+            if (
+              distanceSquared <= 22 * 22 &&
+              distanceSquared < (nearest?.distanceSquared ?? Infinity)
+            ) {
+              nearest = { id: vertex.id, distanceSquared };
+            }
+          }
+          return nearest?.id;
         } catch {
           // A style replacement can remove the layer between getLayer and the query. The next add
           // recreates it, and an empty result safely treats this one chart tap as water.

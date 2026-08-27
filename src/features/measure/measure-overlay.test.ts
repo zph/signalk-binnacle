@@ -154,6 +154,17 @@ describe('measure overlay', () => {
     expect(measure.vertices[0].position).toEqual({ latitude: 0, longitude: 0 });
   });
 
+  it('falls back to current projected geometry while the rendered hit source catches up', async () => {
+    const { measure, overlay, ctx } = setup();
+    await overlay.add(ctx);
+    measure.start();
+    measure.add({ latitude: 0, longitude: 0 });
+    const vertexId = measure.vertices[0].id;
+
+    expect(overlay.hitTestVertex([5, 5])).toBe(vertexId);
+    expect(overlay.hitTestVertex([30, 0])).toBeUndefined();
+  });
+
   it('ignores a rendered vertex that no longer exists in the current measurement', async () => {
     const { measure, overlay, map, ctx } = setup();
     await overlay.add(ctx);
@@ -184,7 +195,7 @@ describe('measure overlay', () => {
     });
 
     measure.start();
-    measure.add({ latitude: 1, longitude: 1 });
+    measure.add({ latitude: 10, longitude: 10 });
 
     expect(measure.vertices[0].id).not.toBe(staleId);
     expect(overlay.hitTestVertex([0, 0])).toBeUndefined();

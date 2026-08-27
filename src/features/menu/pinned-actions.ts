@@ -1,7 +1,7 @@
 import type { MenuItem } from './menu-item';
 
-// The bar's default customizable set: Center, Follow, and AIS. Instruments has its own fixed toggle
-// beside the customizable actions; the app menu is an independent left-edge dock.
+// The bar's default customizable set: Center, Follow, and AIS. Instruments and the app menu have
+// independent edge tabs outside the bottom toolbar.
 export const DEFAULT_PINNED: readonly string[] = ['center', 'follow', 'ais'];
 
 // The pinned actions in stored order, so toolbar customization controls both membership and position.
@@ -14,7 +14,7 @@ export function resolvePinned(items: MenuItem[], pinnedIds: unknown): MenuItem[]
   for (const id of list) {
     if (typeof id !== 'string' || seen.has(id)) continue;
     const item = byId.get(id);
-    if (!item || item.fixedToBar) continue;
+    if (!item || item.fixedToBar || item.toolbarEligible === false) continue;
     seen.add(id);
     out.push(item);
   }

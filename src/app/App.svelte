@@ -1387,6 +1387,9 @@ let radarControlsOpen = $state(false);
 let radarOpenedFrom = $state<'menu' | 'layers'>('menu');
 let radarDraftDirty = $state(false);
 let radarPanelRequest = $state<'close' | 'instruments' | undefined>();
+const bottomTabObscured = $derived(
+  activePanel !== null || weatherPanelOpen || radarControlsOpen || selectedNote !== undefined,
+);
 
 // Auto-enable the radar echo the first time a radar is discovered, then latch so a later manual
 // toggle-off in the Layers panel is never overridden. The radar layer row's toggle is disabled until a
@@ -1923,6 +1926,7 @@ const menuItems = $derived<MenuItem[]>([
     shortLabel: 'Instruments',
     icon: Gauge,
     group: 'Instruments',
+    toolbarEligible: false,
     pressed: instruments.open,
     onSelect: toggleInstrumentsPanel,
   },
@@ -3043,6 +3047,7 @@ const plotterActions = {
   <AppMenu
     items={menuItems}
     open={menuOpen}
+    panelOpen={bottomTabObscured}
     onOpenChange={(next) => (menuOpen = next)}
     pinnedIds={pinnedActions.value}
     editing={menuEditing}
@@ -3365,6 +3370,7 @@ const plotterActions = {
       {bottomBarVisible}
       instrumentsOpen={instruments.open}
       {instrumentsFullScreen}
+      bottomTabVisible={!bottomTabObscured}
       onToggleBottom={() => (bottomBarVisible = !bottomBarVisible)}
       onToggleInstruments={toggleInstrumentsPanel}
     />

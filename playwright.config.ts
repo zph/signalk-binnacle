@@ -8,12 +8,10 @@ export default defineConfig({
   testDir: './e2e',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // Two workers, file-level parallelism only (fullyParallel stays at its false default): tests
-  // within a spec file run in order in one worker, so mariner-helm's stateful fixture scenarios
-  // keep their sequence while an independent file runs in the other worker against the stateless
-  // preview origin. The gate is the dominant cost of every push, so the second worker pays for
-  // itself; drop back to 1 if contention ever makes the specs flaky.
-  workers: 2,
+  // One worker keeps the map-heavy Chromium suite from contending with the mariner fixture's
+  // performance budgets. Two workers repeatedly made otherwise-green focused cases miss those
+  // budgets or stall on moving panel controls, so the release gate favors a stable signal.
+  workers: 1,
   // Playwright's default is 30 seconds, tuned for CI-class hardware. Several of these specs boot the
   // map, wait for a style and its overlays, and then interact, which takes about 29 seconds on the
   // Raspberry Pi 5 this project develops on: repeated runs of one spec measured 29.0, 29.1, and

@@ -55,6 +55,15 @@ describe('resolvePinned', () => {
     );
   });
 
+  it('excludes actions that own an independent edge control', () => {
+    const edgeOwned = item('instruments');
+    edgeOwned.toolbarEligible = false;
+
+    expect(
+      resolvePinned([...registry, edgeOwned], ['center', 'instruments']).map((i) => i.id),
+    ).toEqual(['center']);
+  });
+
   it('returns the empty array for an empty pin list', () => {
     expect(resolvePinned(registry, [])).toEqual([]);
   });

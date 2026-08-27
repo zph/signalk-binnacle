@@ -35,6 +35,10 @@ export interface MenuItem {
   // An action that is always rendered in the bottom toolbar by the app shell. It remains a normal
   // launcher tile, but toolbar customization cannot remove, duplicate, or reorder it.
   fixedToBar?: boolean;
+  // False when an action already owns a permanent control outside the bottom toolbar, such as an
+  // attached edge tab. It stays available in the app menu but cannot be pinned into a duplicate
+  // bottom-toolbar control. Defaults to true.
+  toolbarEligible?: boolean;
   // Optional section heading. Consecutive items sharing a group render under one caps-label header,
   // so the menu groups itself from data without the menu component knowing the sections.
   group?: string;

@@ -24,6 +24,7 @@ interface Props {
   // dock after it collapsed on selection. The menu renders the current state and requests changes.
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  panelOpen?: boolean;
   // The ids currently pinned to the bottom bar, and the edit-mode state, controlled by the parent.
   pinnedIds?: string[];
   editing?: boolean;
@@ -38,6 +39,7 @@ const {
   label = 'Menu',
   open,
   onOpenChange,
+  panelOpen = false,
   pinnedIds = [],
   editing = false,
   onEditingChange,
@@ -92,6 +94,10 @@ function select(item: MenuItem): void {
       blockedNote.show(`${item.label} is always shown on the bottom toolbar.`);
       return;
     }
+    if (item.toolbarEligible === false) {
+      blockedNote.show(`${item.label} uses its own edge control instead of the bottom toolbar.`);
+      return;
+    }
     onTogglePin?.(item.id);
     return;
   }
@@ -144,7 +150,7 @@ function onCardKeydown(event: KeyboardEvent): void {
 }
 </script>
 
-<aside class="app-menu-dock" class:is-open={open} aria-label={label}>
+<aside class="app-menu-dock" class:is-open={open} class:panel-open={panelOpen} aria-label={label}>
   {#if open}
     <section
       class="launcher surface-elevated"
@@ -192,8 +198,16 @@ function onCardKeydown(event: KeyboardEvent): void {
                     class="menu-tile"
                     class:is-on={editing ? pinnedSet.has(item.id) : item.pressed === true}
                     aria-pressed={editing ? pinnedSet.has(item.id) : item.pressed}
-                    aria-disabled={!editing && itemBlocked(item) ? true : undefined}
-                    title={!editing ? blockedReason(item) : undefined}
+                    aria-disabled={editing && item.toolbarEligible === false
+                      ? true
+                      : !editing && itemBlocked(item)
+                        ? true
+                        : undefined}
+                    title={editing && item.toolbarEligible === false
+                      ? `${item.label} uses its own edge control.`
+                      : !editing
+                        ? blockedReason(item)
+                        : undefined}
                     onclick={() => select(item)}
                   >
                     <UnavailableHint
@@ -249,6 +263,12 @@ function onCardKeydown(event: KeyboardEvent): void {
 .app-menu-dock.is-open {
   inline-size: min(22rem, calc(100dvw - var(--control-size) - var(--space-2)));
 }
+/* The dock width eases closed after its launcher has unmounted. During that interval its empty,
+   transparent box must not intercept chart or safety controls, and the attached tab stays at its
+   collapsed edge instead of sweeping across those controls with the shrinking box. */
+.app-menu-dock:not(.is-open) {
+  pointer-events: none;
+}
 .launcher {
   position: relative;
   display: flex;
@@ -298,6 +318,13 @@ function onCardKeydown(event: KeyboardEvent): void {
   display: flex;
   transform: translateY(-50%);
 }
+.app-menu-dock:not(.is-open) .app-menu-tabs {
+  inset-inline-start: 0;
+  pointer-events: auto;
+}
+.app-menu-dock.panel-open:not(.is-open) .app-menu-tabs {
+  inset-inline-start: calc(100% + var(--panel-width));
+}
 .app-menu-tab {
   display: grid;
   place-items: center;
@@ -322,8 +349,18 @@ function onCardKeydown(event: KeyboardEvent): void {
   filter: brightness(var(--brightness-press));
 }
 @media (max-width: 600px) {
+  .app-menu-dock {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+  }
   .launcher {
     padding-inline-start: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+  }
+  .app-menu-dock.panel-open:not(.is-open) .app-menu-tabs {
+    inset-block-start: var(--space-2);
+    inset-inline-start: 0;
+    transform: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -64,9 +64,7 @@ test('the attached left tab expands and collapses the app-menu dock', async ({ p
     .poll(async () => {
       const expandedMenu = await page.locator('#app-menu-launcher').boundingBox();
       const expandedTab = await menuButton.boundingBox();
-      return Math.abs(
-        (expandedMenu?.x ?? 0) + (expandedMenu?.width ?? 0) - (expandedTab?.x ?? 0),
-      );
+      return Math.abs((expandedMenu?.x ?? 0) + (expandedMenu?.width ?? 0) - (expandedTab?.x ?? 0));
     })
     .toBeLessThan(2);
   const expandedChart = await chart.boundingBox();
