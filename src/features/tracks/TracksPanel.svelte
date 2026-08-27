@@ -20,17 +20,26 @@ import {
   PLACEHOLDER,
   type ReactiveClock,
 } from '$shared/lib';
-import type { PersistedValue, TrackSettings } from '$shared/settings';
+import {
+  type PersistedValue,
+  preferTrackHistory,
+  type TrackSettings,
+  trackStopDurationMinutes,
+  trackStopSpeedKnots,
+  useLocalTrackFallback,
+} from '$shared/settings';
 import { type AuthController, resourcesProviderNote } from '$shared/signalk';
 import {
   ArmedRow,
   createPanelMinimize,
   defaultSaveName,
   InlineConfirm,
+  LayerToggle,
   NameEntry,
   resolveSaveName,
   SavedList,
   SlideOver,
+  UnitField,
   VisibilityToggle,
   WriteAccessNote,
 } from '$shared/ui';
@@ -55,6 +64,7 @@ interface Props {
   busy: boolean;
   routeBusy: boolean;
   persistenceDegraded: boolean;
+  historyProviderState: 'checking' | 'retrying' | 'available' | 'absent' | 'failed';
   onRetry: () => void;
   // Resolves whether the write succeeded, so a failure keeps the name form and its entered value.
   onSave: (name: string) => Promise<boolean>;
@@ -82,6 +92,7 @@ const {
   busy,
   routeBusy,
   persistenceDegraded,
+  historyProviderState,
   onRetry,
   onSave,
   onSaveAsRoute,
@@ -95,6 +106,20 @@ const {
 
 const stats = $derived(recorder.stats);
 const colorMode = $derived(settings.value.colorMode);
+const intervalSeconds = $derived(settings.value.intervalSeconds);
+const minMeters = $derived(settings.value.minMeters);
+const historyPreferred = $derived(preferTrackHistory(settings.value));
+const historyAvailable = $derived(historyProviderState === 'available');
+const localFallback = $derived(useLocalTrackFallback(settings.value));
+const localRecordingActive = $derived(
+  !historyPreferred ||
+    (!historyAvailable &&
+      historyProviderState !== 'checking' &&
+      historyProviderState !== 'retrying' &&
+      localFallback),
+);
+const stopSpeedKnots = $derived(trackStopSpeedKnots(settings.value));
+const stopDurationMinutes = $derived(trackStopDurationMinutes(settings.value));
 // Until the track has captured a point, its stats are absent, not zero, so show the placeholder.
 const hasTrack = $derived(recorder.points.length > 0);
 
@@ -191,6 +216,30 @@ const armedDelete = new ArmedRow((id) => onDelete(id));
 function setColorMode(mode: TrackSettings['colorMode']): void {
   settings.set({ ...settings.value, colorMode: mode });
 }
+
+function setIntervalSeconds(value: number): void {
+  settings.set({ ...settings.value, intervalSeconds: Math.min(3_600, Math.max(1, value)) });
+}
+
+function setMinMeters(value: number): void {
+  settings.set({ ...settings.value, minMeters: Math.min(10_000, Math.max(1, value)) });
+}
+
+function setHistoryPreferred(preferred: boolean): void {
+  settings.set({ ...settings.value, preferHistory: preferred });
+}
+
+function setLocalFallback(enabled: boolean): void {
+  settings.set({ ...settings.value, localFallback: enabled });
+}
+
+function setStopSpeedKnots(value: number): void {
+  settings.set({ ...settings.value, stopSpeedKnots: Math.min(5, Math.max(0, value)) });
+}
+
+function setStopDurationMinutes(value: number): void {
+  settings.set({ ...settings.value, stopDurationMinutes: Math.min(1_440, Math.max(1, value)) });
+}
 </script>
 
 <SlideOver title="Tracks" closeLabel="Close tracks panel" bodyFlex {onClose} {onBack} {minimize}>
@@ -211,7 +260,7 @@ function setColorMode(mode: TrackSettings['colorMode']): void {
     </p>
     <button type="button" class="btn btn-ghost" onclick={onRetry}>Check again</button>
   {/if}
-  {#if persistenceDegraded}
+  {#if persistenceDegraded && localRecordingActive}
     <p class="alert-note" role="alert">
       {storageMissing
         ? 'Track storage is memory-only. The current track will be lost on reload. Saving to the server is unavailable until track storage is enabled there.'
@@ -219,173 +268,268 @@ function setColorMode(mode: TrackSettings['colorMode']): void {
     </p>
   {/if}
   <p class="muted-note">
-    A track is the breadcrumb trail of where the boat has been. Recording starts automatically while
-    underway. Looking for older movement? Playback reviews bounded ranges from the server's own
-    history, up to seven days.
+    Signal K history is the primary breadcrumb trail. It survives browser reloads and Binnacle
+    updates without saving a duplicate track. Named saves remain available for sharing or reuse.
   </p>
-  <p class="muted-note status" class:status--on={!recorder.paused && !waitingForGps} role="status">
-    {recorder.paused
-      ? 'Paused'
-      : waitingForGps
-        ? lastAccepted
-          ? `Waiting for fresh GPS. Last accepted fix ${lastAcceptedAge}. Recording resumes automatically.`
-          : 'Waiting for fresh GPS. Recording starts automatically.'
-        : 'Recording'}
-  </p>
-  {#if !recorder.paused && !waitingForGps && resumedNewSegment}
-    <p class="muted-note" role="status">Recording resumed as a new segment after a GPS gap.</p>
-  {/if}
-  <div class="panel-controls">
-    {#if recorder.paused}
-      <button type="button" class="btn" onclick={() => recorder.resume()}>
-        <Play size={16} aria-hidden="true" />
-        Resume
-      </button>
-    {:else}
-      <button type="button" class="btn" onclick={() => recorder.pause()}>
-        <Pause size={16} aria-hidden="true" />
-        Pause
-      </button>
-    {/if}
-    <button
-      type="button"
-      class="btn btn-primary"
-      onclick={() => (naming = 'track')}
-      disabled={!canSaveTrack || writesDisabled || storageMissing}
-    >
-      <Save size={16} aria-hidden="true" />
-      Save
-    </button>
-    <button
-      type="button"
-      class="btn btn-danger"
-      onclick={() => (confirmingClear = true)}
-      disabled={recorder.points.length === 0 || busy}
-    >
-      <Eraser size={16} aria-hidden="true" />
-      Discard
-    </button>
-  </div>
-  {#if naming === 'track'}
-    <NameEntry
-      label="Save track as"
-      value={defaultSaveName('Track')}
-      onConfirm={confirmName}
-      busy={savingName}
-      onCancel={() => (naming = null)}
-    />
-  {/if}
-  {#if confirmingClear}
-    <InlineConfirm
-      question="Discard the current track? This cannot be undone."
-      confirmLabel="Discard"
-      onConfirm={confirmClear}
-      onCancel={() => (confirmingClear = false)}
-    />
-  {/if}
-
-  <section class="panel-section" aria-label="Track color">
-    <h3 class="caps-label">Track color</h3>
-    <div class="color-mode segmented" role="group" aria-label="Track color">
+  <section class="panel-section" aria-label="Track source">
+    <h3 class="caps-label">Track source</h3>
+    <div class="source-mode segmented" role="group" aria-label="Track source">
       <button
         type="button"
         class="btn"
-        class:is-on={colorMode === 'speed'}
-        aria-pressed={colorMode === 'speed'}
-        onclick={() => setColorMode('speed')}
+        class:is-on={historyPreferred}
+        aria-pressed={historyPreferred}
+        onclick={() => setHistoryPreferred(true)}
       >
-        Speed
+        Signal K history
       </button>
       <button
         type="button"
         class="btn"
-        class:is-on={colorMode === 'solid'}
-        aria-pressed={colorMode === 'solid'}
-        onclick={() => setColorMode('solid')}
+        class:is-on={!historyPreferred}
+        aria-pressed={!historyPreferred}
+        onclick={() => setHistoryPreferred(false)}
       >
-        One color
+        Local recording
       </button>
     </div>
+    {#if historyProviderState === 'checking' || historyProviderState === 'retrying'}
+      <p class="muted-note" role="status">Checking for position history on Signal K…</p>
+    {:else if historyPreferred && historyAvailable}
+      <p class="muted-note status" role="status">
+        Using Signal K history. No duplicate local recording is needed.
+      </p>
+    {:else if historyPreferred && localFallback}
+      <p class="muted-note status" role="status">
+        Signal K history is unavailable. Recording locally as the configured fallback.
+      </p>
+    {:else if historyPreferred}
+      <p class="alert-note" role="alert">
+        Signal K history is unavailable, and local fallback is off.
+      </p>
+    {/if}
+    <LayerToggle
+      label="Record locally when history is unavailable"
+      visible={localFallback}
+      onToggle={setLocalFallback}
+    />
   </section>
 
-  <div class="panel-controls">
-    <button
-      type="button"
-      class="btn"
-      onclick={() => (naming = 'route')}
-      disabled={routeActionsDisabled}
-    >
-      <Route size={16} aria-hidden="true" />
-      Save as route
-    </button>
-    <button
-      type="button"
-      class="btn"
-      onclick={() => (confirmingRetrace = true)}
-      disabled={routeActionsDisabled}
-    >
-      <Undo2 size={16} aria-hidden="true" />
-      Retrace track
-    </button>
-  </div>
-  {#if naming === 'route'}
-    <NameEntry
-      label="Save as route"
-      value={defaultSaveName('Route')}
-      onConfirm={confirmName}
-      busy={savingName}
-      onCancel={() => (naming = null)}
-    />
-  {/if}
-  {#if confirmingRetrace}
-    <InlineConfirm
-      question="Start navigation back along the latest continuous track segment? Check the route before relying on it."
-      confirmLabel="Start retrace"
-      onConfirm={confirmRetrace}
-      onCancel={() => (confirmingRetrace = false)}
-    />
-  {/if}
-  <p class="muted-note">
-    Save keeps the track. Save as route makes a reusable route you can follow again. Retrace track
-    navigates back the way you came.
-  </p>
-  {#if trackHasGaps}
-    <p class="muted-note">
-      GPS gaps split this track. Route actions use only the latest continuous segment. Saving the
-      track keeps all segments.
-    </p>
-  {:else if hasTrack && !canMakeRoute}
-    <p class="muted-note">Record at least two connected points to save or retrace a route.</p>
+  {#if historyPreferred}
+    <section class="panel-section" aria-label="Stop detection">
+      <h3 class="caps-label">Stops</h3>
+      <UnitField
+        label="Below"
+        unit="kn"
+        value={stopSpeedKnots}
+        min={0}
+        max={5}
+        step={0.05}
+        onCommit={setStopSpeedKnots}
+      />
+      <UnitField
+        label="Longer than"
+        unit="min"
+        value={stopDurationMinutes}
+        min={1}
+        max={1440}
+        step={1}
+        onCommit={setStopDurationMinutes}
+      />
+      <p class="muted-note muted-note--xs">
+        Stops appear on the historical track with their duration.
+      </p>
+    </section>
   {/if}
 
-  <section class="panel-section" aria-label="Current track">
-    <h3 class="caps-label">Current track</h3>
-    <p class="muted-note">
-      {recorder.points.length} {recorder.points.length === 1 ? 'point' : 'points'}
+  {#if localRecordingActive}
+    <p
+      class="muted-note status"
+      class:status--on={!recorder.paused && !waitingForGps}
+      role="status"
+    >
+      {recorder.paused
+        ? 'Paused local recording'
+        : waitingForGps
+          ? lastAccepted
+            ? `Waiting for fresh GPS. Last accepted fix ${lastAcceptedAge}. Recording resumes automatically.`
+            : 'Waiting for fresh GPS. Recording starts automatically.'
+          : 'Recording locally'}
     </p>
-    <dl class="stat-grid">
-      <dt>Distance</dt>
-      <dd>
-        <span class="num">{hasTrack ? formatNm(stats.distanceMeters) : PLACEHOLDER}</span>
-        <span class="unit">nm</span>
-      </dd>
-      <dt>Duration</dt>
-      <dd>
-        <span class="num">{hasTrack ? formatDuration(stats.durationSeconds) : PLACEHOLDER}</span>
-        <span class="unit"></span>
-      </dd>
-      <dt>Avg speed</dt>
-      <dd>
-        <span class="num">{hasTrack ? formatKnots(stats.avgSog) : PLACEHOLDER}</span>
-        <span class="unit">kn</span>
-      </dd>
-      <dt>Top speed</dt>
-      <dd>
-        <span class="num">{hasTrack ? formatKnots(stats.maxSog) : PLACEHOLDER}</span>
-        <span class="unit">kn</span>
-      </dd>
-    </dl>
-  </section>
+    {#if !recorder.paused && !waitingForGps && resumedNewSegment}
+      <p class="muted-note" role="status">Recording resumed as a new segment after a GPS gap.</p>
+    {/if}
+    <div class="panel-controls">
+      {#if recorder.paused}
+        <button type="button" class="btn" onclick={() => recorder.resume()}>
+          <Play size={16} aria-hidden="true" />
+          Resume
+        </button>
+      {:else}
+        <button type="button" class="btn" onclick={() => recorder.pause()}>
+          <Pause size={16} aria-hidden="true" />
+          Pause
+        </button>
+      {/if}
+      <button
+        type="button"
+        class="btn btn-primary"
+        onclick={() => (naming = 'track')}
+        disabled={!canSaveTrack || writesDisabled || storageMissing}
+      >
+        <Save size={16} aria-hidden="true" />
+        Save
+      </button>
+      <button
+        type="button"
+        class="btn btn-danger"
+        onclick={() => (confirmingClear = true)}
+        disabled={recorder.points.length === 0 || busy}
+      >
+        <Eraser size={16} aria-hidden="true" />
+        Discard
+      </button>
+    </div>
+    {#if naming === 'track'}
+      <NameEntry
+        label="Save track as"
+        value={defaultSaveName('Track')}
+        onConfirm={confirmName}
+        busy={savingName}
+        onCancel={() => (naming = null)}
+      />
+    {/if}
+    {#if confirmingClear}
+      <InlineConfirm
+        question="Discard the current track? This cannot be undone."
+        confirmLabel="Discard"
+        onConfirm={confirmClear}
+        onCancel={() => (confirmingClear = false)}
+      />
+    {/if}
+
+    <section class="panel-section" aria-label="Local recorder settings">
+      <h3 class="caps-label">Local recorder</h3>
+      <UnitField
+        label="Sample interval"
+        unit="s"
+        value={intervalSeconds}
+        min={1}
+        max={3600}
+        step={1}
+        onCommit={setIntervalSeconds}
+      />
+      <UnitField
+        label="Minimum movement"
+        unit="m"
+        value={minMeters}
+        min={1}
+        max={10000}
+        step={1}
+        onCommit={setMinMeters}
+      />
+      <h4 class="caps-label">Track color</h4>
+      <div class="color-mode segmented" role="group" aria-label="Track color">
+        <button
+          type="button"
+          class="btn"
+          class:is-on={colorMode === 'speed'}
+          aria-pressed={colorMode === 'speed'}
+          onclick={() => setColorMode('speed')}
+        >
+          Speed
+        </button>
+        <button
+          type="button"
+          class="btn"
+          class:is-on={colorMode === 'solid'}
+          aria-pressed={colorMode === 'solid'}
+          onclick={() => setColorMode('solid')}
+        >
+          One color
+        </button>
+      </div>
+    </section>
+
+    <div class="panel-controls">
+      <button
+        type="button"
+        class="btn"
+        onclick={() => (naming = 'route')}
+        disabled={routeActionsDisabled}
+      >
+        <Route size={16} aria-hidden="true" />
+        Save as route
+      </button>
+      <button
+        type="button"
+        class="btn"
+        onclick={() => (confirmingRetrace = true)}
+        disabled={routeActionsDisabled}
+      >
+        <Undo2 size={16} aria-hidden="true" />
+        Retrace track
+      </button>
+    </div>
+    {#if naming === 'route'}
+      <NameEntry
+        label="Save as route"
+        value={defaultSaveName('Route')}
+        onConfirm={confirmName}
+        busy={savingName}
+        onCancel={() => (naming = null)}
+      />
+    {/if}
+    {#if confirmingRetrace}
+      <InlineConfirm
+        question="Start navigation back along the latest continuous track segment? Check the route before relying on it."
+        confirmLabel="Start retrace"
+        onConfirm={confirmRetrace}
+        onCancel={() => (confirmingRetrace = false)}
+      />
+    {/if}
+    <p class="muted-note">
+      Save keeps the track. Save as route makes a reusable route you can follow again. Retrace track
+      navigates back the way you came.
+    </p>
+    {#if trackHasGaps}
+      <p class="muted-note">
+        GPS gaps split this track. Route actions use only the latest continuous segment. Saving the
+        track keeps all segments.
+      </p>
+    {:else if hasTrack && !canMakeRoute}
+      <p class="muted-note">Record at least two connected points to save or retrace a route.</p>
+    {/if}
+
+    <section class="panel-section" aria-label="Current track">
+      <h3 class="caps-label">Current track</h3>
+      <p class="muted-note">
+        {recorder.points.length} {recorder.points.length === 1 ? 'point' : 'points'}
+      </p>
+      <dl class="stat-grid">
+        <dt>Distance</dt>
+        <dd>
+          <span class="num">{hasTrack ? formatNm(stats.distanceMeters) : PLACEHOLDER}</span>
+          <span class="unit">nm</span>
+        </dd>
+        <dt>Duration</dt>
+        <dd>
+          <span class="num">{hasTrack ? formatDuration(stats.durationSeconds) : PLACEHOLDER}</span>
+          <span class="unit"></span>
+        </dd>
+        <dt>Avg speed</dt>
+        <dd>
+          <span class="num">{hasTrack ? formatKnots(stats.avgSog) : PLACEHOLDER}</span>
+          <span class="unit">kn</span>
+        </dd>
+        <dt>Top speed</dt>
+        <dd>
+          <span class="num">{hasTrack ? formatKnots(stats.maxSog) : PLACEHOLDER}</span>
+          <span class="unit">kn</span>
+        </dd>
+      </dl>
+    </section>
+  {/if}
 
   {#if loadState === 'error'}
     <p class="alert-note" role="alert">
@@ -456,7 +600,8 @@ function setColorMode(mode: TrackSettings['colorMode']): void {
 <style>
 /* The segment join comes from the global .segmented treatment; only the equal segment widths and
    the off-segment quiet fill are local. */
-.color-mode .btn {
+.color-mode .btn,
+.source-mode .btn {
   flex: 1;
 }
 /* The recording-state line: muted while paused, accented while a track is being captured. */

@@ -67,12 +67,15 @@ export function createTrackOverlay(
   recorder: TrackRecorder,
   settings: PersistedValue<TrackSettings>,
   saved: SavedTracksSource = NO_SAVED,
+  localTrackActive: () => boolean = () => true,
 ): TrackOverlay {
   let paint = mapThemePaint('day');
   let lastLen = -1;
   let lastT: number | undefined;
   let lastMode: TrackSettings['colorMode'] | undefined;
   let lastSavedVersion = -1;
+  let visible = true;
+  let lastLocalTrackActive: boolean | undefined;
 
   // Incremental-simplification state. `committed` is the frozen, already-simplified prefix of the
   // active line; `pendingStart` is the index into recorder.points where the unsimplified tail begins
@@ -151,6 +154,7 @@ export function createTrackOverlay(
       lastT = undefined;
       lastMode = undefined;
       lastSavedVersion = -1;
+      lastLocalTrackActive = undefined;
       resetSimplification();
       const before = ctx.beforeIdFor(BAND);
       ensureGeoJsonSources(ctx.map, [ACTIVE_SOURCE, SAVED_SOURCE]);
@@ -176,6 +180,11 @@ export function createTrackOverlay(
       }
     },
     sync(ctx) {
+      const nextLocalTrackActive = localTrackActive();
+      if (nextLocalTrackActive !== lastLocalTrackActive) {
+        lastLocalTrackActive = nextLocalTrackActive;
+        setLayersVisibility(ctx.map, [ACTIVE_LAYER], visible && nextLocalTrackActive);
+      }
       const mode = settings.value.colorMode;
       const points = recorder.points;
       const tail = points[points.length - 1]?.t;
@@ -212,8 +221,10 @@ export function createTrackOverlay(
         ctx.map.setPaintProperty(SAVED_LAYER, 'line-color', paint.trackSolid);
       }
     },
-    setVisible(ctx, visible) {
-      setLayersVisibility(ctx.map, [ACTIVE_LAYER, SAVED_LAYER], visible);
+    setVisible(ctx, nextVisible) {
+      visible = nextVisible;
+      setLayersVisibility(ctx.map, [SAVED_LAYER], visible);
+      setLayersVisibility(ctx.map, [ACTIVE_LAYER], visible && localTrackActive());
     },
     setOpacity(ctx, opacity) {
       if (ctx.map.getLayer(ACTIVE_LAYER)) {

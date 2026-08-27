@@ -335,6 +335,12 @@ export interface TrackSettings {
   intervalSeconds: number;
   minMeters: number;
   colorMode: 'speed' | 'solid';
+  // History is the authoritative track when the server provides it. These remain optional so
+  // profiles and local settings saved by earlier releases keep their values during migration.
+  preferHistory?: boolean;
+  localFallback?: boolean;
+  stopSpeedKnots?: number;
+  stopDurationMinutes?: number;
 }
 
 const DEFAULT_TRACK_SETTINGS: TrackSettings = {
@@ -342,6 +348,25 @@ const DEFAULT_TRACK_SETTINGS: TrackSettings = {
   minMeters: 10,
   colorMode: 'speed',
 };
+
+export const DEFAULT_TRACK_STOP_SPEED_KNOTS = 0.15;
+export const DEFAULT_TRACK_STOP_DURATION_MINUTES = 5;
+
+export function preferTrackHistory(settings: TrackSettings): boolean {
+  return settings.preferHistory !== false;
+}
+
+export function useLocalTrackFallback(settings: TrackSettings): boolean {
+  return settings.localFallback !== false;
+}
+
+export function trackStopSpeedKnots(settings: TrackSettings): number {
+  return settings.stopSpeedKnots ?? DEFAULT_TRACK_STOP_SPEED_KNOTS;
+}
+
+export function trackStopDurationMinutes(settings: TrackSettings): number {
+  return settings.stopDurationMinutes ?? DEFAULT_TRACK_STOP_DURATION_MINUTES;
+}
 
 // Guards a stored track-recording policy against schema drift or corruption, so a malformed value
 // falls back to the defaults rather than feeding NaN into the recorder.
@@ -354,7 +379,17 @@ export function isTrackSettings(value: unknown): value is TrackSettings {
     isFiniteNumber(value.minMeters) &&
     value.minMeters >= 1 &&
     value.minMeters <= 10_000 &&
-    (value.colorMode === 'speed' || value.colorMode === 'solid')
+    (value.colorMode === 'speed' || value.colorMode === 'solid') &&
+    (value.preferHistory === undefined || typeof value.preferHistory === 'boolean') &&
+    (value.localFallback === undefined || typeof value.localFallback === 'boolean') &&
+    (value.stopSpeedKnots === undefined ||
+      (isFiniteNumber(value.stopSpeedKnots) &&
+        value.stopSpeedKnots >= 0 &&
+        value.stopSpeedKnots <= 5)) &&
+    (value.stopDurationMinutes === undefined ||
+      (isFiniteNumber(value.stopDurationMinutes) &&
+        value.stopDurationMinutes >= 1 &&
+        value.stopDurationMinutes <= 1_440))
   );
 }
 

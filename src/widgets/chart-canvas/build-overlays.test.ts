@@ -26,6 +26,7 @@ const factories = vi.hoisted(() => {
         _origin: string,
         _getToken: () => string | undefined,
         _providers: () => unknown,
+        _settings: unknown,
         _reviewActive: () => boolean,
       ) => marker('history-track'),
     ),
@@ -217,13 +218,15 @@ describe('buildDynamicOverlays', () => {
       deps.origin,
       deps.getToken,
       deps.historyProviders,
+      deps.trackSettings,
       expect.any(Function),
     );
-    const historyReviewActive = factories.createHistoryTrackOverlay.mock.calls[0]?.[3];
+    const historyReviewActive = factories.createHistoryTrackOverlay.mock.calls[0]?.[4];
     expect(factories.createTrackOverlay).toHaveBeenCalledWith(
       deps.recorder,
       deps.trackSettings,
       deps.savedTracks,
+      expect.any(Function),
     );
     expect(factories.createCourseOverlay).toHaveBeenCalledWith(deps.guidance, deps.vessel);
     expect(factories.createCollisionOverlay).toHaveBeenCalledWith(deps.collision);

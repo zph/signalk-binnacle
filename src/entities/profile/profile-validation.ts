@@ -122,10 +122,21 @@ function validThresholdSettings(value: unknown): value is Thresholds {
 }
 
 function validTrackProfileSettings(value: unknown): value is TrackSettings {
+  const allowed = [
+    'intervalSeconds',
+    'minMeters',
+    'colorMode',
+    'preferHistory',
+    'localFallback',
+    'stopSpeedKnots',
+    'stopDurationMinutes',
+  ];
   return (
     isTrackSettings(value) &&
     isRecord(value) &&
-    Object.keys(value).length === 3 &&
+    Object.keys(value).length >= 3 &&
+    Object.keys(value).length <= allowed.length &&
+    Object.keys(value).every((key) => allowed.includes(key)) &&
     ['intervalSeconds', 'minMeters', 'colorMode'].every((key) => Object.hasOwn(value, key))
   );
 }

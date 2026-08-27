@@ -25,6 +25,8 @@ export {
   createTrackSettings,
   DEFAULT_ALARM_LOCATION,
   DEFAULT_THRESHOLDS,
+  DEFAULT_TRACK_STOP_DURATION_MINUTES,
+  DEFAULT_TRACK_STOP_SPEED_KNOTS,
   enumPersistedCodec,
   exactShapeCodec,
   isMapView,
@@ -37,5 +39,9 @@ export {
   MAX_SHALLOW_DEPTH_METERS,
   nullablePersistedCodec,
   PersistedValue,
+  preferTrackHistory,
   stringArrayPersistedCodec,
+  trackStopDurationMinutes,
+  trackStopSpeedKnots,
+  useLocalTrackFallback,
 } from './persisted.svelte';

@@ -201,6 +201,7 @@ interface FlatProps {
   poiInView: Poi[];
   poiViewState: PoiViewState;
   historyProviders: HistoryProviders | undefined;
+  historyProviderState: 'checking' | 'retrying' | 'available' | 'absent' | 'failed';
   serverFeatures: ServerFeatures | undefined;
   notificationsApi: boolean;
   // Alarm audio cannot sound while a watch is armed (no priming gesture since load).
@@ -458,6 +459,7 @@ let {
   poiInView,
   poiViewState,
   historyProviders,
+  historyProviderState,
   serverFeatures,
   notificationsApi,
   audioBlocked = false,
@@ -1231,6 +1233,7 @@ $effect(() => {
               busy={trackController.busy}
               routeBusy={routeController.busy}
               persistenceDegraded={trackPersistenceDegraded}
+              {historyProviderState}
               onRetry={() => void trackController.refreshSavedTracks()}
               onSave={trackController.onSaveTrack}
               onSaveAsRoute={routeController.onSaveTrackAsRoute}

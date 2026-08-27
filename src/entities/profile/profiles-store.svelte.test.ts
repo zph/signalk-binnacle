@@ -250,6 +250,29 @@ describe('ProfileStore local behavior', () => {
     expect(store.active?.settingUpdatedAt?.futureDisplay).toBe(10);
   });
 
+  it('keeps history source, fallback, and stop settings in a stored profile', () => {
+    const withTrackPolicy = profile('track-policy', 'Track policy', 10, {
+      trackSettings: {
+        intervalSeconds: 20,
+        minMeters: 15,
+        colorMode: 'solid',
+        preferHistory: true,
+        localFallback: true,
+        stopSpeedKnots: 0.2,
+        stopDurationMinutes: 8,
+      },
+    });
+    const store = new ProfileStore(
+      fakeAdapter({
+        profiles: [withTrackPolicy],
+        activeId: withTrackPolicy.id,
+        defaultId: undefined,
+      }),
+    );
+
+    expect(store.active?.settings.trackSettings).toEqual(withTrackPolicy.settings.trackSettings);
+  });
+
   it('rejects prototype-sensitive extension and field-clock keys', () => {
     const unsafeSetting = profile('unsafe-setting', 'Unsafe setting', 10);
     Object.defineProperty(unsafeSetting.settings, '__proto__', {

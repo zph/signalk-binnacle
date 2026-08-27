@@ -8,6 +8,7 @@ import {
   createMapView,
   createPersistedCodec,
   createPlanningSpeed,
+  createTrackSettings,
   DEFAULT_THRESHOLDS,
   exactShapeCodec,
   isMapView,
@@ -15,7 +16,11 @@ import {
   isTrackSettings,
   MAX_PLANNING_SPEED_MPS,
   PersistedValue,
+  preferTrackHistory,
   stringArrayPersistedCodec,
+  trackStopDurationMinutes,
+  trackStopSpeedKnots,
+  useLocalTrackFallback,
 } from './persisted.svelte';
 
 describe('PersistedValue', () => {
@@ -316,6 +321,43 @@ describe('isTrackSettings', () => {
     expect(isTrackSettings({ intervalSeconds: 10, minMeters: 10_001, colorMode: 'speed' })).toBe(
       false,
     );
+  });
+
+  it('migrates legacy track settings to history-first defaults without discarding them', () => {
+    const legacy = { intervalSeconds: 30, minMeters: 25, colorMode: 'solid' as const };
+    const storage = createFakeStorage({
+      [binnacleStorageKey('trackSettings')]: JSON.stringify(legacy),
+    });
+    const settings = createTrackSettings(storage);
+
+    expect(settings.value).toEqual(legacy);
+    expect(preferTrackHistory(settings.value)).toBe(true);
+    expect(useLocalTrackFallback(settings.value)).toBe(true);
+    expect(trackStopSpeedKnots(settings.value)).toBe(0.15);
+    expect(trackStopDurationMinutes(settings.value)).toBe(5);
+  });
+
+  it('persists source and stop-detection settings', () => {
+    const storage = createFakeStorage();
+    const settings = createTrackSettings(storage);
+    settings.set({
+      ...settings.value,
+      preferHistory: false,
+      localFallback: false,
+      stopSpeedKnots: 0.25,
+      stopDurationMinutes: 12,
+    });
+
+    const restored = createTrackSettings(storage).value;
+    expect(restored).toEqual({
+      intervalSeconds: 10,
+      minMeters: 10,
+      colorMode: 'speed',
+      preferHistory: false,
+      localFallback: false,
+      stopSpeedKnots: 0.25,
+      stopDurationMinutes: 12,
+    });
   });
 });
 

@@ -38,6 +38,7 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
       busy: false,
       routeBusy: false,
       persistenceDegraded: false,
+      historyProviderState: 'absent',
       onRetry: vi.fn(),
       onSave: vi.fn(),
       onSaveAsRoute: vi.fn(),
@@ -52,6 +53,17 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
 }
 
 describe('TracksPanel', () => {
+  it('uses Signal K history by default and exposes configurable stop detection', () => {
+    const body = renderPanel({ historyProviderState: 'available' });
+
+    expect(body).toContain('Using Signal K history');
+    expect(body).toContain('Below');
+    expect(body).toContain('value="0.15"');
+    expect(body).toContain('Longer than');
+    expect(body).toContain('value="5"');
+    expect(body).not.toContain('Recording locally');
+  });
+
   it('distinguishes loading, failure, and genuinely empty saved lists', () => {
     expect(renderPanel({ loadState: 'loading' })).toContain('Loading saved tracks…');
     expect(renderPanel({ loadState: 'error' })).toContain('Could not load saved tracks.');

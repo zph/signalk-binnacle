@@ -111,5 +111,5 @@ which does see template usage, is the real backstop.
 - The repo normally works directly on `main`.
 - Do not revert user changes unless explicitly asked.
 - Keep scratch files in `tmp/`.
-- After significant green work, commit and push to `main` only when the user has asked for that flow or
-  the active task clearly includes publishing the local changes.
+- Never push from this workspace unless the user explicitly instructs Codex to push. Permission to
+  commit, deploy, publish, or complete a workflow does not imply permission to push.

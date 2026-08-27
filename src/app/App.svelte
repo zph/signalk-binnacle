@@ -219,7 +219,9 @@ import {
   type MapView,
   type PersistedCodec,
   PersistedValue,
+  preferTrackHistory,
   stringArrayPersistedCodec,
+  useLocalTrackFallback,
 } from '$shared/settings';
 import type { ConnectionPhase, HistoryProviders } from '$shared/signalk';
 import {
@@ -2462,7 +2464,13 @@ $effect(() => {
 // configured interval and min-distance. SOG is stored raw in m/s (SI).
 $effect(() => {
   const position = vessel.position;
-  if (position && !vessel.positionStale) {
+  const historyReady = historyProviderState === 'available';
+  const historyProbeFinished =
+    historyProviderState !== 'checking' && historyProviderState !== 'retrying';
+  const localRecordingEnabled =
+    !preferTrackHistory(trackSettings.value) ||
+    (historyProbeFinished && !historyReady && useLocalTrackFallback(trackSettings.value));
+  if (localRecordingEnabled && position && !vessel.positionStale) {
     recorder.consider(position.latitude, position.longitude, vessel.sogMps ?? 0);
   }
 });
@@ -3217,6 +3225,7 @@ const plotterActions = {
     {poiInView}
     {poiViewState}
     {historyProviders}
+    {historyProviderState}
     {serverFeatures}
     {notificationsApi}
     {audioBlocked}

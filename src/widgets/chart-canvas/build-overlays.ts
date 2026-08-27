@@ -35,7 +35,12 @@ import { createHistoryTrackOverlay, createTrackOverlay } from '$features/track-l
 import { createVesselOverlay } from '$features/vessel-layer';
 import { createWaypointOverlay } from '$features/waypoints';
 import type { LatLon } from '$shared/geo';
-import type { PersistedValue, TrackSettings } from '$shared/settings';
+import {
+  type PersistedValue,
+  preferTrackHistory,
+  type TrackSettings,
+  useLocalTrackFallback,
+} from '$shared/settings';
 import type { HistoryProviders, SignalKStore } from '$shared/signalk';
 
 export interface DynamicOverlaysDeps {
@@ -147,8 +152,18 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     }),
     createCollisionOverlay(collision),
     createMobOverlay(mob, vessel),
-    createHistoryTrackOverlay(origin, getToken, historyProviders, () => timeTravel.active),
-    createTrackOverlay(recorder, trackSettings, savedTracks),
+    createHistoryTrackOverlay(
+      origin,
+      getToken,
+      historyProviders,
+      trackSettings,
+      () => timeTravel.active,
+    ),
+    createTrackOverlay(recorder, trackSettings, savedTracks, () => {
+      if (!preferTrackHistory(trackSettings.value)) return true;
+      const providers = historyProviders();
+      return (providers?.ids?.length ?? 0) === 0 && useLocalTrackFallback(trackSettings.value);
+    }),
     createTimeTravelTrackOverlay(timeTravel),
     createVesselOverlay(vessel, () => timeTravel.active),
     createTimeTravelOverlay(timeTravel),

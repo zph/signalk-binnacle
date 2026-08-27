@@ -45,6 +45,7 @@ function mountPanel(
     busy: false,
     routeBusy: false,
     persistenceDegraded: false,
+    historyProviderState: 'absent',
     onRetry: vi.fn(),
     onSave,
     onSaveAsRoute: vi.fn(async () => true),
