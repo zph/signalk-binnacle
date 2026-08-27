@@ -1,6 +1,6 @@
 import { type Bbox4, isBbox4, isLatitude, isLongitude } from '$shared/geo';
 import { cleanBoundedText, isFiniteNumber, isRecord } from '$shared/lib';
-import type { SignalKChart } from '$shared/map';
+import type { ChartCellSizeControl, SignalKChart } from '$shared/map';
 import { deleteResource, fetchKeyedResource, putResource } from '$shared/signalk';
 
 const V2 = '/signalk/v2/api/resources/charts';
@@ -13,6 +13,31 @@ const MAX_URL_LENGTH = 4_096;
 const MAX_LAYERS = 512;
 const MAX_LAYER_ID_LENGTH = 256;
 const CHART_TYPES = new Set(['tilelayer', 'WMS', 'WMTS', 'tileJSON', 'mapstyleJSON', 'S-57']);
+const CELL_SIZE_QUERY_PARAMETER = /^[a-z][a-z0-9]{0,31}$/i;
+
+function safeCellSizeControl(value: unknown): ChartCellSizeControl | undefined {
+  if (!isRecord(value)) return undefined;
+  const queryParameter = cleanBoundedText(value.queryParameter, 32);
+  const { minimum, maximum, step, default: defaultValue } = value;
+  if (
+    !queryParameter ||
+    !CELL_SIZE_QUERY_PARAMETER.test(queryParameter) ||
+    !isFiniteNumber(minimum) ||
+    !isFiniteNumber(maximum) ||
+    !isFiniteNumber(step) ||
+    !isFiniteNumber(defaultValue) ||
+    minimum <= 0 ||
+    maximum <= minimum ||
+    maximum > 16 ||
+    step <= 0 ||
+    step > maximum - minimum ||
+    defaultValue < minimum ||
+    defaultValue > maximum
+  ) {
+    return undefined;
+  }
+  return { queryParameter, minimum, maximum, step, default: defaultValue };
+}
 
 function safeBounds(value: unknown): Bbox4 | undefined {
   if (!isBbox4(value)) return undefined;
@@ -66,6 +91,10 @@ function chartFromEntry(id: string, raw: unknown): SignalKChart | undefined {
   if (tilemapUrl) chart.tilemapUrl = tilemapUrl;
   if (typeof raw.defaultVisible === 'boolean') chart.defaultVisible = raw.defaultVisible;
   if (raw.featureInfo === 'bathymetry-cell') chart.featureInfo = raw.featureInfo;
+  const cellSizeControl = safeCellSizeControl(raw.cellSizeControl);
+  if (cellSizeControl && raw.featureInfo === 'bathymetry-cell') {
+    chart.cellSizeControl = cellSizeControl;
+  }
   if (isFiniteNumber(raw.scale) && raw.scale > 0) chart.scale = raw.scale;
   const canonicalLayers =
     Array.isArray(raw.layers) && raw.layers.length > 0 ? raw.layers : undefined;

@@ -73,6 +73,41 @@ describe('chart overlay', () => {
     expect(map.layers.size).toBe(1);
   });
 
+  it('adds and updates a provider cell-size query without changing the tile path', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'bathymetry',
+        name: 'Bathymetry cells',
+        type: 'S-57',
+        format: 'pbf',
+        featureInfo: 'bathymetry-cell',
+        tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+        cellSizeControl: {
+          queryParameter: 'cellScale',
+          minimum: 0.5,
+          maximum: 4,
+          step: 0.25,
+          default: 1,
+        },
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+
+    overlay.setCellSizeScale?.(ctx, 2);
+    await overlay.add(ctx);
+
+    expect(map.declaredSources.get('chart-bathymetry')?.tiles).toEqual([
+      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=2',
+    ]);
+
+    overlay.setCellSizeScale?.(ctx, 0.75);
+    expect(map.sources.get('chart-bathymetry')?.setTiles).toHaveBeenLastCalledWith([
+      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=0.75',
+    ]);
+  });
+
   it('exposes chart metadata for the layer list', () => {
     const overlay = createChartOverlay(
       {

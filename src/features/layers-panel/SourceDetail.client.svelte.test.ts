@@ -88,4 +88,48 @@ describe('SourceDetail delete gating', () => {
 
     expect(detail.remove).toHaveBeenCalledWith('chart-1');
   });
+
+  it('previews and commits the provider cell-size multiplier', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+    const setCellSizeScale = vi.fn();
+    const cellItem: LayerListItem = {
+      ...item,
+      cellSizeControl: {
+        queryParameter: 'cellScale',
+        minimum: 0.5,
+        maximum: 4,
+        step: 0.25,
+        default: 1,
+      },
+      cellSizeScale: 1,
+    };
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(SourceDetail, {
+        target,
+        props: {
+          item: cellItem,
+          view: { toggle: vi.fn(), setOpacity: vi.fn(), setCellSizeScale } as unknown as LayersView,
+          onBack: () => {},
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+
+    const slider = target.querySelector<HTMLInputElement>(
+      'input[type="range"]#chart-source-chart-1-detail-cell-size',
+    );
+    expect(slider).not.toBeNull();
+    if (!slider) return;
+    slider.value = '2.25';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    slider.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(setCellSizeScale).toHaveBeenNthCalledWith(1, cellItem.id, 2.25, false);
+    expect(setCellSizeScale).toHaveBeenNthCalledWith(2, cellItem.id, 2.25);
+  });
 });

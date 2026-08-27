@@ -18,6 +18,7 @@ const Z_RANK = new Map<ZBand, number>(Z_ORDER.map((band, i) => [band, i]));
 export interface OverlayState {
   visible: boolean;
   opacity: number;
+  cellSizeScale?: number;
 }
 
 // The visible, fully opaque state an overlay defaults to. Shared as a read-only reference; spread
@@ -61,6 +62,8 @@ export interface LayerListItem {
   // Present when this row represents a chart source, so the Layers panel can expose chart-source
   // detail without knowing how the overlay renders.
   chart?: ChartLayerInfo;
+  cellSizeControl?: OverlayModule['cellSizeControl'];
+  cellSizeScale?: number;
   // Present when this row is a navigation chart the ambient chart badge counts. See
   // OverlayModule.chartCoverage.
   chartCoverage?: ChartCoverageInfo;
@@ -299,8 +302,20 @@ export class LayerManager {
       ? {
           visible: this.#flooredVisible(module.id, Boolean(restored.visible)),
           opacity: this.#coerceOpacity(restored.opacity),
+          ...(module.cellSizeControl
+            ? {
+                cellSizeScale: this.#coerceCellSizeScale(
+                  module.cellSizeControl,
+                  restored.cellSizeScale,
+                ),
+              }
+            : {}),
         }
-      : { visible: module.defaultVisible ?? true, opacity: module.defaultOpacity ?? 1 };
+      : {
+          visible: module.defaultVisible ?? true,
+          opacity: module.defaultOpacity ?? 1,
+          ...(module.cellSizeControl ? { cellSizeScale: module.cellSizeControl.default } : {}),
+        };
     // Enforce exclusion on restore too: a saved or legacy state with two members of an exclusive
     // group both visible would otherwise bypass the toggle-time rule. Keep the first registered.
     if (state.visible) {
@@ -328,6 +343,9 @@ export class LayerManager {
   ): Promise<void> {
     let removedAfterAdd = false;
     try {
+      if (module.cellSizeControl && state.cellSizeScale !== undefined) {
+        module.setCellSizeScale?.(this.#ctx, state.cellSizeScale);
+      }
       await module.add(this.#ctx);
       // An async add can finish after the owning map has been torn down or the id was unregistered.
       // The first remove cleans partial work immediately; this second pass removes anything the late
@@ -522,6 +540,19 @@ export class LayerManager {
     if (persist) this.#persist();
   }
 
+  setCellSizeScale(id: string, scale: number, persist = true): void {
+    const module = this.#modules.get(id);
+    const state = this.#state.get(id);
+    const control = module?.cellSizeControl;
+    if (!module || !state || !control) return;
+    const next = this.#coerceCellSizeScale(control, scale);
+    if (state.cellSizeScale !== next) {
+      state.cellSizeScale = next;
+      module.setCellSizeScale?.(this.#ctx, next);
+    }
+    if (persist) this.#persist();
+  }
+
   // Move a non-pinned overlay to a new index in the non-pinned, top-to-bottom display order
   // (index 0 is the top of the map). Pinned layers are never moved or displaced.
   reorder(id: string, toIndex: number): void {
@@ -596,6 +627,13 @@ export class LayerManager {
         state.opacity = opacity;
         module.setOpacity?.(this.#ctx, opacity);
       }
+      if (module.cellSizeControl) {
+        const cellSizeScale = this.#coerceCellSizeScale(module.cellSizeControl, next.cellSizeScale);
+        if (cellSizeScale !== state.cellSizeScale) {
+          state.cellSizeScale = cellSizeScale;
+          module.setCellSizeScale?.(this.#ctx, cellSizeScale);
+        }
+      }
     }
     // The snapshot is the authoritative desired state, so an earlier parent-off memory must not
     // reinstate a facet the profile deliberately left off.
@@ -616,7 +654,13 @@ export class LayerManager {
     const snapshot: LayerSettings = {};
     for (const [id, state] of this.#state) {
       if (this.#modules.get(id)?.listed === false) continue;
-      snapshot[id] = { visible: state.visible, opacity: state.opacity };
+      snapshot[id] = {
+        visible: state.visible,
+        opacity: state.opacity,
+        ...(this.#modules.get(id)?.cellSizeControl && state.cellSizeScale !== undefined
+          ? { cellSizeScale: state.cellSizeScale }
+          : {}),
+      };
     }
     // Keep the manager's restore source current even without a persistence callback. A profile can
     // be applied before an asynchronously discovered chart registers; its facet settings must still
@@ -634,6 +678,16 @@ export class LayerManager {
   // render the layer as NaN, transparent, or broken.
   #coerceOpacity(value: unknown): number {
     return Number.isFinite(value) ? Math.max(0, Math.min(1, value as number)) : 1;
+  }
+
+  #coerceCellSizeScale(
+    control: NonNullable<OverlayModule['cellSizeControl']>,
+    value: unknown,
+  ): number {
+    if (!Number.isFinite(value)) return control.default;
+    const clamped = Math.max(control.minimum, Math.min(control.maximum, value as number));
+    const steps = Math.round((clamped - control.minimum) / control.step);
+    return Math.min(control.maximum, control.minimum + steps * control.step);
   }
 
   // The pinned safety floor: no door lowers a pinned overlay's visibility. Not the panel toggle,
@@ -837,6 +891,8 @@ export class LayerManager {
             unavailableHint: module.unavailableHint,
             manageable: module.manageable,
             chart: module.chart,
+            cellSizeControl: module.cellSizeControl,
+            cellSizeScale: state.cellSizeScale,
             chartCoverage: module.chartCoverage,
           },
         ];

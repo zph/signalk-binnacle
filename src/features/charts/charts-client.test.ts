@@ -185,4 +185,55 @@ describe('fetchCharts', () => {
       { identifier: 'ordinary', name: 'Ordinary chart', type: 'tilelayer' },
     ]);
   });
+
+  it('accepts a bounded cell-size control only for interactive bathymetry charts', async () => {
+    const control = {
+      queryParameter: 'cellScale',
+      minimum: 0.5,
+      maximum: 4,
+      step: 0.25,
+      default: 1,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        jsonResponse(200, {
+          bathymetry: {
+            name: 'Interactive bathymetry cells',
+            type: 'S-57',
+            featureInfo: 'bathymetry-cell',
+            cellSizeControl: control,
+          },
+          ordinary: {
+            name: 'Ordinary chart',
+            type: 'S-57',
+            cellSizeControl: control,
+          },
+          invalid: {
+            name: 'Invalid bathymetry control',
+            type: 'S-57',
+            featureInfo: 'bathymetry-cell',
+            cellSizeControl: { ...control, maximum: 100 },
+          },
+        }),
+      ),
+    );
+
+    expect(await fetchCharts('http://pi.local')).toEqual([
+      {
+        identifier: 'bathymetry',
+        name: 'Interactive bathymetry cells',
+        type: 'S-57',
+        featureInfo: 'bathymetry-cell',
+        cellSizeControl: control,
+      },
+      { identifier: 'ordinary', name: 'Ordinary chart', type: 'S-57' },
+      {
+        identifier: 'invalid',
+        name: 'Invalid bathymetry control',
+        type: 'S-57',
+        featureInfo: 'bathymetry-cell',
+      },
+    ]);
+  });
 });

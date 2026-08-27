@@ -83,11 +83,15 @@ function validLayerSettings(value: unknown): value is LayerSettings {
       cleanedId === id &&
       validRecordKey(id) &&
       isRecord(setting) &&
-      Object.keys(setting).length === 2 &&
+      Object.keys(setting).length === (setting.cellSizeScale === undefined ? 2 : 3) &&
       typeof setting.visible === 'boolean' &&
       isFiniteNumber(setting.opacity) &&
       setting.opacity >= 0 &&
-      setting.opacity <= 1
+      setting.opacity <= 1 &&
+      (setting.cellSizeScale === undefined ||
+        (isFiniteNumber(setting.cellSizeScale) &&
+          setting.cellSizeScale > 0 &&
+          setting.cellSizeScale <= 16))
     );
   });
 }

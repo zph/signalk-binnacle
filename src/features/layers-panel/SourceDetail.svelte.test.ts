@@ -66,6 +66,32 @@ describe('SourceDetail', () => {
     expect(html).toContain(`${item.title} chart layers`);
   });
 
+  it('shows the provider cell-size slider only for charts that declare the control', () => {
+    const html = render(SourceDetail, {
+      props: {
+        item: {
+          ...item,
+          cellSizeControl: {
+            queryParameter: 'cellScale',
+            minimum: 0.5,
+            maximum: 4,
+            step: 0.25,
+            default: 1,
+          },
+          cellSizeScale: 2,
+        },
+        view,
+        onBack: noop,
+      },
+    }).body;
+
+    expect(html).toContain('Cell size');
+    expect(html).toContain('2×');
+    expect(html).toContain('Smaller');
+    expect(html).toContain('Larger');
+    expect(html).toContain('tighter local clusters');
+  });
+
   it('shows an unsupported style chart reason and keeps its query values redacted', () => {
     const styleUrl = 'https://charts.example/style.json?access_token=secret';
     const styleItem: LayerListItem = {

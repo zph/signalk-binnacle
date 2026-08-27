@@ -1,6 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import type { ChartGroup } from 'signalk-chart-sources';
 import type { Bbox4 } from '$shared/geo';
+import type { ChartCellSizeControl } from './chart-types';
 import type { MapThemePaint } from './map-theme';
 
 export type ZBand =
@@ -48,6 +49,7 @@ export interface ChartLayerInfo {
   minzoom?: number;
   maxzoom?: number;
   format?: string;
+  cellSizeControl?: ChartCellSizeControl;
 }
 
 // A semantic child of one rendered overlay. The parent owns source creation, tile loading, theme
@@ -105,6 +107,9 @@ export interface OverlayModule {
   // Initial opacity when there is no saved state. Defaults to 1; the translucent weather fields set
   // this below 1 so the chart reads through them.
   readonly defaultOpacity?: number;
+  // Optional provider-defined control for changing the rendered world-space cell size relative to
+  // zoom without changing the underlying measurement grid.
+  readonly cellSizeControl?: ChartCellSizeControl;
   // The MapLibre layer ids this overlay manages, bottom to top, so the LayerManager can
   // restack the whole overlay group when the user reorders layers.
   readonly layerIds: readonly string[];
@@ -115,6 +120,7 @@ export interface OverlayModule {
   remove(ctx: OverlayContext): void;
   setVisible(ctx: OverlayContext, visible: boolean): void;
   setOpacity?(ctx: OverlayContext, opacity: number): void;
+  setCellSizeScale?(ctx: OverlayContext, scale: number): void;
   reattach?(ctx: OverlayContext): void | Promise<void>;
   // Invalidate the overlay's change-detection cache so its next sync repopulates from scratch. The
   // manager calls this on a base-style swap, which recreates the overlay's sources empty: an overlay

@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap, MapSourceDataEvent } from 'maplibre-gl';
+import type { Map as MapLibreMap, MapSourceDataEvent, SourceSpecification } from 'maplibre-gl';
 import {
   BATHYMETRY_THEME_PAINT_KEY,
   type BathymetryThemePaintMap,
@@ -56,6 +56,30 @@ const RASTER_FORMATS = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif']);
 const STYLE_CHART_UNAVAILABLE_HINT =
   'This chart is delivered as a map style document, a format Binnacle cannot display yet. It stays listed so you can see the server offers it.';
 
+function withQueryParameter(template: string, name: string, value: number): string {
+  const hashIndex = template.indexOf('#');
+  const beforeHash = hashIndex >= 0 ? template.slice(0, hashIndex) : template;
+  const hash = hashIndex >= 0 ? template.slice(hashIndex) : '';
+  const queryIndex = beforeHash.indexOf('?');
+  const path = queryIndex >= 0 ? beforeHash.slice(0, queryIndex) : beforeHash;
+  const params = new URLSearchParams(queryIndex >= 0 ? beforeHash.slice(queryIndex + 1) : '');
+  params.set(name, String(value));
+  return `${path}?${params.toString()}${hash}`;
+}
+
+function scaledSource(
+  source: SourceSpecification,
+  chart: SignalKChart,
+  scale: number,
+): SourceSpecification {
+  const control = chart.cellSizeControl;
+  if (!control || !('tiles' in source) || !Array.isArray(source.tiles)) return source;
+  return {
+    ...source,
+    tiles: source.tiles.map((url) => withQueryParameter(url, control.queryParameter, scale)),
+  };
+}
+
 // The opacity paint property for a layer type, or undefined for a type the chart adapter never
 // emits (only fill, line, and raster are produced). setOpacity skips an undefined so an unexpected
 // type is a clear no-op rather than a wrong property silently applied.
@@ -100,6 +124,7 @@ function createUnsupportedStyleChartOverlay(
       minzoom: chart.minzoom,
       maxzoom: chart.maxzoom,
       format: chart.format,
+      cellSizeControl: chart.cellSizeControl,
     },
     add() {},
     remove() {},
@@ -183,6 +208,7 @@ export function createChartOverlay(
     chart.description ??
     (source === 'user' ? 'User-added chart source' : 'Chart source from the Signal K server');
   const isS57 = chart.type === 'S-57';
+  let cellSizeScale = chart.cellSizeControl?.default ?? 1;
   let parentVisible = true;
   let parentOpacity = 1;
   const visibilityByFacet = new Map<string, boolean>();
@@ -291,6 +317,7 @@ export function createChartOverlay(
     band: overlayBand,
     defaultVisible: chart.defaultVisible,
     supportsOpacity: true,
+    cellSizeControl: chart.cellSizeControl,
     layerIds,
     facets,
     chart: {
@@ -303,6 +330,7 @@ export function createChartOverlay(
       minzoom: chart.minzoom,
       maxzoom: chart.maxzoom,
       format: chart.format,
+      cellSizeControl: chart.cellSizeControl,
     },
     async add(ctx) {
       if (isS57) {
@@ -316,7 +344,7 @@ export function createChartOverlay(
       }
       for (const sourceId of sourceIds) {
         if (!ctx.map.getSource(sourceId)) {
-          ctx.map.addSource(sourceId, specs.sources[sourceId]);
+          ctx.map.addSource(sourceId, scaledSource(specs.sources[sourceId], chart, cellSizeScale));
         }
       }
       for (const layer of specs.layers) {
@@ -373,6 +401,19 @@ export function createChartOverlay(
     setOpacity(ctx, opacity) {
       parentOpacity = opacity;
       for (const layer of layers) applyLayerOpacity(ctx, layer.id);
+    },
+    setCellSizeScale(ctx, scale) {
+      cellSizeScale = scale;
+      if (!chart.cellSizeControl) return;
+      for (const sourceId of sourceIds) {
+        const baseSource = specs.sources[sourceId];
+        const nextSource = scaledSource(baseSource, chart, scale);
+        if (!('tiles' in nextSource) || !Array.isArray(nextSource.tiles)) continue;
+        const source = ctx.map.getSource(sourceId) as
+          | { setTiles?: (tiles: string[]) => void }
+          | undefined;
+        source?.setTiles?.([...nextSource.tiles]);
+      }
     },
     applyTheme(ctx, paint) {
       if (isS57) {

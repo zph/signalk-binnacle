@@ -2,6 +2,14 @@ import type { Bbox4 } from '$shared/geo';
 
 type MapSourceType = 'tilelayer' | 'WMS' | 'WMTS' | 'tileJSON' | 'mapstyleJSON' | 'S-57';
 
+export interface ChartCellSizeControl {
+  queryParameter: string;
+  minimum: number;
+  maximum: number;
+  step: number;
+  default: number;
+}
+
 export interface SignalKChart {
   identifier: string;
   name: string;
@@ -17,4 +25,5 @@ export interface SignalKChart {
   layers?: string[];
   defaultVisible?: boolean;
   featureInfo?: 'bathymetry-cell';
+  cellSizeControl?: ChartCellSizeControl;
 }

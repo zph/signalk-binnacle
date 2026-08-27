@@ -100,6 +100,41 @@ describe('LayerManager', () => {
     expect(onChange).toHaveBeenCalledWith({ ais: { visible: true, opacity: 0.6 } });
   });
 
+  it('restores, updates, and persists a provider cell-size scale', async () => {
+    const onChange = vi.fn();
+    const overlay = {
+      ...fakeOverlay('cells', 'bathymetry'),
+      cellSizeControl: {
+        queryParameter: 'cellScale',
+        minimum: 0.5,
+        maximum: 4,
+        step: 0.25,
+        default: 1,
+      },
+      setCellSizeScale: vi.fn(),
+    };
+    const manager = new LayerManager(fakeCtx(), {
+      saved: { cells: { visible: true, opacity: 0.8, cellSizeScale: 2 } },
+      onChange,
+    });
+    await manager.register(overlay);
+
+    expect(overlay.setCellSizeScale).toHaveBeenCalledWith(expect.anything(), 2);
+    expect(manager.layers().find((layer) => layer.id === 'cells')).toMatchObject({
+      cellSizeScale: 2,
+      cellSizeControl: overlay.cellSizeControl,
+    });
+
+    manager.setCellSizeScale('cells', 3.13, false);
+    manager.setCellSizeScale('cells', 3.25);
+
+    expect(overlay.setCellSizeScale).toHaveBeenLastCalledWith(expect.anything(), 3.25);
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith({
+      cells: { visible: true, opacity: 0.8, cellSizeScale: 3.25 },
+    });
+  });
+
   it('unregister removes the overlay', async () => {
     const overlay = fakeOverlay('ais');
     const manager = new LayerManager(fakeCtx());

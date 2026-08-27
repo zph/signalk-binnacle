@@ -338,6 +338,39 @@ function changeSharing(share: boolean): void {
       </div>
     {/if}
 
+    {#if item.cellSizeControl && item.cellSizeScale !== undefined}
+      <div class="cell-size-field">
+        <div class="opacity-label">
+          <label for={`${item.id}-detail-cell-size`}>Cell size</label>
+          <span class="num">{item.cellSizeScale.toFixed(2).replace(/\.00$/, '')}×</span>
+        </div>
+        <p class="muted-note muted-note--xs">
+          Choose whether cells appear smaller or larger relative to other items in this layer.
+          Smaller values keep tighter local clusters. Larger values group nearby survey cells into
+          broader shapes as you zoom out.
+        </p>
+        <input
+          id={`${item.id}-detail-cell-size`}
+          class="range"
+          type="range"
+          min={item.cellSizeControl.minimum}
+          max={item.cellSizeControl.maximum}
+          step={item.cellSizeControl.step}
+          value={item.cellSizeScale}
+          disabled={!item.visible || !item.available}
+          aria-valuetext={`${item.cellSizeScale.toFixed(2).replace(/\.00$/, '')} times the normal cell size`}
+          oninput={(event) =>
+            view.setCellSizeScale(item.id, Number(event.currentTarget.value), false)}
+          onchange={(event) =>
+            view.setCellSizeScale(item.id, Number(event.currentTarget.value))}
+        >
+        <div class="cell-size-ends" aria-hidden="true">
+          <span>Smaller</span>
+          <span>Larger</span>
+        </div>
+      </div>
+    {/if}
+
     {#if subLayers.length > 0}
       <div class="chart-layer-list" role="group" aria-label={`${item.title} chart layers`}>
         <h4 class="caps-label">Chart layers</h4>
@@ -551,6 +584,7 @@ function changeSharing(share: boolean): void {
   gap: var(--space-2);
 }
 .opacity-field,
+.cell-size-field,
 .chart-layer-list {
   display: flex;
   flex-direction: column;
@@ -569,6 +603,12 @@ function changeSharing(share: boolean): void {
 .opacity-controls .range {
   flex: 1;
   min-inline-size: 0;
+}
+.cell-size-ends {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .chart-layer-row {
   display: flex;

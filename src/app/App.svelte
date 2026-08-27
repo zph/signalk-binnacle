@@ -497,15 +497,25 @@ const layerSettingsCodec: PersistedCodec<LayerSettings> = {
         typeof state.opacity !== 'number' ||
         !Number.isFinite(state.opacity) ||
         state.opacity < 0 ||
-        state.opacity > 1
+        state.opacity > 1 ||
+        (state.cellSizeScale !== undefined &&
+          (typeof state.cellSizeScale !== 'number' ||
+            !Number.isFinite(state.cellSizeScale) ||
+            state.cellSizeScale <= 0 ||
+            state.cellSizeScale > 16))
       ) {
         return { state: 'invalid' };
       }
-      cleaned[id] = { visible: state.visible, opacity: state.opacity };
+      cleaned[id] = {
+        visible: state.visible,
+        opacity: state.opacity,
+        ...(typeof state.cellSizeScale === 'number' ? { cellSizeScale: state.cellSizeScale } : {}),
+      };
       migrated ||=
-        Object.keys(state).length !== 2 ||
+        Object.keys(state).length !== (state.cellSizeScale === undefined ? 2 : 3) ||
         !Object.hasOwn(state, 'visible') ||
-        !Object.hasOwn(state, 'opacity');
+        !Object.hasOwn(state, 'opacity') ||
+        (state.cellSizeScale !== undefined && !Object.hasOwn(state, 'cellSizeScale'));
     }
     return { state: migrated ? 'migrated' : 'valid', value: cleaned };
   },
