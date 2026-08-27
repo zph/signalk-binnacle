@@ -1,4 +1,6 @@
 <script lang="ts">
+import Maximize2 from '@lucide/svelte/icons/maximize-2';
+import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onDestroy, untrack } from 'svelte';
 import type {
@@ -11,7 +13,7 @@ import { MAX_NEARBY_STATIONS } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
 import type { OwnVessel } from '$entities/vessel';
 import { DEPTH_SOURCE_LABELS } from '$entities/vessel';
-import { Clock, formatBearingOr, formatClockTime, MINUTE_MS } from '$shared/lib';
+import { Clock, formatBearingOr, formatClockTime, formatMonthDay, MINUTE_MS } from '$shared/lib';
 import { createPanelMinimize, ShowOnChartToggle, SlideOver } from '$shared/ui';
 import type { TidesController } from './tides-controller.svelte';
 import {
@@ -23,7 +25,9 @@ import {
   nextFlowEvent,
   nowFraction,
   tideCurvePoints,
+  tideCurveSamples,
   tideDepthCurvePoints,
+  tideHoverReading,
   tideSourceNote,
   upcomingEvents,
 } from './tides-display';
@@ -65,17 +69,70 @@ const currentStationDistanceText = $derived(
 const clock = new Clock(MINUTE_MS);
 onDestroy(() => clock.dispose());
 
+const CURVE_W = 600;
+const CURVE_H = 220;
+const CURVE_LEFT = 58;
+const CURVE_RIGHT = 14;
+const CURVE_TOP = 12;
+const CURVE_BOTTOM = 30;
+const CURVE_PLOT_W = CURVE_W - CURVE_LEFT - CURVE_RIGHT;
+const CURVE_PLOT_H = CURVE_H - CURVE_TOP - CURVE_BOTTOM;
+
 const upcoming = $derived(tide ? upcomingEvents(tide.events, clock.now) : []);
 const nextHigh = $derived(upcoming.find((event) => event.kind === 'high'));
 const nextLow = $derived(upcoming.find((event) => event.kind === 'low'));
-const curve = $derived(tide ? tideCurvePoints(tide.events) : []);
+const curve = $derived(tide ? normalizedTideCurve(tide.events, tide.samples) : []);
 const anchorDepth = $derived(vessel.anchorDepth);
 const depthCurve = $derived(
   tide && anchorDepth.meters !== undefined && !anchorDepth.stale
-    ? tideDepthCurvePoints(tide.events, clock.now, anchorDepth.meters)
+    ? tideDepthCurvePoints(tide.events, clock.now, anchorDepth.meters, tide.samples)
     : undefined,
 );
-const nowFrac = $derived(tide ? nowFraction(tide.events, clock.now) : undefined);
+const chartRange = $derived.by(() => {
+  if (depthCurve) {
+    return { minimum: depthCurve.minimumMeters, maximum: depthCurve.maximumMeters };
+  }
+  const samples = tide ? (tide.samples?.length ? tide.samples : tideCurveSamples(tide.events)) : [];
+  if (samples.length === 0) return undefined;
+  let minimum = samples[0].heightMeters;
+  let maximum = minimum;
+  for (const sample of samples) {
+    minimum = Math.min(minimum, sample.heightMeters);
+    maximum = Math.max(maximum, sample.heightMeters);
+  }
+  if (minimum === maximum) maximum = minimum + 1;
+  return { minimum, maximum };
+});
+const verticalTicks = $derived(
+  chartRange
+    ? Array.from({ length: 5 }, (_, index) => {
+        const fraction = index / 4;
+        return {
+          value: chartRange.minimum + (chartRange.maximum - chartRange.minimum) * fraction,
+          y: CURVE_TOP + (1 - fraction) * CURVE_PLOT_H,
+        };
+      })
+    : [],
+);
+const timeTicks = $derived.by(() => {
+  if (!tide || tide.events.length < 2) return [];
+  const start = tide.samples?.[0]?.timeMs ?? tide.events[0].timeMs;
+  const end = tide.samples?.at(-1)?.timeMs ?? tide.events[tide.events.length - 1].timeMs;
+  return Array.from({ length: 5 }, (_, index) => {
+    const fraction = index / 4;
+    const timeMs = start + (end - start) * fraction;
+    return { fraction, timeMs, x: CURVE_LEFT + fraction * CURVE_PLOT_W };
+  });
+});
+const nowFrac = $derived.by(() => {
+  if (!tide) return undefined;
+  if (!tide.samples?.length) return nowFraction(tide.events, clock.now);
+  const start = tide.samples[0].timeMs;
+  const end = tide.samples.at(-1)?.timeMs ?? start;
+  return clock.now < start || clock.now > end
+    ? undefined
+    : (clock.now - start) / (end - start || 1);
+});
 const nextCurrent = $derived(current ? nextCurrentEvent(current.events, clock.now) : undefined);
 // When the soonest event is slack, the following flood or ebb maximum keeps the flow picture.
 const followingFlow = $derived(
@@ -83,6 +140,17 @@ const followingFlow = $derived(
 );
 const sourceNote = $derived(tideSourceNote(store.source, store.loadedTide));
 const minimize = createPanelMinimize();
+let wide = $state(false);
+let chartNode = $state<SVGSVGElement | undefined>();
+let hover = $state<
+  | {
+      fraction: number;
+      timeMs: number;
+      tideHeightMeters: number;
+      estimatedDepthMeters?: number;
+    }
+  | undefined
+>();
 let observedSelectionRevision = untrack(() => store.selectionRevision);
 $effect(() => {
   const revision = store.selectionRevision;
@@ -101,10 +169,6 @@ const currentRate = $derived.by(() => {
       : '';
   return `${formatCurrentRate(nextCurrent.velocityMps)}${dirSuffix}`;
 });
-
-const CURVE_W = 240;
-const CURVE_H = 60;
-const CURVE_PADDING = 4;
 
 // Keep a manual off-catalog selection visible without exceeding the eight-row panel bound.
 function choices(
@@ -157,9 +221,8 @@ function select(kind: TideStationKind, candidate: NearbyTideStation): void {
 // so the rise and fall read as a tide curve rather than a sawtooth.
 function curvePath(points: Array<{ x: number; y: number }>): string {
   if (points.length === 0) return '';
-  const px = (point: { x: number; y: number }) => point.x * CURVE_W;
-  const py = (point: { x: number; y: number }) =>
-    (1 - point.y) * (CURVE_H - 2 * CURVE_PADDING) + CURVE_PADDING;
+  const px = (point: { x: number; y: number }) => CURVE_LEFT + point.x * CURVE_PLOT_W;
+  const py = (point: { x: number; y: number }) => (1 - point.y) * CURVE_PLOT_H + CURVE_TOP;
   let d = `M ${px(points[0]).toFixed(1)} ${py(points[0]).toFixed(1)}`;
   for (let i = 1; i < points.length; i++) {
     const previous = points[i - 1];
@@ -172,6 +235,69 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
   d += ` L ${px(last).toFixed(1)} ${py(last).toFixed(1)}`;
   return d;
 }
+
+function normalizedTideCurve(
+  events: import('$entities/tides').TideEvent[],
+  detailedSamples?: import('$entities/tides').TideSample[],
+) {
+  const samples = detailedSamples?.length ? detailedSamples : tideCurveSamples(events);
+  if (samples.length === 0) return tideCurvePoints(events);
+  let minimum = samples[0].heightMeters;
+  let maximum = minimum;
+  for (const sample of samples) {
+    minimum = Math.min(minimum, sample.heightMeters);
+    maximum = Math.max(maximum, sample.heightMeters);
+  }
+  const start = samples[0].timeMs;
+  const span = samples[samples.length - 1].timeMs - start || 1;
+  const heightSpan = maximum - minimum || 1;
+  return samples.map((sample) => ({
+    x: (sample.timeMs - start) / span,
+    y: (sample.heightMeters - minimum) / heightSpan,
+  }));
+}
+
+function chartY(value: number): number {
+  if (!chartRange) return CURVE_TOP + CURVE_PLOT_H / 2;
+  const fraction = (value - chartRange.minimum) / (chartRange.maximum - chartRange.minimum || 1);
+  return CURVE_TOP + (1 - fraction) * CURVE_PLOT_H;
+}
+
+function showHoverAt(fraction: number): void {
+  if (!tide || tide.events.length < 2) return;
+  const bounded = Math.max(0, Math.min(1, fraction));
+  const start = tide.samples?.[0]?.timeMs ?? tide.events[0].timeMs;
+  const end = tide.samples?.at(-1)?.timeMs ?? tide.events[tide.events.length - 1].timeMs;
+  const reading = tideHoverReading(
+    tide.events,
+    start + (end - start) * bounded,
+    anchorDepth.meters,
+    clock.now,
+    tide.samples,
+  );
+  hover = reading ? { fraction: bounded, ...reading } : undefined;
+}
+
+function onChartPointerMove(event: PointerEvent): void {
+  if (!chartNode) return;
+  const bounds = chartNode.getBoundingClientRect();
+  const chartX = ((event.clientX - bounds.left) / bounds.width) * CURVE_W;
+  showHoverAt((chartX - CURVE_LEFT) / CURVE_PLOT_W);
+}
+
+function onChartKeydown(event: KeyboardEvent): void {
+  if (!tide || tide.events.length < 2) return;
+  if (event.key === 'Home') showHoverAt(0);
+  else if (event.key === 'End') showHoverAt(1);
+  else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    const start = tide.samples?.[0]?.timeMs ?? tide.events[0].timeMs;
+    const end = tide.samples?.at(-1)?.timeMs ?? tide.events[tide.events.length - 1].timeMs;
+    const span = end - start;
+    const step = ((event.shiftKey ? 60 : 6) * MINUTE_MS) / (span || 1);
+    showHoverAt((hover?.fraction ?? nowFrac ?? 0.5) + (event.key === 'ArrowLeft' ? -step : step));
+  } else return;
+  event.preventDefault();
+}
 </script>
 
 <SlideOver
@@ -181,7 +307,24 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
   {onBack}
   bodyFlex
   {minimize}
+  {wide}
 >
+  {#snippet headerExtra()}
+    <button
+      type="button"
+      class="icon-btn"
+      aria-label={wide ? 'Use standard tide panel width' : 'Expand tide chart'}
+      title={wide ? 'Use standard tide panel width' : 'Expand tide chart'}
+      aria-pressed={wide}
+      onclick={() => (wide = !wide)}
+    >
+      {#if wide}
+        <Minimize2 size={18} aria-hidden="true" />
+      {:else}
+        <Maximize2 size={18} aria-hidden="true" />
+      {/if}
+    </button>
+  {/snippet}
   <p class="muted-note">
     Automatic mode finds nearby stations. Manual choices use NOAA CO-OPS and stay selected while you
     pan.
@@ -332,23 +475,116 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
         <div class="curve-wrap">
           <!-- The graph restates the numeric prediction and its legend immediately below, so it is
                decorative for assistive technology. -->
-          <svg class="curve" viewBox={`0 0 ${CURVE_W} ${CURVE_H}`} aria-hidden="true">
-            <path
-              class="curve-line tide-line"
-              d={curvePath(depthCurve?.tide ?? curve)}
-              fill="none"
-            />
-            {#if depthCurve}
+          <div
+            class="chart-interactive"
+            role="slider"
+            aria-label="Interactive tide chart. Use the pointer, or the left and right arrow keys, to inspect predicted tide height and estimated depth."
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow={Math.round((hover?.fraction ?? nowFrac ?? 0.5) * 100)}
+            aria-valuetext={hover
+              ? `${formatMonthDay(hover.timeMs)} ${formatClockTime(hover.timeMs)}, tide ${formatTideHeight(hover.tideHeightMeters, units.mode)}${hover.estimatedDepthMeters !== undefined ? `, estimated depth ${formatTideHeight(hover.estimatedDepthMeters, units.mode)}` : ''}`
+              : 'Move through the tide prediction'}
+            tabindex="0"
+            onpointermove={onChartPointerMove}
+            onpointerleave={() => (hover = undefined)}
+            onfocus={() => showHoverAt(nowFrac ?? 0.5)}
+            onblur={() => (hover = undefined)}
+            onkeydown={onChartKeydown}
+          >
+            <svg
+              bind:this={chartNode}
+              class="curve"
+              class:curve--wide={wide}
+              viewBox={`0 0 ${CURVE_W} ${CURVE_H}`}
+              aria-hidden="true"
+            >
+              {#each verticalTicks as tick (tick.value)}
+                <line
+                  class="grid-line"
+                  x1={CURVE_LEFT}
+                  x2={CURVE_W - CURVE_RIGHT}
+                  y1={tick.y}
+                  y2={tick.y}
+                />
+                <text class="axis-label" x={CURVE_LEFT - 7} y={tick.y + 4} text-anchor="end">
+                  {formatTideHeight(tick.value, units.mode)}
+                </text>
+              {/each}
+              {#each timeTicks as tick (tick.timeMs)}
+                <line
+                  class="grid-line grid-line--vertical"
+                  x1={tick.x}
+                  x2={tick.x}
+                  y1={CURVE_TOP}
+                  y2={CURVE_H - CURVE_BOTTOM}
+                />
+                <text class="axis-label time-label" x={tick.x} y={CURVE_H - 8} text-anchor="middle">
+                  {formatClockTime(tick.timeMs)}
+                </text>
+              {/each}
               <path
-                class="curve-line depth-line"
-                d={curvePath(depthCurve.estimatedDepth)}
+                class="curve-line tide-line"
+                d={curvePath(depthCurve?.tide ?? curve)}
                 fill="none"
               />
+              {#if depthCurve}
+                <path
+                  class="curve-line depth-line"
+                  d={curvePath(depthCurve.estimatedDepth)}
+                  fill="none"
+                />
+              {/if}
+              {#if nowFrac !== undefined}
+                <line
+                  class="now"
+                  x1={CURVE_LEFT + nowFrac * CURVE_PLOT_W}
+                  y1={CURVE_TOP}
+                  x2={CURVE_LEFT + nowFrac * CURVE_PLOT_W}
+                  y2={CURVE_H - CURVE_BOTTOM}
+                />
+              {/if}
+              {#if hover}
+                {@const hoverX = CURVE_LEFT + hover.fraction * CURVE_PLOT_W}
+                <line
+                  class="hover-line"
+                  x1={hoverX}
+                  x2={hoverX}
+                  y1={CURVE_TOP}
+                  y2={CURVE_H - CURVE_BOTTOM}
+                />
+                <circle
+                  class="hover-point hover-point--tide"
+                  cx={hoverX}
+                  cy={chartY(hover.tideHeightMeters)}
+                  r="4"
+                />
+                {#if hover.estimatedDepthMeters !== undefined}
+                  <circle
+                    class="hover-point hover-point--depth"
+                    cx={hoverX}
+                    cy={chartY(hover.estimatedDepthMeters)}
+                    r="4"
+                  />
+                {/if}
+              {/if}
+            </svg>
+            {#if hover}
+              <div
+                class="chart-tooltip"
+                style={`--hover-x: ${hover.fraction * 100}%`}
+                role="status"
+              >
+                <strong>{formatMonthDay(hover.timeMs)} · {formatClockTime(hover.timeMs)}</strong>
+                <span>Tide {formatTideHeight(hover.tideHeightMeters, units.mode)}</span>
+                {#if hover.estimatedDepthMeters !== undefined}
+                  <span>
+                    Estimated depth {formatTideHeight(hover.estimatedDepthMeters, units.mode)}
+                  </span>
+                {/if}
+              </div>
             {/if}
-            {#if nowFrac !== undefined}
-              <line class="now" x1={nowFrac * CURVE_W} y1="0" x2={nowFrac * CURVE_W} y2={CURVE_H} />
-            {/if}
-          </svg>
+          </div>
           <div class="curve-legend">
             <span><i class="legend-line tide-legend"></i>Tide height</span>
             {#if depthCurve && anchorDepth.source}
@@ -435,6 +671,13 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
       Heights are above mean lower low water (MLLW), the chart's zero. Times are in the device's
       local time.
     </p>
+    <p class="footnote">
+      {#if tide.samples?.length}
+        Chart inspection uses NOAA's six-minute predictions.
+      {:else}
+        The curve between reported high and low events is an advisory estimate.
+      {/if}
+    </p>
     {#if depthCurve}
       <p class="footnote">
         Estimated depth adjusts the current sounder reading by the station's predicted tide change.
@@ -519,10 +762,34 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
 }
 .curve {
   inline-size: 100%;
-  block-size: auto;
+  block-size: clamp(12rem, 30vh, 16rem);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
+}
+.curve--wide {
+  block-size: clamp(16rem, 42vh, 24rem);
+}
+.chart-interactive {
+  position: relative;
+  min-inline-size: 0;
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.grid-line {
+  stroke: color-mix(in srgb, var(--border) 70%, transparent);
+  stroke-width: 1;
+}
+.grid-line--vertical {
+  opacity: 0.65;
+}
+.axis-label {
+  fill: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+}
+.time-label {
+  font-variant-numeric: tabular-nums;
 }
 .curve-wrap {
   display: flex;
@@ -568,6 +835,44 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
   stroke: var(--text-muted);
   stroke-width: 1;
   stroke-dasharray: 3 3;
+}
+.hover-line {
+  stroke: var(--text);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  opacity: 0.8;
+}
+.hover-point {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.hover-point--tide {
+  fill: var(--accent);
+}
+.hover-point--depth {
+  fill: var(--text);
+}
+.chart-tooltip {
+  position: absolute;
+  z-index: 1;
+  inset-block-start: var(--space-2);
+  inset-inline-start: clamp(5.5rem, var(--hover-x), calc(100% - 5.5rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-inline-size: 9.5rem;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text);
+  font-size: var(--text-xs);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.chart-tooltip strong {
+  font-variant-numeric: tabular-nums;
 }
 .refresh-note {
   display: flex;

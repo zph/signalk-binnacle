@@ -3,13 +3,14 @@ import type {
   NearbyTideStation,
   TideEvent,
   TideReading,
+  TideSample,
   TideSelectionSnapshot,
   TideStation,
   TideStationSelection,
   TidesLoadResult,
   TidesStore,
 } from '$entities/tides';
-import { isTideStation, MAX_NEARBY_STATIONS } from '$entities/tides';
+import { isTideStation, MAX_NEARBY_STATIONS, MAX_TIDE_SAMPLES } from '$entities/tides';
 import { quantizeCellDeg } from '$shared/geo';
 import { DAY_MS, isFiniteNumber, isRecord, MINUTE_MS } from '$shared/lib';
 import { haversineMeters } from '$shared/nav';
@@ -18,6 +19,7 @@ import {
   fetchCurrentEvents,
   fetchCurrentStations,
   fetchTideEvents,
+  fetchTideSamples,
   fetchTideStations,
   utcYmd,
 } from './coops-client';
@@ -26,12 +28,18 @@ import { nearestStations } from './station-proximity';
 
 // One persisted store holds every tier; the key prefix (stations:, tide:, current:, plugin:)
 // names which member of this union a value is, so each read site can narrow safely.
-export type TidesPersistValue = TideStation[] | TideEvent[] | CurrentEvent[] | TideReading;
+export type TidesPersistValue =
+  | TideStation[]
+  | TideEvent[]
+  | TideSample[]
+  | CurrentEvent[]
+  | TideReading;
 
 interface LoaderDeps {
   tideStations: () => Promise<TideStation[]>;
   currentStations: () => Promise<TideStation[]>;
   tideEvents: (stationId: string) => Promise<TideEvent[]>;
+  tideSamples?: (stationId: string) => Promise<TideSample[]>;
   currentEvents: (stationId: string) => Promise<CurrentEvent[]>;
   now: () => number;
   // Persists the station lists and the day's predictions across reloads (IndexedDB works over
@@ -79,7 +87,7 @@ const STATIONS_PERSIST_MS = 7 * DAY_MS;
 // Two station lists, a day's events for up to MAX_EVENT_ENTRIES stations of each kind, and a
 // few plugin readings.
 const MAX_PLUGIN_PERSIST_ENTRIES = 6;
-const MAX_PERSIST_ENTRIES = 2 + 2 * MAX_EVENT_ENTRIES + MAX_PLUGIN_PERSIST_ENTRIES;
+const MAX_PERSIST_ENTRIES = 2 + 3 * MAX_EVENT_ENTRIES + MAX_PLUGIN_PERSIST_ENTRIES;
 const MAX_STATION_LIST_ENTRIES = 20_000;
 const MAX_EVENTS_PER_READING = 200;
 const TIDE_STATIONS_KEY = 'stations:tide';
@@ -116,11 +124,12 @@ function isCurrentEvent(value: unknown): value is CurrentEvent {
   );
 }
 
-function validatedEvents<E extends TideEvent | CurrentEvent>(
+function validatedEvents<E extends TideEvent | TideSample | CurrentEvent>(
   value: unknown,
   validate: (event: unknown) => event is E,
+  maxEntries = MAX_EVENTS_PER_READING,
 ): E[] | undefined {
-  if (!Array.isArray(value) || value.length > MAX_EVENTS_PER_READING) return undefined;
+  if (!Array.isArray(value) || value.length > maxEntries) return undefined;
   const events: E[] = [];
   let changed = false;
   let sorted = true;
@@ -142,22 +151,36 @@ function validatedEvents<E extends TideEvent | CurrentEvent>(
 const validatedTideEvents = (value: unknown): TideEvent[] | undefined =>
   validatedEvents(value, isTideEvent);
 
+function isTideSample(value: unknown): value is TideSample {
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value.timeMs) &&
+    isFiniteNumber(value.heightMeters) &&
+    Math.abs(value.heightMeters) <= 100
+  );
+}
+
+const validatedTideSamples = (value: unknown): TideSample[] | undefined =>
+  validatedEvents(value, isTideSample, MAX_TIDE_SAMPLES);
+
 const validatedCurrentEvents = (value: unknown): CurrentEvent[] | undefined =>
   validatedEvents(value, isCurrentEvent);
 
 function validatedTideReading(value: unknown): TideReading | undefined {
   if (!isRecord(value) || !isTideStation(value.station)) return undefined;
   const events = validatedTideEvents(value.events);
+  const samples = value.samples === undefined ? undefined : validatedTideSamples(value.samples);
   if (
     !events ||
+    (value.samples !== undefined && !samples) ||
     events.length === 0 ||
     !isFiniteNumber(value.distanceMeters) ||
     value.distanceMeters < 0
   ) {
     return undefined;
   }
-  if (events === value.events) return value as unknown as TideReading;
-  return { station: value.station, distanceMeters: value.distanceMeters, events };
+  if (events === value.events && samples === value.samples) return value as unknown as TideReading;
+  return { station: value.station, distanceMeters: value.distanceMeters, events, samples };
 }
 
 // Persisted predictions expire at the end of the 48-hour window the day's fetch covered. The day
@@ -173,6 +196,7 @@ const realDeps: LoaderDeps = {
   tideStations: fetchTideStations,
   currentStations: fetchCurrentStations,
   tideEvents: fetchTideEvents,
+  tideSamples: fetchTideSamples,
   currentEvents: fetchCurrentEvents,
   now: () => Date.now(),
   persist: createExpiringStore<TidesPersistValue>('binnacle-custom-tides-data', {
@@ -249,13 +273,21 @@ function catalogs(
 // request snapshots independent tide and current intent. Only its generation can publish catalogs,
 // readings, provider provenance, failure state, and successfully loaded selections.
 export function createTidesLoader(overrides: Partial<LoaderDeps> = {}): TidesLoader {
-  const deps = { ...realDeps, ...overrides };
+  const deps = {
+    ...realDeps,
+    ...overrides,
+    tideSamples:
+      overrides.tideEvents && overrides.tideSamples === undefined
+        ? undefined
+        : (overrides.tideSamples ?? realDeps.tideSamples),
+  };
   let tideList: TideStation[] | undefined;
   let currentList: TideStation[] | undefined;
   let listsAt = 0;
   // Bounded per-station caches with the default infinite TTL: the day field invalidates an entry, so
   // a non-current entry is refetched rather than expired by time. MemoryCache only caps the size.
   const tideEventCache = new MemoryCache<{ events: TideEvent[]; day: string }>(MAX_EVENT_ENTRIES);
+  const tideSampleCache = new MemoryCache<{ events: TideSample[]; day: string }>(MAX_EVENT_ENTRIES);
   const currentEventCache = new MemoryCache<{ events: CurrentEvent[]; day: string }>(
     MAX_EVENT_ENTRIES,
   );
@@ -333,9 +365,9 @@ export function createTidesLoader(overrides: Partial<LoaderDeps> = {}): TidesLoa
   // Resolve a station's day-keyed events through the in-memory cache, then the persisted store,
   // then the network, so a reload reuses the day's predictions without a fetch. Empty arrays are
   // valid cache entries and mean the selected station has no events in this window.
-  async function eventsFor<E extends TideEvent[] | CurrentEvent[]>(
+  async function eventsFor<E extends TideEvent[] | TideSample[] | CurrentEvent[]>(
     cache: MemoryCache<{ events: E; day: string }>,
-    prefix: 'tide' | 'current',
+    prefix: 'tide' | 'tide-samples' | 'current',
     fetchEvents: (stationId: string) => Promise<E>,
     stationId: string,
     nowMs: number,
@@ -360,6 +392,26 @@ export function createTidesLoader(overrides: Partial<LoaderDeps> = {}): TidesLoa
     await deps.persist.put(key, events, eventsExpiresAt(nowMs));
     void deps.persist.prune(nowMs);
     return events;
+  }
+
+  async function samplesFor(stationId: string, nowMs: number, day: string) {
+    if (!deps.tideSamples) return undefined;
+    try {
+      return await eventsFor(
+        tideSampleCache,
+        'tide-samples',
+        deps.tideSamples,
+        stationId,
+        nowMs,
+        day,
+        validatedTideSamples,
+      );
+    } catch (error) {
+      // Extrema remain a complete degraded tide display. A six-minute series failure removes only
+      // rich hover precision rather than rejecting an otherwise valid station reading.
+      console.warn('[tides] detailed tide samples failed', error);
+      return undefined;
+    }
   }
 
   async function pluginTide(
@@ -409,21 +461,25 @@ export function createTidesLoader(overrides: Partial<LoaderDeps> = {}): TidesLoa
   ): Promise<TideOutcome> {
     try {
       if (selection.mode === 'manual') {
-        const events = await eventsFor(
-          tideEventCache,
-          'tide',
-          deps.tideEvents,
-          selection.station.id,
-          nowMs,
-          day,
-          validatedTideEvents,
-        );
+        const [events, samples] = await Promise.all([
+          eventsFor(
+            tideEventCache,
+            'tide',
+            deps.tideEvents,
+            selection.station.id,
+            nowMs,
+            day,
+            validatedTideEvents,
+          ),
+          samplesFor(selection.station.id, nowMs, day),
+        ]);
         return {
           state: 'accepted',
           reading: {
             station: selection.station,
             distanceMeters: selection.distanceMeters,
             events,
+            samples,
           },
           source: 'noaa-coops',
           selection,
@@ -442,18 +498,21 @@ export function createTidesLoader(overrides: Partial<LoaderDeps> = {}): TidesLoa
       if (!lists) return { state: 'failed', selection };
       const nearest = nearestStations(lists.tide, lat, lon, 1, TIDE_RADIUS_M)[0];
       if (!nearest) return { state: 'no-coverage', selection };
-      const events = await eventsFor(
-        tideEventCache,
-        'tide',
-        deps.tideEvents,
-        nearest.station.id,
-        nowMs,
-        day,
-        validatedTideEvents,
-      );
+      const [events, samples] = await Promise.all([
+        eventsFor(
+          tideEventCache,
+          'tide',
+          deps.tideEvents,
+          nearest.station.id,
+          nowMs,
+          day,
+          validatedTideEvents,
+        ),
+        samplesFor(nearest.station.id, nowMs, day),
+      ]);
       return {
         state: 'accepted',
-        reading: { ...nearest, events },
+        reading: { ...nearest, events, samples },
         source: 'noaa-coops',
         selection,
       };

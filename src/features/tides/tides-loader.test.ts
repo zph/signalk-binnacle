@@ -7,6 +7,10 @@ import { createTidesLoader, type TidesPersistValue } from './tides-loader';
 const tideStation = { id: 'T1', name: 'Tide', latitude: 27.7, longitude: -82.7 };
 const currentStation = { id: 'C1', name: 'Current', latitude: 27.7, longitude: -82.7 };
 const tideEvents = [{ timeMs: 1000, heightMeters: 0.5, kind: 'high' as const }];
+const tideSamples = [
+  { timeMs: 1000, heightMeters: 0.48 },
+  { timeMs: 1360, heightMeters: 0.5 },
+];
 const currentEvents = [
   { timeMs: 1000, velocityMps: 0.5, directionRad: (100 * Math.PI) / 180, kind: 'flood' as const },
 ];
@@ -41,6 +45,18 @@ describe('createTidesLoader', () => {
     expect(store.tide?.station.id).toBe('T1');
     expect(store.current?.station.id).toBe('C1');
     expect(store.source).toBe('noaa-coops');
+  });
+
+  it('attaches the optional six-minute NOAA prediction series', async () => {
+    const tideSamplesFetch = vi.fn(async () => tideSamples);
+    const d = deps({ tideSamples: tideSamplesFetch });
+    const loader = createTidesLoader(d);
+    const store = new TidesStore();
+
+    await loader.load(store, 27.7, -82.7);
+
+    expect(store.tide?.samples).toEqual(tideSamples);
+    expect(tideSamplesFetch).toHaveBeenCalledWith('T1');
   });
 
   it('never consults the plugin when it is not available', async () => {

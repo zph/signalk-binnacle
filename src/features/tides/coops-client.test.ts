@@ -4,6 +4,7 @@ import {
   fetchCurrentEvents,
   fetchCurrentStations,
   fetchTideEvents,
+  fetchTideSamples,
   fetchTideStations,
   utcYmd,
 } from './coops-client';
@@ -85,6 +86,23 @@ describe('coops-client', () => {
     const events = await fetchTideEvents('8726520');
     // time_zone=gmt is requested, so '2026-06-08 09:34' is 09:34 UTC in any browser timezone.
     expect(events[0].timeMs).toBe(Date.UTC(2026, 5, 8, 9, 34));
+  });
+
+  it('fetches six-minute tide samples for exact chart inspection', async () => {
+    const fetchMock = mockFetch({
+      predictions: [
+        { t: '2026-06-08 09:30', v: '0.420' },
+        { t: '2026-06-08 09:36', v: '0.435' },
+      ],
+    });
+
+    await expect(fetchTideSamples('8726520')).resolves.toEqual([
+      { timeMs: Date.UTC(2026, 5, 8, 9, 30), heightMeters: 0.42 },
+      { timeMs: Date.UTC(2026, 5, 8, 9, 36), heightMeters: 0.435 },
+    ]);
+    const request = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(request.searchParams.get('interval')).toBe('6');
+    expect(request.searchParams.get('units')).toBe('metric');
   });
 
   it('rejects a tide height with a unit suffix', async () => {

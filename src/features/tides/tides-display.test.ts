@@ -9,8 +9,10 @@ import {
   nextFlowEvent,
   nowFraction,
   tideCurvePoints,
+  tideCurveSamples,
   tideDepthCurvePoints,
   tideHeightAt,
+  tideHoverReading,
   tideSourceNote,
   upcomingEvents,
 } from './tides-display';
@@ -85,6 +87,13 @@ describe('tides-display', () => {
     expect(tideHeightAt(events, 3001)).toBeUndefined();
   });
 
+  it('densifies turning points for a smooth chart without changing its endpoints', () => {
+    const samples = tideCurveSamples(events, 500);
+    expect(samples).toHaveLength(5);
+    expect(samples[0]).toEqual({ timeMs: 1000, heightMeters: 0.1 });
+    expect(samples.at(-1)).toEqual({ timeMs: 3000, heightMeters: 0.5 });
+  });
+
   it('projects sounder depth by the predicted tide change on one physical scale', () => {
     const projected = tideDepthCurvePoints(events, 2000, 4);
     expect(projected).toBeDefined();
@@ -96,6 +105,27 @@ describe('tides-display', () => {
     expect(ySpan).toBeCloseTo(tideSpan);
     expect(projected?.estimatedDepth[0].y).toBeGreaterThan(projected?.tide[0].y ?? 0);
     expect(tideDepthCurvePoints(events, 500, 4)).toBeUndefined();
+  });
+
+  it('reports the hovered tide and sounder-adjusted depth at an exact time', () => {
+    expect(tideHoverReading(events, 2500, 4, 2000)).toEqual({
+      timeMs: 2500,
+      tideHeightMeters: expect.closeTo(0.441421356, 6),
+      estimatedDepthMeters: expect.closeTo(4.141421356, 6),
+    });
+  });
+
+  it('snaps hover inspection to the nearest authoritative six-minute sample', () => {
+    const detailed = [
+      { timeMs: 1000, heightMeters: 0.1 },
+      { timeMs: 1360, heightMeters: 0.25 },
+      { timeMs: 1720, heightMeters: 0.4 },
+    ];
+    expect(tideHoverReading(events, 1300, 4, 1360, detailed)).toEqual({
+      timeMs: 1360,
+      tideHeightMeters: 0.25,
+      estimatedDepthMeters: 4,
+    });
   });
 
   it('locates now within the span, or undefined outside it', () => {

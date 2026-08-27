@@ -20,6 +20,9 @@
 .slide-over--dock-right {
   border-inline-start: 1px solid var(--border);
 }
+.slide-over--wide {
+  inline-size: min(44rem, 100%);
+}
 @media (max-width: 600px) {
   .slide-over {
     inline-size: 100%;

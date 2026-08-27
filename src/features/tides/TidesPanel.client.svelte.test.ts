@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type NearbyTideStation, TidesStore } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
 import { OwnVessel } from '$entities/vessel';
-import { SignalKStore } from '$shared/signalk';
+import { SignalKStore, SK_PATHS } from '$shared/signalk';
 import TidesPanel from './TidesPanel.svelte';
 import type { TidesController } from './tides-controller.svelte';
 
@@ -32,6 +32,12 @@ function mountPanel(
   };
   const target = document.createElement('div');
   document.body.append(target);
+  const signalK = new SignalKStore();
+  signalK.applyFrame({
+    self: new Map([[SK_PATHS.depthBelowSurface, 4]]),
+    connection: { phase: 'open', attempt: 0 },
+    epoch: Date.now(),
+  });
   let component!: ReturnType<typeof mount>;
   flushSync(() => {
     component = mount(TidesPanel, {
@@ -40,7 +46,7 @@ function mountPanel(
         store,
         controller,
         units: { mode: 'metric' } as UnitsStore,
-        vessel: new OwnVessel(new SignalKStore(), { now: Date.now() }),
+        vessel: new OwnVessel(signalK, { now: Date.now() }),
         onClose: vi.fn(),
       },
     });
@@ -64,6 +70,51 @@ afterEach(() => {
 });
 
 describe('TidesPanel interactions', () => {
+  it('expands and restores the tide panel width from its header control', () => {
+    const panel = mountPanel();
+    const expandControl = panel.target.querySelector<HTMLButtonElement>(
+      'button[aria-label="Expand tide chart"]',
+    );
+    if (!expandControl) throw new Error('missing expand tide chart control');
+
+    expandControl.click();
+    flushSync();
+    expect(panel.target.querySelector('aside')?.classList).toContain('slide-over--wide');
+    expect(
+      panel.target.querySelector<HTMLButtonElement>(
+        'button[aria-label="Use standard tide panel width"]',
+      ),
+    ).not.toBeNull();
+  });
+
+  it('scrubs predicted tide and estimated depth with the keyboard', () => {
+    const panel = mountPanel();
+    const now = Date.now();
+    panel.store.setReadings(
+      {
+        station: tideStation,
+        distanceMeters: 1000,
+        events: [
+          { timeMs: now - 60 * 60 * 1000, heightMeters: 0.2, kind: 'low' },
+          { timeMs: now + 60 * 60 * 1000, heightMeters: 1.2, kind: 'high' },
+        ],
+      },
+      undefined,
+      'noaa-coops',
+    );
+    flushSync();
+
+    const chart = panel.target.querySelector<HTMLElement>('[role="slider"]');
+    if (!chart) throw new Error('missing interactive tide chart');
+    chart.focus();
+    chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    flushSync();
+
+    expect(panel.target.querySelector('.chart-tooltip')?.textContent).toContain('Tide');
+    expect(panel.target.querySelector('.chart-tooltip')?.textContent).toContain('Estimated depth');
+    expect(chart.getAttribute('aria-valuetext')).toContain('estimated depth');
+  });
+
   it('routes native station, automatic, and global reset controls independently', () => {
     const panel = mountPanel();
     panel.button('Harbor tide 1 km straight-line').click();

@@ -2,6 +2,7 @@ export {
   isTideStation,
   MAX_PLAUSIBLE_TIDE_HEIGHT_M,
   MAX_TIDE_EVENTS,
+  MAX_TIDE_SAMPLES,
   MAX_TIDE_STATION_ID_LENGTH,
   MAX_TIDE_STATION_NAME_LENGTH,
 } from './tide-station';
@@ -12,6 +13,7 @@ export type {
   NearbyTideStation,
   TideEvent,
   TideReading,
+  TideSample,
   TideSelectionSnapshot,
   TideStation,
   TideStationKind,

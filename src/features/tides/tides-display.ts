@@ -1,9 +1,16 @@
-import type { CurrentEvent, TideEvent, TideStationSelection, TidesSource } from '$entities/tides';
+import type {
+  CurrentEvent,
+  TideEvent,
+  TideSample,
+  TideStationSelection,
+  TidesSource,
+} from '$entities/tides';
 import {
   formatFixed,
   formatKnots,
   landDistanceUnit,
   METERS_PER_MILE,
+  MINUTE_MS,
   metersToFeet,
   type UnitsMode,
 } from '$shared/lib';
@@ -120,9 +127,33 @@ export function tideHeightAt(events: TideEvent[], timeMs: number): number | unde
     : undefined;
 }
 
+// Fill the space between high and low turning points with a bounded smooth series for the chart.
+// This is derived presentation data, not a replacement for the provider's authoritative extrema.
+export function tideCurveSamples(events: TideEvent[], stepMs = 15 * MINUTE_MS): TideSample[] {
+  if (events.length === 0 || !Number.isFinite(stepMs) || stepMs <= 0) return [];
+  const samples: TideSample[] = [];
+  for (let index = 1; index < events.length; index++) {
+    const before = events[index - 1];
+    const after = events[index];
+    if (index === 1) samples.push({ timeMs: before.timeMs, heightMeters: before.heightMeters });
+    for (let timeMs = before.timeMs + stepMs; timeMs < after.timeMs; timeMs += stepMs) {
+      const heightMeters = tideHeightAt([before, after], timeMs);
+      if (heightMeters !== undefined) samples.push({ timeMs, heightMeters });
+    }
+    samples.push({ timeMs: after.timeMs, heightMeters: after.heightMeters });
+  }
+  if (events.length === 1) {
+    samples.push({ timeMs: events[0].timeMs, heightMeters: events[0].heightMeters });
+  }
+  return samples;
+}
+
 export interface TideDepthCurve {
   tide: Array<{ x: number; y: number }>;
   estimatedDepth: Array<{ x: number; y: number }>;
+  minimumMeters: number;
+  maximumMeters: number;
+  tideNowMeters: number;
 }
 
 // Put predicted tide height and sounder-based estimated depth on one physical meter scale. The
@@ -132,28 +163,84 @@ export function tideDepthCurvePoints(
   events: TideEvent[],
   nowMs: number,
   depthMeters: number,
+  detailedSamples?: TideSample[],
 ): TideDepthCurve | undefined {
-  const tideNow = tideHeightAt(events, nowMs);
+  const tideNow = detailedSamples?.length
+    ? nearestTideSample(detailedSamples, nowMs)?.heightMeters
+    : tideHeightAt(events, nowMs);
   if (tideNow === undefined || !Number.isFinite(depthMeters)) return undefined;
 
-  const t0 = events[0].timeMs;
-  const tSpan = events[events.length - 1].timeMs - t0 || 1;
-  const depthValues = events.map((event) => depthMeters + (event.heightMeters - tideNow));
-  let minimum = Math.min(events[0].heightMeters, depthValues[0]);
-  let maximum = Math.max(events[0].heightMeters, depthValues[0]);
-  for (let index = 1; index < events.length; index++) {
-    minimum = Math.min(minimum, events[index].heightMeters, depthValues[index]);
-    maximum = Math.max(maximum, events[index].heightMeters, depthValues[index]);
+  const samples = detailedSamples?.length ? detailedSamples : tideCurveSamples(events);
+  if (samples.length === 0) return undefined;
+  const t0 = samples[0].timeMs;
+  const tSpan = samples[samples.length - 1].timeMs - t0 || 1;
+  const depthValues = samples.map((sample) => depthMeters + (sample.heightMeters - tideNow));
+  let minimum = Math.min(samples[0].heightMeters, depthValues[0]);
+  let maximum = Math.max(samples[0].heightMeters, depthValues[0]);
+  for (let index = 1; index < samples.length; index++) {
+    minimum = Math.min(minimum, samples[index].heightMeters, depthValues[index]);
+    maximum = Math.max(maximum, samples[index].heightMeters, depthValues[index]);
   }
   const span = maximum - minimum || 1;
-  const point = (event: TideEvent, value: number) => ({
-    x: (event.timeMs - t0) / tSpan,
+  const point = (sample: TideSample, value: number) => ({
+    x: (sample.timeMs - t0) / tSpan,
     y: (value - minimum) / span,
   });
   return {
-    tide: events.map((event) => point(event, event.heightMeters)),
-    estimatedDepth: events.map((event, index) => point(event, depthValues[index])),
+    tide: samples.map((sample) => point(sample, sample.heightMeters)),
+    estimatedDepth: samples.map((sample, index) => point(sample, depthValues[index])),
+    minimumMeters: minimum,
+    maximumMeters: maximum,
+    tideNowMeters: tideNow,
   };
+}
+
+export interface TideHoverReading {
+  timeMs: number;
+  tideHeightMeters: number;
+  estimatedDepthMeters?: number;
+}
+
+export function tideHoverReading(
+  events: TideEvent[],
+  timeMs: number,
+  depthMeters?: number,
+  nowMs?: number,
+  detailedSamples?: TideSample[],
+): TideHoverReading | undefined {
+  const detailed = detailedSamples?.length ? nearestTideSample(detailedSamples, timeMs) : undefined;
+  const tideHeightMeters = detailed?.heightMeters ?? tideHeightAt(events, timeMs);
+  if (tideHeightMeters === undefined) return undefined;
+  const tideNow =
+    nowMs === undefined
+      ? undefined
+      : detailedSamples?.length
+        ? nearestTideSample(detailedSamples, nowMs)?.heightMeters
+        : tideHeightAt(events, nowMs);
+  return {
+    timeMs: detailed?.timeMs ?? timeMs,
+    tideHeightMeters,
+    estimatedDepthMeters:
+      depthMeters !== undefined && tideNow !== undefined
+        ? depthMeters + (tideHeightMeters - tideNow)
+        : undefined,
+  };
+}
+
+function nearestTideSample(samples: TideSample[], timeMs: number): TideSample | undefined {
+  if (samples.length === 0) return undefined;
+  let low = 0;
+  let high = samples.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (samples[middle].timeMs < timeMs) low = middle + 1;
+    else high = middle;
+  }
+  const after = samples[low];
+  const before = samples[low - 1];
+  return before && Math.abs(before.timeMs - timeMs) <= Math.abs(after.timeMs - timeMs)
+    ? before
+    : after;
 }
 
 // Where "now" falls along the tide curve's x axis, or undefined when it is outside the event span.

@@ -2,10 +2,12 @@ import {
   type CurrentEvent,
   MAX_PLAUSIBLE_TIDE_HEIGHT_M,
   MAX_TIDE_EVENTS,
+  MAX_TIDE_SAMPLES,
   MAX_TIDE_STATION_ID_LENGTH,
   MAX_TIDE_STATION_NAME_LENGTH,
   TIDE_WINDOW_HOURS,
   type TideEvent,
+  type TideSample,
   type TideStation,
 } from '$entities/tides';
 import { isLatitude, isLongitude } from '$shared/geo';
@@ -137,6 +139,44 @@ export async function fetchTideEvents(
       return [];
     }
     return [{ timeMs, heightMeters, kind: p.type === 'H' ? 'high' : 'low' } as TideEvent];
+  });
+}
+
+export async function fetchTideSamples(
+  stationId: string,
+  now: () => number = Date.now,
+): Promise<TideSample[]> {
+  const station = safeStationId(stationId);
+  if (!station) throw new RangeError('Invalid CO-OPS station id');
+  const url = coopsUrl(DATAGETTER, {
+    product: 'predictions',
+    interval: '6',
+    datum: 'MLLW',
+    units: 'metric',
+    time_zone: 'gmt',
+    format: 'json',
+    begin_date: utcYmd(now()),
+    range: String(TIDE_WINDOW_HOURS),
+    station,
+  });
+  const data = await fetchJson(url);
+  if (
+    !isRecord(data) ||
+    !Array.isArray(data.predictions) ||
+    data.predictions.length > MAX_TIDE_SAMPLES
+  ) {
+    throw new Error('Invalid CO-OPS tide sample response');
+  }
+  return data.predictions.flatMap((sample) => {
+    if (!isRecord(sample) || typeof sample.t !== 'string' || typeof sample.v !== 'string')
+      return [];
+    const timeMs = parseGmtTime(sample.t);
+    const heightMeters = sample.v.trim() === '' ? Number.NaN : Number(sample.v);
+    return isFiniteNumber(timeMs) &&
+      isFiniteNumber(heightMeters) &&
+      Math.abs(heightMeters) <= MAX_PLAUSIBLE_TIDE_HEIGHT_M
+      ? [{ timeMs, heightMeters }]
+      : [];
   });
 }
 

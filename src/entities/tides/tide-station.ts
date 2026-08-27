@@ -10,6 +10,9 @@ export const MAX_PLAUSIBLE_TIDE_HEIGHT_M = 100;
 // One reading's event list is bounded so a runaway provider response cannot grow the panel without
 // limit. 200 covers well over a week of highs and lows at any station.
 export const MAX_TIDE_EVENTS = 200;
+// Forty-eight hours at six-minute intervals is 481 samples. Leave bounded headroom for inclusive
+// provider endpoints without accepting an unbounded response into memory or IndexedDB.
+export const MAX_TIDE_SAMPLES = 600;
 
 // A station snapshot crosses the MapLibre feature boundary before a click returns it. Revalidate
 // that rendered copy with the same text and coordinate bounds used by both prediction providers.

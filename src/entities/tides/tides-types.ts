@@ -47,6 +47,11 @@ export interface TideEvent {
   kind: 'high' | 'low';
 }
 
+export interface TideSample {
+  timeMs: number;
+  heightMeters: number;
+}
+
 export interface CurrentEvent {
   timeMs: number;
   velocityMps: number;
@@ -59,6 +64,9 @@ export interface TideReading {
   station: TideStation;
   distanceMeters: number;
   events: TideEvent[];
+  // NOAA reference stations provide the richer six-minute prediction series. Other providers may
+  // expose only high and low extrema, in which case the panel derives a clearly advisory curve.
+  samples?: TideSample[];
 }
 
 export interface CurrentReading {

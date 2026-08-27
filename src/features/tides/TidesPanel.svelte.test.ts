@@ -98,6 +98,7 @@ describe('TidesPanel', () => {
     expect(body).toContain('manually selected tide station');
     expect(body).toContain('mean lower low water (MLLW)');
     expect(body).toContain("device's local time");
+    expect(body).toContain('advisory estimate');
   });
 
   it('names a failed requested station, retains the accepted reading, and offers Retry', () => {
@@ -144,6 +145,8 @@ describe('TidesPanel', () => {
 
     const body = renderPanel(store);
     expect(body).toContain('curve-line depth-line');
+    expect(body).toContain('role="slider"');
+    expect(body).toContain('grid-line--vertical');
     expect(body).toContain('Estimated depth, Surface sounder plus predicted tide change');
     expect(body).toContain('It is advisory and does not account for local bathymetry');
   });

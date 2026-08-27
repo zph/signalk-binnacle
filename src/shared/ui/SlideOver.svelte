@@ -18,6 +18,9 @@ interface Props {
   subtitle?: string;
   ariaLabel?: string;
   dock?: 'left' | 'right';
+  // A panel may opt into a wider desktop reading surface. Phone panels remain full width through
+  // the shared breakpoint rule, so this never creates a horizontal overflow there.
+  wide?: boolean;
   // Lay the body out as a gapped column, for panels whose content is a stack of controls.
   bodyFlex?: boolean;
   // Trap Tab navigation when this panel is acting as a modal surface at its current breakpoint.
@@ -46,6 +49,7 @@ const {
   subtitle,
   ariaLabel,
   dock = 'left',
+  wide = false,
   bodyFlex = false,
   focusTrap = false,
   closeLabel = 'Close',
@@ -66,6 +70,7 @@ const bodyId = $props.id();
 <!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: the dynamic role is dialog exactly when aria-modal is defined. -->
 <aside
   class="slide-over slide-over--dock-{dock}"
+  class:slide-over--wide={wide}
   role={focusTrap ? 'dialog' : undefined}
   aria-label={ariaLabel ?? title}
   aria-modal={focusTrap ? 'true' : undefined}
