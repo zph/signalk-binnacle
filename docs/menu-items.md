@@ -279,11 +279,6 @@ source, and surrounding traffic before relying on it.
   warranted) that is visible and read by screen readers. Eligible instrument details can
   open one focused trend without changing the saved overview. Back restores the same detail and
   focus, while Close returns to the chart.
-- **Instrument dashboard** opens the installed KIP webapp in a new tab; the tile's quiet second
-  line names both the acronym and the new tab. Transport or access failures keep its
-  availability in the checking state instead of claiming KIP is absent. A blocked pop-up produces a
-  visible message.
-
 ## Settings
 
 - **Profiles** (tile subtitle: units, sync, and privacy) saves portable chart, weather, threshold,

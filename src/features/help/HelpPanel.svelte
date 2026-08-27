@@ -98,11 +98,6 @@ const GLOSSARY: Array<{ term: string; meaning: string; word?: boolean }> = [
       'The open marine data server this display connects to; its admin UI manages security, plugins, and data sources.',
     word: true,
   },
-  {
-    term: 'KIP',
-    meaning:
-      'A separate instrument-dashboard webapp some Signal K servers install; its launcher opens it in a new tab.',
-  },
 ];
 
 const CONTEXTS: Array<{ name: string; role: string }> = [

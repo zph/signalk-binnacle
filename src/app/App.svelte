@@ -7,9 +7,9 @@ import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 import CloudSun from '@lucide/svelte/icons/cloud-sun';
 import Compass from '@lucide/svelte/icons/compass';
 import DownloadCloud from '@lucide/svelte/icons/download-cloud';
-import ExternalLink from '@lucide/svelte/icons/external-link';
 import Gauge from '@lucide/svelte/icons/gauge';
 import History from '@lucide/svelte/icons/history';
+import Home from '@lucide/svelte/icons/home';
 import Layers from '@lucide/svelte/icons/layers';
 import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
@@ -81,10 +81,8 @@ import {
   createInstrumentsController,
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
-  detectKip,
   type InstrumentDockLayout,
   instrumentDockWidthForLayout,
-  KIP_URL,
   loadInstrumentsPanel,
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
@@ -93,6 +91,7 @@ import { createInterfaceLockController, InterfaceLockLayer } from '$features/int
 import type { LayersView } from '$features/layers-panel';
 import {
   CollisionMute,
+  createAlarmLocationSettingsSync,
   createCollisionSettingsSync,
   createShallowController,
   GenericAlarm,
@@ -206,6 +205,7 @@ import {
   boundedNumberPersistedCodec,
   CHART_ORIENTATION_MODES,
   type ChartOrientationMode,
+  createAlarmLocation,
   createMapView,
   createPersistedCodec,
   createPlanningSpeed,
@@ -294,9 +294,15 @@ const authToken = $derived(auth.token ?? undefined);
 const accessResolved = $derived(auth.status === 'authenticated' || auth.status === 'unsecured');
 const net = new OnlineStatus();
 const thresholds = createThresholds();
+const alarmLocation = createAlarmLocation();
 const collisionSettingsSync = createCollisionSettingsSync({
   origin,
   thresholds,
+  getToken: () => authToken,
+});
+const alarmLocationSettingsSync = createAlarmLocationSettingsSync({
+  origin,
+  alarmLocation,
   getToken: () => authToken,
 });
 // Anchored own vessel treats moored and swinging boats as non-hazards, silencing the busy-anchorage
@@ -318,22 +324,11 @@ const collisionMute = new CollisionMute(clock);
 // Server capability discovery: gates the v2 Notifications transport below; an older server
 // falls back to the raw v1 delta publish.
 let serverFeatures = $state<ServerFeatures | undefined>();
-// Whether the KIP instrument webapp is installed on the server, so the menu can explain the missing
-// capability instead of hiding the external launcher.
 type ProviderProbeState = 'checking' | 'retrying' | 'available' | 'absent' | 'failed';
-let kipPresent = $state<boolean | undefined>();
-let kipProbeState = $state<ProviderProbeState>('checking');
 let historyProviders = $state<HistoryProviders | undefined>();
 let historyProviderState = $state<ProviderProbeState>('checking');
 let historyProbeGeneration = 0;
 const notificationsApi = $derived(serverFeatures?.apis.has('notifications') ?? false);
-
-async function probeKip(retrying = false): Promise<void> {
-  kipProbeState = retrying ? 'retrying' : 'checking';
-  const present = await detectKip(origin, authToken);
-  kipPresent = present;
-  kipProbeState = present === undefined ? 'failed' : present ? 'available' : 'absent';
-}
 
 async function probeHistoryProviders(
   retrying = false,
@@ -1964,27 +1959,6 @@ const menuItems = $derived<MenuItem[]>([
     },
   },
   {
-    id: 'open-kip',
-    // Named for what it is, an instrument dashboard, so a navigator who has never heard the
-    // acronym knows what will open; the acronym rides the sublabel, where it cannot force the
-    // label to permanently truncate at tile widths.
-    label: 'Instrument dashboard',
-    sublabel: 'KIP, opens in a new tab',
-    icon: ExternalLink,
-    group: 'Instruments',
-    available: kipPresent === true,
-    unavailableHint:
-      kipProbeState === 'checking' || kipProbeState === 'retrying'
-        ? 'Checking whether the KIP instrument-dashboard webapp is installed on the Signal K server.'
-        : kipProbeState === 'failed'
-          ? 'Could not check for KIP. Reconnect or reload to retry.'
-          : 'The KIP instrument dashboard needs the KIP webapp installed on the Signal K server.',
-    onSelect: () => {
-      const opened = window.open(KIP_URL, '_blank', 'noopener,noreferrer');
-      if (!opened) toast.show('The browser blocked the KIP window. Allow pop-ups, then try again.');
-    },
-  },
-  {
     id: 'profiles',
     label: 'Profiles',
     // Units, sync, and device privacy all live inside the profiles panel, and a navigator looking
@@ -2705,7 +2679,6 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
     if (features) serverFeatures = features;
     void marineRadar.start();
   });
-  void probeKip(true);
   void probeHistoryProviders(
     true,
     untrack(
@@ -2719,6 +2692,7 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
   if (untrack(() => companionBase === null)) refreshCompanionProbe();
   void units.syncFromServer(origin);
   void collisionSettingsSync.hydrate();
+  void alarmLocationSettingsSync.hydrate();
   // The MOB replay decision reads the mirror, so it runs behind the mirror reconcile: before
   // it, the pre-outage mirror still shows the raise a restarted server has already lost, and
   // the replay guard would skip the re-raise every other station needs.
@@ -2787,6 +2761,10 @@ $effect(() => {
 });
 
 $effect(() => {
+  alarmLocationSettingsSync.observe(alarmLocation.value);
+});
+
+$effect(() => {
   if (!accessResolved) return;
   // A write-access approval changes auth.token without reconnecting the stream, and chartsToken
   // seeds only at first connect, so mirror it here or every REST write keeps using the stale
@@ -2806,13 +2784,13 @@ $effect(() => {
   // session credentials that exist once access has resolved.
   void units.syncFromServer(origin);
   void collisionSettingsSync.hydrate();
+  void alarmLocationSettingsSync.hydrate();
   // Capability discovery; a transport failure keeps the current value so one bad probe cannot
   // drop the session back to v1 transports.
   void fetchServerFeatures(origin, authToken).then((features) => {
     if (features) serverFeatures = features;
     void marineRadar.start();
   });
-  void probeKip();
   // The onMount probe runs before this token is available, so an auth-gated companion (Chart
   // Locker) 401s once and is never retried; redo it here once real credentials exist. Untracked:
   // the base this same call resolves would otherwise become a dependency, re-running this whole
@@ -2937,6 +2915,7 @@ onMount(() => {
 
 onDestroy(() => {
   collisionSettingsSync.dispose();
+  alarmLocationSettingsSync.dispose();
   privacyActivity.dispose();
   companionStatus.stop();
   streamController.dispose();
@@ -2985,6 +2964,7 @@ const plotterServices = {
   pointConditionsLoader,
   planningSpeedMps,
   thresholds,
+  alarmLocation,
   trackSettings,
   aisIconMode,
   categoriesOpen: layerCategoriesOpen,
@@ -3375,6 +3355,9 @@ const plotterActions = {
       onManage={() => openPanel('profiles')}
     />
     <ThemeToggle controller={theme} />
+    <a class="icon-pill" href="/" aria-label="Signal K home" title="Signal K home">
+      <Home size={16} aria-hidden="true" />
+    </a>
     <AppInfo version={__APP_VERSION__} />
     {@render interfaceLockAction()}
     <!-- The fixed emergency key shares the bottom action row but stays outside customization, so

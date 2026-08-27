@@ -1,6 +1,6 @@
 <script lang="ts">
-import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-import ChevronRight from '@lucide/svelte/icons/chevron-right';
+import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
+import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import { onDestroy } from 'svelte';
 import { Toast } from '$shared/lib';
 import {
@@ -241,9 +241,9 @@ function onCardKeydown(event: KeyboardEvent): void {
       onclick={() => (open ? closeMenu(false) : onOpenChange(true))}
     >
       {#if open}
-        <ChevronLeft size={18} aria-hidden="true" />
+        <PanelLeftClose size={18} aria-hidden="true" />
       {:else}
-        <ChevronRight size={18} aria-hidden="true" />
+        <PanelLeftOpen size={18} aria-hidden="true" />
       {/if}
     </button>
   </nav>

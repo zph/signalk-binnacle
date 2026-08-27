@@ -1,6 +1,6 @@
 <script lang="ts">
-import ChevronDown from '@lucide/svelte/icons/chevron-down';
-import ChevronUp from '@lucide/svelte/icons/chevron-up';
+import PanelBottomClose from '@lucide/svelte/icons/panel-bottom-close';
+import PanelBottomOpen from '@lucide/svelte/icons/panel-bottom-open';
 import PanelRightClose from '@lucide/svelte/icons/panel-right-close';
 import PanelRightOpen from '@lucide/svelte/icons/panel-right-open';
 
@@ -54,9 +54,9 @@ let {
       onclick={onToggleBottom}
     >
       {#if bottomBarVisible}
-        <ChevronDown size={18} aria-hidden="true" />
+        <PanelBottomClose size={18} aria-hidden="true" />
       {:else}
-        <ChevronUp size={18} aria-hidden="true" />
+        <PanelBottomOpen size={18} aria-hidden="true" />
       {/if}
     </button>
   </nav>

@@ -602,7 +602,7 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   expands the dock in flow, resizing the chart instead of covering it with a popover. A menu entry is
   a `MenuItem` (`id`, `label`, `shortLabel` for the bottom-bar pill,
   `sublabel` for a quiet second tile line when an item's current state is part of its identity
-  (the Orientation tile's mode, the instrument dashboard's KIP acronym) so the label keeps one
+  (the Orientation tile's mode) so the label keeps one
   voice across the grid, `icon` a lucide component, `group` a section heading, `pressed` for a
   toggle's lit state, `disabled` plus `disabledLabel`, `available` plus `unavailableHint`,
   `fixedToBar` for an app-shell action that stays in the bottom toolbar
