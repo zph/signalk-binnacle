@@ -366,7 +366,7 @@ describe('purpose-built instrument faces', () => {
     expect(html).not.toContain('>HDG<');
     expect(html).not.toContain('>(M)<');
     expect(html.indexOf('heading-pill')).toBeGreaterThan(html.lastIndexOf('</svg>'));
-    expect(html).toContain('rose-readout--warning');
+    expect(html).toContain('rose-readout--depth-warning');
     expect(html.match(/rose-readout--alarm/g)).toHaveLength(2);
     expect(html).not.toContain('>AWA<');
     expect(html).not.toContain('>TWA<');
@@ -419,7 +419,8 @@ describe('purpose-built instrument faces', () => {
         sensorGloss: 'No wind data',
       },
     }).body;
-    expect(alarmHtml).toContain('rose-readout--alarm');
+    expect(alarmHtml).toContain('rose-readout--depth-alarm');
+    expect(alarmHtml).not.toContain('rose-readout--alarm');
     expect(alarmHtml).not.toContain('>Alarm<');
   });
 });

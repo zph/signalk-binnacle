@@ -308,8 +308,8 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
       </div>
       <div
         class="rose-readout rose-readout--depth"
-        class:rose-readout--warning={depthZone === 'warning'}
-        class:rose-readout--alarm={depthZone === 'alarm'}
+        class:rose-readout--depth-warning={depthZone === 'warning'}
+        class:rose-readout--depth-alarm={depthZone === 'alarm'}
       >
         <span class="readout-title"
           ><span>DEPTH</span>
@@ -580,15 +580,28 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   background: var(--alarm-tint);
   color: var(--alarm);
 }
-.rose-readout--depth {
-  background: transparent;
-}
 .rose-readout--warning .readout-title,
 .rose-readout--warning .readout-unit {
   color: var(--warning);
 }
 .rose-readout--alarm .readout-title,
 .rose-readout--alarm .readout-unit {
+  color: var(--alarm);
+}
+.rose-readout--depth,
+.rose-readout--depth-warning,
+.rose-readout--depth-alarm {
+  background: transparent;
+  box-shadow: none;
+}
+.rose-readout--depth-warning,
+.rose-readout--depth-warning .readout-title,
+.rose-readout--depth-warning .readout-unit {
+  color: var(--warning);
+}
+.rose-readout--depth-alarm,
+.rose-readout--depth-alarm .readout-title,
+.rose-readout--depth-alarm .readout-unit {
   color: var(--alarm);
 }
 .tile--wind-rose.tile--expanded .rose-readout .num {
