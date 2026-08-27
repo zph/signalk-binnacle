@@ -177,7 +177,7 @@ const sectorRotation = $derived(
   <div class="rose-layout">
     <div class="rose-readouts rose-readouts--top" aria-hidden="true">
       <div
-        class="rose-readout"
+        class="rose-readout rose-readout--aws"
         class:rose-readout--warning={zone === 'warning'}
         class:rose-readout--alarm={zone === 'alarm'}
       >
@@ -199,7 +199,7 @@ const sectorRotation = $derived(
         <span class="num">{rose?.heading.value ?? '---'}</span>
       </div>
       <div
-        class="rose-readout"
+        class="rose-readout rose-readout--tws"
         class:rose-readout--warning={zone === 'warning'}
         class:rose-readout--alarm={zone === 'alarm'}
       >
@@ -285,7 +285,7 @@ const sectorRotation = $derived(
     </svg>
 
     <div class="rose-readouts rose-readouts--bottom" aria-hidden="true">
-      <div class="rose-readout">
+      <div class="rose-readout rose-readout--sog">
         <span class="readout-title"
           ><span>SOG</span>
           {#if rose?.speedOverGround.unit}
@@ -295,7 +295,7 @@ const sectorRotation = $derived(
         <span class="num">{rose?.speedOverGround.value ?? '---'}</span>
       </div>
       <div
-        class="rose-readout"
+        class="rose-readout rose-readout--depth"
         class:rose-readout--warning={depthZone === 'warning'}
         class:rose-readout--alarm={depthZone === 'alarm'}
       >
@@ -325,6 +325,7 @@ const sectorRotation = $derived(
   --wind-true: #d89a00;
   --wind-pointer-label: #170b00;
   --wind-dial: color-mix(in srgb, var(--text) 12%, var(--surface-raised));
+  container-type: inline-size;
   grid-column: 1 / -1;
 }
 :global(:root[data-theme="dusk"]) .tile--wind-rose {
@@ -525,5 +526,70 @@ const sectorRotation = $derived(
 }
 .tile--wind-rose.tile--expanded .readout-title {
   font-size: 3.5cqi;
+}
+
+/* A spacious face has enough inline room to stop stacking every readout above and below the
+   compass. Query the tile itself so this works in both a wide dock and the full-screen face without
+   observing layout in JavaScript. The compact tile and portrait face retain the stacked layout. */
+@container (min-width: 40rem) {
+  .rose-layout {
+    position: relative;
+    flex: 1;
+    align-self: stretch;
+    inline-size: 100%;
+    block-size: 100%;
+    min-block-size: 0;
+    container-type: normal;
+  }
+  .tile--expanded .rose-layout {
+    inline-size: 100%;
+  }
+  .rose {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    inline-size: auto;
+    block-size: min(100%, 100vi);
+    max-inline-size: 100%;
+    transform: translate(-50%, -50%);
+  }
+  .rose-readouts {
+    position: absolute;
+    inset-inline: 0;
+    z-index: var(--z-overlay);
+    inline-size: 100%;
+    pointer-events: none;
+  }
+  .rose-readouts--top {
+    inset-block-start: 0;
+    grid-template-columns: 1fr auto 1fr;
+  }
+  .rose-readouts--bottom {
+    inset-block-end: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rose-readout {
+    inline-size: fit-content;
+    min-inline-size: min(18vi, 15rem);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+  .rose-readout:not(.rose-readout--warning):not(.rose-readout--alarm) {
+    background: transparent;
+  }
+  .rose-readout--aws,
+  .rose-readout--sog {
+    justify-self: start;
+  }
+  .rose-readout--tws,
+  .rose-readout--depth {
+    justify-self: end;
+  }
+  .rose-readout .num {
+    font-size: clamp(4rem, 7cqi, 9rem);
+  }
+  .readout-title {
+    font-size: clamp(var(--text-lg), 1.8cqi, var(--text-readout-lg));
+  }
 }
 </style>
