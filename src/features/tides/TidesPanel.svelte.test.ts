@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TideStationSelection } from '$entities/tides';
 import { TidesStore } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
+import { OwnVessel } from '$entities/vessel';
+import { SignalKStore, SK_PATHS } from '$shared/signalk';
 import TidesPanel from './TidesPanel.svelte';
 import type { TidesController } from './tides-controller.svelte';
 
@@ -28,11 +30,18 @@ function controller(): TidesController {
 }
 
 function renderPanel(store: TidesStore): string {
+  const signalK = new SignalKStore();
+  signalK.applyFrame({
+    self: new Map([[SK_PATHS.depthBelowSurface, 4]]),
+    connection: { phase: 'open', attempt: 0 },
+    epoch: Date.now(),
+  });
   return render(TidesPanel, {
     props: {
       store,
       controller: controller(),
       units: { mode: 'metric' } as UnitsStore,
+      vessel: new OwnVessel(signalK, { now: Date.now() }),
       onClose: vi.fn(),
     },
   }).body.replaceAll(/\s+/g, ' ');
@@ -115,5 +124,27 @@ describe('TidesPanel', () => {
     );
     expect(body).toContain('Retry');
     expect(body).toContain('Harbor tide');
+  });
+
+  it('overlays a sounder-based estimated depth line with an advisory explanation', () => {
+    const store = new TidesStore();
+    const now = Date.now();
+    store.setReadings(
+      {
+        station: tideStation,
+        distanceMeters: 1000,
+        events: [
+          { timeMs: now - 1000, heightMeters: 0.2, kind: 'low' },
+          { timeMs: now + 1000, heightMeters: 1.2, kind: 'high' },
+        ],
+      },
+      undefined,
+      'noaa-coops',
+    );
+
+    const body = renderPanel(store);
+    expect(body).toContain('curve-line depth-line');
+    expect(body).toContain('Estimated depth, Surface sounder plus predicted tide change');
+    expect(body).toContain('It is advisory and does not account for local bathymetry');
   });
 });

@@ -1336,6 +1336,7 @@ $effect(() => {
               store={tidesStore}
               controller={tidesController}
               {units}
+              {vessel}
               stationsShown={layerSettings[TIDES_OVERLAY_ID]?.visible ?? false}
               onToggleStations={(shown) => setLayerVisible(TIDES_OVERLAY_ID, shown)}
               onClose={closePanel}

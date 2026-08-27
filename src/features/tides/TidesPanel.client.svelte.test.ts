@@ -2,6 +2,8 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type NearbyTideStation, TidesStore } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
+import { OwnVessel } from '$entities/vessel';
+import { SignalKStore } from '$shared/signalk';
 import TidesPanel from './TidesPanel.svelte';
 import type { TidesController } from './tides-controller.svelte';
 
@@ -38,6 +40,7 @@ function mountPanel(
         store,
         controller,
         units: { mode: 'metric' } as UnitsStore,
+        vessel: new OwnVessel(new SignalKStore(), { now: Date.now() }),
         onClose: vi.fn(),
       },
     });

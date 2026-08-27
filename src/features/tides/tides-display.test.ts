@@ -9,6 +9,8 @@ import {
   nextFlowEvent,
   nowFraction,
   tideCurvePoints,
+  tideDepthCurvePoints,
+  tideHeightAt,
   tideSourceNote,
   upcomingEvents,
 } from './tides-display';
@@ -73,6 +75,27 @@ describe('tides-display', () => {
     expect(points[0]).toEqual({ x: 0, y: 0 });
     expect(points[1]).toEqual({ x: 1, y: 1 });
     expect(tideCurvePoints([])).toEqual([]);
+  });
+
+  it('interpolates tide height smoothly between turning points', () => {
+    expect(tideHeightAt(events, 1000)).toBeCloseTo(0.1);
+    expect(tideHeightAt(events, 2000)).toBeCloseTo(0.3);
+    expect(tideHeightAt(events, 3000)).toBeCloseTo(0.5);
+    expect(tideHeightAt(events, 500)).toBeUndefined();
+    expect(tideHeightAt(events, 3001)).toBeUndefined();
+  });
+
+  it('projects sounder depth by the predicted tide change on one physical scale', () => {
+    const projected = tideDepthCurvePoints(events, 2000, 4);
+    expect(projected).toBeDefined();
+    expect(projected?.tide).toHaveLength(2);
+    expect(projected?.estimatedDepth).toHaveLength(2);
+    // The estimated depth moves by the same 0.4 m between low and high as the tide prediction.
+    const ySpan = (projected?.estimatedDepth[1].y ?? 0) - (projected?.estimatedDepth[0].y ?? 0);
+    const tideSpan = (projected?.tide[1].y ?? 0) - (projected?.tide[0].y ?? 0);
+    expect(ySpan).toBeCloseTo(tideSpan);
+    expect(projected?.estimatedDepth[0].y).toBeGreaterThan(projected?.tide[0].y ?? 0);
+    expect(tideDepthCurvePoints(events, 500, 4)).toBeUndefined();
   });
 
   it('locates now within the span, or undefined outside it', () => {

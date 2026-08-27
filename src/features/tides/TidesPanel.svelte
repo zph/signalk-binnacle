@@ -9,6 +9,8 @@ import type {
 } from '$entities/tides';
 import { MAX_NEARBY_STATIONS } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
+import type { OwnVessel } from '$entities/vessel';
+import { DEPTH_SOURCE_LABELS } from '$entities/vessel';
 import { Clock, formatBearingOr, formatClockTime, MINUTE_MS } from '$shared/lib';
 import { createPanelMinimize, ShowOnChartToggle, SlideOver } from '$shared/ui';
 import type { TidesController } from './tides-controller.svelte';
@@ -21,6 +23,7 @@ import {
   nextFlowEvent,
   nowFraction,
   tideCurvePoints,
+  tideDepthCurvePoints,
   tideSourceNote,
   upcomingEvents,
 } from './tides-display';
@@ -29,6 +32,7 @@ interface Props {
   store: TidesStore;
   controller: TidesController;
   units: UnitsStore;
+  vessel: OwnVessel;
   // Whether the tide-station layer is shown on the chart; the toggle row only renders when the
   // host wires onToggleStations, so the panel works without the layer.
   stationsShown?: boolean;
@@ -41,6 +45,7 @@ const {
   store,
   controller,
   units,
+  vessel,
   stationsShown = false,
   onToggleStations,
   onClose,
@@ -64,6 +69,12 @@ const upcoming = $derived(tide ? upcomingEvents(tide.events, clock.now) : []);
 const nextHigh = $derived(upcoming.find((event) => event.kind === 'high'));
 const nextLow = $derived(upcoming.find((event) => event.kind === 'low'));
 const curve = $derived(tide ? tideCurvePoints(tide.events) : []);
+const anchorDepth = $derived(vessel.anchorDepth);
+const depthCurve = $derived(
+  tide && anchorDepth.meters !== undefined && !anchorDepth.stale
+    ? tideDepthCurvePoints(tide.events, clock.now, anchorDepth.meters)
+    : undefined,
+);
 const nowFrac = $derived(tide ? nowFraction(tide.events, clock.now) : undefined);
 const nextCurrent = $derived(current ? nextCurrentEvent(current.events, clock.now) : undefined);
 // When the soonest event is slack, the following flood or ebb maximum keeps the flow picture.
@@ -318,14 +329,37 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
       {/if}
 
       {#if curve.length > 1}
-        <!-- The curve restates the next-high and next-low numbers in the list above, so it is
-             decorative for assistive technology. -->
-        <svg class="curve" viewBox={`0 0 ${CURVE_W} ${CURVE_H}`} aria-hidden="true">
-          <path class="curve-line" d={curvePath(curve)} fill="none" />
-          {#if nowFrac !== undefined}
-            <line class="now" x1={nowFrac * CURVE_W} y1="0" x2={nowFrac * CURVE_W} y2={CURVE_H} />
-          {/if}
-        </svg>
+        <div class="curve-wrap">
+          <!-- The graph restates the numeric prediction and its legend immediately below, so it is
+               decorative for assistive technology. -->
+          <svg class="curve" viewBox={`0 0 ${CURVE_W} ${CURVE_H}`} aria-hidden="true">
+            <path
+              class="curve-line tide-line"
+              d={curvePath(depthCurve?.tide ?? curve)}
+              fill="none"
+            />
+            {#if depthCurve}
+              <path
+                class="curve-line depth-line"
+                d={curvePath(depthCurve.estimatedDepth)}
+                fill="none"
+              />
+            {/if}
+            {#if nowFrac !== undefined}
+              <line class="now" x1={nowFrac * CURVE_W} y1="0" x2={nowFrac * CURVE_W} y2={CURVE_H} />
+            {/if}
+          </svg>
+          <div class="curve-legend">
+            <span><i class="legend-line tide-legend"></i>Tide height</span>
+            {#if depthCurve && anchorDepth.source}
+              <span>
+                <i class="legend-line depth-legend"></i>Estimated depth,
+                {DEPTH_SOURCE_LABELS[anchorDepth.source]}
+                sounder plus predicted tide change
+              </span>
+            {/if}
+          </div>
+        </div>
       {/if}
     </section>
 
@@ -401,6 +435,13 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
       Heights are above mean lower low water (MLLW), the chart's zero. Times are in the device's
       local time.
     </p>
+    {#if depthCurve}
+      <p class="footnote">
+        Estimated depth adjusts the current sounder reading by the station's predicted tide change.
+        It is advisory and does not account for local bathymetry, waves, squat, or distance from the
+        station.
+      </p>
+    {/if}
   {:else if store.status === 'error'}
     <div class="refresh-note" role="alert">
       <div>
@@ -483,11 +524,45 @@ function curvePath(points: Array<{ x: number; y: number }>): string {
   border-radius: var(--radius-sm);
   background: var(--surface);
 }
+.curve-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 .curve-line {
-  stroke: var(--accent);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.tide-line,
+.tide-legend {
+  stroke: var(--accent);
+  background: var(--accent);
+}
+.depth-line {
+  stroke: var(--text);
+  stroke-dasharray: 5 3;
+}
+.depth-legend {
+  background: var(--text);
+}
+.curve-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.curve-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.legend-line {
+  display: inline-block;
+  inline-size: 1.25rem;
+  block-size: 2px;
+  border-radius: 999px;
 }
 .now {
   stroke: var(--text-muted);

@@ -102,6 +102,60 @@ export function tideCurvePoints(events: TideEvent[]): Array<{ x: number; y: numb
   return events.map((e) => ({ x: (e.timeMs - t0) / tSpan, y: (e.heightMeters - h0) / hSpan }));
 }
 
+// Estimate the tide height between two reported turning points. Tide height changes smoothly and
+// is nearly level at a high or low, so cosine interpolation is a better local approximation than
+// a straight line while remaining explicit about the limited high/low input available here.
+export function tideHeightAt(events: TideEvent[], timeMs: number): number | undefined {
+  if (events.length === 0 || timeMs < events[0].timeMs) return undefined;
+  for (let index = 1; index < events.length; index++) {
+    const before = events[index - 1];
+    const after = events[index];
+    if (timeMs > after.timeMs) continue;
+    const fraction = (timeMs - before.timeMs) / (after.timeMs - before.timeMs || 1);
+    const eased = (1 - Math.cos(Math.PI * fraction)) / 2;
+    return before.heightMeters + (after.heightMeters - before.heightMeters) * eased;
+  }
+  return timeMs === events[events.length - 1].timeMs
+    ? events[events.length - 1].heightMeters
+    : undefined;
+}
+
+export interface TideDepthCurve {
+  tide: Array<{ x: number; y: number }>;
+  estimatedDepth: Array<{ x: number; y: number }>;
+}
+
+// Put predicted tide height and sounder-based estimated depth on one physical meter scale. The
+// estimated depth is the live whole-water-column sounder reading plus the predicted tide change
+// from now to each turning point. It is an estimate, not surveyed bathymetry.
+export function tideDepthCurvePoints(
+  events: TideEvent[],
+  nowMs: number,
+  depthMeters: number,
+): TideDepthCurve | undefined {
+  const tideNow = tideHeightAt(events, nowMs);
+  if (tideNow === undefined || !Number.isFinite(depthMeters)) return undefined;
+
+  const t0 = events[0].timeMs;
+  const tSpan = events[events.length - 1].timeMs - t0 || 1;
+  const depthValues = events.map((event) => depthMeters + (event.heightMeters - tideNow));
+  let minimum = Math.min(events[0].heightMeters, depthValues[0]);
+  let maximum = Math.max(events[0].heightMeters, depthValues[0]);
+  for (let index = 1; index < events.length; index++) {
+    minimum = Math.min(minimum, events[index].heightMeters, depthValues[index]);
+    maximum = Math.max(maximum, events[index].heightMeters, depthValues[index]);
+  }
+  const span = maximum - minimum || 1;
+  const point = (event: TideEvent, value: number) => ({
+    x: (event.timeMs - t0) / tSpan,
+    y: (value - minimum) / span,
+  });
+  return {
+    tide: events.map((event) => point(event, event.heightMeters)),
+    estimatedDepth: events.map((event, index) => point(event, depthValues[index])),
+  };
+}
+
 // Where "now" falls along the tide curve's x axis, or undefined when it is outside the event span.
 export function nowFraction(events: TideEvent[], nowMs: number): number | undefined {
   if (events.length === 0) return undefined;
