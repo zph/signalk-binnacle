@@ -5,7 +5,12 @@ import Command from '@lucide/svelte/icons/command';
 import Search from '@lucide/svelte/icons/search';
 import { onDestroy, tick } from 'svelte';
 import { dialog, registerDismiss, SearchInput } from '$shared/ui';
-import { type CommandPaletteCommand, filterPaletteCommands } from './command-palette';
+import {
+  type CommandPaletteCommand,
+  filterPaletteCommands,
+  limitPaletteCommands,
+  nextEnabledPaletteIndex,
+} from './command-palette';
 
 interface Props {
   commands: CommandPaletteCommand[];
@@ -27,6 +32,14 @@ const baseCommands = $derived(parent?.children ?? commands);
 const visibleCommands = $derived(
   parent?.followUp ? searchResults : filterPaletteCommands(baseCommands, query),
 );
+const displayedCommands = $derived(limitPaletteCommands(visibleCommands));
+const numberedCommands = $derived.by(() => {
+  let shortcut = 0;
+  return displayedCommands.map((command) => {
+    if (!command.disabled) shortcut += 1;
+    return { command, shortcut: command.disabled ? undefined : shortcut };
+  });
+});
 const minimumQueryLength = $derived(parent?.followUp?.minimumQueryLength ?? 2);
 const placeholder = $derived(
   parent?.followUp?.placeholder ?? (parent ? `Search ${parent.label}` : 'Type a command'),
@@ -100,18 +113,42 @@ function choose(command: CommandPaletteCommand): void {
 }
 
 function onSearchKeydown(event: KeyboardEvent): void {
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    if (visibleCommands.length === 0) return;
+  if (event.isComposing) return;
+  const emacsDelta =
+    event.ctrlKey && !event.metaKey && !event.altKey
+      ? event.key.toLocaleLowerCase() === 'n'
+        ? 1
+        : event.key.toLocaleLowerCase() === 'p'
+          ? -1
+          : undefined
+      : undefined;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || emacsDelta !== undefined) {
+    if (displayedCommands.length === 0) return;
     event.preventDefault();
-    const delta = event.key === 'ArrowDown' ? 1 : -1;
-    selectedIndex = (selectedIndex + delta + visibleCommands.length) % visibleCommands.length;
+    const delta = emacsDelta ?? (event.key === 'ArrowDown' ? 1 : -1);
+    selectedIndex = nextEnabledPaletteIndex(displayedCommands, selectedIndex, delta);
     document
       .getElementById(`palette-option-${selectedIndex}`)
       ?.scrollIntoView({ block: 'nearest' });
     return;
   }
+  if (
+    !event.repeat &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    /^[1-9]$/.test(event.key)
+  ) {
+    const shortcut = numberedCommands.find(
+      (entry) => entry.shortcut === Number(event.key),
+    )?.command;
+    if (!shortcut) return;
+    event.preventDefault();
+    choose(shortcut);
+    return;
+  }
   if (event.key === 'Enter') {
-    const selected = visibleCommands[selectedIndex];
+    const selected = displayedCommands[selectedIndex];
     if (!selected) return;
     event.preventDefault();
     choose(selected);
@@ -154,8 +191,10 @@ function onSearchKeydown(event: KeyboardEvent): void {
   {/if}
 
   <div id="command-palette-results" class="palette-results" role="listbox" aria-label="Commands">
-    <span class="visually-hidden" role="status">{visibleCommands[selectedIndex]?.label ?? ''}</span>
-    {#each visibleCommands as command, index (command.id)}
+    <span class="visually-hidden" role="status"
+      >{displayedCommands[selectedIndex]?.label ?? ''}</span
+    >
+    {#each numberedCommands as { command, shortcut }, index (command.id)}
       <button
         id={`palette-option-${index}`}
         type="button"
@@ -163,11 +202,17 @@ function onSearchKeydown(event: KeyboardEvent): void {
         class:is-selected={index === selectedIndex}
         role="option"
         aria-selected={index === selectedIndex}
+        aria-keyshortcuts={shortcut === undefined ? undefined : String(shortcut)}
         disabled={command.disabled}
         title={command.disabled ? command.disabledReason : undefined}
         onpointermove={() => (selectedIndex = index)}
         onclick={() => choose(command)}
       >
+        {#if shortcut !== undefined}
+          <kbd class="palette-shortcut" aria-hidden="true">{shortcut}</kbd>
+        {:else}
+          <span class="palette-shortcut-placeholder" aria-hidden="true"></span>
+        {/if}
         <span class="palette-command-icon">
           {#if command.icon}
             <command.icon size={19} aria-hidden="true" />
@@ -205,6 +250,8 @@ function onSearchKeydown(event: KeyboardEvent): void {
 
   <footer class="palette-footer">
     <span><kbd>↑</kbd><kbd>↓</kbd> select</span>
+    <span><kbd>⌃N</kbd><kbd>⌃P</kbd> select</span>
+    <span><kbd>1</kbd>–<kbd>9</kbd> open</span>
     <span><kbd>↵</kbd> open</span>
     {#if parent?.followUp}
       <span class="palette-attribution">
@@ -271,7 +318,7 @@ kbd {
 }
 .palette-command {
   display: grid;
-  grid-template-columns: var(--control-size) minmax(0, 1fr) auto auto;
+  grid-template-columns: auto var(--control-size) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--space-2);
   inline-size: 100%;
@@ -282,6 +329,17 @@ kbd {
   background: transparent;
   color: var(--text);
   text-align: start;
+}
+.palette-shortcut {
+  background: var(--accent-tint);
+  color: var(--text-muted);
+}
+.palette-shortcut-placeholder {
+  min-inline-size: 1.75rem;
+}
+.palette-command.is-selected .palette-shortcut {
+  background: var(--accent-tint-strong);
+  color: var(--accent);
 }
 .palette-command:hover,
 .palette-command.is-selected {

@@ -20,6 +20,38 @@ export interface CommandPaletteCommand {
   onSelect?: () => void;
 }
 
+// A single unmodified number key must resolve without waiting to see whether another digit follows.
+// Nine actionable rows keep every selectable command reachable through one stable 1 through 9
+// shortcut; disabled explanations may remain between them, and the rest stay available through search.
+export const MAX_PALETTE_RESULTS = 9;
+
+export function limitPaletteCommands(commands: CommandPaletteCommand[]): CommandPaletteCommand[] {
+  const displayed: CommandPaletteCommand[] = [];
+  let enabledCount = 0;
+  for (const command of commands) {
+    if (!command.disabled && enabledCount >= MAX_PALETTE_RESULTS) break;
+    displayed.push(command);
+    if (!command.disabled) {
+      enabledCount += 1;
+      if (enabledCount >= MAX_PALETTE_RESULTS) break;
+    }
+  }
+  return displayed;
+}
+
+export function nextEnabledPaletteIndex(
+  commands: CommandPaletteCommand[],
+  currentIndex: number,
+  delta: 1 | -1,
+): number {
+  if (commands.length === 0) return 0;
+  for (let step = 1; step <= commands.length; step += 1) {
+    const index = (currentIndex + delta * step + commands.length) % commands.length;
+    if (!commands[index]?.disabled) return index;
+  }
+  return currentIndex;
+}
+
 function normalized(value: string): string {
   return value
     .normalize('NFD')

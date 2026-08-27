@@ -14,13 +14,46 @@ test('Command K searches commands and chains into instrument layouts', async ({ 
   await expect(palette).toBeVisible();
   const search = palette.getByRole('searchbox', { name: 'Search commands' });
   await expect(search).toBeFocused();
+  await expect(palette.locator('.palette-shortcut')).toHaveText([
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+  ]);
+  await expect(palette.getByRole('option', { name: /Instruments/ })).toHaveAttribute(
+    'aria-keyshortcuts',
+    '2',
+  );
+  await expect(palette.getByRole('option', { name: /Center on boat/ })).not.toHaveAttribute(
+    'aria-keyshortcuts',
+  );
 
   await search.fill('instruments');
-  await search.press('Enter');
-  await expect(
-    palette.getByRole('searchbox', { name: 'Search Instruments commands' }),
-  ).toBeFocused();
-  await palette.getByRole('option', { name: /Quarter screen/ }).click();
+  await search.press('1');
+  const instrumentSearch = palette.getByRole('searchbox', {
+    name: 'Search Instruments commands',
+  });
+  await expect(instrumentSearch).toBeFocused();
+  await expect(palette.getByRole('option', { name: /Full screen/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await instrumentSearch.press('Control+n');
+  await expect(palette.getByRole('option', { name: /Half screen/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await instrumentSearch.press('Control+p');
+  await expect(palette.getByRole('option', { name: /Full screen/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await instrumentSearch.press('3');
 
   const dock = page.locator('.binnacle-shell > .instruments');
   await expect(dock).toBeVisible();
