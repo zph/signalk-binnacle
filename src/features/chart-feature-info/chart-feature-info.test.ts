@@ -35,6 +35,7 @@ describe('chartFeatureDetails', () => {
   it('formats local bathymetry quality and evidence in metric units', () => {
     const details = chartFeatureDetails(selection, 'metric');
     expect(details.title).toBe('Local bathymetry cell');
+    expect(details.isLocalBathymetry).toBe(true);
     expect(details.depth).toBe('6.3');
     expect(details.depthUnit).toBe('m');
     expect(details.quality).toBe('Moderate evidence (72%)');
@@ -69,6 +70,7 @@ describe('chartFeatureDetails', () => {
       'metric',
     );
     expect(details.title).toBe('Chart depth area');
+    expect(details.isLocalBathymetry).toBe(false);
     expect(details.depth).toBe('4.2');
     expect(details.quality).toBeUndefined();
   });

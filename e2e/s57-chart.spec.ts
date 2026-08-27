@@ -144,6 +144,51 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
       body: Buffer.from(encDepthAreaTile()),
     });
   });
+  await page.route(/\/plugins\/signalk-bathymetry\/cells\/lookup/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        bounds: [-123, 37, -122, 38.5],
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-123, 37],
+              [-122, 37],
+              [-122, 38.5],
+              [-123, 38.5],
+              [-123, 37],
+            ],
+          ],
+        },
+      }),
+    }),
+  );
+  await page.route(/\/plugins\/signalk-bathymetry\/soundings/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        soundings: [
+          {
+            id: 1,
+            observedAt: '2026-08-27T12:00:00.000Z',
+            position: { latitude: 37.8, longitude: -122.4 },
+            rawDepthM: 4.4,
+            datumDepthM: 4,
+            tideHeightM: 0.4,
+            verticalSigmaM: 0.35,
+            sampleCount: 12,
+            qcState: 'accepted',
+            depthSource: 'environment.depth.belowKeel',
+            passId: 'pass-1',
+            aggregationKind: 'stationary_window',
+          },
+        ],
+      }),
+    }),
+  );
 
   try {
     await page.goto('/');
@@ -160,10 +205,20 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await canvas.click({ position: { x: canvasBox.width / 2, y: canvasBox.height / 2 } });
     const cellDetails = page.getByRole('dialog', { name: 'Local bathymetry cell details' });
     await expect(cellDetails).toBeVisible();
+    await expect(cellDetails).toContainText('Safety-conservative chart depth');
     await expect(cellDetails).toContainText('4.0 m');
     await expect(cellDetails).toContainText('Moderate evidence (72%)');
     await expect(cellDetails).toContainText('Observations');
     await expect(cellDetails).toContainText('Quality limits: Single Pass, Sparse Neighbors.');
+    await cellDetails.getByRole('button', { name: 'Raw data table' }).click();
+    const rawDialog = page.getByRole('dialog', { name: 'Raw bathymetry data' });
+    await expect(rawDialog).toBeVisible();
+    await expect(rawDialog).toContainText('1 source record');
+    await expect(rawDialog).toContainText('12 source samples');
+    await expect(rawDialog.getByRole('cell', { name: '4.0 m' })).toBeVisible();
+    await expect(rawDialog).toContainText('environment.depth.belowKeel');
+    await rawDialog.getByRole('button', { name: 'Done' }).click();
+    await expect(rawDialog).toBeHidden();
     await cellDetails.getByRole('button', { name: 'Close cell details' }).click();
     await expect(cellDetails).toBeHidden();
 

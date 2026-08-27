@@ -5,6 +5,7 @@ import type { ChartFeatureSelection } from '$shared/map';
 
 export interface ChartFeatureDetails {
   title: string;
+  isLocalBathymetry: boolean;
   depth?: string;
   depthUnit: DepthUnit;
   quality?: string;
@@ -37,6 +38,7 @@ export function chartFeatureDetails(
       .filter(Boolean)
       .map(humanizeReason) ?? [];
   const result: ChartFeatureDetails = {
+    isLocalBathymetry: stringProperty(properties, 'BATHYMETRY_PROVIDER') === 'signalk-bathymetry',
     title:
       stringProperty(properties, 'BATHYMETRY_PROVIDER') === 'signalk-bathymetry'
         ? 'Local bathymetry cell'

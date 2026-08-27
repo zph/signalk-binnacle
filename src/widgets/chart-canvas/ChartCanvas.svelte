@@ -1001,6 +1001,8 @@ onDestroy(() => {
       <module.ChartFeaturePopup
         selection={chartFeature}
         {units}
+        {origin}
+        token={chartsToken}
         onClose={() => {
           chartFeature = undefined;
         }}

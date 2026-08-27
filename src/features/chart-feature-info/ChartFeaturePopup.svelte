@@ -3,15 +3,19 @@ import X from '@lucide/svelte/icons/x';
 import type { UnitsStore } from '$entities/units';
 import type { ChartFeatureSelection } from '$shared/map';
 import { chartFeatureDetails } from './chart-feature-info';
+import RawBathymetryDialog from './RawBathymetryDialog.svelte';
 
 interface Props {
   selection: ChartFeatureSelection;
   units: UnitsStore;
+  origin: string;
+  token?: string;
   onClose: () => void;
 }
 
-const { selection, units, onClose }: Props = $props();
+const { selection, units, origin, token, onClose }: Props = $props();
 const details = $derived(chartFeatureDetails(selection, units.mode, units.depthUnit));
+let rawDataOpen = $state(false);
 
 // The fixed pixel dimensions mirror the scoped CSS below. They keep the card inside the chart at
 // narrow edges without measuring it after paint and moving it visibly on the next frame.
@@ -65,6 +69,7 @@ const change = $derived(
   </header>
 
   {#if details.depth}
+    <p class="depth-label">Safety-conservative chart depth</p>
     <p class="depth"><span class="num">{details.depth}</span> {details.depthUnit}</p>
   {/if}
 
@@ -80,7 +85,7 @@ const change = $derived(
       </dd>
     {/if}
     {#if details.robustDepth}
-      <dt>Estimated seabed depth</dt>
+      <dt>Robust depth estimate</dt>
       <dd>
         <span class="num">{details.robustDepth}</span><span class="unit">{details.depthUnit}</span>
       </dd>
@@ -120,13 +125,35 @@ const change = $derived(
   {#if details.confidenceReasons.length > 0}
     <p class="muted-note muted-note--xs">Quality limits: {details.confidenceReasons.join(', ')}.</p>
   {/if}
+  {#if details.isLocalBathymetry && details.robustDepth}
+    <p class="muted-note muted-note--xs">
+      The chart depth is deliberately shallow-biased for safety. It includes uncertainty and may
+      retain credible shallower evidence while a deeper seabed estimate is being evaluated.
+    </p>
+  {/if}
   {#if change}
     <p class="alert-note">Seabed change state: {change}.</p>
   {/if}
   <p class="advisory muted-note muted-note--xs">
     Supplemental local estimate only. Not for primary navigation.
   </p>
+  {#if details.isLocalBathymetry}
+    <button type="button" class="btn raw-data" onclick={() => (rawDataOpen = true)}>
+      Raw data table
+    </button>
+  {/if}
 </div>
+
+{#if rawDataOpen}
+  <RawBathymetryDialog
+    {origin}
+    {token}
+    latitude={selection.latitude}
+    longitude={selection.longitude}
+    depthUnit={details.depthUnit}
+    onClose={() => (rawDataOpen = false)}
+  />
+{/if}
 
 <style>
 .cell-popup {
@@ -149,6 +176,7 @@ header > div {
 }
 h2,
 .source,
+.depth-label,
 .depth,
 .advisory {
   margin: 0;
@@ -161,9 +189,18 @@ h2 {
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
+.depth-label {
+  margin-block-start: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
 .depth {
-  margin-block: var(--space-2) var(--space-3);
+  margin-block: 0 var(--space-3);
   font-size: var(--text-readout);
+}
+.raw-data {
+  inline-size: 100%;
+  margin-block-start: var(--space-3);
 }
 .depth .num {
   font-weight: 700;
