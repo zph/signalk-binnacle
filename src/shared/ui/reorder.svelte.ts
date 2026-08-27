@@ -13,6 +13,9 @@ export interface ReorderOptions {
   rowAttribute: string; // e.g. 'data-layer-row' or 'data-tile-row'
   handleSelector: string; // e.g. '.handle'
   itemNoun: string; // 'Layer' or 'Tile', for the polite announcement fallback
+  // Lists use vertical midpoint targeting. A tile dashboard can opt into visual grid targeting so
+  // horizontal pointer position selects the intended column as well as the row.
+  layout?: 'vertical' | 'grid';
 }
 
 export interface Reorder {
@@ -90,33 +93,78 @@ export function createReorder(options: ReorderOptions): Reorder {
     // listener close over the same ref rather than reading the getter twice.
     const listEl = options.getListEl();
 
-    // Measure each non-dragged row's vertical midpoint once at drag start, re-measuring only when
-    // the list scrolls mid-drag, so a pointermove costs no layout read or reflow. Collapsed-category
-    // rows stay in the DOM (hidden), so they measure as a zero midpoint and never become a drop
-    // target, while still holding their movable index, so the slot the pointer resolves to is a
-    // valid movable index.
-    const measureMidpoints = (): number[] =>
+    // Measure each non-dragged row once at drag start, re-measuring only when the list scrolls
+    // mid-drag, so a pointermove costs no layout read or reflow. Vertical lists need only the
+    // midpoint; dashboard grids also need the horizontal bounds.
+    const measureRects = (): DOMRect[] =>
       listEl
         ? [...listEl.querySelectorAll<HTMLElement>(`[${options.rowAttribute}]`)]
             .filter((el) => el.getAttribute(options.rowAttribute) !== id)
-            .map((el) => {
-              const rect = el.getBoundingClientRect();
-              return rect.top + rect.height / 2;
-            })
+            .map((el) => el.getBoundingClientRect())
         : [];
-    let midpoints = measureMidpoints();
+    let rects = measureRects();
 
-    // The slot is the first midpoint the pointer is above, matching commit's contract, then
-    // clamped to the row's own category span so the drop indicator never points outside the visible
-    // category (commit clamps again as the unforgeable backstop).
-    const slotFromPointer = (clientY: number): number => {
-      let slot = midpoints.length;
-      for (let i = 0; i < midpoints.length; i++) {
-        if (clientY < midpoints[i]) {
-          slot = i;
+    const verticalSlot = (clientY: number): number => {
+      let slot = rects.length;
+      for (let i = 0; i < rects.length; i++) {
+        const rect = rects[i];
+        if (rect && clientY < rect.top + rect.height / 2) {
+          return i;
+        }
+      }
+      return slot;
+    };
+
+    // Resolve the pointer against visual grid rows, then against tile centers in that row. DOM
+    // order remains the committed order, while the horizontal coordinate disambiguates columns.
+    const gridSlot = (clientX: number, clientY: number): number => {
+      if (rects.length === 0) return 0;
+      const positioned = rects.map((rect, slot) => ({ rect, slot }));
+      const rows: Array<{
+        top: number;
+        bottom: number;
+        entries: Array<{ rect: DOMRect; slot: number }>;
+      }> = [];
+      for (const entry of positioned) {
+        const current = rows.at(-1);
+        // CSS Grid aligns the tops of tiles in a visual row. A two-pixel tolerance absorbs browser
+        // subpixel rounding without combining adjacent rows of different heights.
+        if (!current || Math.abs(entry.rect.top - current.top) > 2) {
+          rows.push({
+            top: entry.rect.top,
+            bottom: entry.rect.bottom,
+            entries: [entry],
+          });
+        } else {
+          current.bottom = Math.max(current.bottom, entry.rect.bottom);
+          current.entries.push(entry);
+        }
+      }
+      const first = rows[0];
+      const last = rows.at(-1);
+      if (!first || !last) return 0;
+      if (clientY < first.top) return 0;
+      if (clientY > last.bottom) return rects.length;
+
+      let selected = last;
+      for (let i = 0; i < rows.length - 1; i++) {
+        const row = rows[i];
+        const next = rows[i + 1];
+        if (row && next && clientY < (row.bottom + next.top) / 2) {
+          selected = row;
           break;
         }
       }
+      for (const entry of selected.entries) {
+        if (clientX < entry.rect.left + entry.rect.width / 2) return entry.slot;
+      }
+      return (selected.entries.at(-1)?.slot ?? -1) + 1;
+    };
+
+    // Clamp after either layout resolves its insertion slot. Category-constrained list callers
+    // retain the same backstop, while an unconstrained tile grid uses the identity clamp.
+    const slotFromPointer = (clientX: number, clientY: number): number => {
+      const slot = options.layout === 'grid' ? gridSlot(clientX, clientY) : verticalSlot(clientY);
       return clamp(currentItems, id, slot);
     };
 
@@ -127,7 +175,7 @@ export function createReorder(options: ReorderOptions): Reorder {
     listEl?.addEventListener(
       'scroll',
       () => {
-        midpoints = measureMidpoints();
+        rects = measureRects();
       },
       { signal, passive: true },
     );
@@ -141,7 +189,7 @@ export function createReorder(options: ReorderOptions): Reorder {
     handle.addEventListener(
       'pointermove',
       (move) => {
-        dropSlot = slotFromPointer(move.clientY);
+        dropSlot = slotFromPointer(move.clientX, move.clientY);
       },
       { signal },
     );

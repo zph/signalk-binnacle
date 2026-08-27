@@ -237,7 +237,10 @@ source, and surrounding traffic before relying on it.
   positions make separate AWA and TWA numerics unnecessary. Depth uses the server's Signal K zone
   and notification state for its warning and alarm color. Tapping any instrument expands that
   face across Binnacle, and tapping the large face restores the grid. A small question-mark control
-  at the lower right opens the instrument's source and trend details. Customize can show, hide, and reorder tiles,
+  at the lower right opens the instrument's source and trend details. The header lock opens a
+  dashboard-reorder mode with touch, pointer, and keyboard handles on the live tiles. Every move
+  writes the same persisted order shown by Customize, so the two views cannot diverge. Customize
+  can show, hide, and reorder tiles,
   including bounded discovered batteries, engines, tanks, solar controllers, and cabin sensors. A
   Rescan checks the live Signal K model first. When a registered history provider is available, it
   also checks the preceding year for concrete paths that populated under `vessels.self`, so seasonal

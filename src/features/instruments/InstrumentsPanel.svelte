@@ -1,7 +1,10 @@
 <script lang="ts">
 import CircleHelp from '@lucide/svelte/icons/circle-help';
+import GripVertical from '@lucide/svelte/icons/grip-vertical';
+import Lock from '@lucide/svelte/icons/lock';
+import LockOpen from '@lucide/svelte/icons/lock-open';
 import { type Snippet, untrack } from 'svelte';
-import { CustomizeToggle, dialog, PanelHeader, trapFocus } from '$shared/ui';
+import { CustomizeToggle, createReorder, dialog, PanelHeader, trapFocus } from '$shared/ui';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
 import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentDockResize from './InstrumentDockResize.svelte';
@@ -49,8 +52,10 @@ const {
 const depthDef = $derived(controller.resolve('depth'));
 
 let customizing = $state(false);
+let reordering = $state(false);
 let detailId = $state<string | undefined>();
 let expandedId = $state<string | undefined>();
+let tilesEl = $state<HTMLElement | undefined>();
 $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
 });
@@ -60,6 +65,16 @@ $effect(() => {
 const tiles = $derived(controller.tiles);
 const detailDef = $derived(detailId ? tiles.find((def) => def.id === detailId) : undefined);
 const expandedDef = $derived(expandedId ? tiles.find((def) => def.id === expandedId) : undefined);
+
+const reorder = createReorder({
+  getItems: () => tiles.map((def) => ({ id: def.id, title: controller.resolvedLabel(def) })),
+  getListEl: () => tilesEl,
+  commit: (id, slot) => controller.reorderTile(id, slot),
+  rowAttribute: 'data-tile-row',
+  handleSelector: '.tile-reorder-handle',
+  itemNoun: 'Instrument',
+  layout: 'grid',
+});
 
 function spansWholeRow(kind: string, state: string): boolean {
   return kind === 'wind-rose' || (state !== 'never' && (kind === 'wind' || kind === 'position'));
@@ -119,6 +134,23 @@ $effect(() => {
       {#if fullscreen && emergencyAction}
         {@render emergencyAction()}
       {/if}
+      {#if !customizing && !detailDef}
+        <button
+          type="button"
+          class="icon-btn"
+          class:icon-btn--accent={reordering}
+          aria-label={reordering ? 'Lock instrument arrangement' : 'Unlock instrument arrangement'}
+          aria-pressed={reordering}
+          title={reordering ? 'Lock instrument arrangement' : 'Unlock instrument arrangement'}
+          onclick={() => (reordering = !reordering)}
+        >
+          {#if reordering}
+            <LockOpen size={18} aria-hidden="true" />
+          {:else}
+            <Lock size={18} aria-hidden="true" />
+          {/if}
+        </button>
+      {/if}
       <CustomizeToggle
         object="instruments"
         editing={customizing}
@@ -126,6 +158,7 @@ $effect(() => {
         iconOnly
         onToggle={() => {
           detailId = undefined;
+          reordering = false;
           customizing = !customizing;
         }}
       />
@@ -158,11 +191,17 @@ $effect(() => {
     </div>
     <InstrumentsCustomize {controller} {deps} />
   {:else}
-    <div class="tiles">
+    {#if reordering}
+      <p id="instrument-reorder-instruction" class="reorder-instruction muted-note" role="status">
+        Drag an instrument by its handle to move it. Select the open lock when done.
+      </p>
+    {/if}
+    <div class="tiles" class:tiles--reordering={reordering} bind:this={tilesEl}>
       {#if tiles.length === 0}
         <p class="muted-note empty">No instruments shown. Use Customize to add one.</p>
       {/if}
-      {#each tiles as def (def.id)}
+      {#each tiles as def, i (def.id)}
+        {@const indicator = reorder.indicatorFor(def.id)}
         {@const reading = def.read(deps)}
         {@const zone = controller.zoneState(def, reading.siValue)}
         {@const staleAge = staleAgeText(deps, def, reading)}
@@ -171,7 +210,15 @@ $effect(() => {
             ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
             : 'normal'}
         {@const resolvedLabel = controller.resolvedLabel(def)}
-        <div class="tile-shell" class:tile-shell--wide={spansWholeRow(def.kind, reading.state)}>
+        <div
+          data-tile-row={def.id}
+          class="tile-shell"
+          class:tile-shell--wide={spansWholeRow(def.kind, reading.state)}
+          class:reorder-row={reordering}
+          class:dragging={reordering && reorder.dragId === def.id}
+          class:drop-before={reordering && indicator.before}
+          class:drop-after={reordering && indicator.after}
+        >
           <InstrumentTile
             {def}
             label={resolvedLabel}
@@ -182,18 +229,33 @@ $effect(() => {
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
             onActivate={() => (expandedId = def.id)}
           />
-          <button
-            type="button"
-            class="tile-info"
-            aria-label={`Show information for ${resolvedLabel}`}
-            title={`Show information for ${resolvedLabel}`}
-            onclick={() => (detailId = def.id)}
-          >
-            <CircleHelp size={15} aria-hidden="true" />
-          </button>
+          {#if reordering}
+            <button
+              type="button"
+              class="icon-btn handle tile-reorder-handle"
+              aria-label={`Move ${resolvedLabel}, position ${i + 1} of ${tiles.length}`}
+              aria-describedby="instrument-reorder-instruction"
+              aria-keyshortcuts="ArrowUp ArrowDown"
+              onpointerdown={(event) => reorder.handlePointerDown(def.id, event)}
+              onkeydown={(event) => reorder.handleKeydown(def.id, event)}
+            >
+              <GripVertical size={18} aria-hidden="true" />
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="tile-info"
+              aria-label={`Show information for ${resolvedLabel}`}
+              title={`Show information for ${resolvedLabel}`}
+              onclick={() => (detailId = def.id)}
+            >
+              <CircleHelp size={15} aria-hidden="true" />
+            </button>
+          {/if}
         </div>
       {/each}
     </div>
+    <span class="visually-hidden" role="status">{reorder.reorderAnnouncement}</span>
   {/if}
 
   {#if expandedDef}
@@ -259,6 +321,45 @@ $effect(() => {
   flex: 1;
   inline-size: 100%;
 }
+.tiles--reordering .tile-shell :global(.tile) {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
+}
+.tile-shell.dragging :global(.tile) {
+  outline: 2px solid var(--accent);
+  box-shadow: var(--shadow-overlay);
+  opacity: 0.78;
+}
+.tile-shell .tile-reorder-handle {
+  position: absolute;
+  inset-block-start: var(--space-1);
+  inset-inline-end: var(--space-1);
+  z-index: 1;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  color: var(--accent);
+  opacity: 0.9;
+}
+.tile-shell .tile-reorder-handle:hover,
+.tile-shell .tile-reorder-handle:focus-visible {
+  opacity: 1;
+}
+/* Grid drops need a vertical insertion marker. This overrides the shared list row's horizontal
+   marker while retaining the same accent, carried-tile treatment, and state classes. */
+.tile-shell.reorder-row.drop-before::before,
+.tile-shell.reorder-row.drop-after::after {
+  inset-block: var(--space-1);
+  inline-size: 3px;
+  block-size: auto;
+  border-radius: 999px;
+}
+.tile-shell.reorder-row.drop-before::before {
+  inset-inline: auto;
+  inset-inline-start: calc(var(--space-1) * -1);
+}
+.tile-shell.reorder-row.drop-after::after {
+  inset-inline: auto;
+  inset-inline-end: calc(var(--space-1) * -1);
+}
 /* The question mark is visually quiet, but its transparent target keeps the full 44 px touch
    contract. It is a sibling of the tile button, never a nested interactive control. */
 .tile-info {
@@ -317,5 +418,9 @@ $effect(() => {
 
 .customize-instruction {
   padding: 0 var(--space-3) var(--space-2);
+}
+.reorder-instruction {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-1);
 }
 </style>

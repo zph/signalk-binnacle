@@ -191,4 +191,57 @@ describe('createReorder', () => {
     expect(handle.releasePointerCapture).toHaveBeenCalledWith(7);
     expect(committed).toEqual([{ id: 'item-1', slot: 0 }]);
   });
+
+  it('uses horizontal position to select a column in grid layout', () => {
+    const items = makeItems(4);
+    const committed: Array<{ id: string; slot: number }> = [];
+    const listeners = new Map<string, EventListener>();
+    const handle = {
+      addEventListener: (type: string, listener: EventListenerOrEventListenerObject) => {
+        if (typeof listener === 'function') listeners.set(type, listener);
+      },
+      releasePointerCapture: vi.fn(),
+      setPointerCapture: vi.fn(),
+    } as unknown as HTMLElement;
+    const rect = (left: number, top: number) => ({
+      left,
+      top,
+      width: 90,
+      height: 80,
+      right: left + 90,
+      bottom: top + 80,
+    });
+    // item-0 is the dragged tile. The remaining DOM positions retain the empty first grid cell.
+    const rows = [
+      { getAttribute: () => 'item-0', getBoundingClientRect: () => rect(0, 0) },
+      { getAttribute: () => 'item-1', getBoundingClientRect: () => rect(100, 0) },
+      { getAttribute: () => 'item-2', getBoundingClientRect: () => rect(0, 100) },
+      { getAttribute: () => 'item-3', getBoundingClientRect: () => rect(100, 100) },
+    ] as unknown as HTMLElement[];
+    const list = {
+      addEventListener: vi.fn(),
+      querySelectorAll: () => rows,
+    } as unknown as HTMLElement;
+    const r = createReorder({
+      getItems: () => items,
+      getListEl: () => list,
+      commit: (id, slot) => committed.push({ id, slot }),
+      rowAttribute: 'data-row',
+      handleSelector: '.handle',
+      itemNoun: 'Item',
+      layout: 'grid',
+    });
+
+    r.handlePointerDown('item-0', {
+      button: 0,
+      pointerType: 'mouse',
+      pointerId: 8,
+      currentTarget: handle,
+      preventDefault: vi.fn(),
+    } as unknown as PointerEvent);
+    listeners.get('pointermove')?.({ clientX: 120, clientY: 110 } as unknown as Event);
+    listeners.get('pointerup')?.({} as Event);
+
+    expect(committed).toEqual([{ id: 'item-0', slot: 2 }]);
+  });
 });

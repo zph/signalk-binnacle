@@ -280,6 +280,11 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   Binnacle surface, and activating the expanded face restores the grid. A quiet question-mark icon
   in the tile's lower-right corner is the separate path to source details and recent trends. Its icon
   is small, but its transparent target remains the full `--control-size` touch area.
+  The header lock toggles a separate dashboard-reorder mode. In that mode every live tile exposes a
+  full-size drag handle, the grid uses `createReorder` with visual row and column targeting, and
+  keyboard ArrowUp and ArrowDown moves remain available. A drop commits through the instruments
+  controller, which owns the same persisted order rendered by Customize. The mode itself is
+  session-only and opens locked, preventing an accidental drag from changing a watch layout.
   Customize groups available instruments by category, and its Rescan action reruns instance discovery
   for batteries, engines, tanks, solar, and cabin sensors. Discovery unions the live Signal K model
   with concrete paths recorded during the preceding year by registered history providers within a

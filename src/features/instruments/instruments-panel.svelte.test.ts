@@ -116,6 +116,19 @@ describe('InstrumentsPanel', () => {
     expect(body).not.toContain('>Customize<');
   });
 
+  it('offers a locked arrangement mode independently of instrument customization', () => {
+    const { body } = render(InstrumentsPanel, {
+      props: {
+        controller: makeController({ selectedIds: SELECTED_IDS }),
+        deps: makeDeps(),
+      },
+    });
+    expect(body).toContain('aria-label="Unlock instrument arrangement"');
+    expect(body).toContain('aria-pressed="false"');
+    expect(body).toContain('lucide-lock');
+    expect(body).toContain('aria-label="Customize instruments"');
+  });
+
   it('uses the tile to expand and a separate question-mark control for information', () => {
     const { body } = render(InstrumentsPanel, {
       props: {
@@ -416,6 +429,14 @@ describe('InstrumentsPanel', () => {
   // so the guard is on the source.
   it('lays the tile grid out in source order, not dense', () => {
     expect(INSTRUMENTS_PANEL_SOURCE).not.toMatch(/grid-auto-flow:[^;]*dense/);
+  });
+
+  it('wires the live tile grid to the same persisted reorder operation as Customize', () => {
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain("layout: 'grid'");
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('controller.reorderTile(id, slot)');
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('data-tile-row={def.id}');
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('reorder.handlePointerDown(def.id, event)');
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('reorder.handleKeydown(def.id, event)');
   });
 
   it('names each available category list with its own heading', () => {
