@@ -7,12 +7,17 @@ describe('ShellBarTabs', () => {
     const body = render(ShellBarTabs, {
       props: {
         bottomBarVisible: false,
+        instrumentsOpen: true,
+        instrumentsFullScreen: false,
         onToggleBottom: vi.fn(),
+        onToggleInstruments: vi.fn(),
       },
     }).body;
 
     expect(body).toContain('aria-label="Show bottom bar"');
     expect(body).toContain('aria-controls="bottom-toolbar"');
     expect(body).toContain('aria-expanded="false"');
+    expect(body).toContain('aria-label="Close instrument dock"');
+    expect(body).toContain('aria-controls="instrument-dock"');
   });
 });

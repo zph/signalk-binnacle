@@ -3,6 +3,8 @@ import { createRetryableLazyUiLoader } from '$shared/lib';
 export { BINNACLE_INSTRUMENT_PLUGIN } from './builtin-instrument-plugin';
 export {
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
+  type InstrumentDockLayout,
+  instrumentDockWidthForLayout,
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
 } from './dock-width';

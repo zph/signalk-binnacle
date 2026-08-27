@@ -13,15 +13,18 @@ interface Props {
   onTrigger: (mark: MobMark | undefined) => void;
   // Fly the chart to the existing mark.
   onLocate: (position: LatLon) => void;
+  // A trusted shell action may request the same guarded press flow as this visible button.
+  requestOpen?: number;
 }
 
-const { mob, writeBlocked = false, onTrigger, onLocate }: Props = $props();
+const { mob, writeBlocked = false, onTrigger, onLocate, requestOpen = 0 }: Props = $props();
 
 // The MOB button must never trigger on a stray tap, so marking takes two: the button opens a
 // centered confirm dialog, and only its Mark button commits. The fix is snapshotted at PRESS time,
 // so the seconds spent confirming cannot carry the mark away from the person in the water.
 let confirming = $state(false);
 let pressMark = $state<MobMark | undefined>();
+let handledRequest = 0;
 
 // A timed-out dialog keeps its press-time fix (see onTimeout), so a re-press shortly after reuses
 // the earliest (closest to the splash point) fix instead of capturing one further downstream, as
@@ -41,6 +44,12 @@ function onButton(): void {
   if (age === undefined || age >= REUSE_MAX_AGE_MS) pressMark = mob.capture();
   confirming = true;
 }
+
+$effect(() => {
+  if (requestOpen === handledRequest) return;
+  handledRequest = requestOpen;
+  onButton();
+});
 
 function onConfirm(): void {
   confirming = false;

@@ -11,21 +11,27 @@ import ExternalLink from '@lucide/svelte/icons/external-link';
 import Gauge from '@lucide/svelte/icons/gauge';
 import History from '@lucide/svelte/icons/history';
 import Layers from '@lucide/svelte/icons/layers';
+import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
 import Lock from '@lucide/svelte/icons/lock';
 import MapPin from '@lucide/svelte/icons/map-pin';
+import Maximize2 from '@lucide/svelte/icons/maximize-2';
+import MenuIcon from '@lucide/svelte/icons/menu';
+import Moon from '@lucide/svelte/icons/moon';
 import Navigation from '@lucide/svelte/icons/navigation';
+import PanelRight from '@lucide/svelte/icons/panel-right';
 import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
 import Ruler from '@lucide/svelte/icons/ruler';
 import Search from '@lucide/svelte/icons/search';
 import Ship from '@lucide/svelte/icons/ship';
 import Spline from '@lucide/svelte/icons/spline';
+import Sun from '@lucide/svelte/icons/sun';
 import UserCog from '@lucide/svelte/icons/user-cog';
 import VolumeX from '@lucide/svelte/icons/volume-x';
 import Waves from '@lucide/svelte/icons/waves';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { onDestroy, onMount, untrack } from 'svelte';
+import { onDestroy, onMount, tick, untrack } from 'svelte';
 import { slide } from 'svelte/transition';
 import { AisTargets } from '$entities/ais';
 import { AnchorWatch } from '$entities/anchor';
@@ -59,6 +65,12 @@ import type { AisVesselKindMode } from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
 import { ANCHOR_TONE, createAnchorController } from '$features/anchor-watch';
 import { createUserChartsController } from '$features/charts';
+import {
+  CommandPalette,
+  type CommandPaletteCommand,
+  type PlaceSearchItem,
+  searchPlaces,
+} from '$features/command-palette';
 import { NOAA_ENC_SOURCE_ID, shouldOfferNoaaEnc } from '$features/depth-charts';
 import { createHandoffClient, createHandoffController } from '$features/handoff';
 import {
@@ -68,6 +80,8 @@ import {
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
   detectKip,
+  type InstrumentDockLayout,
+  instrumentDockWidthForLayout,
   KIP_URL,
   loadInstrumentsPanel,
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
@@ -93,7 +107,9 @@ import {
 import { MEASURE_OVERLAY_ID } from '$features/measure';
 import {
   AppMenu,
+  blockedReason,
   DEFAULT_PINNED,
+  itemBlocked,
   type MenuItem,
   reorderPinned,
   resolvePinned,
@@ -516,6 +532,8 @@ let layersOpenRequest = $state<{ mode: 'charts' | 'overlays' }>({ mode: 'charts'
 // the menu after it collapsed on selection.
 let menuOpen = $state(false);
 let menuEditing = $state(false);
+let commandPaletteOpen = $state(false);
+let mobCommandRequest = $state(0);
 // The helm toolbar can be tucked away without entering browser fullscreen. Its attached tab stays
 // reachable at the viewport edge, so the toolbar always has an obvious route back.
 let bottomBarVisible = $state(true);
@@ -568,7 +586,11 @@ const INSTRUMENTS_FULLSCREEN_BREAKPOINT_PX = 900;
 // coexist, so this exclusion only applies while the phone query matches.
 const narrowQuery = createMediaQuery(`(max-width: ${NARROW_BREAKPOINT_PX}px)`);
 const narrow = $derived(narrowQuery.matches);
-let instrumentsFullScreen = $state(false);
+let instrumentsViewportFullScreen = $state(false);
+let instrumentsFullScreenForced = $state(false);
+const instrumentsFullScreen = $derived(
+  instrumentsViewportFullScreen || instrumentsFullScreenForced,
+);
 // The safety rail's measured clearance, bound out of PlotterView so App-level fixed overlays (the
 // full-screen dock) can reserve the space the rail floats over.
 let safetyRailClearance = $state('0px');
@@ -625,6 +647,22 @@ function toggleInstrumentsPanel(): void {
     }
   }
   finishOpeningInstrumentsPanel();
+}
+
+function openInstrumentsLayout(layout: 'full' | InstrumentDockLayout): void {
+  instrumentsFullScreenForced = layout === 'full';
+  if (layout !== 'full') {
+    commitInstrumentDockWidth(instrumentDockWidthForLayout(layout, window.innerWidth));
+  }
+  finishOpeningInstrumentsPanel();
+}
+
+async function requestMobFromPalette(): Promise<void> {
+  if (!bottomBarVisible) {
+    bottomBarVisible = true;
+    await tick();
+  }
+  mobCommandRequest += 1;
 }
 let recolorMap: ((theme: Theme) => void) | undefined;
 let chartsToken = $state<string | undefined>();
@@ -1885,7 +1923,6 @@ const menuItems = $derived<MenuItem[]>([
     shortLabel: 'Instruments',
     icon: Gauge,
     group: 'Instruments',
-    fixedToBar: true,
     pressed: instruments.open,
     onSelect: toggleInstrumentsPanel,
   },
@@ -1935,6 +1972,14 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: () => togglePanel('profiles'),
   },
   {
+    id: 'command-palette',
+    label: 'Command palette',
+    sublabel: 'Search actions with Command K or Control K',
+    icon: Search,
+    group: 'Settings',
+    onSelect: () => (commandPaletteOpen = true),
+  },
+  {
     id: 'help',
     label: 'Help',
     icon: CircleHelp,
@@ -1943,6 +1988,235 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: () => togglePanel('help'),
   },
 ]);
+
+const commandPlaces = $derived.by<PlaceSearchItem[]>(() => {
+  void aisTargets.version;
+  return [
+    ...waypointsStore.waypoints.map((waypoint) => ({
+      id: `waypoint:${waypoint.id}`,
+      name: waypoint.name,
+      detail: waypoint.description,
+      position: waypoint.position,
+      source: 'Waypoint' as const,
+    })),
+    ...poiNotes.map((note) => ({
+      id: `chart:${note.id}`,
+      name: note.name,
+      detail: note.source ?? note.description,
+      position: note.position,
+      source: 'Chart layer' as const,
+    })),
+    ...aisTargets
+      .list()
+      .filter((target) => target.name)
+      .map((target) => ({
+        id: `ais:${target.id}`,
+        name: target.name ?? target.id,
+        detail: target.navigationState,
+        position: target.position,
+        source: 'AIS' as const,
+      })),
+  ];
+});
+
+function runMenuCommand(item: MenuItem): void {
+  menuOpen = false;
+  item.onSelect();
+}
+
+const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
+  const menuCommands = menuItems
+    .filter((item) => item.id !== 'instruments' && item.id !== 'command-palette')
+    .map((item) => ({
+      id: `menu:${item.id}`,
+      label: item.label,
+      description: item.sublabel,
+      group: item.group,
+      keywords: [item.shortLabel ?? '', item.group ?? ''],
+      icon: item.icon,
+      disabled: itemBlocked(item),
+      disabledReason: blockedReason(item),
+      onSelect: () => runMenuCommand(item),
+    }));
+  const dockLayoutsBlocked = instrumentsViewportFullScreen;
+  return [
+    {
+      id: 'go-to',
+      label: 'Go to',
+      description: 'Search chart layers, waypoints, AIS names, and OpenStreetMap',
+      group: 'Navigate',
+      keywords: ['find place destination map search'],
+      icon: MapPin,
+      followUp: {
+        placeholder: 'Search for a place, waypoint, or vessel',
+        minimumQueryLength: 2,
+        search: async (query, signal) => {
+          const result = await searchPlaces(query, {
+            localItems: commandPlaces,
+            signal,
+            bias: currentView
+              ? { latitude: currentView.lat, longitude: currentView.lon }
+              : undefined,
+          });
+          const commands: CommandPaletteCommand[] = result.items.map((place) => ({
+            id: place.id,
+            label: place.name,
+            description: [place.detail, place.source].filter(Boolean).join(' · '),
+            icon: MapPin,
+            onSelect: () => {
+              if (!mapCommands) {
+                toast.show('The chart is still starting. Try Go to again in a moment.');
+                return;
+              }
+              if (instrumentsFullScreen && instruments.open) instruments.setOpen(false);
+              mapCommands.flyTo(place.position.latitude, place.position.longitude);
+            },
+          }));
+          if (query.trim().length < 3 && commands.length === 0) {
+            commands.push({
+              id: 'place-search-keep-typing',
+              label: 'Keep typing for online place search',
+              description: 'Local waypoint, chart, and AIS names match after two characters.',
+              icon: Search,
+              disabled: true,
+            });
+          } else if (result.onlineUnavailable) {
+            commands.push({
+              id: 'place-search-offline',
+              label: result.items.length > 0 ? 'Showing local matches only' : 'No local matches',
+              description:
+                'Online place search is unavailable. Waypoints, chart names, and AIS names still work offline.',
+              icon: Search,
+              disabled: true,
+            });
+          } else if (commands.length === 0) {
+            commands.push({
+              id: 'place-search-empty',
+              label: 'No matching place found',
+              description:
+                'Try a broader place name or search a saved waypoint, chart name, or AIS vessel.',
+              icon: Search,
+              disabled: true,
+            });
+          }
+          return commands;
+        },
+      },
+    },
+    {
+      id: 'instruments-layout',
+      label: 'Instruments',
+      description: instruments.open
+        ? 'Choose a layout or close the instrument dock'
+        : 'Open the instrument dock',
+      group: 'Instruments',
+      icon: Gauge,
+      children: [
+        {
+          id: 'instruments-full',
+          label: 'Full screen',
+          description: 'Cover the chart with instruments',
+          icon: Maximize2,
+          onSelect: () => openInstrumentsLayout('full'),
+        },
+        {
+          id: 'instruments-half',
+          label: 'Half screen',
+          description: 'Use half of a wide display',
+          icon: PanelRight,
+          disabled: dockLayoutsBlocked,
+          disabledReason: 'Dock layouts need a display wider than 900 pixels.',
+          onSelect: () => openInstrumentsLayout('half'),
+        },
+        {
+          id: 'instruments-quarter',
+          label: 'Quarter screen',
+          description: 'Use one quarter of a wide display',
+          icon: PanelRight,
+          disabled: dockLayoutsBlocked,
+          disabledReason: 'Dock layouts need a display wider than 900 pixels.',
+          onSelect: () => openInstrumentsLayout('quarter'),
+        },
+        {
+          id: 'instruments-close',
+          label: 'Close instruments',
+          description: 'Return to the chart',
+          icon: Gauge,
+          disabled: !instruments.open,
+          disabledReason: 'The instrument dock is already closed.',
+          onSelect: () => instruments.setOpen(false),
+        },
+      ],
+    },
+    {
+      id: 'theme',
+      label: 'Appearance',
+      description: `Current theme: ${theme.theme}`,
+      group: 'Settings',
+      icon: Sun,
+      children: [
+        { id: 'theme-day', label: 'Day theme', icon: Sun, onSelect: () => theme.set('day') },
+        { id: 'theme-dusk', label: 'Dusk theme', icon: Moon, onSelect: () => theme.set('dusk') },
+        {
+          id: 'theme-night',
+          label: 'Night red theme',
+          icon: Moon,
+          onSelect: () => theme.set('night-red'),
+        },
+      ],
+    },
+    {
+      id: 'bottom-toolbar',
+      label: bottomBarVisible ? 'Hide bottom toolbar' : 'Show bottom toolbar',
+      description: 'Toggle the helm controls at the bottom of the chart',
+      group: 'Display',
+      icon: MenuIcon,
+      onSelect: () => {
+        bottomBarVisible = !bottomBarVisible;
+      },
+    },
+    {
+      id: 'lock-interface',
+      label: 'Lock Binnacle',
+      description: 'Prevent accidental helm changes',
+      group: 'Safety',
+      icon: Lock,
+      onSelect: interfaceLock.lock,
+    },
+    {
+      id: 'mob',
+      label: 'Man overboard',
+      description: mob.position ? 'Fly to the active MOB mark' : 'Open the guarded confirmation',
+      group: 'Safety',
+      icon: LifeBuoy,
+      onSelect: () => void requestMobFromPalette(),
+    },
+    {
+      id: 'about',
+      label: 'About Binnacle',
+      description: `Version ${__APP_VERSION__}`,
+      group: 'Settings',
+      icon: CircleHelp,
+      onSelect: () => toast.show(`Binnacle Custom version ${__APP_VERSION__}`),
+    },
+    ...(updateReady
+      ? [
+          {
+            id: 'update',
+            label: 'Install update',
+            description: 'Reload Binnacle with the ready update',
+            group: 'Settings',
+            icon: DownloadCloud,
+            onSelect: () => {
+              updateReady = false;
+              pwa.update();
+            },
+          },
+        ]
+      : []),
+    ...menuCommands,
+  ];
+});
 
 // The pinned actions in canonical order, resolved from the persisted id list against the live
 // registry, for the bottom bar to render.
@@ -2495,6 +2769,13 @@ onMount(() => {
   window.addEventListener('pointerdown', primeAudio);
   window.addEventListener('pointerup', primeAudio);
   window.addEventListener('keydown', primeAudio);
+  const onCommandPaletteShortcut = (event: KeyboardEvent): void => {
+    if (event.key.toLocaleLowerCase() !== 'k' || (!event.metaKey && !event.ctrlKey)) return;
+    event.preventDefault();
+    commandPaletteOpen = !commandPaletteOpen;
+    menuOpen = false;
+  };
+  window.addEventListener('keydown', onCommandPaletteShortcut);
   // The auth controller owns the focus and cross-tab listeners that pick up an approval.
   auth.watch();
   void auth.probe().finally(() => {
@@ -2521,7 +2802,7 @@ onMount(() => {
   );
   const syncInstrumentsFullScreen = (): void => {
     const next = instrumentsFullScreenQuery.matches;
-    instrumentsFullScreen = next;
+    instrumentsViewportFullScreen = next;
     if (
       next &&
       instruments.open &&
@@ -2584,6 +2865,7 @@ onMount(() => {
     window.removeEventListener('storage', onProfileStorage);
     privacyChannel?.close();
     clearTimeout(profileStartupFallback);
+    window.removeEventListener('keydown', onCommandPaletteShortcut);
   };
 });
 
@@ -2748,6 +3030,7 @@ const plotterActions = {
      float over (the full-screen instrument dock) inherit it; 0px while no alerts are up. -->
 <main
   class="binnacle-shell"
+  class:instruments-fullscreen={instrumentsFullScreen}
   style:--rail-clearance={safetyRailClearance}
   style:--instrument-dock-width={`${instrumentDockWidth}px`}
 >
@@ -2900,6 +3183,7 @@ const plotterActions = {
   {#snippet instrumentsState(message: string, onRetry?: () => void)}
     <!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: the dynamic role is dialog exactly when aria-modal is defined. -->
     <aside
+      id="instrument-dock"
       class="instruments"
       role={instrumentsFullScreen ? 'dialog' : undefined}
       aria-label="Instruments"
@@ -3025,22 +3309,11 @@ const plotterActions = {
     <ThemeToggle controller={theme} />
     <AppInfo version={__APP_VERSION__} />
     {@render interfaceLockAction()}
-    <button
-      type="button"
-      class="btn btn-pill fixed-toolbar-action"
-      class:is-on={instruments.open}
-      aria-pressed={instruments.open}
-      aria-label={instruments.open ? 'Close instrument dock' : 'Open instrument dock'}
-      title={instruments.open ? 'Close instrument dock' : 'Open instrument dock'}
-      onclick={toggleInstrumentsPanel}
-    >
-      <Gauge size={16} aria-hidden="true" />
-      <span class="fixed-action-label">Instruments</span>
-    </button>
     <!-- The fixed emergency key shares the bottom action row but stays outside customization, so
          it is always reachable and retains its dedicated confirm-before-marking flow. -->
     <MobButton
       {mob}
+      requestOpen={mobCommandRequest}
       onTrigger={mobController.onTrigger}
       onLocate={flyToPosition}
       writeBlocked={auth.writeBlocked}
@@ -3090,10 +3363,17 @@ const plotterActions = {
     {/if}
     <ShellBarTabs
       {bottomBarVisible}
+      instrumentsOpen={instruments.open}
+      {instrumentsFullScreen}
       onToggleBottom={() => (bottomBarVisible = !bottomBarVisible)}
+      onToggleInstruments={toggleInstrumentsPanel}
     />
   </div>
 </main>
+
+{#if commandPaletteOpen}
+  <CommandPalette commands={paletteCommands} onClose={() => (commandPaletteOpen = false)} />
+{/if}
 
 {#if waypointsController.addWaypointAt}
   <WaypointDialog
@@ -3237,6 +3517,13 @@ const plotterActions = {
 }
 .binnacle-shell > :global(.instruments.instrument-focus) {
   z-index: calc(var(--z-menu) + 1);
+}
+.binnacle-shell.instruments-fullscreen > :global(.instruments) {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-panel);
+  inline-size: auto;
+  background: var(--surface);
 }
 @media (max-width: 900px) {
   .binnacle-shell > :global(.instruments) {

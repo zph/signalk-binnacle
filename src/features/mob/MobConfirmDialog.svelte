@@ -3,7 +3,7 @@ import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 import { onMount } from 'svelte';
 import type { MobMark } from '$entities/mob';
 import { formatClockTime, formatLatitude, formatLongitude } from '$shared/lib';
-import { dialog, focusOnMount } from '$shared/ui';
+import { dialog } from '$shared/ui';
 
 interface Props {
   // The press-time capture; undefined when there was no GPS fix at the press.
@@ -53,8 +53,8 @@ function confirm(): void {
 </script>
 
 <!-- The backdrop is natively handled by ::backdrop on the dialog, which is inert by default. -->
-<!-- The host deliberately carries NO tabindex (unlike SlideOver): the dialog action's
-     node.focus() then no-ops, so the confirm button's focusOnMount owns initial focus. -->
+<!-- The host deliberately carries NO tabindex (unlike SlideOver). Native showModal() therefore
+     focuses the first action, Cancel, so pressing Enter cannot accidentally confirm the alarm. -->
 <dialog
   class="modal-card mob-dialog"
   role="alertdialog"
@@ -96,7 +96,7 @@ function confirm(): void {
     <button type="button" class="btn" onclick={onCancel}>
       Cancel <span aria-hidden="true">({remaining}s)</span>
     </button>
-    <button type="button" class="btn confirm" use:focusOnMount onclick={confirm}>
+    <button type="button" class="btn confirm" onclick={confirm}>
       <LifeBuoy size={20} aria-hidden="true" />
       Mark man overboard
     </button>

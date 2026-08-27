@@ -97,6 +97,7 @@ $effect(() => {
 
 <!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: the dynamic role is dialog exactly when aria-modal is defined. -->
 <aside
+  id="instrument-dock"
   class="instruments"
   class:instrument-focus={expandedDef !== undefined}
   role={fullscreen ? 'dialog' : undefined}

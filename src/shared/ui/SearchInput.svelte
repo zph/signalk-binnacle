@@ -1,6 +1,7 @@
 <script lang="ts">
 import X from '@lucide/svelte/icons/x';
 import { registerDismiss } from './dialog';
+import { focusOnMountIf, onKeydownAction } from './focus';
 
 interface Props {
   // The query text. Bindable, so a panel keeps owning its own filter state.
@@ -10,6 +11,8 @@ interface Props {
   ariaLabel: string;
   // The accessible name of the clear control; defaults to a generic one.
   clearLabel?: string;
+  focusOnOpen?: boolean;
+  onKeydown?: (event: KeyboardEvent) => void;
 }
 
 let {
@@ -17,6 +20,8 @@ let {
   placeholder,
   ariaLabel,
   clearLabel = 'Clear the search',
+  focusOnOpen = false,
+  onKeydown,
 }: Props = $props();
 
 let input = $state<HTMLInputElement>();
@@ -51,6 +56,8 @@ function clear(): void {
     aria-label={ariaLabel}
     onfocus={() => (focused = true)}
     onblur={() => (focused = false)}
+    use:focusOnMountIf={focusOnOpen}
+    use:onKeydownAction={onKeydown}
   >
   {#if value !== ''}
     <button type="button" class="icon-btn search-clear" aria-label={clearLabel} onclick={clear}>

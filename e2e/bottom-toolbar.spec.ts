@@ -9,24 +9,23 @@ test.beforeEach(async ({ page }) => {
   await stubVesselsSelf(page);
 });
 
-test('the fixed bottom-toolbar Instruments control opens and closes the dock', async ({ page }) => {
+test('the right-edge Instruments tab opens and closes the dock', async ({ page }) => {
   await page.goto('/');
-  const toolbar = page.locator('.status-strip');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
 
-  const open = toolbar.getByRole('button', { name: 'Open instrument dock' });
+  const open = page.getByRole('button', { name: 'Open instrument dock' });
   await expect(open).toBeVisible();
-  await expect(open).toHaveAttribute('aria-pressed', 'false');
+  await expect(open).toHaveAttribute('aria-expanded', 'false');
   await open.click();
 
   await expect(dock).toBeVisible();
-  const close = toolbar.getByRole('button', { name: 'Close instrument dock' });
-  await expect(close).toHaveAttribute('aria-pressed', 'true');
+  const close = page.getByRole('button', { name: 'Close instrument dock' });
+  await expect(close).toHaveAttribute('aria-expanded', 'true');
   await close.click();
 
   await expect(dock).not.toBeVisible();
-  await expect(toolbar.getByRole('button', { name: 'Open instrument dock' })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('button', { name: 'Open instrument dock' })).toHaveAttribute(
+    'aria-expanded',
     'false',
   );
 });
@@ -38,7 +37,8 @@ test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page })
   const toolbar = page.locator('.status-strip');
   await expectNoHorizontalOverflow(toolbar);
   await expect(toolbar.getByRole('button', { name: 'Lock Binnacle' })).toBeVisible();
-  await expect(toolbar.getByRole('button', { name: 'Open instrument dock' })).toBeVisible();
+  await expect(toolbar.getByRole('button', { name: 'Open instrument dock' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open instrument dock' })).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'Mark man overboard here' })).toBeVisible();
 });
 

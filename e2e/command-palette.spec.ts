@@ -1,0 +1,104 @@
+import { expect, test } from '@playwright/test';
+import { stubVesselsSelf } from './helpers';
+
+test.beforeEach(async ({ page }) => {
+  await stubVesselsSelf(page);
+  await page.addInitScript(() => localStorage.clear());
+});
+
+test('Command K searches commands and chains into instrument layouts', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await expect(palette).toBeVisible();
+  const search = palette.getByRole('searchbox', { name: 'Search commands' });
+  await expect(search).toBeFocused();
+
+  await search.fill('instruments');
+  await search.press('Enter');
+  await expect(
+    palette.getByRole('searchbox', { name: 'Search Instruments commands' }),
+  ).toBeFocused();
+  await palette.getByRole('option', { name: /Quarter screen/ }).click();
+
+  const dock = page.locator('.binnacle-shell > .instruments');
+  await expect(dock).toBeVisible();
+  await expect.poll(async () => (await dock.boundingBox())?.width).toBeCloseTo(320, 0);
+
+  await page.keyboard.press('Control+K');
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('instruments');
+  await palette.getByRole('searchbox', { name: 'Search commands' }).press('Enter');
+  await palette.getByRole('option', { name: /Full screen/ }).click();
+  await expect
+    .poll(async () => {
+      const [box, viewport] = await Promise.all([
+        dock.boundingBox(),
+        page.evaluate(() => ({ width: innerWidth, height: innerHeight })),
+      ]);
+      return box?.width === viewport.width && box?.height === viewport.height;
+    })
+    .toBe(true);
+});
+
+test('Go to searches OpenStreetMap and closes after selecting a place', async ({ page }) => {
+  await page.route('https://photon.komoot.io/api/**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        features: [
+          {
+            geometry: { type: 'Point', coordinates: [-122.2566, 38.1041] },
+            properties: {
+              name: 'Vallejo',
+              state: 'California',
+              country: 'United States',
+            },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('option', { name: /Go to/ }).click();
+  await palette.getByRole('searchbox', { name: 'Search Go to commands' }).fill('Vallejo');
+  const result = palette.getByRole('option', { name: /Vallejo.*California.*OpenStreetMap/ });
+  await expect(result).toBeVisible();
+  await result.click();
+  await expect(palette).toHaveCount(0);
+});
+
+test('Go to explains the local fallback when online search is unavailable', async ({ page }) => {
+  await page.route('https://photon.komoot.io/api/**', (route) => route.fulfill({ status: 503 }));
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('option', { name: /Go to/ }).click();
+  await palette
+    .getByRole('searchbox', { name: 'Search Go to commands' })
+    .fill('No Such Harbor Anywhere');
+  await expect(palette.getByRole('option', { name: /No local matches/ })).toContainText(
+    'Online place search is unavailable',
+  );
+});
+
+test('the man overboard command opens the guarded confirmation', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('man overboard');
+  await palette.getByRole('option', { name: /Man overboard/ }).click();
+
+  const confirm = page.getByRole('alertdialog', { name: 'Man overboard' });
+  await expect(confirm).toBeVisible();
+  const cancel = confirm.getByRole('button', { name: /Cancel/ });
+  await expect(cancel).toBeFocused();
+  await expect(confirm.getByRole('button', { name: 'Mark man overboard' })).toBeVisible();
+  await cancel.click();
+});
