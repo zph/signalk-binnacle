@@ -1061,7 +1061,6 @@ export function batterySocTileDef(instanceId: string): TileDef {
   return {
     id: `battery-soc:${instanceId}`,
     label: readingLabel('State of charge', name),
-    abbr: 'SOC',
     description: `${name} state of charge.`,
     sensorGloss: 'No charge data',
     paths: [path],

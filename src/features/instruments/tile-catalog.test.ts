@@ -862,11 +862,11 @@ describe('rate-of-turn tile', () => {
 });
 
 describe('batterySocTileDef', () => {
-  it('generates the SOC id, path, abbr, and battery viz', () => {
+  it('generates the SOC id, path, full label, and battery viz', () => {
     const def = batterySocTileDef('house');
     expect(def.id).toBe('battery-soc:house');
     expect(def.label).toBe('State of charge · House battery');
-    expect(def.abbr).toBe('SOC');
+    expect(def.abbr).toBeUndefined();
     expect(def.viz).toBe('battery');
     expect(def.paths).toEqual(['electrical.batteries.house.capacity.stateOfCharge']);
     expect(def.sensorGloss).toBe('No charge data');
