@@ -309,7 +309,7 @@ describe('purpose-built instrument faces', () => {
     expect(html).toMatch(/R\s+11\.5°/);
   });
 
-  it('keeps all readouts outside the compass with inline units and color-only zones', () => {
+  it('centers the heading over the compass and keeps other readouts outside it', () => {
     const reading: TileReading = {
       state: 'live',
       value: '12.0',
@@ -332,7 +332,13 @@ describe('purpose-built instrument faces', () => {
           angleRad: 0.7,
           angleEpoch: 1000,
         },
-        heading: { state: 'live', value: '57°', unit: '', siValue: 1 },
+        heading: {
+          state: 'live',
+          value: '57°',
+          unit: '',
+          siValue: 1,
+          referenceLabel: 'M',
+        },
         speedOverGround: { state: 'live', value: '6.4', unit: 'kn', siValue: 3.3 },
         depth: { state: 'live', value: '1.8', unit: 'm', siValue: 1.8 },
       },
@@ -352,6 +358,14 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('1.8');
     expect(html).toContain('rose-readouts--top');
     expect(html).toContain('rose-readouts--bottom');
+    expect(html).toContain('class="heading-center ');
+    expect(html).toContain('class="heading-halo ');
+    expect(html).toContain('class="heading-disc ');
+    expect(html).toContain('class="heading-value ');
+    expect(html).toContain('>57°<');
+    expect(html).not.toContain('>HDG<');
+    expect(html).not.toContain('>(M)<');
+    expect(html.indexOf('heading-center')).toBeGreaterThan(html.lastIndexOf('wind-pointer'));
     expect(html).toContain('rose-readout--warning');
     expect(html.match(/rose-readout--alarm/g)).toHaveLength(2);
     expect(html).not.toContain('>AWA<');

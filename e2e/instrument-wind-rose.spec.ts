@@ -31,6 +31,7 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(320);
   expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(568);
   await expect(focused.locator('svg.rose')).toBeVisible();
+  await expect(focused.locator('.heading-value')).toBeVisible();
 });
 
 test('the wide full-screen wind rose uses its height and moves readouts into the corners', async ({
@@ -41,10 +42,11 @@ test('the wide full-screen wind rose uses its height and moves readouts into the
 
   const focused = page.getByRole('dialog', { name: 'Wind rose full-screen instrument' });
   const compass = focused.locator('svg.rose');
-  const [focusedBox, compassBox, awsValueBox, twsValueBox, sogValueBox, depthValueBox] =
+  const [focusedBox, compassBox, headingBox, awsValueBox, twsValueBox, sogValueBox, depthValueBox] =
     await Promise.all([
       focused.boundingBox(),
       compass.boundingBox(),
+      focused.locator('.heading-value').boundingBox(),
       focused.locator('.rose-readout--aws .num').boundingBox(),
       focused.locator('.rose-readout--tws .num').boundingBox(),
       focused.locator('.rose-readout--sog .num').boundingBox(),
@@ -53,17 +55,33 @@ test('the wide full-screen wind rose uses its height and moves readouts into the
 
   expect(focusedBox).not.toBeNull();
   expect(compassBox).not.toBeNull();
+  expect(headingBox).not.toBeNull();
   expect(awsValueBox).not.toBeNull();
   expect(twsValueBox).not.toBeNull();
   expect(sogValueBox).not.toBeNull();
   expect(depthValueBox).not.toBeNull();
-  if (!focusedBox || !compassBox || !awsValueBox || !twsValueBox || !sogValueBox || !depthValueBox)
+  if (
+    !focusedBox ||
+    !compassBox ||
+    !headingBox ||
+    !awsValueBox ||
+    !twsValueBox ||
+    !sogValueBox ||
+    !depthValueBox
+  )
     return;
 
   expect(compassBox.height).toBeGreaterThan(focusedBox.height * 0.9);
   expect(
     Math.abs(compassBox.x + compassBox.width / 2 - (focusedBox.x + focusedBox.width / 2)),
   ).toBeLessThan(3);
+  expect(
+    Math.abs(headingBox.x + headingBox.width / 2 - (compassBox.x + compassBox.width / 2)),
+  ).toBeLessThan(3);
+  expect(
+    Math.abs(headingBox.y + headingBox.height / 2 - (compassBox.y + compassBox.height / 2)),
+  ).toBeLessThan(compassBox.height * 0.035);
+  await expect(focused.getByText('HDG', { exact: true })).toHaveCount(0);
   expect(awsValueBox.x + awsValueBox.width).toBeLessThan(compassBox.x);
   expect(twsValueBox.x).toBeGreaterThan(compassBox.x + compassBox.width);
   expect(sogValueBox.x + sogValueBox.width).toBeLessThan(compassBox.x);
@@ -99,4 +117,46 @@ test('a half-page docked wind rose switches to the spacious corner layout', asyn
   if (!tileBox || !compassBox) return;
   expect(compassBox.height).toBeGreaterThan(tileBox.height * 0.9);
   expect(compassBox.width).toBeLessThan(tileBox.width * 0.85);
+});
+
+test('a half-width short wind rose shrinks its corner values around the compass', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 420 });
+  await openFullScreenWindRose(page);
+
+  const focused = page.getByRole('dialog', { name: 'Wind rose full-screen instrument' });
+  const compass = focused.locator('svg.rose');
+  const [compassBox, headingBox, awsBox, twsBox, sogBox, depthBox] = await Promise.all([
+    compass.boundingBox(),
+    focused.locator('.heading-value').boundingBox(),
+    focused.locator('.rose-readout--aws .num').boundingBox(),
+    focused.locator('.rose-readout--tws .num').boundingBox(),
+    focused.locator('.rose-readout--sog .num').boundingBox(),
+    focused.locator('.rose-readout--depth .num').boundingBox(),
+  ]);
+
+  expect(compassBox).not.toBeNull();
+  expect(headingBox).not.toBeNull();
+  expect(awsBox).not.toBeNull();
+  expect(twsBox).not.toBeNull();
+  expect(sogBox).not.toBeNull();
+  expect(depthBox).not.toBeNull();
+  if (!compassBox || !headingBox || !awsBox || !twsBox || !sogBox || !depthBox) return;
+
+  expect(awsBox.x + awsBox.width).toBeLessThanOrEqual(compassBox.x);
+  expect(sogBox.x + sogBox.width).toBeLessThanOrEqual(compassBox.x);
+  expect(twsBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
+  expect(depthBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
+  expect(
+    Math.abs(headingBox.x + headingBox.width / 2 - (compassBox.x + compassBox.width / 2)),
+  ).toBeLessThan(3);
+  expect(
+    Math.abs(headingBox.y + headingBox.height / 2 - (compassBox.y + compassBox.height / 2)),
+  ).toBeLessThan(compassBox.height * 0.035);
+
+  const valueSize = await focused
+    .locator('.rose-readout--aws .num')
+    .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+  expect(valueSize).toBeLessThan(64);
 });

@@ -189,15 +189,6 @@ const sectorRotation = $derived(
         >
         <span class="num">{rose?.apparent.value ?? '---'}</span>
       </div>
-      <div class="rose-readout rose-readout--heading">
-        <span class="readout-title"
-          ><span>HDG</span>
-          {#if rose?.heading.referenceLabel}
-            <span class="readout-unit">({rose.heading.referenceLabel})</span>
-          {/if}</span
-        >
-        <span class="num">{rose?.heading.value ?? '---'}</span>
-      </div>
       <div
         class="rose-readout rose-readout--tws"
         class:rose-readout--warning={zone === 'warning'}
@@ -282,6 +273,15 @@ const sectorRotation = $derived(
           <text class="pointer-label" x="500" y="113">T</text>
         </g>
       {/if}
+
+      <!-- This group is intentionally last so the heading remains legible above every moving mark. -->
+      <g class="heading-center">
+        <circle class="heading-halo" cx="500" cy="500" r="104" />
+        <circle class="heading-disc" cx="500" cy="500" r="82" />
+        <text class="heading-value" x="500" y="532">
+          {rose?.heading.value ?? '---'}
+        </text>
+      </g>
     </svg>
 
     <div class="rose-readouts rose-readouts--bottom" aria-hidden="true">
@@ -455,8 +455,28 @@ const sectorRotation = $derived(
 .wind-pointer--true .pointer-label {
   font-size: 50px;
 }
+.heading-center {
+  pointer-events: none;
+}
+.heading-halo {
+  fill: color-mix(in srgb, var(--surface-overlay) 72%, transparent);
+  filter: blur(18px);
+}
+.heading-disc {
+  fill: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+  stroke: color-mix(in srgb, var(--border) 80%, transparent);
+  stroke-width: 3;
+}
+.heading-value {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  text-anchor: middle;
+  font-size: 100px;
+  font-weight: 900;
+}
 .tile--stale .apparent-pointer,
-.tile--stale .true-pointer {
+.tile--stale .true-pointer,
+.tile--stale .heading-value {
   fill: var(--text-muted);
 }
 .rose-readouts {
@@ -465,7 +485,7 @@ const sectorRotation = $derived(
   gap: clamp(var(--space-2), 2.5cqi, var(--space-4));
 }
 .rose-readouts--top {
-  grid-template-columns: 1fr 0.9fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .rose-readouts--bottom {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -539,7 +559,9 @@ const sectorRotation = $derived(
     inline-size: 100%;
     block-size: 100%;
     min-block-size: 0;
-    container-type: normal;
+    /* The corner readouts scale from this face in both axes. A half-width or short dock can then
+       contract its numerals without using the full browser viewport as a false size signal. */
+    container-type: size;
   }
   .tile--expanded .rose-layout {
     inline-size: 100%;
@@ -562,7 +584,7 @@ const sectorRotation = $derived(
   }
   .rose-readouts--top {
     inset-block-start: 0;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .rose-readouts--bottom {
     inset-block-end: 0;
@@ -570,7 +592,7 @@ const sectorRotation = $derived(
   }
   .rose-readout {
     inline-size: fit-content;
-    min-inline-size: min(18vi, 15rem);
+    min-inline-size: min(18cqi, 15rem);
     padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-lg);
   }
@@ -586,10 +608,10 @@ const sectorRotation = $derived(
     justify-self: end;
   }
   .rose-readout .num {
-    font-size: clamp(4rem, 7cqi, 9rem);
+    font-size: clamp(var(--text-readout-lg), min(7cqi, 16cqb), 9rem);
   }
   .readout-title {
-    font-size: clamp(var(--text-lg), 1.8cqi, var(--text-readout-lg));
+    font-size: clamp(var(--text-sm), min(1.8cqi, 5cqb), var(--text-readout-lg));
   }
 }
 </style>
