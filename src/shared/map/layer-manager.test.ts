@@ -154,6 +154,41 @@ describe('LayerManager', () => {
     });
   });
 
+  it('restores, updates, and persists a Binnacle depth-label scale', async () => {
+    const onChange = vi.fn();
+    const overlay = {
+      ...fakeOverlay('cells', 'bathymetry'),
+      labelSizeControl: {
+        queryParameter: 'labelSizeScale',
+        minimum: 0.5,
+        maximum: 2,
+        step: 0.1,
+        default: 1,
+      },
+      setLabelSizeScale: vi.fn(),
+    };
+    const manager = new LayerManager(fakeCtx(), {
+      saved: { cells: { visible: true, opacity: 0.8, labelSizeScale: 1.4 } },
+      onChange,
+    });
+    await manager.register(overlay);
+
+    expect(overlay.setLabelSizeScale).toHaveBeenCalledWith(expect.anything(), 1.4);
+    expect(manager.layers().find((layer) => layer.id === 'cells')).toMatchObject({
+      labelSizeScale: 1.4,
+      labelSizeControl: overlay.labelSizeControl,
+    });
+
+    manager.setLabelSizeScale('cells', 1.74, false);
+    manager.setLabelSizeScale('cells', 1.8);
+
+    expect(overlay.setLabelSizeScale).toHaveBeenLastCalledWith(expect.anything(), 1.8);
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange).toHaveBeenCalledWith({
+      cells: { visible: true, opacity: 0.8, labelSizeScale: 1.8 },
+    });
+  });
+
   it('unregister removes the overlay', async () => {
     const overlay = fakeOverlay('ais');
     const manager = new LayerManager(fakeCtx());

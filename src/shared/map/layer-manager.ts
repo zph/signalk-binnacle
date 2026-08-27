@@ -19,6 +19,7 @@ export interface OverlayState {
   visible: boolean;
   opacity: number;
   cellSizeScale?: number;
+  labelSizeScale?: number;
 }
 
 // The visible, fully opaque state an overlay defaults to. Shared as a read-only reference; spread
@@ -64,6 +65,8 @@ export interface LayerListItem {
   chart?: ChartLayerInfo;
   cellSizeControl?: OverlayModule['cellSizeControl'];
   cellSizeScale?: number;
+  labelSizeControl?: OverlayModule['labelSizeControl'];
+  labelSizeScale?: number;
   // Present when this row is a navigation chart the ambient chart badge counts. See
   // OverlayModule.chartCoverage.
   chartCoverage?: ChartCoverageInfo;
@@ -310,11 +313,17 @@ export class LayerManager {
                 ),
               }
             : {}),
+          ...(module.labelSizeControl
+            ? {
+                labelSizeScale: this.#coerceScale(module.labelSizeControl, restored.labelSizeScale),
+              }
+            : {}),
         }
       : {
           visible: module.defaultVisible ?? true,
           opacity: module.defaultOpacity ?? 1,
           ...(module.cellSizeControl ? { cellSizeScale: module.cellSizeControl.default } : {}),
+          ...(module.labelSizeControl ? { labelSizeScale: module.labelSizeControl.default } : {}),
         };
     // Enforce exclusion on restore too: a saved or legacy state with two members of an exclusive
     // group both visible would otherwise bypass the toggle-time rule. Keep the first registered.
@@ -345,6 +354,9 @@ export class LayerManager {
     try {
       if (module.cellSizeControl && state.cellSizeScale !== undefined) {
         module.setCellSizeScale?.(this.#ctx, state.cellSizeScale);
+      }
+      if (module.labelSizeControl && state.labelSizeScale !== undefined) {
+        module.setLabelSizeScale?.(this.#ctx, state.labelSizeScale);
       }
       await module.add(this.#ctx);
       // An async add can finish after the owning map has been torn down or the id was unregistered.
@@ -556,6 +568,19 @@ export class LayerManager {
     if (persist) this.#persist();
   }
 
+  setLabelSizeScale(id: string, scale: number, persist = true): void {
+    const module = this.#modules.get(id);
+    const state = this.#state.get(id);
+    const control = module?.labelSizeControl;
+    if (!module || !state || !control) return;
+    const next = this.#coerceScale(control, scale);
+    if (state.labelSizeScale !== next) {
+      state.labelSizeScale = next;
+      module.setLabelSizeScale?.(this.#ctx, next);
+    }
+    if (persist) this.#persist();
+  }
+
   // Move a non-pinned overlay to a new index in the non-pinned, top-to-bottom display order
   // (index 0 is the top of the map). Pinned layers are never moved or displaced.
   reorder(id: string, toIndex: number): void {
@@ -637,6 +662,13 @@ export class LayerManager {
           module.setCellSizeScale?.(this.#ctx, cellSizeScale);
         }
       }
+      if (module.labelSizeControl) {
+        const labelSizeScale = this.#coerceScale(module.labelSizeControl, next.labelSizeScale);
+        if (labelSizeScale !== state.labelSizeScale) {
+          state.labelSizeScale = labelSizeScale;
+          module.setLabelSizeScale?.(this.#ctx, labelSizeScale);
+        }
+      }
     }
     // The snapshot is the authoritative desired state, so an earlier parent-off memory must not
     // reinstate a facet the profile deliberately left off.
@@ -663,6 +695,9 @@ export class LayerManager {
         ...(this.#modules.get(id)?.cellSizeControl && state.cellSizeScale !== undefined
           ? { cellSizeScale: state.cellSizeScale }
           : {}),
+        ...(this.#modules.get(id)?.labelSizeControl && state.labelSizeScale !== undefined
+          ? { labelSizeScale: state.labelSizeScale }
+          : {}),
       };
     }
     // Keep the manager's restore source current even without a persistence callback. A profile can
@@ -688,6 +723,10 @@ export class LayerManager {
     control: NonNullable<OverlayModule['cellSizeControl']>,
     value: unknown,
   ): number {
+    return this.#coerceScale(control, value);
+  }
+
+  #coerceScale(control: NonNullable<OverlayModule['labelSizeControl']>, value: unknown): number {
     if (!Number.isFinite(value)) return control.default;
     const clamped = Math.max(control.minimum, Math.min(control.maximum, value as number));
     const steps = Math.round((clamped - control.minimum) / control.step);
@@ -897,6 +936,8 @@ export class LayerManager {
             chart: module.chart,
             cellSizeControl: module.cellSizeControl,
             cellSizeScale: state.cellSizeScale,
+            labelSizeControl: module.labelSizeControl,
+            labelSizeScale: state.labelSizeScale,
             chartCoverage: module.chartCoverage,
           },
         ];

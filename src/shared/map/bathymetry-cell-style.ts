@@ -10,6 +10,14 @@ import type { S57StyleOptions } from './s57-chart-style';
 
 export const BATHYMETRY_THEME_PAINT_KEY = 'binnacle:bathymetryThemePaint';
 
+export function bathymetryLabelTextSize(relativeSize: number | ExpressionSpecification) {
+  return [
+    '*',
+    ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
+    relativeSize,
+  ] as ExpressionSpecification;
+}
+
 export type BathymetryThemePaintRole = 'depth' | 'outline' | 'label' | 'labelHalo';
 export type BathymetryThemePaintMap = Partial<
   Record<'fill-color' | 'line-color' | 'text-color' | 'text-halo-color', BathymetryThemePaintRole>
@@ -127,11 +135,7 @@ export function bathymetryCellLayers(
         'text-font': ['Noto Sans Bold'],
         // H3 cells remain nearly constant in screen size as their resolution changes. A 17 to 20
         // pixel label occupies roughly one-third of the cell height while retaining breathing room.
-        'text-size': [
-          '*',
-          ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
-          ['get', 'BATHY_LABEL_RELATIVE_SIZE'],
-        ],
+        'text-size': bathymetryLabelTextSize(['get', 'BATHY_LABEL_RELATIVE_SIZE']),
         'text-padding': 2,
       },
       paint: {

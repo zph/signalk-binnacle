@@ -106,6 +106,26 @@ describe('chart overlay', () => {
     expect(map.sources.get('chart-bathymetry')?.setTiles).toHaveBeenLastCalledWith([
       'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=0.75',
     ]);
+
+    expect(overlay.labelSizeControl).toEqual({
+      queryParameter: 'labelSizeScale',
+      minimum: 0.5,
+      maximum: 2,
+      step: 0.1,
+      default: 1,
+    });
+    expect(map.setLayoutProperty).toHaveBeenCalledWith(
+      'chart-bathymetry-soundg-bathymetry-label',
+      'text-size',
+      ['*', ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20], 1],
+    );
+
+    overlay.setLabelSizeScale?.(ctx, 1.7);
+    expect(map.setLayoutProperty).toHaveBeenLastCalledWith(
+      'chart-bathymetry-soundg-bathymetry-label',
+      'text-size',
+      ['*', ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20], 1.7],
+    );
   });
 
   it('exposes chart metadata for the layer list', () => {

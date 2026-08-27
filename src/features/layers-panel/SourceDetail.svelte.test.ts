@@ -66,7 +66,7 @@ describe('SourceDetail', () => {
     expect(html).toContain(`${item.title} chart layers`);
   });
 
-  it('shows the provider cell-size slider only for charts that declare the control', () => {
+  it('shows bathymetry cell and depth-label size sliders beside each other', () => {
     const html = render(SourceDetail, {
       props: {
         item: {
@@ -79,6 +79,14 @@ describe('SourceDetail', () => {
             default: 1,
           },
           cellSizeScale: 2,
+          labelSizeControl: {
+            queryParameter: 'labelSizeScale',
+            minimum: 0.5,
+            maximum: 2,
+            step: 0.1,
+            default: 1,
+          },
+          labelSizeScale: 1.5,
         },
         view,
         onBack: noop,
@@ -90,6 +98,9 @@ describe('SourceDetail', () => {
     expect(html).toContain('Smaller');
     expect(html).toContain('Larger');
     expect(html).toContain('tighter local clusters');
+    expect(html).toContain('Depth label size');
+    expect(html).toContain('1.5×');
+    expect(html).toContain('without changing the underlying survey cells');
   });
 
   it('shows an unsupported style chart reason and keeps its query values redacted', () => {

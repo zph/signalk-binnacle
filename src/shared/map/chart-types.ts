@@ -2,13 +2,15 @@ import type { Bbox4 } from '$shared/geo';
 
 type MapSourceType = 'tilelayer' | 'WMS' | 'WMTS' | 'tileJSON' | 'mapstyleJSON' | 'S-57';
 
-export interface ChartCellSizeControl {
+export interface ChartScaleControl {
   queryParameter: string;
   minimum: number;
   maximum: number;
   step: number;
   default: number;
 }
+
+export type ChartCellSizeControl = ChartScaleControl;
 
 export interface SignalKChart {
   identifier: string;

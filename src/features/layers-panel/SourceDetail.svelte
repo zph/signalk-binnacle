@@ -371,6 +371,37 @@ function changeSharing(share: boolean): void {
       </div>
     {/if}
 
+    {#if item.labelSizeControl && item.labelSizeScale !== undefined}
+      <div class="cell-size-field">
+        <div class="opacity-label">
+          <label for={`${item.id}-detail-label-size`}>Depth label size</label>
+          <span class="num">{item.labelSizeScale.toFixed(1).replace(/\.0$/, '')}×</span>
+        </div>
+        <p class="muted-note muted-note--xs">
+          Scale the depth numbers in Binnacle without changing the underlying survey cells.
+        </p>
+        <input
+          id={`${item.id}-detail-label-size`}
+          class="range"
+          type="range"
+          min={item.labelSizeControl.minimum}
+          max={item.labelSizeControl.maximum}
+          step={item.labelSizeControl.step}
+          value={item.labelSizeScale}
+          disabled={!item.visible || !item.available}
+          aria-valuetext={`${item.labelSizeScale.toFixed(1).replace(/\.0$/, '')} times the normal depth label size`}
+          oninput={(event) =>
+            view.setLabelSizeScale(item.id, Number(event.currentTarget.value), false)}
+          onchange={(event) =>
+            view.setLabelSizeScale(item.id, Number(event.currentTarget.value))}
+        >
+        <div class="cell-size-ends" aria-hidden="true">
+          <span>Smaller</span>
+          <span>Larger</span>
+        </div>
+      </div>
+    {/if}
+
     {#if subLayers.length > 0}
       <div class="chart-layer-list" role="group" aria-label={`${item.title} chart layers`}>
         <h4 class="caps-label">Chart layers</h4>

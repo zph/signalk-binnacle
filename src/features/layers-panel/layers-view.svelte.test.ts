@@ -80,6 +80,37 @@ describe('LayersView', () => {
     expect(view.items[0].cellSizeScale).toBe(1.75);
   });
 
+  it('sets the Binnacle depth-label scale and updates the live readout', () => {
+    const setLabelSizeScale = vi.fn();
+    const manager = { setLabelSizeScale } as unknown as LayerManager;
+    const view = new LayersView(manager);
+    view.items = [
+      {
+        id: 'cells',
+        title: 'Cells',
+        visible: true,
+        opacity: 1,
+        supportsOpacity: true,
+        pinned: false,
+        band: 'bathymetry',
+        available: true,
+        labelSizeControl: {
+          queryParameter: 'labelSizeScale',
+          minimum: 0.5,
+          maximum: 2,
+          step: 0.1,
+          default: 1,
+        },
+        labelSizeScale: 1,
+      },
+    ];
+
+    view.setLabelSizeScale('cells', 1.76, false);
+
+    expect(setLabelSizeScale).toHaveBeenCalledWith('cells', 1.76, false);
+    expect(view.items[0].labelSizeScale).toBeCloseTo(1.8);
+  });
+
   it('passes only the filtered chart order to the manager', () => {
     const listItem = (
       id: string,

@@ -132,4 +132,52 @@ describe('SourceDetail delete gating', () => {
     expect(setCellSizeScale).toHaveBeenNthCalledWith(1, cellItem.id, 2.25, false);
     expect(setCellSizeScale).toHaveBeenNthCalledWith(2, cellItem.id, 2.25);
   });
+
+  it('previews and commits the Binnacle depth-label multiplier', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+    const setLabelSizeScale = vi.fn();
+    const labelItem: LayerListItem = {
+      ...item,
+      labelSizeControl: {
+        queryParameter: 'labelSizeScale',
+        minimum: 0.5,
+        maximum: 2,
+        step: 0.1,
+        default: 1,
+      },
+      labelSizeScale: 1,
+    };
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(SourceDetail, {
+        target,
+        props: {
+          item: labelItem,
+          view: {
+            toggle: vi.fn(),
+            setOpacity: vi.fn(),
+            setLabelSizeScale,
+          } as unknown as LayersView,
+          onBack: () => {},
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+
+    const slider = target.querySelector<HTMLInputElement>(
+      'input[type="range"]#chart-source-chart-1-detail-label-size',
+    );
+    expect(slider).not.toBeNull();
+    if (!slider) return;
+    slider.value = '1.7';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    slider.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(setLabelSizeScale).toHaveBeenNthCalledWith(1, labelItem.id, 1.7, false);
+    expect(setLabelSizeScale).toHaveBeenNthCalledWith(2, labelItem.id, 1.7);
+  });
 });

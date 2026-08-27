@@ -2,6 +2,7 @@ import type { Map as MapLibreMap, MapSourceDataEvent, SourceSpecification } from
 import {
   BATHYMETRY_THEME_PAINT_KEY,
   type BathymetryThemePaintMap,
+  bathymetryLabelTextSize,
   bathymetryThemePaint,
 } from './bathymetry-cell-style';
 import {
@@ -55,6 +56,13 @@ const OPACITY_PROPERTIES = {
 const RASTER_FORMATS = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif']);
 const STYLE_CHART_UNAVAILABLE_HINT =
   'This chart is delivered as a map style document, a format Binnacle cannot display yet. It stays listed so you can see the server offers it.';
+const BATHYMETRY_LABEL_SIZE_CONTROL = {
+  queryParameter: 'labelSizeScale',
+  minimum: 0.5,
+  maximum: 2,
+  step: 0.1,
+  default: 1,
+} as const;
 
 function withQueryParameter(template: string, name: string, value: number): string {
   const hashIndex = template.indexOf('#');
@@ -155,6 +163,8 @@ export function createChartOverlay(
   // chart. Keep them in the bathymetry band so their translucent cells remain visible over ENC.
   const overlayBand = chart.featureInfo === 'bathymetry-cell' ? 'bathymetry' : band;
   const specs = chartToSpecs(chart, serverBase, { s57Style: options.s57Style });
+  const labelSizeControl =
+    chart.featureInfo === 'bathymetry-cell' ? BATHYMETRY_LABEL_SIZE_CONTROL : undefined;
   const sourceIds = Object.keys(specs.sources);
   // A lightweight view of just the fields the lifecycle methods touch, derived once from
   // specs.layers. add() works from the full specs, while remove, setVisible, setOpacity, applyTheme,
@@ -175,6 +185,10 @@ export function createChartOverlay(
         property,
         base: typeof paint?.[property] === 'number' ? paint[property] : 1,
       })),
+      bathymetryLabel:
+        chart.featureInfo === 'bathymetry-cell' &&
+        layer.type === 'symbol' &&
+        (layer as { 'source-layer'?: string })['source-layer'] === 'SOUNDG',
     };
   });
   const layerIds = layers.map((layer) => layer.id);
@@ -209,6 +223,7 @@ export function createChartOverlay(
     (source === 'user' ? 'User-added chart source' : 'Chart source from the Signal K server');
   const isS57 = chart.type === 'S-57';
   let cellSizeScale = chart.cellSizeControl?.default ?? 1;
+  let labelSizeScale: number = labelSizeControl?.default ?? 1;
   let parentVisible = true;
   let parentOpacity = 1;
   const visibilityByFacet = new Map<string, boolean>();
@@ -318,6 +333,7 @@ export function createChartOverlay(
     defaultVisible: chart.defaultVisible,
     supportsOpacity: true,
     cellSizeControl: chart.cellSizeControl,
+    labelSizeControl,
     layerIds,
     facets,
     chart: {
@@ -331,6 +347,7 @@ export function createChartOverlay(
       maxzoom: chart.maxzoom,
       format: chart.format,
       cellSizeControl: chart.cellSizeControl,
+      labelSizeControl,
     },
     async add(ctx) {
       if (isS57) {
@@ -350,6 +367,11 @@ export function createChartOverlay(
       for (const layer of specs.layers) {
         if (!ctx.map.getLayer(layer.id)) {
           ctx.map.addLayer(layer, ctx.beforeIdFor(overlayBand));
+        }
+      }
+      for (const layer of layers) {
+        if (layer.bathymetryLabel && ctx.map.getLayer(layer.id)) {
+          ctx.map.setLayoutProperty(layer.id, 'text-size', bathymetryLabelTextSize(labelSizeScale));
         }
       }
       hitHandlers?.attach(ctx);
@@ -413,6 +435,15 @@ export function createChartOverlay(
           | { setTiles?: (tiles: string[]) => void }
           | undefined;
         source?.setTiles?.([...nextSource.tiles]);
+      }
+    },
+    setLabelSizeScale(ctx, scale) {
+      labelSizeScale = scale;
+      if (!labelSizeControl) return;
+      for (const layer of layers) {
+        if (layer.bathymetryLabel && ctx.map.getLayer(layer.id)) {
+          ctx.map.setLayoutProperty(layer.id, 'text-size', bathymetryLabelTextSize(labelSizeScale));
+        }
       }
     },
     applyTheme(ctx, paint) {

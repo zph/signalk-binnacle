@@ -47,6 +47,19 @@ export class LayersView {
     }
   }
 
+  setLabelSizeScale(id: string, scale: number, persist = true): void {
+    this.#manager.setLabelSizeScale(id, scale, persist);
+    const item = this.items.find((candidate) => candidate.id === id);
+    if (item?.labelSizeControl) {
+      const { minimum, maximum, step } = item.labelSizeControl;
+      const clamped = Math.max(minimum, Math.min(maximum, scale));
+      item.labelSizeScale = Math.min(
+        maximum,
+        minimum + Math.round((clamped - minimum) / step) * step,
+      );
+    }
+  }
+
   // Move a layer to a new index in the top-to-bottom display order, then rebuild the list in
   // the new order. A reorder is a discrete drop, not a per-pixel stream, so a full refresh is
   // fine here (unlike the in-place opacity write above, which mutates one item). Full-list targets
