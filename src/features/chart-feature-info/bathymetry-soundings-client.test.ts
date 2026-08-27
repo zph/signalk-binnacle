@@ -41,7 +41,16 @@ describe('fetchBathymetrySoundings', () => {
       );
 
     await expect(fetchBathymetrySoundings('http://boat.local', 'tok', 0, 0)).resolves.toEqual([
-      expect.objectContaining({ id: 1, datumDepthM: 7.6, sampleCount: 30 }),
+      expect.objectContaining({
+        id: 1,
+        depthReference: 'belowTransducer',
+        surfaceToTransducerM: 0.6,
+        belowSurfaceDepthM: 8.7,
+        datumDepthM: 7.6,
+        datum: 'MLLW',
+        tideStationName: 'Crockett',
+        sampleCount: 30,
+      }),
     ]);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       'http://boat.local/plugins/signalk-bathymetry/cells/lookup?latitude=0&longitude=0',
@@ -69,11 +78,17 @@ function sounding(id: number, latitude: number, longitude: number): Record<strin
     observedAt: '2026-08-27T12:00:00.000Z',
     position: { latitude, longitude },
     rawDepthM: 8.1,
+    depthReference: 'belowTransducer',
+    surfaceToTransducerM: 0.6,
+    belowSurfaceDepthM: 8.7,
     datumDepthM: 7.6,
+    datum: 'MLLW',
     tideHeightM: 0.5,
+    tideStationName: 'Crockett',
     verticalSigmaM: 0.45,
     sampleCount: 30,
     qcState: 'accepted',
+    qcReasons: [],
     depthSource: 'environment.depth.belowKeel',
     passId: 'pass-1',
     aggregationKind: 'stationary_window',

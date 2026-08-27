@@ -176,11 +176,17 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
             observedAt: '2026-08-27T12:00:00.000Z',
             position: { latitude: 37.8, longitude: -122.4 },
             rawDepthM: 4.4,
+            depthReference: 'belowKeel',
+            surfaceToKeelM: 1.5,
+            belowSurfaceDepthM: 5.9,
             datumDepthM: 4,
+            datum: 'MLLW',
             tideHeightM: 0.4,
+            tideStationName: 'Fixture station',
             verticalSigmaM: 0.35,
             sampleCount: 12,
             qcState: 'accepted',
+            qcReasons: [],
             depthSource: 'environment.depth.belowKeel',
             passId: 'pass-1',
             aggregationKind: 'stationary_window',
@@ -216,6 +222,11 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await expect(rawDialog).toContainText('1 source record');
     await expect(rawDialog).toContainText('12 source samples');
     await expect(rawDialog.getByRole('cell', { name: '4.0 m' })).toBeVisible();
+    await expect(rawDialog).toContainText('Datum depth = sensor reading + waterline offset');
+    await expect(rawDialog.getByRole('columnheader', { name: 'Below surface' })).toBeVisible();
+    await expect(rawDialog.getByRole('columnheader', { name: 'Sensor reading' })).toBeVisible();
+    await expect(rawDialog).toContainText('below keel');
+    await expect(rawDialog).toContainText('MLLW');
     await expect(rawDialog).toContainText('environment.depth.belowKeel');
     await rawDialog.getByRole('button', { name: 'Done' }).click();
     await expect(rawDialog).toBeHidden();

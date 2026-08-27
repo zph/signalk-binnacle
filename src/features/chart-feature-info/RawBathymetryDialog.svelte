@@ -47,6 +47,23 @@ function observedAt(value: string): string {
     new Date(value),
   );
 }
+
+function depthReference(value: BathymetrySounding['depthReference']): string {
+  return {
+    belowKeel: 'below keel',
+    belowSurface: 'below surface',
+    belowTransducer: 'below transducer',
+  }[value];
+}
+
+function appliedOffset(row: BathymetrySounding): number {
+  return row.belowSurfaceDepthM - row.rawDepthM;
+}
+
+function qcLabel(row: BathymetrySounding): string {
+  if (row.qcReasons.length === 0) return row.qcState;
+  return `${row.qcState}: ${row.qcReasons.join(', ').replaceAll('_', ' ')}`;
+}
 </script>
 
 <dialog class="modal-card raw-dialog" aria-label="Raw bathymetry data" use:dialog={onClose}>
@@ -76,6 +93,10 @@ function observedAt(value: string): string {
         <span class="num">{sourceSamples.toLocaleString()}</span>
         source sample{sourceSamples === 1 ? '' : 's'}
       </p>
+      <p class="correction-note">
+        Datum depth = sensor reading + waterline offset − tide height. The sensor reference and
+        chart datum are shown for every record.
+      </p>
       <div class="table-scroll">
         <table>
           <caption class="visually-hidden">
@@ -86,7 +107,9 @@ function observedAt(value: string): string {
               <th scope="col">Observed</th>
               <th scope="col">Position</th>
               <th scope="col">Datum depth</th>
-              <th scope="col">Raw depth</th>
+              <th scope="col">Below surface</th>
+              <th scope="col">Sensor reading</th>
+              <th scope="col">Waterline offset</th>
               <th scope="col">Tide</th>
               <th scope="col">Uncertainty</th>
               <th scope="col">Samples</th>
@@ -103,12 +126,23 @@ function observedAt(value: string): string {
                 <td class="numeric">
                   {row.position.latitude.toFixed(6)}, {row.position.longitude.toFixed(6)}
                 </td>
-                <td class="numeric">{depth(row.datumDepthM)} {depthUnit}</td>
-                <td class="numeric">{depth(row.rawDepthM)} {depthUnit}</td>
-                <td class="numeric">{depth(row.tideHeightM)} {depthUnit}</td>
+                <td class="numeric">
+                  {depth(row.datumDepthM)} {depthUnit}
+                  <small>{row.datum}</small>
+                </td>
+                <td class="numeric">{depth(row.belowSurfaceDepthM)} {depthUnit}</td>
+                <td class="numeric">
+                  {depth(row.rawDepthM)} {depthUnit}
+                  <small>{depthReference(row.depthReference)}</small>
+                </td>
+                <td class="numeric">+{depth(appliedOffset(row))} {depthUnit}</td>
+                <td class="numeric">
+                  −{depth(row.tideHeightM)} {depthUnit}
+                  <small>{row.tideStationName}</small>
+                </td>
                 <td class="numeric">±{depth(row.verticalSigmaM)} {depthUnit}</td>
                 <td class="numeric">{row.sampleCount}</td>
-                <td><span class:qc-warning={row.qcState !== 'accepted'}>{row.qcState}</span></td>
+                <td><span class:qc-warning={row.qcState !== 'accepted'}>{qcLabel(row)}</span></td>
                 <td>{row.depthSource}</td>
                 <td>{row.aggregationKind.replaceAll('_', ' ')}</td>
                 <td>{row.passId}</td>
@@ -137,7 +171,8 @@ function observedAt(value: string): string {
   gap: var(--space-3);
 }
 .raw-header p,
-.record-count {
+.record-count,
+.correction-note {
   margin: 0;
 }
 .raw-body {
@@ -147,6 +182,10 @@ function observedAt(value: string): string {
 .record-count {
   color: var(--text-muted);
   font-size: var(--text-sm);
+}
+.correction-note {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .table-scroll {
   max-block-size: min(65dvh, 38rem);
@@ -180,6 +219,14 @@ th {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: end;
+}
+.numeric small {
+  display: block;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  text-align: inherit;
 }
 .qc-warning {
   color: var(--warning);

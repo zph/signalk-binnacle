@@ -10,11 +10,18 @@ export interface BathymetrySounding {
   observedAt: string;
   position: { latitude: number; longitude: number };
   rawDepthM: number;
+  depthReference: 'belowKeel' | 'belowSurface' | 'belowTransducer';
+  surfaceToKeelM?: number;
+  surfaceToTransducerM?: number;
+  belowSurfaceDepthM: number;
   datumDepthM: number;
+  datum: string;
   tideHeightM: number;
+  tideStationName: string;
   verticalSigmaM: number;
   sampleCount: number;
   qcState: 'accepted' | 'quarantined' | 'rejected';
+  qcReasons: string[];
   depthSource: string;
   passId: string;
   aggregationKind: string;
@@ -72,8 +79,13 @@ function parseSounding(value: unknown): BathymetrySounding | undefined {
   const id = value.id;
   const observedAt = cleanBoundedText(value.observedAt, 64);
   const rawDepthM = value.rawDepthM;
+  const depthReference = value.depthReference;
+  const surfaceToKeelM = optionalFiniteNumber(value.surfaceToKeelM);
+  const surfaceToTransducerM = optionalFiniteNumber(value.surfaceToTransducerM);
   const datumDepthM = value.datumDepthM;
+  const datum = cleanBoundedText(value.datum, 32);
   const tideHeightM = value.tideHeightM;
+  const tideStationName = cleanBoundedText(value.tideStationName, 256);
   const verticalSigmaM = value.verticalSigmaM;
   const sampleCount = value.sampleCount;
   const qcState = value.qcState;
@@ -86,8 +98,13 @@ function parseSounding(value: unknown): BathymetrySounding | undefined {
     !observedAt ||
     Number.isNaN(Date.parse(observedAt)) ||
     !isFiniteNumber(rawDepthM) ||
+    (depthReference !== 'belowKeel' &&
+      depthReference !== 'belowSurface' &&
+      depthReference !== 'belowTransducer') ||
     !isFiniteNumber(datumDepthM) ||
+    !datum ||
     !isFiniteNumber(tideHeightM) ||
+    !tideStationName ||
     !isFiniteNumber(verticalSigmaM) ||
     !Number.isSafeInteger(sampleCount) ||
     (sampleCount as number) < 0 ||
@@ -103,15 +120,33 @@ function parseSounding(value: unknown): BathymetrySounding | undefined {
     observedAt,
     position: value.position,
     rawDepthM,
+    depthReference,
+    surfaceToKeelM,
+    surfaceToTransducerM,
+    belowSurfaceDepthM: isFiniteNumber(value.belowSurfaceDepthM)
+      ? value.belowSurfaceDepthM
+      : datumDepthM + tideHeightM,
     datumDepthM,
+    datum,
     tideHeightM,
+    tideStationName,
     verticalSigmaM,
     sampleCount: sampleCount as number,
     qcState,
+    qcReasons: Array.isArray(value.qcReasons)
+      ? value.qcReasons
+          .map((reason) => cleanBoundedText(reason, 128))
+          .filter((reason): reason is string => reason !== undefined)
+          .slice(0, 16)
+      : [],
     depthSource,
     passId,
     aggregationKind,
   };
+}
+
+function optionalFiniteNumber(value: unknown): number | undefined {
+  return isFiniteNumber(value) ? value : undefined;
 }
 
 function polygonContains(polygon: readonly LonLat[], longitude: number, latitude: number): boolean {
