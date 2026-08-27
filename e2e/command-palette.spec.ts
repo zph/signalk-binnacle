@@ -29,6 +29,7 @@ test('Command K searches commands and chains into instrument layouts', async ({ 
     'aria-keyshortcuts',
     '2',
   );
+  await search.fill('center');
   await expect(palette.getByRole('option', { name: /Center on boat/ })).not.toHaveAttribute(
     'aria-keyshortcuts',
   );

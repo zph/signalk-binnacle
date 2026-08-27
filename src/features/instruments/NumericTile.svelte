@@ -49,9 +49,10 @@ const accessibleLabel = $derived(
 const valueScale = $derived.by(() => {
   const longestLine = Math.max(...reading.value.split('\n').map((line) => line.trim().length));
   if (longestLine <= 3) return 'short';
-  if (longestLine <= 5) return 'medium';
-  if (longestLine <= 8) return 'long';
-  return 'wide';
+  if (longestLine <= 4) return 'medium';
+  if (longestLine <= 6) return 'long';
+  if (longestLine <= 9) return 'wide';
+  return 'extra-wide';
 });
 </script>
 
@@ -69,33 +70,39 @@ const valueScale = $derived.by(() => {
   aria-label={accessibleLabel}
   onclick={onOpen}
 >
-  {#if reading.state === 'never'}
-    <span class="value"><span class="muted-note">{sensorGloss}</span></span>
-  {:else}
-    <span class="value value--{valueScale}"><span class="num">{reading.value}</span></span>
-    {#if viz === 'battery'}
-      <BatteryBar fraction={reading.siValue} state={zone} />
-    {:else if viz === 'rot'}
-      <RotNeedle radPerSec={reading.siValue} />
-    {:else if sparkPoints}
-      <Sparkline points={sparkPoints} />
+  <span class="tile-readout">
+    {#if reading.state === 'never'}
+      <span class="value"><span class="muted-note">{sensorGloss}</span></span>
+    {:else}
+      <span class="value value--{valueScale}"><span class="num">{reading.value}</span></span>
+      {#if viz === 'battery'}
+        <BatteryBar fraction={reading.siValue} state={zone} />
+      {:else if viz === 'rot'}
+        <RotNeedle radPerSec={reading.siValue} />
+      {:else if sparkPoints}
+        <Sparkline points={sparkPoints} />
+      {/if}
     {/if}
-    {#if staleAgeText}
-      <span class="tile-secondary">{staleAgeText}</span>
-    {:else if reading.secondary}
-      <span class="tile-secondary">{reading.secondary}</span>
+  </span>
+  <span class="tile-footer">
+    {#if reading.state !== 'never'}
+      {#if staleAgeText}
+        <span class="tile-secondary">{staleAgeText}</span>
+      {:else if reading.secondary}
+        <span class="tile-secondary">{reading.secondary}</span>
+      {/if}
     {/if}
-  {/if}
-  <!-- The abbreviation leads and carries the loud voice: a mariner scans for SOG or HDG, not for
-       the long name, which stays as the quiet gloss beside it. -->
-  <span class="caps-label"
-    >{#if abbr}
-      <span class="abbr">{abbr}</span>
-    {/if}
-    {labelText}
-    {#if reading.unit}
-      <span class="title-unit">({reading.unit})</span>
-    {/if}</span
-  >
-  <TileStateBadge state={reading.state} />
+    <!-- The abbreviation leads and carries the loud voice: a mariner scans for SOG or HDG, not for
+         the long name, which stays as the quiet gloss beside it. -->
+    <span class="caps-label"
+      >{#if abbr}
+        <span class="abbr">{abbr}</span>
+      {/if}
+      {labelText}
+      {#if reading.unit}
+        <span class="title-unit">({reading.unit})</span>
+      {/if}</span
+    >
+    <TileStateBadge state={reading.state} />
+  </span>
 </button>

@@ -279,6 +279,7 @@ source, and surrounding traffic before relying on it.
   warranted) that is visible and read by screen readers. Eligible instrument details can
   open one focused trend without changing the saved overview. Back restores the same detail and
   focus, while Close returns to the chart.
+
 ## Settings
 
 - **Profiles** (tile subtitle: units, sync, and privacy) saves portable chart, weather, threshold,
