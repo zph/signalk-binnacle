@@ -26,7 +26,15 @@ export async function openMenuItem(page: Page, itemName: string): Promise<void> 
 // The stream fixture's port and origins, in one place: playwright.config.ts starts the server
 // with this port, the mariner project navigates the app origin, and the spec drives the control
 // channel at the server root, so the three cannot desync.
-export const FIXTURE_PORT = 4174;
+const configuredFixturePort = Number(process.env.SIGNALK_FIXTURE_PORT ?? 4174);
+if (
+  !Number.isInteger(configuredFixturePort) ||
+  configuredFixturePort < 1 ||
+  configuredFixturePort > 65_535
+) {
+  throw new Error('SIGNALK_FIXTURE_PORT must be a valid TCP port.');
+}
+export const FIXTURE_PORT = configuredFixturePort;
 export const FIXTURE_SERVER = `http://127.0.0.1:${FIXTURE_PORT}`;
 export const FIXTURE_ORIGIN = `${FIXTURE_SERVER}/binnacle-custom/`;
 

@@ -379,6 +379,19 @@ export interface Thresholds {
   shallowDepthMeters?: number;
 }
 
+export const ALARM_LOCATIONS = ['top', 'center', 'bottom'] as const;
+export type AlarmLocation = (typeof ALARM_LOCATIONS)[number];
+export const DEFAULT_ALARM_LOCATION: AlarmLocation = 'bottom';
+
+export function createAlarmLocation(storage?: StorageLike): PersistedValue<AlarmLocation> {
+  return new PersistedValue(
+    binnacleStorageKey('alarmLocation'),
+    DEFAULT_ALARM_LOCATION,
+    storage,
+    enumPersistedCodec(ALARM_LOCATIONS),
+  );
+}
+
 const MINUTE_S = 60;
 
 export const MAX_COLLISION_CPA_METERS = 1_852_000;

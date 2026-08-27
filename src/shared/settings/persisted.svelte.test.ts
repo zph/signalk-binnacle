@@ -4,6 +4,7 @@ import { binnacleStorageKey } from '$shared/persistence';
 import { createFakeStorage } from '$shared/testing';
 import {
   booleanRecordPersistedCodec,
+  createAlarmLocation,
   createMapView,
   createPersistedCodec,
   createPlanningSpeed,
@@ -277,6 +278,27 @@ describe('isThresholds', () => {
   it('rejects a record missing an original required field', () => {
     const { dangerCpaMeters: _omit, ...broken } = DEFAULT_THRESHOLDS;
     expect(isThresholds(broken)).toBe(false);
+  });
+});
+
+describe('createAlarmLocation', () => {
+  it('defaults to bottom and restores a valid saved location', () => {
+    expect(createAlarmLocation(createFakeStorage()).value).toBe('bottom');
+    expect(
+      createAlarmLocation(
+        createFakeStorage({ [binnacleStorageKey('alarmLocation')]: JSON.stringify('center') }),
+      ).value,
+    ).toBe('center');
+  });
+
+  it('repairs an invalid saved location to bottom', () => {
+    const storage = createFakeStorage({
+      [binnacleStorageKey('alarmLocation')]: JSON.stringify('port'),
+    });
+    const location = createAlarmLocation(storage);
+
+    expect(location.value).toBe('bottom');
+    expect(location.repairStatus).toBe('replaced');
   });
 });
 

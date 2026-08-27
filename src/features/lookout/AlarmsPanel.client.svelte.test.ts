@@ -2,7 +2,12 @@ import { flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NotificationsStore } from '$entities/notifications';
 import type { UnitsStore } from '$entities/units';
-import { DEFAULT_THRESHOLDS, type PersistedValue, type Thresholds } from '$shared/settings';
+import {
+  type AlarmLocation,
+  DEFAULT_THRESHOLDS,
+  type PersistedValue,
+  type Thresholds,
+} from '$shared/settings';
 import type { AuthController } from '$shared/signalk';
 import AlarmsPanel from './AlarmsPanel.svelte';
 
@@ -10,6 +15,7 @@ const mounted: Array<() => void> = [];
 
 function mountPanel() {
   const set = vi.fn();
+  const alarmLocationSet = vi.fn();
   const target = document.createElement('div');
   document.body.append(target);
   let component!: ReturnType<typeof mount>;
@@ -24,6 +30,10 @@ function mountPanel() {
           value: { ...DEFAULT_THRESHOLDS, dangerCpaMeters: 1000 },
           set,
         } as unknown as PersistedValue<Thresholds>,
+        alarmLocation: {
+          value: 'bottom',
+          set: alarmLocationSet,
+        } as unknown as PersistedValue<AlarmLocation>,
         units: { mode: 'metric' } as UnitsStore,
         collisionMuted: false,
         collisionMuteRemainingMin: undefined,
@@ -51,7 +61,7 @@ function mountPanel() {
   };
   // The thresholds live inside a Disclosure that ships collapsed.
   click('Adjust collision alarm sensitivity');
-  return { set, target, button, click };
+  return { set, alarmLocationSet, target, button, click };
 }
 
 afterEach(() => {
@@ -74,5 +84,17 @@ describe('AlarmsPanel threshold reset', () => {
     panel.click('Reset');
     expect(panel.set).toHaveBeenCalledWith(DEFAULT_THRESHOLDS);
     expect(panel.target.textContent).not.toContain('Reset all thresholds?');
+  });
+});
+
+describe('AlarmsPanel alarm location', () => {
+  it('offers top, center, and bottom choices', () => {
+    const panel = mountPanel();
+    const group = panel.target.querySelector('[role="group"][aria-label="Alarm location"]');
+
+    expect(group?.textContent?.replaceAll(/\s+/g, ' ').trim()).toBe('Top Center Bottom');
+    expect(panel.button('Bottom').getAttribute('aria-pressed')).toBe('true');
+    panel.click('Center');
+    expect(panel.alarmLocationSet).toHaveBeenCalledWith('center');
   });
 });

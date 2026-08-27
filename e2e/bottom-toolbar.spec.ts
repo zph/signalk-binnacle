@@ -42,6 +42,27 @@ test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page })
   await expect(toolbar.getByRole('button', { name: 'Mark man overboard here' })).toBeVisible();
 });
 
+test('status readouts stay below the action row and pin to opposite edges', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+
+  const toolbar = page.locator('.status-strip');
+  const [toolbarBox, liveBox, vesselBox, actionsBox] = await Promise.all([
+    toolbar.boundingBox(),
+    toolbar.locator('.strip-start').boundingBox(),
+    toolbar.locator('.center-cluster').boundingBox(),
+    toolbar.locator('.strip-actions').boundingBox(),
+  ]);
+  if (!toolbarBox || !liveBox || !vesselBox || !actionsBox) {
+    throw new Error('The status strip did not lay out.');
+  }
+
+  expect(liveBox.x).toBeLessThan(vesselBox.x);
+  expect(liveBox.x + liveBox.width).toBeLessThanOrEqual(vesselBox.x);
+  expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(Math.min(liveBox.y, vesselBox.y));
+  expect(vesselBox.x + vesselBox.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width);
+});
+
 test('the interface lock stays reachable from full-screen Instruments', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto('/');

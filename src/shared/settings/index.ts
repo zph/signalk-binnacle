@@ -1,5 +1,6 @@
 export type { MapView } from '$shared/geo';
 export type {
+  AlarmLocation,
   ChartOrientationMode,
   PersistedCodec,
   PersistedDecodeResult,
@@ -10,16 +11,19 @@ export type {
   TrackSettings,
 } from './persisted.svelte';
 export {
+  ALARM_LOCATIONS,
   arrayPersistedCodec,
   booleanPersistedCodec,
   booleanRecordPersistedCodec,
   boundedNumberPersistedCodec,
   CHART_ORIENTATION_MODES,
+  createAlarmLocation,
   createMapView,
   createPersistedCodec,
   createPlanningSpeed,
   createThresholds,
   createTrackSettings,
+  DEFAULT_ALARM_LOCATION,
   DEFAULT_THRESHOLDS,
   enumPersistedCodec,
   exactShapeCodec,

@@ -182,6 +182,12 @@ const depthWatchPaused = $derived(
 </script>
 
 <footer class="status-strip" class:editing>
+  <div class="strip-actions">
+    <PinnedActions actions={pinnedActions} />
+    {#if fixedActions}
+      {@render fixedActions()}
+    {/if}
+  </div>
   <div class="strip-start">
     <button
       type="button"
@@ -356,12 +362,6 @@ const depthWatchPaused = $derived(
     {/if}
   </div>
   <TransientNote message={chipNote.message} noteClass="chip-note" />
-  <div class="strip-actions">
-    <PinnedActions actions={pinnedActions} />
-    {#if fixedActions}
-      {@render fixedActions()}
-    {/if}
-  </div>
   <div class="center-cluster">
     {#if retainedFix}
       <!-- A stale fix never wears current-position styling: the label says what the coordinates
@@ -389,17 +389,11 @@ const depthWatchPaused = $derived(
 </footer>
 
 <style>
-/* A three-column grid: the leading readouts, the pinned action pills centered in the flexible
-   middle, and the trailing position cluster. The action area is real grid content, not an absolute
-   overlay, so it can never paint over or steal taps from the readouts at any width. */
+/* Actions own the first row. Live readouts sit below, pinned to opposite edges, so crowding grows
+   the rail in normal flow without moving or covering a button. */
 .status-strip {
   display: grid;
-  /* The two flanking columns share the leftover space equally (1fr each) and the middle column
-     sizes to the pinned pills' own content, so the pills sit at the true midpoint of the strip.
-     auto 1fr auto (the middle column absorbing the leftover instead) centers the pills only
-     within whatever space is left after the flanks, which drifts off-center by however much wider
-     the readouts are than the trailing vessel position. */
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
@@ -423,10 +417,9 @@ const depthWatchPaused = $derived(
 }
 .strip-start {
   display: flex;
-  /* Wrapping at every width, not only under 900px: the 1fr column shrinks below its content when
-     degraded chips lengthen the row (No GPS fix, Depth stale, Reconnect), and an unwrappable row
-     then paints under the centered pills, hiding safety text and burying the Reconnect tap
-     target. A second readout line is always better than an occluded one. */
+  grid-column: 1;
+  grid-row: 2;
+  /* Wrapping stays on at every width because degraded chips can lengthen the row. */
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
@@ -434,49 +427,44 @@ const depthWatchPaused = $derived(
 }
 .strip-actions {
   display: flex;
+  grid-column: 1 / -1;
+  grid-row: 1;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   min-inline-size: 0;
 }
-/* The vessel position reads as one group at the trailing edge; the Position instrument tile
-   covers the same value on demand, so this is the first thing dropped once space is tight.
-   justify-content pins it to the far edge of its now-equal-share column (the true-centering grid
-   above makes that column wider than its own content), matching where it sat before. Wraps for
-   the same occlusion reason as the leading column, mirrored. */
+/* Vessel position and local time stay pinned opposite the live readouts. */
 .center-cluster {
   display: flex;
+  grid-column: 2;
+  grid-row: 2;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
   min-inline-size: 0;
 }
-/* Between a phone and a full desktop width, a landscape tablet keeps the three-column grid but
-   cannot fit the readouts, every pinned pill, and both trailing readouts on one row. Time goes
-   first (any watch or phone shows it; nothing else on the strip shows position), and the
-   position readout follows only below 900, where the strip stacks anyway. */
-@media (max-width: 1200px) {
-  .center-cluster .time-readout {
-    display: none;
-  }
-}
-/* On a phone or small tablet the labeled pills and the live readouts do not fit one row, so the
-   strip stacks into one centered column: the readouts above, and the labeled pills on a wrapping
-   row below within thumb reach. The connection dot is small enough to stay. This block sits after
-   the base rules above, so it wins the cascade when the query matches. */
+/* When the two readout groups cannot share a row comfortably, keep their edge alignment on
+   separate rows below the actions. The rail grows instead of allowing any overlap. */
 @media (max-width: 900px) {
   .status-strip {
     grid-template-columns: 1fr;
-    justify-items: center;
     gap: var(--space-2);
   }
   .strip-start {
-    justify-content: center;
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
   }
   .center-cluster {
-    display: none;
+    grid-column: 1;
+    grid-row: 3;
+    justify-content: flex-end;
+  }
+  .strip-actions {
+    grid-row: 1;
   }
 }
 @media (max-width: 600px) {

@@ -54,7 +54,7 @@ describe('StatusStrip depth alarm', () => {
       })),
     });
     const actionsStart = html.indexOf('strip-actions');
-    const actions = html.slice(actionsStart, html.indexOf('center-cluster', actionsStart));
+    const actions = html.slice(actionsStart, html.indexOf('strip-start', actionsStart));
 
     expect(actionsStart).toBeGreaterThanOrEqual(0);
     expect(actions).toContain('pinned-actions');

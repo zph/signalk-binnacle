@@ -4,7 +4,12 @@ import { describe, expect, it } from 'vitest';
 import type { NotificationsStore } from '$entities/notifications';
 import type { UnitsStore } from '$entities/units';
 import { formatClockTime } from '$shared/lib';
-import { DEFAULT_THRESHOLDS, type PersistedValue, type Thresholds } from '$shared/settings';
+import {
+  type AlarmLocation,
+  DEFAULT_THRESHOLDS,
+  type PersistedValue,
+  type Thresholds,
+} from '$shared/settings';
 import type { AuthController } from '$shared/signalk';
 import AlarmsPanel from './AlarmsPanel.svelte';
 import { ACTION_BUTTON } from './test-helpers';
@@ -46,6 +51,10 @@ function renderPanel(
           value: DEFAULT_THRESHOLDS,
           set: () => {},
         } as unknown as PersistedValue<Thresholds>,
+        alarmLocation: {
+          value: 'bottom',
+          set: () => {},
+        } as unknown as PersistedValue<AlarmLocation>,
         units: { mode: 'metric' } as UnitsStore,
         shallow,
         collisionMuted: mute.collisionMuted ?? false,

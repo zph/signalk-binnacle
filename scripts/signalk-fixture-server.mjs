@@ -13,6 +13,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 const PORT = Number(process.env.SIGNALK_FIXTURE_PORT ?? 4174);
 const BASE_PATH = '/binnacle-custom/';
 const STREAM_PATH = '/signalk/v1/stream';
+const SELF_PATH = '/signalk/v1/api/vessels/self';
 const CONTROL_PREFIX = '/__fixture__/';
 const STATIC_ROOT = resolve('public');
 const MAX_CONTROL_BODY_BYTES = 1_048_576;
@@ -183,6 +184,13 @@ const server = createServer((request, response) => {
   const pathname = new URL(request.url ?? '/', `http://localhost:${PORT}`).pathname;
   if (pathname.startsWith(CONTROL_PREFIX)) {
     void handleControl(request, response, pathname);
+    return;
+  }
+  // Match an unsecured stock Signal K server closely enough for a real browser to complete its
+  // startup probe and open the fixture WebSocket. Playwright usually stubs this request per page,
+  // but manual Chrome checks cannot intercept it.
+  if (request.method === 'GET' && pathname === SELF_PATH) {
+    sendJson(response, 200, {});
     return;
   }
   if (pathname === '/' || pathname === '/binnacle-custom') {

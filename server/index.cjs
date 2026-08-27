@@ -2,6 +2,7 @@
 
 const MAX_CPA_METERS = 1_852_000;
 const MAX_TCPA_SECONDS = 7 * 24 * 60 * 60;
+const ALARM_LOCATIONS = new Set(['top', 'center', 'bottom']);
 
 function collisionThresholds(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -24,6 +25,10 @@ function collisionThresholds(value) {
 
 function bounded(value, max) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= max;
+}
+
+function alarmLocation(value) {
+  return typeof value === 'string' && ALARM_LOCATIONS.has(value) ? value : undefined;
 }
 
 function schema() {
@@ -50,34 +55,68 @@ function schema() {
           warningTcpaSeconds: { ...tcpa, title: 'Warning TCPA (seconds)' },
         },
       },
+      alarmLocation: {
+        title: 'Alarm location',
+        type: 'string',
+        enum: ['top', 'center', 'bottom'],
+        default: 'bottom',
+      },
     },
   };
 }
 
 module.exports = function createBinnaclePlugin(app) {
-  let stored;
+  let storedThresholds;
+  let storedAlarmLocation;
+  let saveQueue = Promise.resolve();
 
   function start(options) {
-    if (!options || !Object.hasOwn(options, 'collisionThresholds')) {
-      stored = undefined;
-      app.setPluginStatus?.('Ready to store collision alarm settings');
-      return;
+    saveQueue = Promise.resolve();
+    storedThresholds = undefined;
+    storedAlarmLocation = undefined;
+    if (options && Object.hasOwn(options, 'collisionThresholds')) {
+      storedThresholds = collisionThresholds(options.collisionThresholds);
+      if (!storedThresholds) {
+        app.setPluginError?.('Stored collision alarm thresholds are invalid.');
+        return;
+      }
     }
-    stored = collisionThresholds(options.collisionThresholds);
-    if (!stored) {
-      app.setPluginError?.('Stored collision alarm thresholds are invalid.');
-      return;
+    if (options && Object.hasOwn(options, 'alarmLocation')) {
+      storedAlarmLocation = alarmLocation(options.alarmLocation);
+      if (!storedAlarmLocation) {
+        app.setPluginError?.('Stored alarm location is invalid.');
+        return;
+      }
     }
-    app.setPluginStatus?.('Collision alarm settings stored');
+    app.setPluginStatus?.(
+      storedThresholds || storedAlarmLocation
+        ? 'Alarm settings stored'
+        : 'Ready to store alarm settings',
+    );
   }
 
-  function save(next) {
-    return new Promise((resolve, reject) => {
-      app.savePluginOptions({ collisionThresholds: next }, (error) => {
-        if (error) reject(error);
-        else resolve();
+  function save(update) {
+    const operation = saveQueue.then(async () => {
+      const nextThresholds = Object.hasOwn(update, 'collisionThresholds')
+        ? update.collisionThresholds
+        : storedThresholds;
+      const nextAlarmLocation = Object.hasOwn(update, 'alarmLocation')
+        ? update.alarmLocation
+        : storedAlarmLocation;
+      const options = {};
+      if (nextThresholds) options.collisionThresholds = nextThresholds;
+      if (nextAlarmLocation) options.alarmLocation = nextAlarmLocation;
+      await new Promise((resolve, reject) => {
+        app.savePluginOptions(options, (error) => {
+          if (error) reject(error);
+          else resolve();
+        });
       });
+      storedThresholds = nextThresholds;
+      storedAlarmLocation = nextAlarmLocation;
     });
+    saveQueue = operation.catch(() => undefined);
+    return operation;
   }
 
   return {
@@ -90,7 +129,7 @@ module.exports = function createBinnaclePlugin(app) {
     registerWithRouter(router) {
       router.access('readonly').get('/api/settings/collision', (_request, response) => {
         response.set('Cache-Control', 'no-store');
-        response.json({ thresholds: stored ?? null });
+        response.json({ thresholds: storedThresholds ?? null });
       });
       router.access('readwrite').put('/api/settings/collision', async (request, response) => {
         const next = collisionThresholds(request.body?.thresholds);
@@ -99,14 +138,33 @@ module.exports = function createBinnaclePlugin(app) {
           return;
         }
         try {
-          await save(next);
-          stored = next;
-          app.setPluginStatus?.('Collision alarm settings stored');
+          await save({ collisionThresholds: next });
+          app.setPluginStatus?.('Alarm settings stored');
           response.set('Cache-Control', 'no-store');
-          response.json({ thresholds: stored });
+          response.json({ thresholds: storedThresholds });
         } catch (error) {
           app.error?.(`Unable to save collision alarm settings: ${errorMessage(error)}`);
           response.status(500).json({ error: 'Unable to save collision alarm settings.' });
+        }
+      });
+      router.access('readonly').get('/api/settings/alarm-location', (_request, response) => {
+        response.set('Cache-Control', 'no-store');
+        response.json({ location: storedAlarmLocation ?? null });
+      });
+      router.access('readwrite').put('/api/settings/alarm-location', async (request, response) => {
+        const next = alarmLocation(request.body?.location);
+        if (!next) {
+          response.status(400).json({ error: 'Invalid alarm location.' });
+          return;
+        }
+        try {
+          await save({ alarmLocation: next });
+          app.setPluginStatus?.('Alarm settings stored');
+          response.set('Cache-Control', 'no-store');
+          response.json({ location: storedAlarmLocation });
+        } catch (error) {
+          app.error?.(`Unable to save alarm location: ${errorMessage(error)}`);
+          response.status(500).json({ error: 'Unable to save alarm location.' });
         }
       });
     },
@@ -119,11 +177,17 @@ module.exports = function createBinnaclePlugin(app) {
             get: { summary: 'Read collision alarm thresholds' },
             put: { summary: 'Store collision alarm thresholds' },
           },
+          '/api/settings/alarm-location': {
+            get: { summary: 'Read alarm location' },
+            put: { summary: 'Store alarm location' },
+          },
         },
       };
     },
     statusMessage: () =>
-      stored ? 'Collision alarm settings stored' : 'Waiting for collision alarm settings',
+      storedThresholds || storedAlarmLocation
+        ? 'Alarm settings stored'
+        : 'Waiting for alarm settings',
   };
 };
 

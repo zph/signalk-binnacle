@@ -19,6 +19,7 @@ const BINNACLE_STORAGE_KEYS = {
   mapView: { key: 'binnacle-custom:map-view', scope: 'device' },
   trackSettings: { key: 'binnacle-custom:track-settings', scope: 'profile' },
   lookoutThresholds: { key: 'binnacle-custom:lookout-thresholds', scope: 'profile' },
+  alarmLocation: { key: 'binnacle-custom:alarm-location', scope: 'server-resource' },
   units: { key: 'binnacle-custom:units', scope: 'profile' },
   arrivalMuted: { key: 'binnacle-custom:arrival-muted', scope: 'safety' },
   planningSpeedMps: { key: 'binnacle-custom:planning-speed-mps', scope: 'profile' },

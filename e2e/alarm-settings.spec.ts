@@ -48,3 +48,43 @@ test('collision alarm thresholds survive a hard reload through plugin storage', 
     '33',
   );
 });
+
+test('alarm location survives cleared browser storage through plugin storage', async ({ page }) => {
+  let storedLocation: 'top' | 'center' | 'bottom' = 'bottom';
+  let writes = 0;
+  await stubVesselsSelf(page);
+  await page.route(/\/plugins\/binnacle-custom\/api\/settings\/alarm-location$/, async (route) => {
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as { location: typeof storedLocation };
+      storedLocation = body.location;
+      writes += 1;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ location: storedLocation }),
+    });
+  });
+  await page.addInitScript(() => {
+    localStorage.clear();
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+  });
+
+  await page.goto('/');
+  await openMenuItem(page, 'Alarms');
+  const location = page.getByRole('group', { name: 'Alarm location' });
+  await expect(location.getByRole('button', { name: 'Bottom' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await location.getByRole('button', { name: 'Center' }).click();
+  await expect(page.locator('.safety-rail')).toHaveAttribute('data-location', 'center');
+  await expect.poll(() => writes).toBe(1);
+
+  await page.reload();
+  await openMenuItem(page, 'Alarms');
+  await expect(
+    page.getByRole('group', { name: 'Alarm location' }).getByRole('button', { name: 'Center' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.safety-rail')).toHaveAttribute('data-location', 'center');
+});

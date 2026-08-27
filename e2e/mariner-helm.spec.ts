@@ -509,6 +509,19 @@ test('MOB actions stay reachable in landscape 568x320', async ({ page }) => {
   await expectMobActionsReachable(strip);
 });
 
+test('the alarm panel can move a centered alert on a short landscape display', async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 320 });
+  await openApp(page);
+  await sendDelta(page, [GENERIC_ALARM]);
+  await page.getByRole('button', { name: 'Open Alarms', exact: true }).click();
+
+  const location = page.getByRole('group', { name: 'Alarm location' });
+  await location.getByRole('button', { name: 'Center' }).click();
+  await expect(page.locator('.safety-rail')).toHaveAttribute('data-location', 'center');
+  await location.getByRole('button', { name: 'Bottom' }).click();
+  await expect(page.locator('.safety-rail')).toHaveAttribute('data-location', 'bottom');
+});
+
 test('MOB actions stay reachable at 200-percent text', async ({ page }) => {
   // ACCESS-01 gate case, held behavior: rem-based layout doubles with the root font size, so this
   // simulates browser large-text faithfully, and a lone MOB strip stays reachable. Task 1.1 must

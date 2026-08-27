@@ -20,6 +20,7 @@ import {
   nauticalMilesToMeters,
 } from '$shared/lib';
 import {
+  type AlarmLocation,
   DEFAULT_THRESHOLDS,
   MAX_COLLISION_CPA_METERS,
   MAX_COLLISION_TCPA_SECONDS,
@@ -58,6 +59,7 @@ interface Props {
   onSilence?: (n: ActiveNotification) => void;
   onAcknowledge?: (n: ActiveNotification) => void;
   thresholds: PersistedValue<Thresholds>;
+  alarmLocation: PersistedValue<AlarmLocation>;
   units: UnitsStore;
   // The shallow monitor's live state. Absent (an older caller, or SSR) leaves the section on the
   // locally configured threshold, which is what it did before the monitor existed.
@@ -80,6 +82,7 @@ const {
   onSilence,
   onAcknowledge,
   thresholds,
+  alarmLocation,
   units,
   shallow,
   collisionMuted,
@@ -198,6 +201,42 @@ $effect(() => {
     Active alarms show here. Silence stops the sound. Acknowledge marks an alarm seen and also stops
     its sound. Tune the collision warning below.
   </p>
+  <section class="panel-section" aria-label="Alarm display">
+    <h3 class="caps-label">Alarm display</h3>
+    <p class="muted-note">
+      Place emergency alarm cards at the top, center, or bottom of the chart. This setting is stored
+      on the boat.
+    </p>
+    <div class="segmented" role="group" aria-label="Alarm location">
+      <button
+        type="button"
+        class="btn"
+        class:is-on={alarmLocation.value === 'top'}
+        aria-pressed={alarmLocation.value === 'top'}
+        onclick={() => alarmLocation.set('top')}
+      >
+        Top
+      </button>
+      <button
+        type="button"
+        class="btn"
+        class:is-on={alarmLocation.value === 'center'}
+        aria-pressed={alarmLocation.value === 'center'}
+        onclick={() => alarmLocation.set('center')}
+      >
+        Center
+      </button>
+      <button
+        type="button"
+        class="btn"
+        class:is-on={alarmLocation.value === 'bottom'}
+        aria-pressed={alarmLocation.value === 'bottom'}
+        onclick={() => alarmLocation.set('bottom')}
+      >
+        Bottom
+      </button>
+    </div>
+  </section>
   <section class="panel-section" aria-label="Active alerts">
     <h3 class="caps-label">Active alerts</h3>
     {#each alerts as n (n.path)}

@@ -146,6 +146,9 @@ interface FlatProps {
   pointConditionsLoader: ReturnType<typeof import('$features/weather').createPointConditionsLoader>;
   planningSpeedMps: import('$shared/settings').PersistedValue<number>;
   thresholds: import('$shared/settings').PersistedValue<import('$shared/settings').Thresholds>;
+  alarmLocation: import('$shared/settings').PersistedValue<
+    import('$shared/settings').AlarmLocation
+  >;
   aisIconMode: import('$shared/settings').PersistedValue<AisVesselKindMode>;
   routeDistanceToGoMeters: number | undefined;
 
@@ -311,6 +314,7 @@ type ServiceKey =
   | 'pointConditionsLoader'
   | 'planningSpeedMps'
   | 'thresholds'
+  | 'alarmLocation'
   | 'aisIconMode'
   | 'trackSettings'
   | 'categoriesOpen'
@@ -488,6 +492,7 @@ const {
   pointConditionsLoader,
   planningSpeedMps,
   thresholds,
+  alarmLocation,
   aisIconMode,
   trackSettings,
   categoriesOpen,
@@ -614,7 +619,11 @@ function retryLazyPanel(): void {
 // The secondary bottom stack sits directly above the emergency rail, whose height depends on the
 // active conditions, so the stack's bottom offset tracks the measured rail height.
 let railHeight = $state(0);
-const railClearance = $derived(railHeight > 0 ? `calc(${railHeight}px + var(--space-2))` : '0px');
+const railClearance = $derived(
+  alarmLocation.value === 'bottom' && railHeight > 0
+    ? `calc(${railHeight}px + var(--space-2))`
+    : '0px',
+);
 // Mirror the clearance to the bindable prop for App-level consumers outside the chart host.
 $effect(() => {
   safetyRailClearance = railClearance;
@@ -1013,7 +1022,12 @@ $effect(() => {
   <!-- The emergency rail: outside the capped bottom stack, never clipped, never lifted by the
        Forecast panel, and above it in the z-order, so Forecast yields to safety chrome instead of
        displacing it. -->
-  <div class="safety-rail" bind:clientHeight={railHeight}>
+  <div
+    class="safety-rail"
+    class:behind-alarm-panel={activePanel === 'alarms'}
+    data-location={alarmLocation.value}
+    bind:clientHeight={railHeight}
+  >
     <SafetyAlertStack
       {units}
       {anchor}
@@ -1577,6 +1591,7 @@ $effect(() => {
               {auth}
               connectionPhase={store.connection.phase}
               {thresholds}
+              {alarmLocation}
               {units}
               collisionMuted={collisionMute.active}
               {collisionMuteRemainingMin}
@@ -2063,13 +2078,12 @@ $effect(() => {
 .bottom-stack.above-weather {
   inset-block-end: calc(var(--control-size) + 2 * var(--space-2) + var(--weather-panel-height));
 }
-/* The emergency rail: viewport-fixed at the reachable bottom edge, deliberately without a height
-   cap or overflow clipping, and NOT lifted while Forecast is open; it stacks above the Forecast
-   panel instead, so safety chrome is never displaced off-screen. The status strip below the chart
-   host absorbs the bottom safe-area inset, and the inline insets absorb the side ones. */
+/* The emergency rail stays at its chosen chart edge and is not lifted while Forecast is open;
+   safety chrome stacks above that panel instead. At extreme text sizes, a wrapped status strip can
+   leave less chart height than an alert card needs. Bound the rail to the chart and scroll its own
+   overflow so response actions start on-screen instead of the card extending past the viewport. */
 .safety-rail {
   position: absolute;
-  inset-block-end: var(--space-3);
   inset-inline: calc(var(--space-3) + env(safe-area-inset-left, 0px))
     calc(var(--space-3) + env(safe-area-inset-right, 0px));
   inline-size: min(calc(28rem + 2 * var(--space-3)), calc(100% - 2 * var(--space-3)));
@@ -2080,8 +2094,26 @@ $effect(() => {
     env(safe-area-inset-left, 0px) -
     env(safe-area-inset-right, 0px)
   );
+  max-block-size: calc(100% - 2 * var(--space-3));
   margin-inline: auto;
+  overflow-y: auto;
+  overscroll-behavior-block: contain;
   pointer-events: auto;
   z-index: var(--z-safety-strips);
+}
+.safety-rail[data-location="top"] {
+  inset-block-start: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+}
+.safety-rail[data-location="center"] {
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+}
+.safety-rail[data-location="bottom"] {
+  inset-block-end: var(--space-3);
+}
+/* The Alarms panel is itself the emergency response surface. Let it own overlapping pixels so a
+   centered alert cannot cover the location control on a short landscape display. */
+.safety-rail.behind-alarm-panel {
+  z-index: var(--z-panel);
 }
 </style>
