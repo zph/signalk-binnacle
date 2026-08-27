@@ -366,8 +366,8 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   container-type: inline-size;
 }
 .tile--expanded .rose-layout {
-  /* The readout rows add about one quarter of the compass width above and below it. Bound the
-     complete face by viewport block size so neither row can be pushed beyond the screen. */
+  /* Bound the compass by viewport block size while the readouts use the full tile as their
+     side-rail positioning context. */
   inline-size: min(82vw, calc(64 * var(--dvh)), 54rem);
 }
 .rose-face {
@@ -519,15 +519,23 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   color: var(--text-muted);
 }
 .rose-readouts {
-  inline-size: 100%;
+  position: absolute;
+  inset-inline: var(--space-1);
+  z-index: var(--z-overlay);
+  inline-size: auto;
   display: grid;
   gap: clamp(var(--space-2), 2.5cqi, var(--space-4));
+  pointer-events: none;
 }
 .rose-readouts--top {
+  inset-block-start: 25%;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  transform: translateY(-50%);
 }
 .rose-readouts--bottom {
+  inset-block-start: 75%;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  transform: translateY(-50%);
 }
 .rose-readout {
   min-inline-size: 0;
@@ -572,6 +580,9 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   background: var(--alarm-tint);
   color: var(--alarm);
 }
+.rose-readout--depth {
+  background: transparent;
+}
 .rose-readout--warning .readout-title,
 .rose-readout--warning .readout-unit {
   color: var(--warning);
@@ -587,12 +598,11 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   font-size: 3.5cqi;
 }
 
-/* A spacious face has enough inline room to stop stacking every readout above and below the
-   compass. Query the tile itself so this works in both a wide dock and the full-screen face without
-   observing layout in JavaScript. The compact tile and portrait face retain the stacked layout. */
+/* A spacious face has enough inline room to keep the readouts outside the compass. Query the tile
+   itself so this works in both a wide dock and the full-screen face without observing layout in
+   JavaScript. */
 @container (min-width: 40rem) {
   .rose-layout {
-    position: relative;
     flex: 1;
     align-self: stretch;
     inline-size: 100%;
@@ -615,18 +625,12 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
     transform: translate(-50%, -50%);
   }
   .rose-readouts {
-    position: absolute;
-    inset-inline: 0;
-    z-index: var(--z-overlay);
-    inline-size: 100%;
-    pointer-events: none;
+    inset-inline: var(--space-1);
   }
   .rose-readouts--top {
-    inset-block-start: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .rose-readouts--bottom {
-    inset-block-end: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .rose-readout {
@@ -640,11 +644,17 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   }
   .rose-readout--aws,
   .rose-readout--sog {
+    align-items: flex-start;
     justify-self: start;
+    padding-inline-start: 0;
+    text-align: start;
   }
   .rose-readout--tws,
   .rose-readout--depth {
+    align-items: flex-end;
     justify-self: end;
+    padding-inline-end: 0;
+    text-align: end;
   }
   .rose-readout .num {
     font-size: clamp(var(--text-readout-lg), min(7cqi, 16cqb), 9rem);
@@ -655,8 +665,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
 }
 
 /* On compact and medium faces, the values belong to the instrument edges, not the center of each
-   grid column. Expanded rows also leave normal flow so the compass size cannot pull them inward.
-   This follows the spacious-face query so its outer padding cannot reintroduce an inset. */
+   grid column. The small row inset keeps the digits from feeling cramped against the tile edge. */
 @container (max-width: 64rem) {
   .rose-readout {
     inline-size: fit-content;
@@ -674,19 +683,6 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
     justify-self: end;
     padding-inline-end: 0;
     text-align: end;
-  }
-  .tile--expanded .rose-readouts {
-    position: absolute;
-    inset-inline: 0;
-    z-index: var(--z-overlay);
-    inline-size: auto;
-    pointer-events: none;
-  }
-  .tile--expanded .rose-readouts--top {
-    inset-block-start: 0;
-  }
-  .tile--expanded .rose-readouts--bottom {
-    inset-block-end: 0;
   }
 }
 </style>
