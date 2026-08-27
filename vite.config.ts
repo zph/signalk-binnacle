@@ -132,7 +132,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/**/*.{test,spec}.ts'],
+          include: ['src/**/*.{test,spec}.ts', 'server/**/*.test.ts'],
           exclude: ['src/**/*.svelte.{test,spec}.ts'],
           // Keep per-file isolation: isolate: false was measured 2026-08-25 to roughly halve the
           // wall clock, but it produced nondeterministic cross-file failures (46 on one run, a

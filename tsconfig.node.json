@@ -12,5 +12,11 @@
     "moduleDetection": "force",
     "erasableSyntaxOnly": true
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "vitest.setup.ts", "e2e/**/*.ts"]
+  "include": [
+    "vite.config.ts",
+    "playwright.config.ts",
+    "vitest.setup.ts",
+    "e2e/**/*.ts",
+    "server/**/*.test.ts"
+  ]
 }

@@ -2,6 +2,7 @@
   "name": "binnacle-custom",
   "version": "0.21.0",
   "description": "WebGL chartplotter for Signal K",
+  "main": "server/index.cjs",
   "type": "module",
   "license": "Apache-2.0",
   "author": "Nearl Crews <23341701+NearlCrews@users.noreply.github.com>",
@@ -19,6 +20,7 @@
   },
   "keywords": [
     "signalk-webapp",
+    "signalk-node-server-plugin",
     "signalk-category-chart-plotters",
     "chartplotter",
     "navigation",
@@ -28,6 +30,7 @@
     "anchor-watch",
     "pwa"
   ],
+  "signalk-plugin-enabled-by-default": true,
   "engines": {
     "node": ">=22.18"
   },
@@ -63,6 +66,7 @@
   },
   "files": [
     "public/",
+    "server/index.cjs",
     "!public/**/*.map",
     "README.md",
     "LICENSE",

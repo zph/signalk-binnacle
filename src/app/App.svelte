@@ -91,6 +91,7 @@ import { createInterfaceLockController, InterfaceLockLayer } from '$features/int
 import type { LayersView } from '$features/layers-panel';
 import {
   CollisionMute,
+  createCollisionSettingsSync,
   createShallowController,
   GenericAlarm,
   isRaisedNotification,
@@ -291,6 +292,11 @@ const authToken = $derived(auth.token ?? undefined);
 const accessResolved = $derived(auth.status === 'authenticated' || auth.status === 'unsecured');
 const net = new OnlineStatus();
 const thresholds = createThresholds();
+const collisionSettingsSync = createCollisionSettingsSync({
+  origin,
+  thresholds,
+  getToken: () => authToken,
+});
 // Anchored own vessel treats moored and swinging boats as non-hazards, silencing the busy-anchorage
 // nuisance; the callback reads anchor (constructed below) lazily, only from inside the assessment.
 const collision = new CollisionAssessment(vessel, aisTargets, thresholds, () => anchor.watching);
@@ -2662,6 +2668,7 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
   shallowController.refreshMeta();
   if (untrack(() => companionBase === null)) refreshCompanionProbe();
   void units.syncFromServer(origin);
+  void collisionSettingsSync.hydrate();
   // The MOB replay decision reads the mirror, so it runs behind the mirror reconcile: before
   // it, the pre-outage mirror still shows the raise a restarted server has already lost, and
   // the replay guard would skip the re-raise every other station needs.
@@ -2726,6 +2733,10 @@ async function refreshWeatherProvider(token: string | undefined): Promise<void> 
 // Keyed on the auth token rather than run once at first connect, so a token that arrives later
 // (an approval from another tab) or changes re-detects with the right credentials.
 $effect(() => {
+  collisionSettingsSync.observe(thresholds.value);
+});
+
+$effect(() => {
   if (!accessResolved) return;
   // A write-access approval changes auth.token without reconnecting the stream, and chartsToken
   // seeds only at first connect, so mirror it here or every REST write keeps using the stale
@@ -2744,6 +2755,7 @@ $effect(() => {
   // Resolve the server's unit preferences with the same trigger: per-user resolution rides on the
   // session credentials that exist once access has resolved.
   void units.syncFromServer(origin);
+  void collisionSettingsSync.hydrate();
   // Capability discovery; a transport failure keeps the current value so one bad probe cannot
   // drop the session back to v1 transports.
   void fetchServerFeatures(origin, authToken).then((features) => {
@@ -2874,6 +2886,7 @@ onMount(() => {
 });
 
 onDestroy(() => {
+  collisionSettingsSync.dispose();
   privacyActivity.dispose();
   companionStatus.stop();
   streamController.dispose();
