@@ -896,8 +896,8 @@ const layerCategoriesOpen = new PersistedValue<Record<string, boolean>>(
   booleanRecordPersistedCodec({ maxEntries: 128 }),
 );
 
-// Profiles: named bundles of the portable settings (theme, layers, opacity, order, weather layers,
-// thresholds, track and planning settings, alarm mutes) the navigator saves and switches between.
+// Profiles: named bundles of portable settings, including theme, chart facets, overlays, opacity,
+// order, provider display settings, weather layers, thresholds, track, and planning preferences.
 // The display-unit preference: follows the server's unit preferences when they resolve, with a
 // locally persisted fallback that profiles can carry. The store stays SI; only readouts consult it.
 const units = new UnitsStore();
@@ -1072,6 +1072,7 @@ const profileBindings = createProfileBindings({
   layers: layerSettings,
   layerOrder,
   weatherLayers: weatherLayerSettings,
+  aisIconMode,
   thresholds,
   trackSettings,
   planningSpeedMps,

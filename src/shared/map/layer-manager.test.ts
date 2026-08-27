@@ -100,6 +100,25 @@ describe('LayerManager', () => {
     expect(onChange).toHaveBeenCalledWith({ ais: { visible: true, opacity: 0.6 } });
   });
 
+  it('retains settings for asynchronously absent charts and facets when an overlay changes', async () => {
+    const onChange = vi.fn();
+    const saved = {
+      'chart:server:enc': { visible: false, opacity: 0.8, cellSizeScale: 2 },
+      'chart:server:enc:facet:depth': { visible: true, opacity: 0.35 },
+      ais: { visible: true, opacity: 0.6 },
+    };
+    const manager = new LayerManager(fakeCtx(), { saved, onChange });
+    await manager.register(fakeOverlay('ais'));
+
+    manager.setOpacity('ais', 0.4);
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      'chart:server:enc': { visible: false, opacity: 0.8, cellSizeScale: 2 },
+      'chart:server:enc:facet:depth': { visible: true, opacity: 0.35 },
+      ais: { visible: true, opacity: 0.4 },
+    });
+  });
+
   it('restores, updates, and persists a provider cell-size scale', async () => {
     const onChange = vi.fn();
     const overlay = {
@@ -888,6 +907,64 @@ describe('LayerManager', () => {
 
     expect(manager.layers()).toEqual([]);
     expect(onChange).toHaveBeenLastCalledWith({});
+  });
+
+  it('preserves chart, facet, provider settings, and order during a provider refresh', async () => {
+    const onChange = vi.fn();
+    const onOrderChange = vi.fn();
+    const saved = {
+      chart: { visible: false, opacity: 0.8, cellSizeScale: 2 },
+      'chart:facet:depth': { visible: true, opacity: 0.35 },
+    };
+    const manager = new LayerManager(fakeCtx(), {
+      saved,
+      savedOrder: ['chart'],
+      onChange,
+      onOrderChange,
+    });
+    const chart = () => ({
+      ...fakeOverlay('chart', 'bathymetry'),
+      cellSizeControl: {
+        queryParameter: 'cellScale',
+        minimum: 0.5,
+        maximum: 4,
+        step: 0.25,
+        default: 1,
+      },
+      setCellSizeScale: vi.fn(),
+      facets: [
+        {
+          id: 'chart:facet:depth',
+          title: 'Depth areas',
+          description: 'Depth bands.',
+          supportsOpacity: true,
+          layerIds: ['chart-layer'],
+          setVisible: vi.fn(),
+          setOpacity: vi.fn(),
+        },
+      ],
+    });
+    await manager.register(chart());
+    onChange.mockClear();
+    onOrderChange.mockClear();
+
+    manager.unregister('chart', { preserveProfileState: true });
+
+    expect(manager.layers()).toEqual([]);
+    expect(onChange).toHaveBeenLastCalledWith(saved);
+    expect(onOrderChange).not.toHaveBeenCalled();
+
+    const refreshed = chart();
+    await manager.register(refreshed);
+    expect(manager.layers().find((layer) => layer.id === 'chart')).toMatchObject({
+      visible: false,
+      opacity: 0.8,
+      cellSizeScale: 2,
+    });
+    expect(manager.layers().find((layer) => layer.id === 'chart:facet:depth')).toMatchObject({
+      opacity: 0.35,
+    });
+    expect(refreshed.setCellSizeScale).toHaveBeenCalledWith(expect.anything(), 2);
   });
 
   it('moves shared facet layer ids only once when restacking their parent', async () => {

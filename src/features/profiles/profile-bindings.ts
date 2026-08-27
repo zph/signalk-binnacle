@@ -18,6 +18,7 @@ export interface ProfileBindingDeps {
   layers: PersistedValue<LayerSettings>;
   layerOrder: PersistedValue<string[]>;
   weatherLayers: PersistedValue<LayerSettings>;
+  aisIconMode: PersistedValue<NonNullable<ProfileSettings['aisIconMode']>>;
   thresholds: PersistedValue<Thresholds>;
   trackSettings: PersistedValue<TrackSettings>;
   planningSpeedMps: PersistedValue<number>;
@@ -78,6 +79,11 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
       read: () => ({ weatherLayers: deps.weatherLayers.snapshot() }),
       write: (s) => deps.weatherLayers.set(s.weatherLayers),
       track: () => void deps.weatherLayers.value,
+    },
+    aisIconMode: {
+      read: () => ({ aisIconMode: deps.aisIconMode.snapshot() }),
+      write: (s) => deps.aisIconMode.set(s.aisIconMode ?? 'type-specific'),
+      track: () => void deps.aisIconMode.value,
     },
     thresholds: {
       read: () => ({ thresholds: deps.thresholds.snapshot() }),

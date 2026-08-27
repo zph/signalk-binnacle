@@ -25,6 +25,7 @@ function makeDeps(): ProfileBindingDeps {
     layers: pv({}),
     layerOrder: pv<string[]>([]),
     weatherLayers: pv({}),
+    aisIconMode: pv('type-specific'),
     thresholds: pv({
       dangerCpaMeters: 1,
       dangerTcpaSeconds: 1,
@@ -70,6 +71,46 @@ describe('createProfileBindings', () => {
     expect(bundle.layerOrder).toEqual([]);
     expect(bundle.trackSettings.colorMode).toBe('speed');
     expect(() => structuredClone(bundle)).not.toThrow();
+  });
+
+  it('captures and restores chart facets, overlays, order, and provider settings together', () => {
+    const deps = makeDeps();
+    const layers = {
+      'chart:server:noaa': { visible: true, opacity: 0.85, cellSizeScale: 1.75 },
+      'chart:server:noaa:facet:depth': { visible: true, opacity: 0.6 },
+      'chart:server:noaa:facet:soundings': { visible: false, opacity: 1 },
+      ais: { visible: false, opacity: 0.7 },
+      radar: { visible: true, opacity: 0.45 },
+    };
+    deps.layers.set(layers);
+    deps.layerOrder.set(['ais', 'chart:server:noaa', 'radar']);
+    deps.aisIconMode.set('generic');
+    const bindings = createProfileBindings(deps);
+
+    const captured = bindings.capture();
+    expect(captured.layers).toEqual(layers);
+    expect(captured.layerOrder).toEqual(['ais', 'chart:server:noaa', 'radar']);
+    expect(captured.aisIconMode).toBe('generic');
+
+    deps.layers.set({});
+    deps.layerOrder.set([]);
+    deps.aisIconMode.set('type-specific');
+    bindings.apply(captured);
+    expect(deps.layers.value).toEqual(layers);
+    expect(deps.layerOrder.value).toEqual(['ais', 'chart:server:noaa', 'radar']);
+    expect(deps.aisIconMode.value).toBe('generic');
+  });
+
+  it('applies the type-specific AIS default for a legacy profile', () => {
+    const deps = makeDeps();
+    const bindings = createProfileBindings(deps);
+    deps.aisIconMode.set('generic');
+    const legacy = bindings.capture();
+    legacy.aisIconMode = undefined;
+
+    bindings.apply(legacy);
+
+    expect(deps.aisIconMode.value).toBe('type-specific');
   });
 
   it('applies a bundle back to every store', () => {

@@ -5,9 +5,10 @@ import type { PortableProfileSettingKey } from '$entities/profile';
 // unnamed entry in the list.
 const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   theme: 'Theme',
-  layers: 'Chart layers',
+  layers: 'Charts and overlays',
   layerOrder: 'Layer order',
   weatherLayers: 'Weather layers',
+  aisIconMode: 'AIS symbols',
   thresholds: 'Collision thresholds',
   trackSettings: 'Track recording',
   planningSpeedMps: 'Planning speed',
@@ -21,7 +22,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
 
 const LIST_FORMAT = new Intl.ListFormat('en-US', { style: 'long', type: 'conjunction' });
 
-/** The changed settings as a sentence fragment ("Theme, Chart layers, and Anchor radius"), or
+/** The changed settings as a sentence fragment ("Theme, Charts and overlays, and Anchor radius"), or
  * undefined when nothing portable differs. */
 export function profileChangeSummary(
   keys: readonly PortableProfileSettingKey[],

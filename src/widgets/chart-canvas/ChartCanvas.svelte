@@ -739,7 +739,9 @@ onMount(async () => {
         // manageable descriptor and omit its duplicate server entry.
         const localIds = new Set((userCharts?.sources ?? []).map((source) => source.id));
         const wanted = next.filter((chart) => !localIds.has(chart.identifier));
-        for (const id of serverChartIds) mgr.unregister(chartSourceId(id));
+        for (const id of serverChartIds) {
+          mgr.unregister(chartSourceId(id), { preserveProfileState: true });
+        }
         serverChartIds.clear();
         const results = await mgr.registerBatch(
           wanted.map((chart) =>
@@ -760,7 +762,9 @@ onMount(async () => {
           // admitted to serverChartIds, so remove the completed batch directly before yielding to
           // the newer generation or it would leave stale overlays and duplicate registrations.
           for (const result of results) {
-            if (result.status === 'registered') mgr.unregister(result.id);
+            if (result.status === 'registered') {
+              mgr.unregister(result.id, { preserveProfileState: true });
+            }
           }
           view.refresh();
           return;

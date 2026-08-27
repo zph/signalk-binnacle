@@ -214,6 +214,13 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   if (Object.keys(value).length > MAX_PROFILE_SETTING_KEYS) return false;
   if (!(THEMES as readonly unknown[]).includes(value.theme)) return false;
   if (!validLayerSettings(value.layers) || !validLayerSettings(value.weatherLayers)) return false;
+  if (
+    value.aisIconMode !== undefined &&
+    value.aisIconMode !== 'type-specific' &&
+    value.aisIconMode !== 'generic'
+  ) {
+    return false;
+  }
   if (value.layerCategories !== undefined && !validCategorySettings(value.layerCategories))
     return false;
   if (!validStringList(value.layerOrder, MAX_LIST_ENTRIES)) return false;

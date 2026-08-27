@@ -59,6 +59,31 @@ describe('isProfileSettings', () => {
     expect(isProfileSettings(settings({ layers: 'nope' as never }))).toBe(false);
   });
 
+  it('round-trips chart facets, overlays, and provider layer settings', () => {
+    const layers = {
+      'chart:server:noaa': { visible: true, opacity: 0.8, cellSizeScale: 2 },
+      'chart:server:noaa:facet:depth': { visible: false, opacity: 0.4 },
+      ais: { visible: true, opacity: 0.65 },
+    };
+    const out = parseProfilesJson(
+      JSON.stringify(
+        profile('Chart setup', {
+          layers,
+          layerOrder: ['ais', 'chart:server:noaa'],
+          aisIconMode: 'generic',
+        }),
+      ),
+    );
+
+    expect(out[0].settings.layers).toEqual(layers);
+    expect(out[0].settings.layerOrder).toEqual(['ais', 'chart:server:noaa']);
+    expect(out[0].settings.aisIconMode).toBe('generic');
+  });
+
+  it('rejects an unknown AIS symbol mode', () => {
+    expect(isProfileSettings(settings({ aisIconMode: 'silhouettes' as never }))).toBe(false);
+  });
+
   it('rejects a non-array layerOrder', () => {
     expect(isProfileSettings(settings({ layerOrder: {} as never }))).toBe(false);
   });

@@ -10,6 +10,9 @@ export interface ProfileSettings {
   layers: LayerSettings;
   layerOrder: string[];
   weatherLayers: LayerSettings;
+  // AIS target portrayal. Optional so profiles saved before vessel-kind symbols existed remain
+  // valid; the read edge applies the original type-specific default.
+  aisIconMode?: 'type-specific' | 'generic';
   thresholds: Thresholds;
   trackSettings: TrackSettings;
   // Route planning speed in m/s. SI like every other persisted measure; the route plan converts to
@@ -49,6 +52,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'layers',
   'layerOrder',
   'weatherLayers',
+  'aisIconMode',
   'thresholds',
   'trackSettings',
   'planningSpeedMps',

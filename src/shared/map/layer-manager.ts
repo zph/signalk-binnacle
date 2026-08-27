@@ -392,17 +392,20 @@ export class LayerManager {
     }
   }
 
-  unregister(id: string): void {
+  unregister(id: string, options: { preserveProfileState?: boolean } = {}): void {
     const childIds = this.#childrenOf(id);
     for (const childId of childIds.reverse()) this.#removeModule(childId);
     this.#removeModule(id);
-    for (const removedId of [id, ...childIds]) delete this.#saved[removedId];
     this.#suppressedChildren.delete(id);
-    // Drop the state and order entries too, and persist, so a deleted overlay (a removed user
-    // chart) does not live on in the saved snapshot forever.
-    if (this.#explicitOrder.includes(id)) {
-      this.#explicitOrder = this.#explicitOrder.filter((other) => other !== id);
-      this.#onOrderChange?.([...this.#explicitOrder]);
+    // A deliberate removal, such as deleting a user chart, clears its saved state and order. A
+    // provider refresh temporarily unregisters the same logical chart, so it retains the parent,
+    // every facet, and the stacking slot for the replacement registration.
+    if (!options.preserveProfileState) {
+      for (const removedId of [id, ...childIds]) delete this.#saved[removedId];
+      if (this.#explicitOrder.includes(id)) {
+        this.#explicitOrder = this.#explicitOrder.filter((other) => other !== id);
+        this.#onOrderChange?.([...this.#explicitOrder]);
+      }
     }
     this.#persist();
   }
@@ -665,8 +668,9 @@ export class LayerManager {
     // Keep the manager's restore source current even without a persistence callback. A profile can
     // be applied before an asynchronously discovered chart registers; its facet settings must still
     // be available when that chart family arrives later.
-    this.#saved = { ...this.#saved, ...snapshot };
-    this.#onChange?.(snapshot);
+    const persisted = { ...this.#saved, ...snapshot };
+    this.#saved = persisted;
+    this.#onChange?.(persisted);
   }
 
   #isChild(id: string): boolean {
