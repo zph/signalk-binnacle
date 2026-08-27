@@ -43,7 +43,7 @@ import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
 import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import type { LatLon } from '$shared/geo';
-import { createRetryableLazyUiLoader, lengthUnit } from '$shared/lib';
+import { createRetryableLazyUiLoader } from '$shared/lib';
 import {
   activeLayerHitCursor,
   type ChartFeatureSelection,
@@ -357,15 +357,14 @@ $effect(() => {
   workingRouteOverlay?.setTheme(theme);
 });
 
-// Seascape's contour and sounding labels switch between metric and imperial via MapLibre's
-// global-state rather than rebuilding filters or paint, so this only needs to push the current
-// mode whenever it changes; units is a prop backed by reactive state, so this effect tracks it.
+// Vector chart depth labels follow Signal K's depth category through MapLibre global state rather
+// than rebuilding filters or paint. Units is backed by reactive state, so this effect tracks it.
 // setGlobalStateProperty is the Map-level API (setGlobalState is an internal Style method, not
 // exposed on Map).
 $effect(() => {
   const map = mapRef;
   if (!map) return;
-  map.setGlobalStateProperty('unit', lengthUnit(units.mode));
+  map.setGlobalStateProperty('unit', units.depthUnit);
 });
 
 // A crosshair makes the chart's temporary tap mode visible. Deliberate move mode switches to a move
@@ -463,7 +462,7 @@ onMount(async () => {
       // Seed the unit global-state before registerAll below adds Seascape's vector layers, so their
       // global-state-driven filters and text-fields never evaluate against an unset value; the
       // units effect (mapRef-gated, further down) keeps it live after this initial seed.
-      map.setGlobalStateProperty('unit', lengthUnit(units.mode));
+      map.setGlobalStateProperty('unit', units.depthUnit);
       // A pan or zoom moves the chart out from under the menu's pixel anchor, so dismiss it on move.
       // Only on a move the user drove: MapLibre sets originalEvent for handler-driven moves (drag,
       // wheel, keyboard, the zoom control) and leaves it unset for a programmatic camera call, and
@@ -750,7 +749,7 @@ onMount(async () => {
               s57Style: {
                 safetyDepth:
                   thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
-                depthUnit: units.mode === 'imperial' ? 'ft' : 'm',
+                depthUnit: units.depthUnit,
               },
             }),
           ),
@@ -819,7 +818,7 @@ onMount(async () => {
                 s57Style: {
                   safetyDepth:
                     thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
-                  depthUnit: units.mode === 'imperial' ? 'ft' : 'm',
+                  depthUnit: units.depthUnit,
                 },
               }),
             );
@@ -841,7 +840,7 @@ onMount(async () => {
                 s57Style: {
                   safetyDepth:
                     thresholds.value.shallowDepthMeters ?? DEFAULT_THRESHOLDS.shallowDepthMeters,
-                  depthUnit: units.mode === 'imperial' ? 'ft' : 'm',
+                  depthUnit: units.depthUnit,
                 },
               }),
             );

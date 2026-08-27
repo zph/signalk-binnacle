@@ -33,7 +33,19 @@ describe('bathymetry cell style', () => {
     expect(layer(layers, 'depare-bathymetry-outline').paint).toMatchObject({
       'line-opacity': 0.9,
     });
-    expect((layer(layers, 'soundg-bathymetry-label') as SymbolLayerSpecification).minzoom).toBe(13);
+    const label = layer(layers, 'soundg-bathymetry-label') as SymbolLayerSpecification;
+    expect(label.minzoom).toBe(13);
+    expect(label.layout?.['text-font']).toEqual(['Noto Sans Bold']);
+    expect(label.layout?.['text-size']).toEqual([
+      'interpolate',
+      ['linear'],
+      ['zoom'],
+      13,
+      17,
+      20,
+      20,
+    ]);
+    expect(label.paint?.['text-halo-width']).toBe(2.25);
   });
 
   it('varies day cell colors continuously across depths below the safety threshold', () => {

@@ -1,1 +1,1 @@
-export { UnitsStore } from './units.svelte';
+export { type DepthUnit, UnitsStore } from './units.svelte';

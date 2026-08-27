@@ -53,6 +53,16 @@ describe('chartFeatureDetails', () => {
     expect(details.cellSize).toBe('33');
   });
 
+  it('uses an exact Signal K depth category without changing the cell resolution unit', () => {
+    const details = chartFeatureDetails(selection, 'metric', 'fm');
+    expect(details.depth).toBe('3.4');
+    expect(details.depthUnit).toBe('fm');
+    expect(details.uncertainty).toBe('0.2');
+    expect(details.robustDepth).toBe('3.7');
+    expect(details.cellSize).toBe('10');
+    expect(details.cellSizeUnit).toBe('m');
+  });
+
   it('also gives ordinary ENC depth areas a compact depth readout', () => {
     const details = chartFeatureDetails(
       { ...selection, properties: { DRVAL1: '4.2' }, chartIdentifier: 'noaa-enc' },

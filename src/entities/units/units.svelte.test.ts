@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PersistedValue } from '$shared/settings';
 import { createFakeStorage } from '$shared/testing';
-import { modeFromPreset, UnitsStore } from './units.svelte';
+import { depthUnitFromPreset, modeFromPreset, UnitsStore } from './units.svelte';
 
-const imperialPreset = { categories: { length: { targetUnit: 'foot' } } };
-const metricPreset = { categories: { length: { targetUnit: 'm' } } };
+const imperialPreset = {
+  categories: { length: { targetUnit: 'foot' }, depth: { targetUnit: 'foot' } },
+};
+const metricPreset = {
+  categories: { length: { targetUnit: 'm' }, depth: { targetUnit: 'm' } },
+};
 
 function localSetting(seed?: Record<string, string>) {
   return new PersistedValue<'metric' | 'imperial'>(
@@ -36,6 +40,24 @@ describe('modeFromPreset', () => {
   });
 });
 
+describe('depthUnitFromPreset', () => {
+  it('reads the exact Signal K depth category independently of the length category', () => {
+    expect(depthUnitFromPreset(imperialPreset)).toBe('ft');
+    expect(depthUnitFromPreset(metricPreset)).toBe('m');
+    expect(
+      depthUnitFromPreset({
+        categories: { length: { targetUnit: 'm' }, depth: { targetUnit: 'fathom' } },
+      }),
+    ).toBe('fm');
+  });
+
+  it('accepts common custom-preset spellings and rejects missing categories', () => {
+    expect(depthUnitFromPreset({ categories: { depth: { targetUnit: 'feet' } } })).toBe('ft');
+    expect(depthUnitFromPreset({ categories: { depth: { targetUnit: 'metres' } } })).toBe('m');
+    expect(depthUnitFromPreset({ categories: {} })).toBeUndefined();
+  });
+});
+
 describe('UnitsStore', () => {
   it('prefers the per-user preset over the global active one', async () => {
     const units = new UnitsStore(localSetting());
@@ -48,6 +70,7 @@ describe('UnitsStore', () => {
       }),
     );
     expect(units.mode).toBe('imperial');
+    expect(units.depthUnit).toBe('ft');
     expect(units.source).toBe('server');
   });
 
@@ -58,12 +81,40 @@ describe('UnitsStore', () => {
       fetchStub({ '/unitpreferences/active': imperialPreset }),
     );
     expect(units.mode).toBe('imperial');
+    expect(units.depthUnit).toBe('ft');
+  });
+
+  it('uses the depth category even when it differs from the general length mode', async () => {
+    const units = new UnitsStore(localSetting());
+    await units.syncFromServer(
+      'http://pi',
+      fetchStub({
+        '/unitpreferences/active': {
+          categories: { length: { targetUnit: 'm' }, depth: { targetUnit: 'fathom' } },
+        },
+      }),
+    );
+    expect(units.mode).toBe('metric');
+    expect(units.depthUnit).toBe('fm');
+  });
+
+  it('uses a recognized depth category from an otherwise partial custom preset', async () => {
+    const units = new UnitsStore(localSetting());
+    await units.syncFromServer(
+      'http://pi',
+      fetchStub({
+        '/unitpreferences/active': { categories: { depth: { targetUnit: 'fathom' } } },
+      }),
+    );
+    expect(units.mode).toBe('metric');
+    expect(units.depthUnit).toBe('fm');
   });
 
   it('keeps the local setting when the server has no unit preferences (older server)', async () => {
     const units = new UnitsStore(localSetting({ 'binnacle-custom:units': '"imperial"' }));
     await units.syncFromServer('http://pi', fetchStub({}));
     expect(units.mode).toBe('imperial');
+    expect(units.depthUnit).toBe('ft');
     expect(units.source).toBe('local');
   });
 
@@ -75,6 +126,7 @@ describe('UnitsStore', () => {
     );
     await units.syncFromServer('http://pi', fetchStub({}));
     expect(units.mode).toBe('imperial');
+    expect(units.depthUnit).toBe('ft');
   });
 
   it('ignores an older same-origin resolution that finishes after a newer one', async () => {

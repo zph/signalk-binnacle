@@ -11,7 +11,7 @@ interface Props {
 }
 
 const { selection, units, onClose }: Props = $props();
-const details = $derived(chartFeatureDetails(selection, units.mode));
+const details = $derived(chartFeatureDetails(selection, units.mode, units.depthUnit));
 
 // The fixed pixel dimensions mirror the scoped CSS below. They keep the card inside the chart at
 // narrow edges without measuring it after paint and moving it visibly on the next frame.
@@ -80,7 +80,7 @@ const change = $derived(
       </dd>
     {/if}
     {#if details.robustDepth}
-      <dt>Surface estimate</dt>
+      <dt>Estimated seabed depth</dt>
       <dd>
         <span class="num">{details.robustDepth}</span><span class="unit">{details.depthUnit}</span>
       </dd>
@@ -104,7 +104,7 @@ const change = $derived(
     {#if details.cellSize}
       <dt>Cell resolution</dt>
       <dd>
-        <span class="num">{details.cellSize}</span><span class="unit">{details.depthUnit}</span>
+        <span class="num">{details.cellSize}</span><span class="unit">{details.cellSizeUnit}</span>
       </dd>
     {/if}
     {#if details.datum}

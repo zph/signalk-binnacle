@@ -144,14 +144,17 @@ export function bathymetryCellLayers(
       minzoom: 13,
       layout: {
         'text-field': depthLabel(fallbackUnit),
-        'text-font': ['Noto Sans Regular'],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 20, 12],
-        'text-padding': 3,
+        'text-font': ['Noto Sans Bold'],
+        // H3 cells remain nearly constant in screen size as their resolution changes. A 17 to 20
+        // pixel label occupies roughly one-third of the cell height while retaining breathing room.
+        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
+        'text-padding': 2,
       },
       paint: {
         'text-color': bathymetryThemePaint('day', 'label', options.safetyDepth),
         'text-halo-color': bathymetryThemePaint('day', 'labelHalo', options.safetyDepth),
-        'text-halo-width': 1.25,
+        'text-halo-width': 2.25,
+        'text-halo-blur': 0.25,
       },
       metadata: metadata({ 'text-color': 'label', 'text-halo-color': 'labelHalo' }),
     };

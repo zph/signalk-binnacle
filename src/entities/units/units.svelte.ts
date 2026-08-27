@@ -13,6 +13,27 @@ interface PresetCategories {
   categories?: Record<string, { targetUnit?: string } | undefined>;
 }
 
+export type DepthUnit = 'm' | 'ft' | 'fm';
+
+// Depth is its own Signal K preference category. Preserve it separately from the broad metric or
+// imperial mode so custom presets can use feet or fathoms for soundings without changing every
+// other length in the application.
+export function depthUnitFromPreset(preset: PresetCategories | undefined): DepthUnit | undefined {
+  const target = preset?.categories?.depth?.targetUnit?.trim().toLowerCase();
+  if (target === 'foot' || target === 'feet' || target === 'ft') return 'ft';
+  if (target === 'fathom' || target === 'fathoms' || target === 'fm') return 'fm';
+  if (
+    target === 'm' ||
+    target === 'meter' ||
+    target === 'meters' ||
+    target === 'metre' ||
+    target === 'metres'
+  ) {
+    return 'm';
+  }
+  return undefined;
+}
+
 // The imperial signal: every shipped preset keys length on foot or m; depth and temperature back
 // it up so a partial or custom preset still resolves.
 export function modeFromPreset(preset: PresetCategories | undefined): UnitsMode | undefined {
@@ -33,6 +54,7 @@ export function modeFromPreset(preset: PresetCategories | undefined): UnitsMode 
 export class UnitsStore {
   #local: PersistedValue<UnitsMode>;
   #server = $state<UnitsMode | undefined>(undefined);
+  #serverDepthUnit = $state<DepthUnit | undefined>(undefined);
   // The origin the resolved preset belongs to, so a switch to a different server clears it.
   #syncedOrigin: string | undefined;
   // Supersedes older in-flight resolutions, including a retry against the same origin. Without this
@@ -54,6 +76,10 @@ export class UnitsStore {
     return this.#server ?? this.#local.value;
   }
 
+  get depthUnit(): DepthUnit {
+    return this.#serverDepthUnit ?? (this.mode === 'imperial' ? 'ft' : 'm');
+  }
+
   // Where the active mode came from, so settings UI can say "following the server preference".
   get source(): 'server' | 'local' {
     return this.#server !== undefined ? 'server' : 'local';
@@ -69,6 +95,15 @@ export class UnitsStore {
     return generation === this.#syncGeneration && base === this.#syncedOrigin;
   }
 
+  #applyServerPreset(preset: PresetCategories | undefined): boolean {
+    const mode = modeFromPreset(preset);
+    const depthUnit = depthUnitFromPreset(preset);
+    if (!mode && !depthUnit) return false;
+    if (mode) this.#server = mode;
+    this.#serverDepthUnit = depthUnit ?? (mode === 'imperial' ? 'ft' : 'm');
+    return true;
+  }
+
   // Resolve the server preference: the user's own preset first (same-origin credentials, the
   // admin UI's resolution), then the global active preset. A transport failure or 404 leaves the
   // current value, so a flaky link cannot flip units mid-passage.
@@ -79,6 +114,7 @@ export class UnitsStore {
     // keeps the value (stability over churn: a transient failure must not flip units mid-passage).
     if (base !== this.#syncedOrigin) {
       this.#server = undefined;
+      this.#serverDepthUnit = undefined;
       this.#syncedOrigin = base;
     }
     const userPref = await fetchJsonOrUndefined<{ activePreset?: string }>(
@@ -94,11 +130,7 @@ export class UnitsStore {
         fetchFn,
       );
       if (!this.#isCurrentSync(generation, base)) return;
-      const mode = modeFromPreset(preset);
-      if (mode) {
-        this.#server = mode;
-        return;
-      }
+      if (this.#applyServerPreset(preset)) return;
     }
     const active = await fetchJsonOrUndefined<PresetCategories>(
       `${base}${ACTIVE_PATH}`,
@@ -106,10 +138,7 @@ export class UnitsStore {
       fetchFn,
     );
     if (!this.#isCurrentSync(generation, base)) return;
-    const mode = modeFromPreset(active);
-    if (mode) {
-      this.#server = mode;
-    } else if (active) {
+    if (!this.#applyServerPreset(active) && active) {
       // A preset the server returned but this heuristic cannot classify reads exactly like "no
       // server preference"; one line makes "why is my boat metric" debuggable.
       console.info(

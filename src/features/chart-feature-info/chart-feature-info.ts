@@ -1,11 +1,12 @@
+import type { DepthUnit } from '$entities/units';
 import type { UnitsMode } from '$shared/lib';
-import { formatLengthOr, lengthUnit } from '$shared/lib';
+import { formatFixed, formatLengthOr, lengthUnit, metersToFeet } from '$shared/lib';
 import type { ChartFeatureSelection } from '$shared/map';
 
 export interface ChartFeatureDetails {
   title: string;
   depth?: string;
-  depthUnit: 'm' | 'ft';
+  depthUnit: DepthUnit;
   quality?: string;
   confidenceReasons: string[];
   uncertainty?: string;
@@ -15,6 +16,7 @@ export interface ChartFeatureDetails {
   passes?: number;
   sources?: number;
   cellSize?: string;
+  cellSizeUnit: 'm' | 'ft';
   newestAtMs?: number;
   datum?: string;
   mode?: 'datum' | 'water';
@@ -24,6 +26,7 @@ export interface ChartFeatureDetails {
 export function chartFeatureDetails(
   selection: ChartFeatureSelection,
   mode: UnitsMode,
+  depthUnit: DepthUnit = lengthUnit(mode),
 ): ChartFeatureDetails {
   const properties = selection.properties;
   const depthM = numberProperty(properties, 'BATHY_DEPTH_M', 'DEPTH', 'DRVAL1', 'VALSOU');
@@ -40,17 +43,18 @@ export function chartFeatureDetails(
         : selection.sourceLayer === 'SOUNDG'
           ? 'Chart sounding'
           : 'Chart depth area',
-    depthUnit: lengthUnit(mode),
+    depthUnit,
+    cellSizeUnit: lengthUnit(mode),
     confidenceReasons: reasons,
   };
-  if (depthM !== undefined) result.depth = formatDepth(depthM, mode);
+  if (depthM !== undefined) result.depth = formatDepth(depthM, depthUnit);
   if (confidence !== undefined) {
     result.quality = `${qualityBand(confidence)} (${Math.round(clamp01(confidence) * 100)}%)`;
   }
   const uncertaintyM = numberProperty(properties, 'BATHY_VERTICAL_SIGMA_M');
-  if (uncertaintyM !== undefined) result.uncertainty = formatLengthOr(uncertaintyM, mode, 1);
+  if (uncertaintyM !== undefined) result.uncertainty = formatDepth(uncertaintyM, depthUnit);
   const robustDepthM = numberProperty(properties, 'BATHY_ROBUST_DEPTH_M');
-  if (robustDepthM !== undefined) result.robustDepth = formatDepth(robustDepthM, mode);
+  if (robustDepthM !== undefined) result.robustDepth = formatDepth(robustDepthM, depthUnit);
   result.observations = integerProperty(properties, 'BATHY_OBSERVATION_COUNT');
   result.soundings = integerProperty(properties, 'BATHY_SOUNDING_COUNT');
   result.passes = integerProperty(properties, 'BATHY_PASS_COUNT');
@@ -65,10 +69,11 @@ export function chartFeatureDetails(
   return result;
 }
 
-function formatDepth(meters: number, mode: UnitsMode): string {
-  // The chart label remains conservatively floored at deeper imperial values. The inspection card
-  // is the detail view, so retain one decimal here instead of throwing away measured precision.
-  return formatLengthOr(meters, mode, 1);
+function formatDepth(meters: number, unit: DepthUnit): string {
+  // The inspection card is the detail view, so retain one decimal instead of throwing away
+  // measured precision. The selected unit comes from Signal K's depth category.
+  const value = unit === 'ft' ? metersToFeet(meters) : unit === 'fm' ? meters / 1.8288 : meters;
+  return formatFixed(value, 1);
 }
 
 function qualityBand(confidence: number): string {
