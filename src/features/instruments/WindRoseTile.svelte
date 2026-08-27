@@ -536,13 +536,14 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .rose-readout {
+  --rose-edge-padding: 1.6cqi;
   min-inline-size: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.4cqi;
-  padding: 1.6cqi 2cqi;
+  padding: var(--rose-edge-padding) 2cqi;
   border: 0;
   border-radius: 2.4cqi;
   background: color-mix(in srgb, var(--surface-raised) 58%, transparent);
@@ -646,9 +647,10 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .rose-readout {
+    --rose-edge-padding: var(--space-2);
     inline-size: fit-content;
     min-inline-size: min(18cqi, 15rem);
-    padding: var(--space-2) var(--space-4);
+    padding: var(--rose-edge-padding) var(--space-4);
     border-radius: var(--radius-lg);
   }
   .rose-readout:not(.rose-readout--warning):not(.rose-readout--alarm) {
@@ -658,14 +660,14 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   .rose-readout--sog {
     align-items: flex-start;
     justify-self: start;
-    padding-inline-start: 0;
+    padding-inline-start: var(--rose-edge-padding);
     text-align: start;
   }
   .rose-readout--tws,
   .rose-readout--depth {
     align-items: flex-end;
     justify-self: end;
-    padding-inline-end: 0;
+    padding-inline-end: var(--rose-edge-padding);
     text-align: end;
   }
   .rose-readout .num {
@@ -681,8 +683,8 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   }
 }
 
-/* On compact and medium faces, the values belong to the instrument edges, not the center of each
-   grid column. The small row inset keeps the digits from feeling cramped against the tile edge. */
+/* On compact and medium faces, the values belong near the instrument edges, not the center of each
+   grid column. Match their side padding to their padding from the nearest horizontal edge. */
 @container (max-width: 64rem) {
   .rose-readout {
     inline-size: fit-content;
@@ -691,14 +693,14 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   .rose-readout--sog {
     align-items: flex-start;
     justify-self: start;
-    padding-inline-start: 0;
+    padding-inline-start: var(--rose-edge-padding);
     text-align: start;
   }
   .rose-readout--tws,
   .rose-readout--depth {
     align-items: flex-end;
     justify-self: end;
-    padding-inline-end: 0;
+    padding-inline-end: var(--rose-edge-padding);
     text-align: end;
   }
 }

@@ -25,6 +25,10 @@ function expectPinnedToCorners(
   expectTinyEdgeGap(tile.y + tile.height - (bottomRow.y + bottomRow.height));
 }
 
+function expectBalancedEdgeGap(horizontal: number, vertical: number): void {
+  expect(Math.abs(horizontal - vertical)).toBeLessThan(2);
+}
+
 test('the compact full-screen wind rose keeps every readout and compass visible', async ({
   page,
 }) => {
@@ -52,11 +56,23 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
     .evaluate((element) => getComputedStyle(element).fill);
   expect(compassBackplateFill).toBe('none');
 
-  const [tileBox, topRowBox, bottomRowBox, awsBox, twsBox, sogBox, depthBox] = await Promise.all([
+  const [
+    tileBox,
+    topRowBox,
+    bottomRowBox,
+    awsTitleBox,
+    awsBox,
+    twsTitleBox,
+    twsBox,
+    sogBox,
+    depthBox,
+  ] = await Promise.all([
     focused.locator('.tile--wind-rose').boundingBox(),
     focused.locator('.rose-readouts--top').boundingBox(),
     focused.locator('.rose-readouts--bottom').boundingBox(),
+    focused.locator('.rose-readout--aws .readout-title').boundingBox(),
     focused.locator('.rose-readout--aws .num').boundingBox(),
+    focused.locator('.rose-readout--tws .readout-title').boundingBox(),
     focused.locator('.rose-readout--tws .num').boundingBox(),
     focused.locator('.rose-readout--sog .num').boundingBox(),
     focused.locator('.rose-readout--depth .num').boundingBox(),
@@ -64,22 +80,42 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expect(tileBox).not.toBeNull();
   expect(topRowBox).not.toBeNull();
   expect(bottomRowBox).not.toBeNull();
+  expect(awsTitleBox).not.toBeNull();
   expect(awsBox).not.toBeNull();
+  expect(twsTitleBox).not.toBeNull();
   expect(twsBox).not.toBeNull();
   expect(sogBox).not.toBeNull();
   expect(depthBox).not.toBeNull();
-  if (!tileBox || !topRowBox || !bottomRowBox || !awsBox || !twsBox || !sogBox || !depthBox) return;
+  if (
+    !tileBox ||
+    !topRowBox ||
+    !bottomRowBox ||
+    !awsTitleBox ||
+    !awsBox ||
+    !twsTitleBox ||
+    !twsBox ||
+    !sogBox ||
+    !depthBox
+  )
+    return;
 
   expectTinyEdgeGap(topRowBox.x - tileBox.x);
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
   expectTinyEdgeGap(bottomRowBox.x - tileBox.x);
   expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
-  expect(Math.abs(awsBox.x - topRowBox.x)).toBeLessThan(2);
-  expect(Math.abs(twsBox.x + twsBox.width - (topRowBox.x + topRowBox.width))).toBeLessThan(2);
-  expect(Math.abs(sogBox.x - bottomRowBox.x)).toBeLessThan(2);
-  expect(
-    Math.abs(depthBox.x + depthBox.width - (bottomRowBox.x + bottomRowBox.width)),
-  ).toBeLessThan(2);
+  expectBalancedEdgeGap(awsBox.x - tileBox.x, awsTitleBox.y - tileBox.y);
+  expectBalancedEdgeGap(
+    tileBox.x + tileBox.width - (twsBox.x + twsBox.width),
+    twsTitleBox.y - tileBox.y,
+  );
+  expectBalancedEdgeGap(
+    sogBox.x - tileBox.x,
+    tileBox.y + tileBox.height - (sogBox.y + sogBox.height),
+  );
+  expectBalancedEdgeGap(
+    tileBox.x + tileBox.width - (depthBox.x + depthBox.width),
+    tileBox.y + tileBox.height - (depthBox.y + depthBox.height),
+  );
 
   const depthBackground = await focused
     .locator('.rose-readout--depth')
@@ -281,12 +317,14 @@ test('a half-width short wind rose shrinks its side values around the compass', 
   expectTinyEdgeGap(topRowBox.x - tileBox.x);
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
   expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
-  expect(Math.abs(awsBox.x - topRowBox.x)).toBeLessThan(2);
-  expect(Math.abs(twsBox.x + twsBox.width - (topRowBox.x + topRowBox.width))).toBeLessThan(2);
-  expect(Math.abs(sogBox.x - bottomRowBox.x)).toBeLessThan(2);
-  expect(
-    Math.abs(depthBox.x + depthBox.width - (bottomRowBox.x + bottomRowBox.width)),
-  ).toBeLessThan(2);
+  expectBalancedEdgeGap(
+    sogBox.x - tileBox.x,
+    tileBox.y + tileBox.height - (sogBox.y + sogBox.height),
+  );
+  expectBalancedEdgeGap(
+    tileBox.x + tileBox.width - (depthBox.x + depthBox.width),
+    tileBox.y + tileBox.height - (depthBox.y + depthBox.height),
+  );
   expect(
     Math.abs(headingBox.x + headingBox.width / 2 - (compassBox.x + compassBox.width / 2)),
   ).toBeLessThan(3);
