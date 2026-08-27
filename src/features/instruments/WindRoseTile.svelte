@@ -419,7 +419,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   stroke: var(--wind-starboard);
 }
 .card-backplate {
-  fill: color-mix(in srgb, var(--surface) 55%, transparent);
+  fill: none;
   stroke: color-mix(in srgb, var(--border) 72%, transparent);
   stroke-width: 2;
 }

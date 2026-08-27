@@ -48,6 +48,11 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   await expect(focused.locator('svg.rose')).toBeVisible();
   await expect(focused.locator('.heading-pill')).toBeVisible();
 
+  const compassBackplateFill = await focused
+    .locator('.card-backplate')
+    .evaluate((element) => getComputedStyle(element).fill);
+  expect(compassBackplateFill).toBe('none');
+
   const [tileBox, topRowBox, bottomRowBox, awsBox, twsBox, sogBox, depthBox] = await Promise.all([
     focused.locator('.tile--wind-rose').boundingBox(),
     focused.locator('.rose-readouts--top').boundingBox(),
