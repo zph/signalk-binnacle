@@ -337,6 +337,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   --wind-true: #d89a00;
   --wind-pointer-label: #170b00;
   --wind-dial: color-mix(in srgb, var(--text) 12%, var(--surface-raised));
+  position: relative;
   container-type: inline-size;
   grid-column: 1 / -1;
 }
@@ -650,6 +651,42 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   }
   .readout-title {
     font-size: clamp(var(--text-sm), min(1.8cqi, 5cqb), var(--text-readout-lg));
+  }
+}
+
+/* On compact and medium faces, the values belong to the instrument edges, not the center of each
+   grid column. Expanded rows also leave normal flow so the compass size cannot pull them inward.
+   This follows the spacious-face query so its outer padding cannot reintroduce an inset. */
+@container (max-width: 64rem) {
+  .rose-readout {
+    inline-size: fit-content;
+  }
+  .rose-readout--aws,
+  .rose-readout--sog {
+    align-items: flex-start;
+    justify-self: start;
+    padding-inline-start: 0;
+    text-align: start;
+  }
+  .rose-readout--tws,
+  .rose-readout--depth {
+    align-items: flex-end;
+    justify-self: end;
+    padding-inline-end: 0;
+    text-align: end;
+  }
+  .tile--expanded .rose-readouts {
+    position: absolute;
+    inset-inline: 0;
+    z-index: var(--z-overlay);
+    inline-size: auto;
+    pointer-events: none;
+  }
+  .tile--expanded .rose-readouts--top {
+    inset-block-start: 0;
+  }
+  .tile--expanded .rose-readouts--bottom {
+    inset-block-end: 0;
   }
 }
 </style>

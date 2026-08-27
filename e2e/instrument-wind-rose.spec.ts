@@ -32,6 +32,34 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(568);
   await expect(focused.locator('svg.rose')).toBeVisible();
   await expect(focused.locator('.heading-pill')).toBeVisible();
+
+  const [tileBox, topRowBox, bottomRowBox, awsBox, twsBox, sogBox, depthBox] = await Promise.all([
+    focused.locator('.tile--wind-rose').boundingBox(),
+    focused.locator('.rose-readouts--top').boundingBox(),
+    focused.locator('.rose-readouts--bottom').boundingBox(),
+    focused.locator('.rose-readout--aws .num').boundingBox(),
+    focused.locator('.rose-readout--tws .num').boundingBox(),
+    focused.locator('.rose-readout--sog .num').boundingBox(),
+    focused.locator('.rose-readout--depth .num').boundingBox(),
+  ]);
+  expect(tileBox).not.toBeNull();
+  expect(topRowBox).not.toBeNull();
+  expect(bottomRowBox).not.toBeNull();
+  expect(awsBox).not.toBeNull();
+  expect(twsBox).not.toBeNull();
+  expect(sogBox).not.toBeNull();
+  expect(depthBox).not.toBeNull();
+  if (!tileBox || !topRowBox || !bottomRowBox || !awsBox || !twsBox || !sogBox || !depthBox) return;
+
+  expect(Math.abs(topRowBox.x - tileBox.x)).toBeLessThan(2);
+  expect(Math.abs(topRowBox.x + topRowBox.width - (tileBox.x + tileBox.width))).toBeLessThan(2);
+  expect(Math.abs(bottomRowBox.x - tileBox.x)).toBeLessThan(2);
+  expect(Math.abs(awsBox.x - topRowBox.x)).toBeLessThan(2);
+  expect(Math.abs(twsBox.x + twsBox.width - (topRowBox.x + topRowBox.width))).toBeLessThan(2);
+  expect(Math.abs(sogBox.x - bottomRowBox.x)).toBeLessThan(2);
+  expect(
+    Math.abs(depthBox.x + depthBox.width - (bottomRowBox.x + bottomRowBox.width)),
+  ).toBeLessThan(2);
 });
 
 test('the wide full-screen wind rose uses its height and moves readouts into the corners', async ({
@@ -127,27 +155,48 @@ test('a half-width short wind rose shrinks its corner values around the compass'
 
   const focused = page.getByRole('dialog', { name: 'Wind rose full-screen instrument' });
   const compass = focused.locator('svg.rose');
-  const [compassBox, headingBox, awsBox, twsBox, sogBox, depthBox] = await Promise.all([
-    compass.boundingBox(),
-    focused.locator('.heading-digits').boundingBox(),
-    focused.locator('.rose-readout--aws .num').boundingBox(),
-    focused.locator('.rose-readout--tws .num').boundingBox(),
-    focused.locator('.rose-readout--sog .num').boundingBox(),
-    focused.locator('.rose-readout--depth .num').boundingBox(),
-  ]);
+  const [compassBox, headingBox, topRowBox, bottomRowBox, awsBox, twsBox, sogBox, depthBox] =
+    await Promise.all([
+      compass.boundingBox(),
+      focused.locator('.heading-digits').boundingBox(),
+      focused.locator('.rose-readouts--top').boundingBox(),
+      focused.locator('.rose-readouts--bottom').boundingBox(),
+      focused.locator('.rose-readout--aws .num').boundingBox(),
+      focused.locator('.rose-readout--tws .num').boundingBox(),
+      focused.locator('.rose-readout--sog .num').boundingBox(),
+      focused.locator('.rose-readout--depth .num').boundingBox(),
+    ]);
 
   expect(compassBox).not.toBeNull();
   expect(headingBox).not.toBeNull();
+  expect(topRowBox).not.toBeNull();
+  expect(bottomRowBox).not.toBeNull();
   expect(awsBox).not.toBeNull();
   expect(twsBox).not.toBeNull();
   expect(sogBox).not.toBeNull();
   expect(depthBox).not.toBeNull();
-  if (!compassBox || !headingBox || !awsBox || !twsBox || !sogBox || !depthBox) return;
+  if (
+    !compassBox ||
+    !headingBox ||
+    !topRowBox ||
+    !bottomRowBox ||
+    !awsBox ||
+    !twsBox ||
+    !sogBox ||
+    !depthBox
+  )
+    return;
 
   expect(awsBox.x + awsBox.width).toBeLessThanOrEqual(compassBox.x);
   expect(sogBox.x + sogBox.width).toBeLessThanOrEqual(compassBox.x);
   expect(twsBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
   expect(depthBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
+  expect(Math.abs(awsBox.x - topRowBox.x)).toBeLessThan(2);
+  expect(Math.abs(twsBox.x + twsBox.width - (topRowBox.x + topRowBox.width))).toBeLessThan(2);
+  expect(Math.abs(sogBox.x - bottomRowBox.x)).toBeLessThan(2);
+  expect(
+    Math.abs(depthBox.x + depthBox.width - (bottomRowBox.x + bottomRowBox.width)),
+  ).toBeLessThan(2);
   expect(
     Math.abs(headingBox.x + headingBox.width / 2 - (compassBox.x + compassBox.width / 2)),
   ).toBeLessThan(3);
