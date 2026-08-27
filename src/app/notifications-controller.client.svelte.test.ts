@@ -58,11 +58,13 @@ function setup(
   };
   const timeTravel = { active: options.timeTravelActive ?? false, exit: vi.fn() };
   const mob = { active: options.mobActive ?? false };
+  const requestWriteAccess = vi.fn(async () => undefined);
   const controller = createNotificationsController({
     origin: 'http://sk',
     token: () => 'token',
     notificationsApi: () => options.apiAvailable ?? true,
     writeBlocked: () => options.writeBlocked ?? false,
+    requestWriteAccess,
     client: client as never,
     collision: {
       assessment,
@@ -86,6 +88,7 @@ function setup(
     controller,
     genericAlarm,
     lookoutAlarm,
+    requestWriteAccess,
     timeTravel,
   };
 }
@@ -173,6 +176,16 @@ describe('createNotificationsController', () => {
     await vi.waitFor(() =>
       expect(test.controller.alarmActionError).toContain('Could not acknowledge'),
     );
+  });
+
+  it('requests read and write access when Signal K refuses an alarm action', async () => {
+    const test = mount();
+    vi.mocked(signalk.acknowledgeNotification).mockResolvedValueOnce('access-denied');
+
+    test.controller.onAcknowledgeNotification({ id: 'n1' } as never);
+
+    await vi.waitFor(() => expect(test.requestWriteAccess).toHaveBeenCalledOnce());
+    expect(test.controller.alarmActionError).toContain('Read and write access is being requested');
   });
 
   it('keeps a non-audible warning out of the assertive live region', () => {

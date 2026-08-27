@@ -153,6 +153,26 @@ test('the Settings command opens the left app menu', async ({ page }) => {
   await expect(page.getByRole('group', { name: 'Settings' })).toBeVisible();
 });
 
+test('adjustable surfaces are direct command palette results', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const search = palette.getByRole('searchbox', { name: 'Search commands' });
+  const cases = [
+    ['chart settings', /Layers and charts/],
+    ['alarm settings', /Alarms/],
+    ['track settings', /Tracks/],
+    ['instrument settings', /^Instruments /],
+    ['profile settings', /Profiles/],
+  ] as const;
+
+  for (const [query, optionName] of cases) {
+    await search.fill(query);
+    await expect(palette.getByRole('option', { name: optionName })).toBeVisible();
+  }
+});
+
 test('the interface lock command changes to unlock while Binnacle is locked', async ({ page }) => {
   await page.goto('/');
 

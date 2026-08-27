@@ -195,8 +195,8 @@ $effect(() => {
     <p class="alert-note">{alarmAudioNote(audioState)}</p>
   {/if}
   <p class="muted-note">
-    Active alarms show here. Silence stops the sound, acknowledge clears it. Tune the collision
-    warning below.
+    Active alarms show here. Silence stops the sound. Acknowledge marks an alarm seen and also stops
+    its sound. Tune the collision warning below.
   </p>
   <section class="panel-section" aria-label="Active alerts">
     <h3 class="caps-label">Active alerts</h3>

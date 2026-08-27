@@ -1457,6 +1457,7 @@ const notificationsController = createNotificationsController({
   token: () => chartsToken,
   notificationsApi: () => notificationsApi,
   writeBlocked: () => auth.writeBlocked,
+  requestWriteAccess: () => auth.requestWriteAccess(),
   client,
   collision,
   collisionMute,
@@ -2047,6 +2048,24 @@ function runMenuCommand(item: MenuItem): void {
   item.onSelect();
 }
 
+// These menu destinations contain persisted preferences, live controls, or both. They remain root
+// palette commands, and the shared keywords make "settings" plus the surface name find each one
+// directly instead of forcing a trip through the app menu.
+const CONFIGURABLE_MENU_ITEM_IDS = new Set([
+  'layers',
+  'regions',
+  'routes',
+  'tracks',
+  'ais',
+  'radar',
+  'anchor',
+  'alarms',
+  'forecast',
+  'tides',
+  'trends',
+  'profiles',
+]);
+
 const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   const menuCommands = menuItems
     .filter((item) => item.id !== 'instruments' && item.id !== 'command-palette')
@@ -2055,7 +2074,13 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       label: item.label,
       description: item.sublabel,
       group: item.group,
-      keywords: [item.shortLabel ?? '', item.group ?? ''],
+      keywords: [
+        item.shortLabel ?? '',
+        item.group ?? '',
+        ...(CONFIGURABLE_MENU_ITEM_IDS.has(item.id)
+          ? ['settings', 'configuration', 'preferences', 'adjust']
+          : []),
+      ],
       icon: item.icon,
       disabled: itemBlocked(item),
       disabledReason: blockedReason(item),
@@ -2133,6 +2158,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         ? 'Choose a layout or close the instrument dock'
         : 'Open the instrument dock',
       group: 'Instruments',
+      keywords: ['settings', 'configuration', 'customize', 'layout'],
       icon: Gauge,
       children: [
         {

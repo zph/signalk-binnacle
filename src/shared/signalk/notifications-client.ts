@@ -61,11 +61,12 @@ export async function postNotification(
 // it, so a fresh raise is right); or the transport failed (a fresh raise would also fail, and
 // could orphan a still-raised duplicate once the link returns).
 export type UpdateNotificationResult = 'updated' | 'missing' | 'failed';
-export type NotificationActionResult = 'completed' | 'unsupported' | 'failed';
+export type NotificationActionResult = 'completed' | 'access-denied' | 'unsupported' | 'failed';
 
 function notificationActionResult(response: Response | undefined): NotificationActionResult {
   if (!response) return 'failed';
   if (response.ok) return 'completed';
+  if (response.status === 401 || response.status === 403) return 'access-denied';
   return response.status === 501 ? 'unsupported' : 'failed';
 }
 

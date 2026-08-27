@@ -34,6 +34,8 @@ Dependency-cruiser enforces the rule.
 - Hoist duplicate markup or CSS at the second copy.
 - Use lucide icons for app chrome when an icon exists.
 - Night-red must remain true night-readable: no blue, no bright stray pixels, and alarms still distinct.
+- Give every new configuration feature, adjustable panel, or panel that may be offscreen or hidden on
+  another display a root-level Command K entry that opens it directly.
 
 ## Implementation Rules
 

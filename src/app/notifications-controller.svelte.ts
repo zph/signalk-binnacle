@@ -29,6 +29,7 @@ interface NotificationsControllerDeps {
   token: () => string | undefined;
   notificationsApi: () => boolean;
   writeBlocked: () => boolean;
+  requestWriteAccess: () => Promise<void>;
   client: SignalKClient;
   collision: CollisionAssessment;
   collisionMute: CollisionMute;
@@ -105,7 +106,11 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
       return;
     }
     void action(deps.origin, deps.token(), notification.id).then((result) => {
-      if (result === 'unsupported') alarmActionError = unsupportedMessage;
+      if (result === 'access-denied') {
+        alarmActionError =
+          'Signal K refused this alarm action. Read and write access is being requested.';
+        void deps.requestWriteAccess();
+      } else if (result === 'unsupported') alarmActionError = unsupportedMessage;
       else if (result === 'failed') alarmActionError = failMessage;
     });
   }

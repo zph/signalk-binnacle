@@ -133,10 +133,10 @@ describe('silence and acknowledge', () => {
     await expect(acknowledgeNotification(BASE, undefined, ID)).resolves.toBe('failed');
   });
 
-  it('reports an access refusal as a failure', async () => {
+  it('reports an access refusal separately so the caller can request write access', async () => {
     stubFetch({ ok: false, status: 403 });
-    await expect(silenceNotification(BASE, 'tok', ID)).resolves.toBe('failed');
-    await expect(acknowledgeNotification(BASE, 'tok', ID)).resolves.toBe('failed');
+    await expect(silenceNotification(BASE, 'tok', ID)).resolves.toBe('access-denied');
+    await expect(acknowledgeNotification(BASE, 'tok', ID)).resolves.toBe('access-denied');
   });
 
   it('reports disabled server-side notification management as unsupported', async () => {
