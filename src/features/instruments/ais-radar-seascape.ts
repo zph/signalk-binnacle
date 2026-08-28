@@ -1,4 +1,4 @@
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import type { LatLon } from '$shared/geo';
 import { mapThemePaint } from '$shared/map';
 import { geodesicDestination } from '$shared/nav';
@@ -9,6 +9,50 @@ const METERS_PER_NAUTICAL_MILE = 1852;
 // The map element itself is inset to the radar's 176 px outer ring, so the range bounds belong at
 // the map edge with no second padding inset.
 export const AIS_RADAR_MAP_PADDING_PX = 0;
+
+/**
+ * Build the smallest useful Chart Locker style for the radar. Loading the complete basemap and
+ * hiding its other layers after `load` leaves two expanded-radar map surfaces competing to rebuild
+ * a style they do not use. Starting with only background and water also makes the coastline render
+ * deterministic on the passive surface.
+ */
+export function aisRadarSeascapeStyle(
+  companionBase: string | null | undefined,
+  theme: Theme,
+): StyleSpecification | undefined {
+  if (!companionBase) return undefined;
+  const base = companionBase.replace(/\/+$/, '');
+  const paint = mapThemePaint(theme);
+  return {
+    version: 8,
+    name: 'binnacle-ais-radar-seascape',
+    sources: {
+      openmaptiles: {
+        type: 'vector',
+        tiles: [`${base}/style/basemap/tiles/openmaptiles/{z}/{x}/{y}`],
+      },
+    },
+    layers: [
+      {
+        id: 'background',
+        type: 'background',
+        paint: { 'background-color': paint.background },
+      },
+      {
+        id: 'water',
+        type: 'fill',
+        source: 'openmaptiles',
+        'source-layer': 'water',
+        filter: ['!=', ['get', 'brunnel'], 'tunnel'],
+        paint: {
+          'fill-color': paint.water,
+          'fill-opacity': 1,
+          'fill-outline-color': paint.boundary,
+        },
+      },
+    ],
+  };
+}
 
 interface SeascapeLayer {
   id: string;
@@ -49,7 +93,10 @@ export function applyAisRadarSeascape(map: MapLibreMap, theme: Theme): void {
   );
 
   for (const layer of layers) {
-    const isBackground = layer.type === 'background';
+    // The themed-map bootstrap installs hidden background sentinels above base geometry to mark
+    // overlay bands. Making every background layer visible turns those sentinels into opaque land
+    // sheets above the water, so only the style's real background participates in the seascape.
+    const isBackground = layer.type === 'background' && !layer.id.startsWith('__z__');
     const isWater =
       layer['source-layer'] === 'water' && (layer.type === 'fill' || layer.type === 'line');
     try {

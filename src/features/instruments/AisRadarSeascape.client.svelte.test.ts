@@ -69,6 +69,7 @@ describe('AIS radar seascape component', () => {
         attributionControl: false,
         pixelRatio: 1,
         companionBase: 'http://localhost/plugins/signalk-chart-locker',
+        style: expect.objectContaining({ name: 'binnacle-ais-radar-seascape' }),
       }),
     );
     expect(mocks.map.setLayoutProperty).toHaveBeenCalledWith('road', 'visibility', 'none');

@@ -10,6 +10,7 @@ import {
   AIS_RADAR_RANGES_NM,
   type AisRadarRangeNm,
   buildAisRadarContacts,
+  createAisRadarContactIndexer,
 } from './ais-radar-model';
 import type { TileReading } from './tile-catalog';
 
@@ -57,6 +58,8 @@ const contacts = $derived.by(() => {
       })
     : [];
 });
+const indexContacts = createAisRadarContactIndexer();
+const indexedContacts = $derived(indexContacts(contacts));
 const ownDirectionDeg = $derived((vessel.headingRad ?? vessel.cogRad ?? 0) * RAD_TO_DEG);
 const statusText = $derived(
   reading.state === 'never'
@@ -75,75 +78,95 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
 </script>
 
 {#snippet radarFace()}
-  <div class="radar-stage">
-    {#if ownPosition}
-      <AisRadarSeascape position={ownPosition} {rangeNm} {theme} {companionBase} {getToken} />
-    {/if}
-    <svg class="radar" viewBox="0 0 400 400" aria-hidden="true">
-      <circle class="sector sector--outer" cx={CENTER} cy={CENTER} r={PLOT_RADIUS} />
-      <circle class="sector sector--yellow" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.75} />
-      <circle class="sector sector--amber" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.5} />
-      <circle class="sector sector--red" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.25} />
-      <path
-        class="heading-sector"
-        d="M 200 200 L 154.45 30 A 176 176 0 0 1 245.55 30 Z"
-        transform={`rotate(${ownDirectionDeg} ${CENTER} ${CENTER})`}
-      />
-      <line class="bearing-line" x1={CENTER} y1={24} x2={CENTER} y2={376} />
-      <line class="bearing-line" x1={24} y1={CENTER} x2={376} y2={CENTER} />
-      <g class="north-compass" transform="translate(42 42)">
-        <circle r="17" />
-        <path d="M 0 -13 L 4 2 L 0 -1 L -4 2 Z" />
-        <line x1="0" y1="-1" x2="0" y2="11" />
-        <text y="-21" text-anchor="middle">N</text>
-      </g>
-      {#each RINGS as fraction (fraction)}
-        <text class="ring-label" x={CENTER + 5} y={CENTER - PLOT_RADIUS * fraction + 11}>
-          {labelForRing(fraction)}
-        </text>
-      {/each}
-
-      {#each contacts as contact (contact.id)}
-        {@const x = coordinate(contact.x)}
-        {@const y = coordinate(contact.y)}
-        {@const anchor = contact.x > 0.42 ? 'end' : 'start'}
-        {@const labelX = contact.x > 0.42 ? x - 9 : x + 9}
-        <g
-          class:danger={contact.severity === 'danger'}
-          class:warning={contact.severity === 'warning'}
-          class:unassessed={contact.severity === 'unassessed'}
-        >
-          <title>{contact.name}, {contact.sogText}, {contact.cpaText}</title>
-          {#if contact.vectorX !== 0 || contact.vectorY !== 0}
-            <line
-              class="motion-vector"
-              x1={x}
-              y1={y}
-              x2={coordinate(contact.x + contact.vectorX)}
-              y2={coordinate(contact.y + contact.vectorY)}
-            />
-          {/if}
-          <path
-            class="target"
-            d="M 0 -8 L 5.5 7 L 0 4.5 L -5.5 7 Z"
-            transform={`translate(${x} ${y}) rotate(${contact.directionDeg})`}
-          />
-          {#if contact.severity === 'unassessed'}
-            <text class="quality-mark" {x} y={y - 10} text-anchor="middle">?</text>
-          {/if}
-          <text class="target-label" x={labelX} y={y - 2} text-anchor={anchor}>
-            <tspan class="target-name" x={labelX}>{contact.name}</tspan>
-            <tspan x={labelX} dy="9">{contact.sogText}</tspan>
-            <tspan x={labelX} dy="9">{contact.cpaText}</tspan>
-          </text>
+  <div class="radar-layout">
+    <div class="radar-stage">
+      {#if ownPosition}
+        <AisRadarSeascape position={ownPosition} {rangeNm} {theme} {companionBase} {getToken} />
+      {/if}
+      <svg class="radar" viewBox="0 0 400 400" aria-hidden="true">
+        <circle class="sector sector--outer" cx={CENTER} cy={CENTER} r={PLOT_RADIUS} />
+        <circle class="sector sector--yellow" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.75} />
+        <circle class="sector sector--amber" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.5} />
+        <circle class="sector sector--red" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.25} />
+        <path
+          class="heading-sector"
+          d="M 200 200 L 154.45 30 A 176 176 0 0 1 245.55 30 Z"
+          transform={`rotate(${ownDirectionDeg} ${CENTER} ${CENTER})`}
+        />
+        <line class="bearing-line" x1={CENTER} y1={24} x2={CENTER} y2={376} />
+        <line class="bearing-line" x1={24} y1={CENTER} x2={376} y2={CENTER} />
+        <g class="north-compass" transform="translate(42 42)">
+          <circle r="17" />
+          <path d="M 0 -13 L 4 2 L 0 -1 L -4 2 Z" />
+          <line x1="0" y1="-1" x2="0" y2="11" />
+          <text y="-21" text-anchor="middle">N</text>
         </g>
-      {/each}
+        {#each RINGS as fraction (fraction)}
+          <text class="ring-label" x={CENTER + 5} y={CENTER - PLOT_RADIUS * fraction + 11}>
+            {labelForRing(fraction)}
+          </text>
+        {/each}
 
-      <g class="own-ship" transform={`translate(${CENTER} ${CENTER}) rotate(${ownDirectionDeg})`}>
-        <path d="M 0 -13 L 7 7 L 5 11 L -5 11 L -7 7 Z" />
-        <circle cx="0" cy="0" r="12" />
-      </g>
-    </svg>
+        {#each indexedContacts as contact (contact.id)}
+          {@const x = coordinate(contact.x)}
+          {@const y = coordinate(contact.y)}
+          {@const indexX = contact.x > 0.72 ? x - 10 : x + 10}
+          <g
+            class:danger={contact.severity === 'danger'}
+            class:warning={contact.severity === 'warning'}
+            class:unassessed={contact.severity === 'unassessed'}
+          >
+            <title>{contact.name}, {contact.sogText}, {contact.cpaText}</title>
+            {#if contact.vectorX !== 0 || contact.vectorY !== 0}
+              <line
+                class="motion-vector"
+                x1={x}
+                y1={y}
+                x2={coordinate(contact.x + contact.vectorX)}
+                y2={coordinate(contact.y + contact.vectorY)}
+              />
+            {/if}
+            <path
+              class="target"
+              d="M 0 -8 L 5.5 7 L 0 4.5 L -5.5 7 Z"
+              transform={`translate(${x} ${y}) rotate(${contact.directionDeg})`}
+            />
+            {#if contact.severity === 'unassessed'}
+              <text class="quality-mark" {x} y={y - 10} text-anchor="middle">?</text>
+            {/if}
+            <text class="target-index" x={indexX} y={y + 3} text-anchor="middle">
+              {contact.index}
+            </text>
+          </g>
+        {/each}
+
+        <g class="own-ship" transform={`translate(${CENTER} ${CENTER}) rotate(${ownDirectionDeg})`}>
+          <path d="M 0 -13 L 7 7 L 5 11 L -5 11 L -7 7 Z" />
+          <circle cx="0" cy="0" r="12" />
+        </g>
+      </svg>
+    </div>
+    {#if indexedContacts.length > 0}
+      <aside class="target-legend" aria-label="AIS target index">
+        <h3>Targets</h3>
+        <ol>
+          {#each indexedContacts as contact (contact.id)}
+            <li
+              class:danger={contact.severity === 'danger'}
+              class:warning={contact.severity === 'warning'}
+              class:unassessed={contact.severity === 'unassessed'}
+            >
+              <span class="legend-index">{contact.index}</span>
+              <span class="legend-details">
+                <strong>{contact.name}</strong>
+                <span>{contact.sogText}</span>
+                <span>{contact.cpaText}</span>
+              </span>
+            </li>
+          {/each}
+        </ol>
+      </aside>
+    {/if}
   </div>
   {#if reading.state !== 'live'}
     <div class="radar-message">{statusText}</div>
@@ -216,6 +239,13 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   max-block-size: 100%;
   aspect-ratio: 1;
 }
+.radar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9.5rem, 0.62fr);
+  gap: var(--space-2);
+  align-items: center;
+  inline-size: 100%;
+}
 .radar {
   position: relative;
   z-index: 1;
@@ -252,7 +282,7 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
 }
 .north-compass text,
 .ring-label,
-.target-label,
+.target-index,
 .quality-mark {
   font-family: var(--font-mono);
   fill: var(--text-muted);
@@ -284,15 +314,11 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   fill: var(--text);
   stroke: none;
 }
-.target-label {
-  font-size: 7px;
-  fill: var(--text);
-  stroke-width: 3px;
-}
-.target-name {
-  font-size: 8px;
+.target-index {
+  font-size: 9px;
   font-weight: 800;
   fill: var(--text);
+  stroke-width: 3px;
 }
 .target {
   fill: var(--surface-raised);
@@ -312,7 +338,7 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   stroke-width: 3;
 }
 .danger .motion-vector,
-.danger .target-name {
+.danger .target-index {
   stroke: var(--surface-raised);
   fill: var(--alarm);
 }
@@ -321,7 +347,7 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   stroke-width: 2.5;
 }
 .warning .motion-vector,
-.warning .target-name {
+.warning .target-index {
   stroke: var(--surface-raised);
   fill: var(--warning);
 }
@@ -334,6 +360,71 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   fill: var(--warning);
   font-size: 8px;
   font-weight: 800;
+}
+.target-legend {
+  min-inline-size: 0;
+  max-block-size: 22rem;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+  text-align: start;
+}
+.target-legend h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.target-legend ol {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.target-legend li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-1);
+  border-inline-start: 2px solid var(--accent);
+}
+.target-legend li.danger {
+  border-inline-start-color: var(--alarm);
+}
+.target-legend li.warning,
+.target-legend li.unassessed {
+  border-inline-start-color: var(--warning);
+}
+.legend-index {
+  display: grid;
+  min-block-size: 1.6rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  color: var(--text);
+}
+.legend-details {
+  display: grid;
+  min-inline-size: 0;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+.legend-details strong {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .own-ship path {
   fill: var(--text);
@@ -406,6 +497,13 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   inline-size: min(78vmin, 100%);
   max-inline-size: 70rem;
 }
+.face--expanded .radar-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  max-inline-size: 92rem;
+}
+.face--expanded .target-legend {
+  max-block-size: min(78vmin, 44rem);
+}
 @media (max-width: 600px) {
   .ais-radar {
     min-block-size: 13rem;
@@ -418,6 +516,17 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   .range-control button {
     padding-inline: var(--space-2);
     font-size: var(--text-xs);
+  }
+  .radar-layout,
+  .face--expanded .radar-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(8.5rem, 0.7fr);
+  }
+  .target-legend {
+    padding: var(--space-1);
+  }
+  .target-legend li {
+    grid-template-columns: 1.4rem minmax(0, 1fr);
+    gap: var(--space-1);
   }
 }
 </style>

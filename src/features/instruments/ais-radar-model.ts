@@ -26,6 +26,39 @@ export interface AisRadarContact {
   severity: Severity | 'unassessed';
 }
 
+export interface IndexedAisRadarContact extends AisRadarContact {
+  index: number;
+}
+
+/** Keep a compact plot index stable for as long as each target remains in the current radar set. */
+export function createAisRadarContactIndexer(): (
+  contacts: readonly AisRadarContact[],
+) => IndexedAisRadarContact[] {
+  const assigned = new Map<string, number>();
+
+  return (contacts) => {
+    const activeIds = new Set(contacts.map((contact) => contact.id));
+    for (const id of assigned.keys()) {
+      if (!activeIds.has(id)) assigned.delete(id);
+    }
+
+    const used = new Set(assigned.values());
+    let nextAvailable = 1;
+    const indexed = contacts.map((contact) => {
+      let index = assigned.get(contact.id);
+      if (index === undefined) {
+        while (used.has(nextAvailable)) nextAvailable += 1;
+        index = nextAvailable;
+        assigned.set(contact.id, index);
+        used.add(index);
+      }
+      return { ...contact, index };
+    });
+
+    return indexed.sort((a, b) => a.index - b.index);
+  };
+}
+
 interface BuildAisRadarContactsOptions {
   ownPosition: LatLon;
   targets: readonly AisTargetView[];

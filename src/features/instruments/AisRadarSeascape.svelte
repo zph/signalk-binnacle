@@ -4,7 +4,11 @@ import type { LatLon } from '$shared/geo';
 import { createThemedMap, type ThemedMapHandle } from '$shared/map';
 import type { Theme } from '$shared/ui';
 import type { AisRadarRangeNm } from './ais-radar-model';
-import { applyAisRadarSeascape, fitAisRadarSeascape } from './ais-radar-seascape';
+import {
+  aisRadarSeascapeStyle,
+  applyAisRadarSeascape,
+  fitAisRadarSeascape,
+} from './ais-radar-seascape';
 
 interface Props {
   position: LatLon;
@@ -25,6 +29,7 @@ onMount(() => {
   if (!container) return;
   mapHandle = createThemedMap({
     container,
+    style: aisRadarSeascapeStyle(companionBase, theme),
     companionBase,
     getToken,
     defaultCenter: [position.longitude, position.latitude],

@@ -42,6 +42,10 @@ export interface ThemedMapApi {
 
 export interface ThemedMapOptions {
   container: HTMLElement;
+  // A specialized map surface can supply a small inline style instead of loading the full base
+  // style. The AIS radar uses this to request only coastline geometry rather than constructing and
+  // then hiding the complete navigation basemap.
+  style?: maplibregl.StyleSpecification | string;
   // Secondary read-only map surfaces can disable gesture handlers, map controls, and, when the
   // containing primary map already carries it, the duplicate attribution control.
   interactive?: boolean;
@@ -182,7 +186,7 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
     const wanted = opts.view ? opts.view.zoom : (opts.defaultZoom ?? DEFAULT_ZOOM);
     map = new maplibregl.Map({
       container: opts.container,
-      style: baseStyleUrl(opts.companionBase),
+      style: opts.style ?? baseStyleUrl(opts.companionBase),
       center,
       zoom: Math.min(wanted, opts.maxZoom ?? Number.POSITIVE_INFINITY),
       minZoom: opts.minZoom,

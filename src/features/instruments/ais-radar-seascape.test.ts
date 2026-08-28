@@ -3,6 +3,7 @@ import { mapThemePaint } from '$shared/map';
 import {
   AIS_RADAR_MAP_PADDING_PX,
   aisRadarBounds,
+  aisRadarSeascapeStyle,
   applyAisRadarSeascape,
   fitAisRadarSeascape,
 } from './ais-radar-seascape';
@@ -13,6 +14,7 @@ function fakeMap() {
       layers: [
         { id: 'background', type: 'background' },
         { id: 'water', type: 'fill', 'source-layer': 'water' },
+        { id: '__z__basemap', type: 'background' },
         { id: 'coast', type: 'line', 'source-layer': 'water' },
         { id: 'water-name', type: 'symbol', 'source-layer': 'water_name' },
         { id: 'river', type: 'line', 'source-layer': 'waterway' },
@@ -30,6 +32,21 @@ function fakeMap() {
 }
 
 describe('AIS radar seascape', () => {
+  it('builds a minimal Chart Locker style with only background and water', () => {
+    const style = aisRadarSeascapeStyle('http://boat.local/plugins/signalk-chart-locker/', 'day');
+
+    expect(style?.layers.map((layer) => layer.id)).toEqual(['background', 'water']);
+    expect(style?.sources).toEqual({
+      openmaptiles: {
+        type: 'vector',
+        tiles: [
+          'http://boat.local/plugins/signalk-chart-locker/style/basemap/tiles/openmaptiles/{z}/{x}/{y}',
+        ],
+      },
+    });
+    expect(aisRadarSeascapeStyle(undefined, 'day')).toBeUndefined();
+  });
+
   it('keeps only flat land, water, and the water boundary', () => {
     const map = fakeMap();
     applyAisRadarSeascape(map as never, 'day');
@@ -37,6 +54,7 @@ describe('AIS radar seascape', () => {
 
     expect(map.setLayoutProperty).toHaveBeenCalledWith('background', 'visibility', 'visible');
     expect(map.setLayoutProperty).toHaveBeenCalledWith('water', 'visibility', 'visible');
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('__z__basemap', 'visibility', 'none');
     expect(map.setLayoutProperty).toHaveBeenCalledWith('coast', 'visibility', 'visible');
     for (const id of ['water-name', 'river', 'road', 'building', 'relief']) {
       expect(map.setLayoutProperty).toHaveBeenCalledWith(id, 'visibility', 'none');

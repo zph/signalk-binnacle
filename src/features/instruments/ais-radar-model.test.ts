@@ -3,6 +3,7 @@ import type { AisTargetView } from '$entities/ais';
 import type { Assessment } from '$entities/collision';
 import {
   buildAisRadarContacts,
+  createAisRadarContactIndexer,
   DEFAULT_AIS_RADAR_RANGE_NM,
   isAisRadarRangeNm,
 } from './ais-radar-model';
@@ -87,5 +88,32 @@ describe('AIS radar model', () => {
     expect(isAisRadarRangeNm(6)).toBe(true);
     expect(isAisRadarRangeNm(5)).toBe(false);
     expect(isAisRadarRangeNm('6')).toBe(false);
+  });
+
+  it('keeps sequential plot indexes stable and reuses a departed target index', () => {
+    const indexContacts = createAisRadarContactIndexer();
+    const contacts = buildAisRadarContacts({
+      ownPosition: { latitude: 0, longitude: 0 },
+      targets: [
+        target({ id: 'alpha', position: { latitude: 0.005, longitude: 0 } }),
+        target({ id: 'bravo', position: { latitude: 0.006, longitude: 0 } }),
+      ],
+      assessment: CLEAR,
+      rangeNm: 1,
+    });
+
+    expect(indexContacts(contacts).map(({ id, index }) => [id, index])).toEqual([
+      ['alpha', 1],
+      ['bravo', 2],
+    ]);
+
+    const bravo = contacts.find((contact) => contact.id === 'bravo');
+    const alpha = contacts[0];
+    if (!bravo || !alpha) throw new Error('Expected both radar contacts');
+    const charlie = { ...alpha, id: 'charlie' };
+    expect(indexContacts([bravo, charlie]).map(({ id, index }) => [id, index])).toEqual([
+      ['charlie', 1],
+      ['bravo', 2],
+    ]);
   });
 });
