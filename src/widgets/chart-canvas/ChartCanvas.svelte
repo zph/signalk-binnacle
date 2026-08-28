@@ -121,6 +121,7 @@ interface Props {
   // The active theme, so the on-chart route editor restyles its draw layers per theme.
   theme: Theme;
   trackSettings: PersistedValue<TrackSettings>;
+  tripLog: import('$features/tracks').TripLogController;
   // Saved tracks to draw, pulled each frame so show/hide and edits reflect without a remount.
   savedTracks?: SavedTracksSource;
   // The user's imported charts, so a server chart that is also a local user chart (a URL chart this
@@ -220,6 +221,7 @@ const {
   tides,
   theme,
   trackSettings,
+  tripLog,
   savedTracks,
   userCharts,
   companionTiles,
@@ -585,6 +587,7 @@ onMount(async () => {
         waypoints,
         symbols,
         trackSettings,
+        tripLog,
         savedTracks,
         notesOverlay,
         onAnchorMoved,

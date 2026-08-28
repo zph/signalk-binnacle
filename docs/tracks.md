@@ -5,6 +5,24 @@ saves completed tracks to Signal K resources when the server is configured to st
 derive a route from the latest continuous segment. Track output is advisory. Review any derived route
 against the chart, hazards, conditions, and the vessel's capabilities before navigating it.
 
+## Daily trip log
+
+When **Show on chart** is enabled, Binnacle reads the vessel's Signal K history for the current local
+calendar day. If today has no speed-over-ground sample above 0.15 kn, it selects the latest travel day
+found in the preceding 366 days. The Tracks button is fixed in the bottom toolbar, and Command K offers
+a direct **Enable trip log** or **Disable trip log** action.
+
+The date field selects an exact day, and the arrow buttons move one day backward or forward. Forward
+navigation stops at today. The map draws each travel portion with repeated direction marks. A small tag
+on the line gives its duration, and the Tracks panel lists average speed and circularly averaged apparent
+wind angle for the same portion. Missing wind history leaves the wind angle blank without hiding the
+position and speed summary.
+
+A stop is a continuous run below the configured speed threshold for more than the configured duration.
+The defaults are 0.15 kn and five minutes. Missing samples do not bridge a stop, and gaps longer than 15
+minutes split the travel trace. Stop markers include their duration. History is requested at 60-second
+resolution and remains on the Signal K server; Binnacle does not create a second trip archive.
+
 ## Quick use
 
 1. Open **Menu**, then **Tracks**. Recording is already active when a fresh vessel position is

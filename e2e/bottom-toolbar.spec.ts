@@ -37,6 +37,7 @@ test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page })
   const toolbar = page.locator('.status-strip');
   await expectNoHorizontalOverflow(toolbar);
   await expect(toolbar.getByRole('button', { name: 'Lock Binnacle' })).toBeVisible();
+  await expect(toolbar.getByRole('button', { name: 'Tracks' })).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'Open instrument dock' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open instrument dock' })).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'Mark man overboard here' })).toBeVisible();

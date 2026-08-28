@@ -43,5 +43,6 @@ export {
   stringArrayPersistedCodec,
   trackStopDurationMinutes,
   trackStopSpeedKnots,
+  tripLogEnabled,
   useLocalTrackFallback,
 } from './persisted.svelte';

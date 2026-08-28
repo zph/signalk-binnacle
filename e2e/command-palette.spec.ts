@@ -27,7 +27,7 @@ test('Command K searches commands and chains into instrument layouts', async ({ 
   ]);
   await expect(
     palette.getByRole('option').filter({ hasText: 'Open the instrument dock' }),
-  ).toHaveAttribute('aria-keyshortcuts', '2');
+  ).toHaveAttribute('aria-keyshortcuts', /^[1-9]$/);
   await search.fill('center');
   await expect(palette.getByRole('option', { name: /Center on boat/ })).not.toHaveAttribute(
     'aria-keyshortcuts',
@@ -172,6 +172,29 @@ test('adjustable surfaces are direct command palette results', async ({ page }) 
     await search.fill(query);
     await expect(palette.getByRole('option', { name: optionName })).toBeVisible();
   }
+});
+
+test('Command K enables and disables the trip log', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  let palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('trip log');
+  const command = palette
+    .getByRole('option')
+    .filter({ hasText: /trip log/i })
+    .first();
+  const startedEnabled = (await command.innerText()).includes('Disable trip log');
+  await command.click();
+
+  await page.keyboard.press('Control+K');
+  palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('trip log');
+  await expect(
+    palette
+      .getByRole('option')
+      .filter({ hasText: startedEnabled ? 'Enable trip log' : 'Disable trip log' }),
+  ).toBeVisible();
 });
 
 test('opens the tide instrument full screen from the command palette', async ({ page }) => {

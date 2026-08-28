@@ -88,7 +88,11 @@ export interface HistoryValues {
 export interface HistoryQuery {
   // path or path:aggregate entries (average, min, max, first, last).
   paths: readonly string[];
-  durationSeconds: number;
+  durationSeconds?: number;
+  // A bounded calendar range. Daily trip history uses explicit endpoints so local days remain
+  // correct across daylight-saving transitions instead of assuming every day is 86,400 seconds.
+  from?: string;
+  to?: string;
   resolutionSeconds?: number;
   provider?: string;
   // Signal K context to query. The server defaults to vessels.self when this is omitted.
@@ -127,22 +131,37 @@ export async function fetchHistoryValues(
   token: string | undefined,
   query: HistoryQuery,
 ): Promise<HistoryValues | undefined> {
+  const fromMs = query.from === undefined ? undefined : Date.parse(query.from);
+  const toMs = query.to === undefined ? undefined : Date.parse(query.to);
+  const rangeSeconds =
+    fromMs !== undefined && toMs !== undefined ? Math.ceil((toMs - fromMs) / 1000) : undefined;
+  const querySeconds = query.durationSeconds ?? rangeSeconds;
   if (
     !safeQueryPaths(query.paths) ||
-    !safeDuration(query.durationSeconds) ||
+    (query.durationSeconds === undefined
+      ? !safeHistoryTimestamp(query.from) ||
+        !safeHistoryTimestamp(query.to) ||
+        fromMs === undefined ||
+        toMs === undefined ||
+        fromMs >= toMs ||
+        !safeDuration(rangeSeconds ?? 0)
+      : !safeDuration(query.durationSeconds)) ||
+    (query.from !== undefined && !safeHistoryTimestamp(query.from)) ||
+    (query.to !== undefined && !safeHistoryTimestamp(query.to)) ||
+    (fromMs !== undefined && toMs !== undefined && fromMs >= toMs) ||
     !safeProviderId(query.provider) ||
     !safeHistoryContext(query.context) ||
     (query.resolutionSeconds !== undefined &&
       (!Number.isSafeInteger(query.resolutionSeconds) ||
         query.resolutionSeconds <= 0 ||
-        query.resolutionSeconds > query.durationSeconds))
+        query.resolutionSeconds > (querySeconds ?? 0)))
   ) {
     return undefined;
   }
-  const params = new URLSearchParams({
-    paths: query.paths.join(','),
-    duration: String(query.durationSeconds),
-  });
+  const params = new URLSearchParams({ paths: query.paths.join(',') });
+  if (query.durationSeconds !== undefined) params.set('duration', String(query.durationSeconds));
+  if (query.from !== undefined) params.set('from', query.from);
+  if (query.to !== undefined) params.set('to', query.to);
   if (query.resolutionSeconds !== undefined) {
     params.set('resolution', String(query.resolutionSeconds));
   }

@@ -20,6 +20,7 @@ import {
   stringArrayPersistedCodec,
   trackStopDurationMinutes,
   trackStopSpeedKnots,
+  tripLogEnabled,
   useLocalTrackFallback,
 } from './persisted.svelte';
 
@@ -335,6 +336,7 @@ describe('isTrackSettings', () => {
     expect(useLocalTrackFallback(settings.value)).toBe(true);
     expect(trackStopSpeedKnots(settings.value)).toBe(0.15);
     expect(trackStopDurationMinutes(settings.value)).toBe(5);
+    expect(tripLogEnabled(settings.value)).toBe(false);
   });
 
   it('persists source and stop-detection settings', () => {
@@ -346,6 +348,7 @@ describe('isTrackSettings', () => {
       localFallback: false,
       stopSpeedKnots: 0.25,
       stopDurationMinutes: 12,
+      tripLogEnabled: false,
     });
 
     const restored = createTrackSettings(storage).value;
@@ -357,6 +360,7 @@ describe('isTrackSettings', () => {
       localFallback: false,
       stopSpeedKnots: 0.25,
       stopDurationMinutes: 12,
+      tripLogEnabled: false,
     });
   });
 });

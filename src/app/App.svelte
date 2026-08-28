@@ -153,7 +153,7 @@ import {
   type TideStationSelectionEvent,
 } from '$features/tides';
 import { createTimeTravelController } from '$features/time-travel';
-import { createTrackController } from '$features/tracks';
+import { createTrackController, createTripLogController } from '$features/tracks';
 import { createTrendsController } from '$features/trends';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
@@ -221,6 +221,7 @@ import {
   PersistedValue,
   preferTrackHistory,
   stringArrayPersistedCodec,
+  tripLogEnabled,
   useLocalTrackFallback,
 } from '$shared/settings';
 import type { ConnectionPhase, HistoryProviders } from '$shared/signalk';
@@ -382,6 +383,12 @@ const measure = new MeasureStore();
 
 // Track recording: client-side from navigation.position, persisted whole-voyage in IndexedDB.
 const trackSettings = createTrackSettings();
+const tripLog = createTripLogController({
+  origin,
+  getToken: () => authToken,
+  providers: () => historyProviders,
+  settings: trackSettings,
+});
 let trackPersistenceDegraded = $state(false);
 const recorder = new TrackRecorder(
   trackSettings,
@@ -1835,6 +1842,7 @@ const menuItems = $derived<MenuItem[]>([
     label: 'Tracks',
     icon: Spline,
     group: 'Navigate',
+    fixedToBar: true,
     pressed: activePanel === 'tracks',
     onSelect: () => togglePanel('tracks'),
   },
@@ -2215,6 +2223,21 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
           onSelect: () => instruments.setOpen(false),
         },
       ],
+    },
+    {
+      id: 'trip-log-toggle',
+      label: tripLogEnabled(trackSettings.value) ? 'Disable trip log' : 'Enable trip log',
+      description: tripLogEnabled(trackSettings.value)
+        ? 'Hide daily travel, direction, portions, and stops from the chart'
+        : 'Show daily travel, direction, portions, and stops on the chart',
+      group: 'Navigate',
+      keywords: ['tracks', 'history', 'travel', 'breadcrumb'],
+      icon: Spline,
+      onSelect: () =>
+        trackSettings.set({
+          ...trackSettings.value,
+          tripLogEnabled: !tripLogEnabled(trackSettings.value),
+        }),
     },
     {
       id: 'settings',
@@ -3003,6 +3026,7 @@ onDestroy(() => {
   notificationsController.dispose();
   trends.dispose();
   timeTravel.dispose();
+  tripLog.dispose();
   if (viewSaveTimer) clearTimeout(viewSaveTimer);
   if (arrivalBannerTimer) clearTimeout(arrivalBannerTimer);
   if (privacyReloadTimer) clearTimeout(privacyReloadTimer);
@@ -3059,6 +3083,7 @@ const plotterControllers = {
   waypointsController,
   personalNotesController,
   trackController,
+  tripLog,
   marineRadar,
   tidesController,
   handoff,
@@ -3416,6 +3441,18 @@ const plotterActions = {
   {/if}
 
   {#snippet statusStripFixedActions()}
+    <button
+      type="button"
+      class="btn btn-pill fixed-toolbar-action"
+      class:is-on={activePanel === 'tracks'}
+      aria-pressed={activePanel === 'tracks'}
+      aria-label="Tracks"
+      title="Tracks"
+      onclick={() => togglePanel('tracks')}
+    >
+      <Spline size={16} aria-hidden="true" />
+      <span class="fixed-action-label">Tracks</span>
+    </button>
     {#if collisionMute.active}
       <button
         type="button"

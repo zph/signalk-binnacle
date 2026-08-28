@@ -95,6 +95,7 @@ type PersonalNotesController = ReturnType<
   typeof import('$features/notes').createPersonalNotesController
 >;
 type TrackController = ReturnType<typeof import('$features/tracks').createTrackController>;
+type TripLogController = import('$features/tracks').TripLogController;
 type RadarController = ReturnType<
   typeof import('$features/marine-radar').createMarineRadarController
 >;
@@ -119,6 +120,7 @@ interface FlatProps {
   waypointsController: WaypointsController;
   personalNotesController: PersonalNotesController;
   trackController: TrackController;
+  tripLog: TripLogController;
   marineRadar: RadarController;
   tidesController: TidesController;
   handoff: import('$features/handoff').HandoffController;
@@ -327,6 +329,7 @@ type ControllerKey =
   | 'waypointsController'
   | 'personalNotesController'
   | 'trackController'
+  | 'tripLog'
   | 'marineRadar'
   | 'tidesController'
   | 'handoff';
@@ -510,6 +513,7 @@ const {
   waypointsController,
   personalNotesController,
   trackController,
+  tripLog,
   marineRadar,
   tidesController,
   handoff,
@@ -840,6 +844,7 @@ $effect(() => {
     tides={tidesStore}
     theme={theme.theme}
     {trackSettings}
+    {tripLog}
     savedTracks={trackController.savedSource}
     {userCharts}
     {companionTiles}
@@ -1226,6 +1231,7 @@ $effect(() => {
               hasPosition={vessel.position !== undefined}
               {clock}
               settings={trackSettings}
+              {tripLog}
               saved={trackController.savedTracks}
               shown={trackController.shownSaved}
               loadState={trackController.loadState}

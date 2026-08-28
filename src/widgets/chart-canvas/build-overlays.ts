@@ -32,6 +32,7 @@ import {
   type TimeTravelController,
 } from '$features/time-travel';
 import { createHistoryTrackOverlay, createTrackOverlay } from '$features/track-layer';
+import type { TripLogController } from '$features/tracks';
 import { createVesselOverlay } from '$features/vessel-layer';
 import { createWaypointOverlay } from '$features/waypoints';
 import type { LatLon } from '$shared/geo';
@@ -72,6 +73,7 @@ export interface DynamicOverlaysDeps {
   waypoints: WaypointsStore;
   symbols?: SymbolsStore;
   trackSettings: PersistedValue<TrackSettings>;
+  tripLog: TripLogController;
   savedTracks?: SavedTracksSource;
   // The already-built notes overlay, woven into the stack at its band position.
   notesOverlay: NotesOverlay;
@@ -115,6 +117,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     waypoints,
     symbols,
     trackSettings,
+    tripLog,
     savedTracks,
     notesOverlay,
     onAnchorMoved,
@@ -152,13 +155,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     }),
     createCollisionOverlay(collision),
     createMobOverlay(mob, vessel),
-    createHistoryTrackOverlay(
-      origin,
-      getToken,
-      historyProviders,
-      trackSettings,
-      () => timeTravel.active,
-    ),
+    createHistoryTrackOverlay(trackSettings, tripLog, () => timeTravel.active),
     createTrackOverlay(recorder, trackSettings, savedTracks, () => {
       if (!preferTrackHistory(trackSettings.value)) return true;
       const providers = historyProviders();

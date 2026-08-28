@@ -318,12 +318,17 @@ test('menu prioritizes safety and customizes toolbar order without shifting bloc
   const menu = page.locator('#app-menu-launcher');
   await expect(menu).toBeVisible();
 
-  const safety = menu.getByRole('group', { name: 'Safety' });
-  const weather = menu.getByRole('group', { name: 'Weather' });
-  const safetyBox = await safety.boundingBox();
-  const weatherBox = await weather.boundingBox();
-  if (!safetyBox || !weatherBox) throw new Error('menu groups did not lay out');
-  expect(safetyBox.y).toBeLessThan(weatherBox.y);
+  const [safetyY, weatherY] = await menu.evaluate((launcher) =>
+    ['Safety', 'Weather'].map(
+      (label) =>
+        launcher
+          .querySelector<HTMLElement>(`[role="group"][aria-label="${label}"]`)
+          ?.getBoundingClientRect().y,
+    ),
+  );
+  if (safetyY === undefined || weatherY === undefined)
+    throw new Error('menu groups did not lay out');
+  expect(safetyY).toBeLessThan(weatherY);
 
   await menu.getByRole('button', { name: 'Customize toolbar' }).click();
   await menu.getByRole('button', { name: 'Reset toolbar' }).click();

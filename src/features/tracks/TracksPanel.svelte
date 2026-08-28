@@ -1,4 +1,6 @@
 <script lang="ts">
+import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+import ChevronRight from '@lucide/svelte/icons/chevron-right';
 import Download from '@lucide/svelte/icons/download';
 import Eraser from '@lucide/svelte/icons/eraser';
 import Pause from '@lucide/svelte/icons/pause';
@@ -17,6 +19,7 @@ import {
   formatDuration,
   formatKnots,
   formatNm,
+  formatSignedAngleOr,
   PLACEHOLDER,
   type ReactiveClock,
 } from '$shared/lib';
@@ -26,6 +29,7 @@ import {
   type TrackSettings,
   trackStopDurationMinutes,
   trackStopSpeedKnots,
+  tripLogEnabled,
   useLocalTrackFallback,
 } from '$shared/settings';
 import { type AuthController, resourcesProviderNote } from '$shared/signalk';
@@ -45,6 +49,7 @@ import {
 } from '$shared/ui';
 import type { TrackLoadState, TracksProvisioning } from './track-controller.svelte';
 import type { SavedTrack } from './tracks-client';
+import type { TripLogController } from './trip-log-controller.svelte';
 
 interface Props {
   auth: AuthController;
@@ -55,6 +60,7 @@ interface Props {
   hasPosition: boolean;
   clock: ReactiveClock;
   settings: PersistedValue<TrackSettings>;
+  tripLog: TripLogController;
   saved: SavedTrack[];
   shown: ReadonlySet<string>;
   loadState: TrackLoadState;
@@ -85,6 +91,7 @@ const {
   hasPosition,
   clock,
   settings,
+  tripLog,
   saved,
   shown,
   loadState,
@@ -120,6 +127,7 @@ const localRecordingActive = $derived(
 );
 const stopSpeedKnots = $derived(trackStopSpeedKnots(settings.value));
 const stopDurationMinutes = $derived(trackStopDurationMinutes(settings.value));
+const tripEnabled = $derived(tripLogEnabled(settings.value));
 // Until the track has captured a point, its stats are absent, not zero, so show the placeholder.
 const hasTrack = $derived(recorder.points.length > 0);
 
@@ -229,6 +237,15 @@ function setHistoryPreferred(preferred: boolean): void {
   settings.set({ ...settings.value, preferHistory: preferred });
 }
 
+function setTripEnabled(enabled: boolean): void {
+  settings.set({ ...settings.value, tripLogEnabled: enabled });
+}
+
+function selectTripDate(event: Event): void {
+  const value = (event.currentTarget as HTMLInputElement).value;
+  if (value) void tripLog.selectDate(value);
+}
+
 function setLocalFallback(enabled: boolean): void {
   settings.set({ ...settings.value, localFallback: enabled });
 }
@@ -271,6 +288,82 @@ function setStopDurationMinutes(value: number): void {
     Signal K history is the primary breadcrumb trail. It survives browser reloads and Binnacle
     updates without saving a duplicate track. Named saves remain available for sharing or reuse.
   </p>
+  <section class="panel-section trip-log" aria-label="Trip log">
+    <div class="section-heading-row">
+      <h3 class="caps-label">Trip log</h3>
+      <LayerToggle label="Show on chart" visible={tripEnabled} onToggle={setTripEnabled} />
+    </div>
+    {#if tripEnabled}
+      <div class="day-controls" role="group" aria-label="Trip day">
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Previous trip day"
+          title="Previous day"
+          onclick={tripLog.previousDay}
+          disabled={tripLog.status === 'loading'}
+        >
+          <ChevronLeft size={18} aria-hidden="true" />
+        </button>
+        <input
+          class="date-input"
+          type="date"
+          aria-label="Trip date"
+          value={tripLog.selectedDate}
+          max={tripLog.today}
+          onchange={selectTripDate}
+        >
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Next trip day"
+          title="Next day"
+          onclick={tripLog.nextDay}
+          disabled={tripLog.status === 'loading' || tripLog.selectedDate >= tripLog.today}
+        >
+          <ChevronRight size={18} aria-hidden="true" />
+        </button>
+      </div>
+      {#if tripLog.status === 'loading'}
+        <p class="muted-note" role="status">Loading trip day…</p>
+      {:else if tripLog.status === 'unavailable'}
+        <p class="alert-note" role="alert">Trip log needs a Signal K history provider.</p>
+      {:else if tripLog.status === 'error'}
+        <p class="alert-note" role="alert">Trip history could not be loaded.</p>
+        <button type="button" class="btn btn-ghost" onclick={tripLog.refresh}>Try again</button>
+      {:else if tripLog.day && !tripLog.day.hasTravel}
+        <p class="muted-note" role="status">No travel over {stopSpeedKnots} kn on this day.</p>
+      {:else if tripLog.day}
+        <p class="muted-note muted-note--xs">
+          {tripLog.day.portions.length}
+          {tripLog.day.portions.length === 1 ? 'travel portion' : 'travel portions'}
+          and
+          {tripLog.day.stops.length} {tripLog.day.stops.length === 1 ? 'stop' : 'stops'}.
+        </p>
+        <div class="portion-list">
+          {#each tripLog.day.portions as portion, index (portion.id)}
+            <article class="portion-card">
+              <span class="portion-number" aria-hidden="true">{index + 1}</span>
+              <dl>
+                <div>
+                  <dt>Average speed</dt>
+                  <dd><span class="num">{formatKnots(portion.averageSpeedMps)}</span> kn</dd>
+                </div>
+                <div>
+                  <dt>Average wind angle</dt>
+                  <dd>
+                    <span class="num">{formatSignedAngleOr(portion.averageWindAngleRad)}</span>
+                    {portion.averageWindAngleRad === undefined ? '' : '°'}
+                  </dd>
+                </div>
+              </dl>
+              <span class="duration-tag">{formatDuration(portion.durationSeconds)}</span>
+            </article>
+          {/each}
+        </div>
+      {/if}
+    {/if}
+  </section>
   <section class="panel-section" aria-label="Track source">
     <h3 class="caps-label">Track source</h3>
     <div class="source-mode segmented" role="group" aria-label="Track source">
@@ -608,6 +701,82 @@ function setStopDurationMinutes(value: number): void {
 .status--on {
   color: var(--accent);
   font-weight: 600;
+}
+.section-heading-row,
+.day-controls,
+.portion-card,
+.portion-card dl,
+.portion-card dl > div {
+  display: flex;
+  align-items: center;
+}
+.section-heading-row {
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.section-heading-row :global(.layer-toggle) {
+  margin: 0;
+}
+.day-controls {
+  justify-content: center;
+  gap: var(--space-2);
+}
+.date-input {
+  min-block-size: var(--control-size);
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding-inline: var(--space-2);
+  color-scheme: dark;
+}
+.portion-list {
+  display: grid;
+  gap: var(--space-2);
+}
+.portion-card {
+  position: relative;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+.portion-number {
+  display: grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--surface);
+  background: var(--accent);
+  font: 700 var(--text-xs) var(--font-ui);
+}
+.portion-card dl {
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.portion-card dl > div {
+  gap: var(--space-1);
+}
+.portion-card dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.portion-card dd {
+  margin: 0;
+}
+.duration-tag {
+  align-self: flex-start;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 /* The current-track stats use the global .stat-grid system in app.css. */
 /* The saved-track card list, name, stats, and actions come from the global .saved system in app.css. */

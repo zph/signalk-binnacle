@@ -93,6 +93,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     waypoints: { name: 'waypoints' },
     symbols: { name: 'symbols' },
     trackSettings: { value: { intervalSeconds: 10 } },
+    tripLog: { day: undefined, status: 'ready', version: 0 },
     savedTracks: { list: vi.fn() },
     notesOverlay: { id: 'notes' },
     onTideStationSelect: vi.fn(),
@@ -215,13 +216,11 @@ describe('buildDynamicOverlays', () => {
     const iconAssessment = factories.createAisOverlay.mock.calls[0]?.[1]?.assessment;
     expect(iconAssessment?.()).toBe(deps.collision.assessment);
     expect(factories.createHistoryTrackOverlay).toHaveBeenCalledWith(
-      deps.origin,
-      deps.getToken,
-      deps.historyProviders,
       deps.trackSettings,
+      deps.tripLog,
       expect.any(Function),
     );
-    const historyReviewActive = factories.createHistoryTrackOverlay.mock.calls[0]?.[4];
+    const historyReviewActive = factories.createHistoryTrackOverlay.mock.calls[0]?.[2];
     expect(factories.createTrackOverlay).toHaveBeenCalledWith(
       deps.recorder,
       deps.trackSettings,

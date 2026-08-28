@@ -341,6 +341,7 @@ export interface TrackSettings {
   localFallback?: boolean;
   stopSpeedKnots?: number;
   stopDurationMinutes?: number;
+  tripLogEnabled?: boolean;
 }
 
 const DEFAULT_TRACK_SETTINGS: TrackSettings = {
@@ -368,6 +369,10 @@ export function trackStopDurationMinutes(settings: TrackSettings): number {
   return settings.stopDurationMinutes ?? DEFAULT_TRACK_STOP_DURATION_MINUTES;
 }
 
+export function tripLogEnabled(settings: TrackSettings): boolean {
+  return settings.tripLogEnabled === true;
+}
+
 // Guards a stored track-recording policy against schema drift or corruption, so a malformed value
 // falls back to the defaults rather than feeding NaN into the recorder.
 export function isTrackSettings(value: unknown): value is TrackSettings {
@@ -382,6 +387,7 @@ export function isTrackSettings(value: unknown): value is TrackSettings {
     (value.colorMode === 'speed' || value.colorMode === 'solid') &&
     (value.preferHistory === undefined || typeof value.preferHistory === 'boolean') &&
     (value.localFallback === undefined || typeof value.localFallback === 'boolean') &&
+    (value.tripLogEnabled === undefined || typeof value.tripLogEnabled === 'boolean') &&
     (value.stopSpeedKnots === undefined ||
       (isFiniteNumber(value.stopSpeedKnots) &&
         value.stopSpeedKnots >= 0 &&

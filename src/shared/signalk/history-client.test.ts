@@ -119,6 +119,23 @@ describe('fetchHistoryValues', () => {
     expect(url.searchParams.get('context')).toBe('vessels.urn:mrn:imo:mmsi:111111111');
   });
 
+  it('queries an explicit calendar range without forcing a 24-hour duration', async () => {
+    const mock = stubFetch({
+      ok: true,
+      body: { range: RANGE, values: [{ path: 'navigation.position' }], data: [] },
+    });
+    await fetchHistoryValues(BASE, undefined, {
+      paths: ['navigation.position'],
+      from: RANGE.from,
+      to: RANGE.to,
+      resolutionSeconds: 60,
+    });
+    const url = new URL(String(mock.mock.calls[0][0]));
+    expect(url.searchParams.get('from')).toBe(RANGE.from);
+    expect(url.searchParams.get('to')).toBe(RANGE.to);
+    expect(url.searchParams.has('duration')).toBe(false);
+  });
+
   it('returns undefined on a 501 no-provider answer or a transport failure', async () => {
     stubFetch({ ok: false, status: 501 });
     await expect(

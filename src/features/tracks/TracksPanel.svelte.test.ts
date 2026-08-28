@@ -31,6 +31,19 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
         minMeters: 10,
         colorMode: 'speed' as const,
       }),
+      tripLog: {
+        day: undefined,
+        selectedDate: '2026-08-27',
+        today: '2026-08-27',
+        status: 'unavailable',
+        version: 0,
+        selectDate: vi.fn(),
+        selectLatest: vi.fn(),
+        previousDay: vi.fn(),
+        nextDay: vi.fn(),
+        refresh: vi.fn(),
+        dispose: vi.fn(),
+      },
       saved: [],
       shown: new Set<string>(),
       loadState: 'ready',
@@ -62,6 +75,53 @@ describe('TracksPanel', () => {
     expect(body).toContain('Longer than');
     expect(body).toContain('value="5"');
     expect(body).not.toContain('Recording locally');
+  });
+
+  it('shows daily portion speed, wind angle, and duration', () => {
+    const body = renderPanel({
+      historyProviderState: 'available',
+      settings: new PersistedValue('tracks-panel-trip-test', {
+        intervalSeconds: 10,
+        minMeters: 10,
+        colorMode: 'speed' as const,
+        tripLogEnabled: true,
+      }),
+      tripLog: {
+        day: {
+          date: '2026-08-27',
+          hasTravel: true,
+          stops: [],
+          portions: [
+            {
+              id: 'morning',
+              points: [],
+              startedAt: 0,
+              endedAt: 3660_000,
+              durationSeconds: 3660,
+              averageSpeedMps: 2,
+              averageWindAngleRad: -Math.PI / 4,
+              labelPosition: { latitude: 1, longitude: 2 },
+            },
+          ],
+        },
+        selectedDate: '2026-08-27',
+        today: '2026-08-27',
+        status: 'ready',
+        version: 1,
+        selectDate: vi.fn(),
+        selectLatest: vi.fn(),
+        previousDay: vi.fn(),
+        nextDay: vi.fn(),
+        refresh: vi.fn(),
+        dispose: vi.fn(),
+      },
+    });
+
+    expect(body).toContain('Average speed');
+    expect(body).toContain('3.9');
+    expect(body).toContain('Average wind angle');
+    expect(body).toContain('P 45');
+    expect(body).toContain('1h 01m');
   });
 
   it('distinguishes loading, failure, and genuinely empty saved lists', () => {
@@ -168,11 +228,11 @@ describe('TracksPanel', () => {
       resume: vi.fn(),
       clear: vi.fn(),
     } as unknown as TrackRecorder;
-    // With a drawable track, write access, and a provisioned server, no control is disabled, so a
-    // disabled Save in the unprovisioned render can only come from the missing track storage.
-    expect(renderPanel({ recorder })).not.toContain('disabled');
-    expect(renderPanel({ recorder, provisioning: 'unprovisioned' })).toMatch(
-      /disabled[^>]*>[^<]*<svg[^>]*>[\s\S]*?Save/,
+    // The date navigator may independently disable its forward control on today, so scope this
+    // assertion to the Save button instead of treating every disabled control as a save failure.
+    expect(renderPanel({ recorder })).not.toContain('class="btn btn-primary" disabled');
+    expect(renderPanel({ recorder, provisioning: 'unprovisioned' })).toContain(
+      'class="btn btn-primary" disabled',
     );
   });
 

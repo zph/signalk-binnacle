@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, stubVesselsSelf } from './helpers';
+import { expectNoHorizontalOverflow, openMenuItem, stubVesselsSelf } from './helpers';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -36,8 +36,7 @@ test('tracks loads saved resources without a live stream and fits a narrow scree
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Tracks' }).click();
+  await openMenuItem(page, 'Tracks');
 
   const panel = page.getByRole('complementary', { name: 'Tracks' });
   await expect(panel.getByText('Morning passage')).toBeVisible();
