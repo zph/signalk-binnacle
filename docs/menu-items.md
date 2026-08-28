@@ -243,6 +243,8 @@ source, and surrounding traffic before relying on it.
   retained number at muted contrast with its age on the secondary line, and the wind tile's angle
   freshness folds into the same chip line. The combined wind rose follows the installed Skip
   instrument's compass-card geometry and apparent-wind, true-wind, port, and starboard color roles.
+  Its profile-synced settings control the no-go sector and the per-side error margin centered on each
+  colored perimeter limit line.
   Its AWS, heading, and TWS row sits above a fully visible compass without readout borders, while SOG
   and resolved Depth sit below. Each unit appears in parentheses on its title line, and the pointer
   positions make separate AWA and TWA numerics unnecessary. Depth uses the server's Signal K zone

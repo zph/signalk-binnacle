@@ -216,13 +216,16 @@ import {
   createThresholds,
   createTrackSettings,
   DEFAULT_MAP_RENDERING_QUALITY,
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   enumPersistedCodec,
   isMapView,
   MAP_RENDERING_QUALITIES,
+  MAX_WIND_ROSE_ARC_MARGIN_RAD,
   MAX_WIND_ROSE_NO_GO_ANGLE_RAD,
   type MapRenderingQuality,
   type MapView,
+  MIN_WIND_ROSE_ARC_MARGIN_RAD,
   MIN_WIND_ROSE_NO_GO_ANGLE_RAD,
   type PersistedCodec,
   PersistedValue,
@@ -861,6 +864,12 @@ const windRoseNoGoAngleRad = new PersistedValue<number>(
   undefined,
   boundedNumberPersistedCodec(MIN_WIND_ROSE_NO_GO_ANGLE_RAD, MAX_WIND_ROSE_NO_GO_ANGLE_RAD),
 );
+const windRoseArcMarginRad = new PersistedValue<number>(
+  binnacleStorageKey('windRoseArcMarginRad'),
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  undefined,
+  boundedNumberPersistedCodec(MIN_WIND_ROSE_ARC_MARGIN_RAD, MAX_WIND_ROSE_ARC_MARGIN_RAD),
+);
 // Chart orientation mode, profile-owned; the resolver and bearing effect live beside follow.
 const chartOrientation = new PersistedValue<ChartOrientationMode>(
   binnacleStorageKey('chartOrientation'),
@@ -1168,6 +1177,7 @@ const profileBindings = createProfileBindings({
   pinnedActions,
   instrumentTiles,
   windRoseNoGoAngleRad,
+  windRoseArcMarginRad,
   trendInstruments,
   anchorRadius: {
     get: () => anchor.preferredRadiusMeters,
@@ -2340,7 +2350,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     {
       id: 'wind-rose-settings',
       label: 'Wind rose settings',
-      description: `Set the no-go sector, currently ${Math.round((windRoseNoGoAngleRad.value * 180) / Math.PI)}°`,
+      description: `Set the no-go sector and arc margin, currently ${Math.round((windRoseNoGoAngleRad.value * 180) / Math.PI)}° and ±${Math.round((windRoseArcMarginRad.value * 180) / Math.PI)}°`,
       group: 'Instruments',
       keywords: ['wind', 'rose', 'no-go', 'angle', 'sailing', 'configuration'],
       icon: Compass,
@@ -3498,6 +3508,8 @@ const plotterActions = {
           onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
           windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
           onWindRoseNoGoAngleChange={(angleRad) => windRoseNoGoAngleRad.set(angleRad)}
+          windRoseArcMarginRad={windRoseArcMarginRad.value}
+          onWindRoseArcMarginChange={(angleRad) => windRoseArcMarginRad.set(angleRad)}
           initialWindRoseSettingsRequest={windRoseSettingsRequest}
           onWindRoseSettingsRequestHandled={() => (windRoseSettingsRequest = undefined)}
           theme={theme.theme}
