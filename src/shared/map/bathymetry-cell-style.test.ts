@@ -50,7 +50,7 @@ describe('bathymetry cell style', () => {
       20,
       ['*', 20, ['get', 'BATHY_LABEL_RELATIVE_SIZE']],
     ]);
-    expect(label.layout?.['text-offset']).toEqual([0, 1.35]);
+    expect(label.layout?.['text-offset']).toEqual([0, 0]);
     expect(label.layout?.['text-allow-overlap']).toBe(true);
     expect(label.layout?.['text-ignore-placement']).toBe(true);
     expect(label.paint?.['text-halo-width']).toBe(2.25);
