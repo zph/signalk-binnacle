@@ -62,7 +62,7 @@ describe('WindRoseTile sectors', () => {
     expect(sectors?.getAttribute('transform')).toContain('rotate(40.107');
     expect(target.querySelectorAll('.wind-sector-lines path')).toHaveLength(2);
     expect(target.querySelector('.port-sector-line')?.getAttribute('d')).toBe(
-      'M278 115.485 L500 500',
+      'M500 500 L278 115.485',
     );
     expect(target.querySelector('.wind-sector-lines')?.getAttribute('transform')).toContain(
       'rotate(40.107',

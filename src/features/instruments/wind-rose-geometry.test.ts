@@ -10,7 +10,7 @@ describe('windRoseSectorGeometry', () => {
     expect(geometry.fillPath).toContain('722 115.485');
     expect(geometry.portArcPath).toContain('278 115.485');
     expect(geometry.starboardArcPath).toContain('M722 115.485');
-    expect(geometry.portBoundaryPath).toBe('M278 115.485 L500 500');
-    expect(geometry.starboardBoundaryPath).toBe('M722 115.485 L500 500');
+    expect(geometry.portBoundaryPath).toBe('M500 500 L278 115.485');
+    expect(geometry.starboardBoundaryPath).toBe('M500 500 L722 115.485');
   });
 });

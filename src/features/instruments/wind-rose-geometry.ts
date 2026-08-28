@@ -23,6 +23,10 @@ function arc(fromRad: number, toRad: number): string {
   return `${moveTo(point(fromRad))} A${RADIUS} ${RADIUS} 0 0 1 ${coordinate(point(toRad).x)} ${coordinate(point(toRad).y)}`;
 }
 
+function radialLine(to: { x: number; y: number }): string {
+  return `M${CENTER} ${CENTER} L${coordinate(to.x)} ${coordinate(to.y)}`;
+}
+
 export interface WindRoseSectorGeometry {
   fillPath: string;
   portArcPath: string;
@@ -39,7 +43,7 @@ export function windRoseSectorGeometry(totalNoGoAngleRad: number): WindRoseSecto
     fillPath: `${arc(-halfAngleRad, halfAngleRad)} L${CENTER} ${CENTER} Z`,
     portArcPath: arc(-OUTER_SECTOR_ANGLE_RAD, -halfAngleRad),
     starboardArcPath: arc(halfAngleRad, OUTER_SECTOR_ANGLE_RAD),
-    portBoundaryPath: `${moveTo(portBoundary)} L${CENTER} ${CENTER}`,
-    starboardBoundaryPath: `${moveTo(starboardBoundary)} L${CENTER} ${CENTER}`,
+    portBoundaryPath: radialLine(portBoundary),
+    starboardBoundaryPath: radialLine(starboardBoundary),
   };
 }
