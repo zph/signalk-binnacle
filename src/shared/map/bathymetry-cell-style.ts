@@ -122,7 +122,7 @@ export function bathymetryCellLayers(
     layers.push(fill, outline);
   }
 
-  if (available.has('SOUNDG')) {
+  if (available.has('DEPARE')) {
     const labels: SymbolLayerSpecification = {
       id: `${sourceId}-soundg-bathymetry-label`,
       type: 'symbol',

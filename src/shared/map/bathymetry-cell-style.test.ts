@@ -17,7 +17,9 @@ function layer(layers: LayerSpecification[], suffix: string): LayerSpecification
 
 describe('bathymetry cell style', () => {
   it('draws translucent depth-colored hexes, outlines, and sounding labels', () => {
-    const layers = bathymetryCellLayers(SOURCE_ID, ['DEPARE', 'SOUNDG'], {
+    // The live provider advertises DEPARE in its chart metadata even though its MVT payload also
+    // includes SOUNDG. Labels are properties of, and anchored to, the advertised cell polygons.
+    const layers = bathymetryCellLayers(SOURCE_ID, ['DEPARE'], {
       safetyDepth: 3,
       depthUnit: 'ft',
     });
