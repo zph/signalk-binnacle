@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OwnVessel } from '$entities/vessel';
+import { knotsToMetersPerSecond } from '$shared/lib';
 import { mapThemePaint, rgbaCss } from '$shared/map';
 import { geodesicDestination } from '$shared/nav';
 import { SignalKStore } from '$shared/signalk';
@@ -70,7 +71,7 @@ describe('vessel overlay', () => {
     });
   });
 
-  it('draws 10-, 5-, and 2.5-minute geodesic vectors above 0.15 m/s', () => {
+  it('draws 10-, 5-, and 2.5-minute geodesic vectors while underway', () => {
     const store = new SignalKStore();
     applyMotion(store, 4, Math.PI / 2);
     const features = buildOwnVesselVectorFeatures(new OwnVessel(store)).features;
@@ -91,13 +92,13 @@ describe('vessel overlay', () => {
     }
   });
 
-  it('hides the vector at and below the threshold, or when motion is stale', () => {
+  it('hides the vector at and below 0.15 kn, or when motion is stale', () => {
     const store = new SignalKStore();
     const vessel = new OwnVessel(store);
-    applyMotion(store, 0.15);
+    applyMotion(store, knotsToMetersPerSecond(0.15));
     expect(buildOwnVesselVectorFeatures(vessel).features).toHaveLength(0);
 
-    applyMotion(store, 0.151);
+    applyMotion(store, knotsToMetersPerSecond(0.151));
     expect(buildOwnVesselVectorFeatures(vessel).features).toHaveLength(3);
 
     store.applyFrame({
@@ -124,7 +125,7 @@ describe('vessel overlay', () => {
     overlay.sync(ctx);
     expect(sourceFeatures(map, VECTOR_SOURCE_ID)).toHaveLength(3);
 
-    applyMotion(store, 0.1);
+    applyMotion(store, knotsToMetersPerSecond(0.1));
     overlay.sync(ctx);
     expect(sourceFeatures(map, VECTOR_SOURCE_ID)).toHaveLength(0);
   });

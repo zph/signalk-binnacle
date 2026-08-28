@@ -2,7 +2,7 @@ import type { LineLayerSpecification } from 'maplibre-gl';
 
 import type { OwnVessel } from '$entities/vessel';
 import { latLonToLonLat } from '$shared/geo';
-import { headingDegrees } from '$shared/lib';
+import { headingDegrees, knotsToMetersPerSecond } from '$shared/lib';
 import {
   antimeridianLineGeometry,
   createSymbolOverlay,
@@ -30,7 +30,7 @@ const VECTOR_FAR_LAYER_ID = 'binnacle-own-vessel-vector-10-minute';
 const VECTOR_MIDDLE_LAYER_ID = 'binnacle-own-vessel-vector-5-minute';
 const VECTOR_NEAR_LAYER_ID = 'binnacle-own-vessel-vector-2-5-minute';
 const VECTOR_LAYER_IDS = [VECTOR_FAR_LAYER_ID, VECTOR_MIDDLE_LAYER_ID, VECTOR_NEAR_LAYER_ID];
-const VECTOR_MIN_SOG_MPS = 0.15;
+const VECTOR_MIN_SOG_MPS = knotsToMetersPerSecond(0.15);
 const VECTOR_WIDTH = 2;
 const VECTOR_OPACITY = 0.8;
 const SECONDS_PER_MINUTE = 60;
