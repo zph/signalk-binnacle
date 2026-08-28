@@ -33,6 +33,7 @@ import Sun from '@lucide/svelte/icons/sun';
 import UserCog from '@lucide/svelte/icons/user-cog';
 import VolumeX from '@lucide/svelte/icons/volume-x';
 import Waves from '@lucide/svelte/icons/waves';
+import Wind from '@lucide/svelte/icons/wind';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { onDestroy, onMount, tick, untrack } from 'svelte';
 import { slide } from 'svelte/transition';
@@ -477,10 +478,11 @@ const tidesLoader = createTidesLoader({
   pluginTides: (lat, lon) => fetchSignalkTidesReading(lat, lon, { origin, token: chartsToken }),
 });
 
-// Weather forecast, fetched browser-side from Open-Meteo. It lives in a dedicated mini-map panel
-// (the Forecast button), not on the nav chart, so the chart stays clean and the weather can never
-// be zoomed past its data resolution. The panel owns the fetch, keyed off its own viewport.
+// Weather forecast, fetched browser-side from Open-Meteo. The full Forecast view and the optional
+// primary-chart wind overlay keep independent selected view fields while sharing the loader's
+// source-specific cache and the profile-owned source selection.
 const weather = new WeatherStore();
+const chartWeather = new WeatherStore();
 // The cached weather loader (Open-Meteo plus RainViewer), constructed here and passed to the panel
 // so it is swappable in tests and its in-memory cache lives for the session.
 const weatherLoader = createWeatherLoader();
@@ -1665,7 +1667,7 @@ const handoff = createHandoffController({
           : radarHealth.state === 'stale'
             ? 'transmitting, picture stale'
             : `failed (${radarHealth.reason})`,
-      weatherFetchedAtMs: () => weather.grid?.fetchedAt,
+      weatherFetchedAtMs: () => chartWeather.grid?.fetchedAt ?? weather.grid?.fetchedAt,
       tides: () =>
         tidesStore.tide !== undefined
           ? 'tide station data loaded'
@@ -2313,6 +2315,23 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
           onSelect: () => instruments.setOpen(false),
         },
       ],
+    },
+    {
+      id: 'wind-forecast-overlay',
+      label: layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
+        ? 'Hide wind forecast overlay'
+        : 'Show wind forecast overlay',
+      description: layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
+        ? 'Remove the animated wind field and forecast controls from the chart'
+        : 'Overlay forecast wind speed and direction on the chart',
+      group: 'Weather',
+      keywords: ['wind', 'forecast', 'overlay', 'layer', 'enable', 'disable'],
+      icon: Wind,
+      onSelect: () =>
+        setLayerVisible(
+          WEATHER_LAYER_IDS.wind,
+          !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
+        ),
     },
     {
       id: 'trip-log-toggle',
@@ -3205,6 +3224,7 @@ const plotterEntities = {
   symbolsStore,
   userCharts,
   weather,
+  chartWeather,
   timeTravel,
   notificationsStore,
 };

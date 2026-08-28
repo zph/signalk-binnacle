@@ -177,14 +177,12 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
           particles = new WindParticles(gl);
           particles.setTheme(windColorTexture(theme));
           particles.setOpacity(opacity);
-          if (visible) pushWind();
         } catch (error) {
           // A rare secondary failure after the probe passed: degrade to arrows. The empty custom
           // layer stays but renders nothing because `particles` is undefined.
           console.warn('[wind] particle init failed, using arrows', error);
           particles = undefined;
           addArrowLayer(ctx);
-          if (visible) syncArrows(ctx);
         }
       },
       render(gl: GL, args: unknown) {
@@ -235,14 +233,10 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
     // a secondary init failure degraded to it. The LayerManager guards each id with getLayer, so the
     // absent one is skipped and a restack never drops the one that is present.
     layerIds: [GL_LAYER_ID, LAYER_ID],
-    add(ctx) {
-      // The animated particle field is a continuous, self-driving render loop, so a reduced-motion
-      // preference falls back to the static arrow layer (which still conveys wind direction and
-      // speed), mirroring the camera moves. Evaluated per add, not at construction, so a preference
-      // change is honored the next time the overlay is (re)added rather than only after a reload.
-      if (supportsWindGl() && !prefersReducedMotion()) addParticleLayer(ctx);
-      else addArrowLayer(ctx);
-    },
+    // Keep a hidden wind overlay entirely out of MapLibre's render graph. setVisible mounts the
+    // chosen renderer on its first enable, which prevents an off-by-default custom WebGL layer from
+    // participating in unrelated chart repaints.
+    add() {},
     reset() {
       // The manager calls this on a base-style swap; without it the arrow fallback stays blank when
       // the grid object is unchanged, the same hazard radar-overlay guards against.
@@ -262,6 +256,13 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
     setVisible(ctx, value) {
       const justBecameVisible = becameVisible(visible, value);
       visible = value;
+      if (value && !ctx.map.getLayer(GL_LAYER_ID) && !ctx.map.getLayer(LAYER_ID)) {
+        // The animated particle field is a continuous, self-driving render loop, so reduced motion
+        // uses static arrows. Evaluate this on first enable so a preference change made while the
+        // layer was off is honored without a reload.
+        if (supportsWindGl() && !prefersReducedMotion()) addParticleLayer(ctx);
+        else addArrowLayer(ctx);
+      }
       if (ctx.map.getLayer(LAYER_ID)) {
         ctx.map.setLayoutProperty(LAYER_ID, 'visibility', value ? 'visible' : 'none');
       }

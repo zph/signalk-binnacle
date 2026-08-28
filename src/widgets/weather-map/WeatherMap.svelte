@@ -13,6 +13,7 @@ import { LayersView } from '$features/layers-panel';
 import { createRouteOverlay } from '$features/route-layer';
 import {
   createCloudOverlay,
+  createForecastPlayback,
   createPointReadout,
   createPrecipOverlay,
   createPressureOverlay,
@@ -62,7 +63,6 @@ import {
   weatherSourceOption,
 } from '$shared/settings';
 import { dialog, PANEL_TRANSITION_MS, PanelHeader, type Theme } from '$shared/ui';
-import { createForecastPlayback } from './playback.svelte';
 import WeatherLayerMenu from './WeatherLayerMenu.svelte';
 import WeatherLegendBar from './WeatherLegendBar.svelte';
 import WeatherScrubber from './WeatherScrubber.svelte';

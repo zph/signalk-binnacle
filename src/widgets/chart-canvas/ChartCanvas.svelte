@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { onDestroy, onMount } from 'svelte';
+import { onDestroy, onMount, untrack } from 'svelte';
 import type { AisTargets } from '$entities/ais';
 import type { AnchorWatch } from '$entities/anchor';
 import type { CollisionAssessment } from '$entities/collision';
@@ -16,6 +16,7 @@ import type { UnitsStore } from '$entities/units';
 import type { UserCharts } from '$entities/user-charts';
 import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
+import { boundsToBbox, type WeatherStore } from '$entities/weather';
 import type { AisMotionUpdate, AisVesselKindMode } from '$features/ais-layer';
 import { BOUNDARY_SOURCES, createBoundaryOverlay } from '$features/boundaries-overlay';
 import { fetchCharts } from '$features/charts';
@@ -42,6 +43,11 @@ import { createSeamarkOverlay, SEAMARK_SOURCES } from '$features/seamark-overlay
 import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
 import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
+import {
+  createChartWindController,
+  WEATHER_LAYER_IDS,
+  type WeatherLoader,
+} from '$features/weather';
 import type { LatLon } from '$shared/geo';
 import { createRetryableLazyUiLoader } from '$shared/lib';
 import {
@@ -68,6 +74,7 @@ import {
   type PersistedValue,
   type Thresholds,
   type TrackSettings,
+  type WeatherSourceId,
 } from '$shared/settings';
 import type { HistoryProviders, SignalKStore } from '$shared/signalk';
 import type { Theme } from '$shared/ui';
@@ -112,6 +119,10 @@ interface Props {
   routeStore: RouteStore;
   // The tides store, drawn as nearest-station markers and fed by the tides loader in App.
   tides: TidesStore;
+  // The app-wide weather store and loader feed the optional wind field on this primary chart.
+  weather: WeatherStore;
+  weatherLoader: WeatherLoader;
+  weatherSource: PersistedValue<WeatherSourceId>;
   // The display-unit preference, threaded into the overlays that label distances and heights.
   units: UnitsStore;
   // The configured shallow-water limit also serves as the ENC safety depth.
@@ -150,6 +161,7 @@ interface Props {
   onUserChartsReady?: (registrar: UserChartRegistrar) => void;
   onServerChartsReady?: (retry: () => void) => void;
   onServerChartsStatus?: (status: 'loading' | 'ready' | 'partial' | 'error') => void;
+  onWindRetryReady?: (retry: (() => void) | undefined) => void;
   // Critical navigation overlays failed to mount. The host surfaces this instead of leaving a
   // navigator with an apparently healthy chart that is missing the vessel or a safety mark.
   onCriticalOverlayError?: (overlayIds: string[]) => void;
@@ -222,6 +234,9 @@ const {
   recorder,
   routeStore,
   tides,
+  weather,
+  weatherLoader,
+  weatherSource,
   theme,
   trackSettings,
   tripLog,
@@ -241,6 +256,7 @@ const {
   onUserChartsReady,
   onServerChartsReady,
   onServerChartsStatus,
+  onWindRetryReady,
   onCriticalOverlayError,
   onViewChange,
   onNoteSelect,
@@ -307,6 +323,16 @@ let editGeneration = 0;
 // Captured from onLoad so the units effect below can reach
 // map.setGlobalStateProperty once the map exists. $state so the effect re-runs once it is assigned.
 let mapRef = $state<MapLibreMap | undefined>();
+let windVisible = untrack(() => savedLayers?.[WEATHER_LAYER_IDS.wind]?.visible ?? false);
+const chartWind = createChartWindController({
+  store: untrack(() => weather),
+  loader: untrack(() => weatherLoader),
+  getBounds: () => (mapRef ? boundsToBbox(mapRef.getBounds()) : undefined),
+  getSource: () => weatherSource.value,
+  isVisible: () => windVisible,
+});
+
+$effect(() => chartWind.sourceChanged(weatherSource.value));
 
 $effect(() => {
   const map = mapRef;
@@ -442,7 +468,13 @@ onMount(async () => {
     pixelRatio: mapRenderingPixelRatio(mapRenderingQuality.value, window.devicePixelRatio),
     managerOptions: {
       saved: savedLayers,
-      onChange: (settings) => onLayersChange?.(settings),
+      onChange: (settings) => {
+        onLayersChange?.(settings);
+        const nextWindVisible = settings[WEATHER_LAYER_IDS.wind]?.visible ?? false;
+        if (nextWindVisible === windVisible) return;
+        windVisible = nextWindVisible;
+        chartWind.visibilityChanged(nextWindVisible);
+      },
       savedOrder,
       onOrderChange,
       // The own vessel, an active MOB mark, and active collision alarms stay pinned on top so a
@@ -473,6 +505,7 @@ onMount(async () => {
       // Chart tools can be opened while optional overlays are still registering. Expose the loaded
       // map immediately so their cursor and keyboard feedback do not wait on unrelated providers.
       mapRef = map;
+      map.on('moveend', () => chartWind.schedule());
       // Seed the unit global-state before registerAll below adds Seascape's vector layers, so their
       // global-state-driven filters and text-fields never evaluate against an unset value; the
       // units effect (mapRef-gated, further down) keeps it live after this initial seed.
@@ -591,6 +624,7 @@ onMount(async () => {
         recorder,
         routeStore,
         tides,
+        weather,
         onTideStationSelect: (selection) => {
           if (markerInteractionsAllowed()) onTideStationSelect?.(selection);
         },
@@ -738,6 +772,9 @@ onMount(async () => {
       const view = new LayersView(mgr);
       view.refresh();
       onReady?.(view);
+      windVisible = view.items.some((item) => item.id === WEATHER_LAYER_IDS.wind && item.visible);
+      if (windVisible) chartWind.schedule();
+      onWindRetryReady?.(() => chartWind.load(true));
       if (isDestroyed()) return;
 
       let serverChartsGeneration = 0;
@@ -939,6 +976,8 @@ onDestroy(() => {
   measureOverlay?.cancelInteraction();
   measureOverlay = undefined;
   routeEditor?.stop();
+  chartWind.destroy();
+  onWindRetryReady?.(undefined);
   mapHandle?.destroy();
   onMapDestroyed?.();
 });

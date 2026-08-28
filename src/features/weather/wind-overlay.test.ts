@@ -23,12 +23,16 @@ function storeWithGrid(): WeatherStore {
 }
 
 describe('wind overlay', () => {
-  it('adds a source and a line layer in the weather band', async () => {
+  it('mounts its renderer only when the weather layer becomes visible', async () => {
     const overlay = createWindOverlay(storeWithGrid());
     const map = createFakeMap();
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('weather');
+    expect(map.sources.size).toBe(0);
+    expect(map.layers.size).toBe(0);
+
+    overlay.setVisible(fakeOverlayContext(map), true);
     expect(map.sources.size).toBe(1);
     expect(map.layers.size).toBe(1);
   });
@@ -39,8 +43,7 @@ describe('wind overlay', () => {
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     overlay.sync(fakeOverlayContext(map));
-    const hidden = [...map.sources.values()][0].data as GeoJSON.FeatureCollection;
-    expect(hidden.features).toHaveLength(0);
+    expect(map.sources.size).toBe(0);
 
     overlay.setVisible(fakeOverlayContext(map), true);
     const source = [...map.sources.values()][0];

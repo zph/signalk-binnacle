@@ -1,12 +1,11 @@
 import type { WeatherStore } from '$entities/weather';
-import { advancePlay, clampTime, stepTime, type TimeRange } from '$features/weather';
+import { advancePlay, clampTime, stepTime, type TimeRange } from './time-scrub';
 
 // How long each playback frame holds before advancing to the next forecast step.
 const PLAY_INTERVAL_MS = 700;
 
-// The forecast-scrubber playback: owns whether the loop is running and its timer, and drives the
-// selected time on the store. The time range is injected as a getter because it derives from the
-// store's grid in the host and changes as the grid loads.
+// Shared forecast playback for the full Forecast view and the primary-chart wind strip. The range
+// is injected as a getter because it changes when a newly selected model finishes loading.
 export function createForecastPlayback(
   getStore: () => WeatherStore,
   range: () => TimeRange | undefined,
@@ -21,27 +20,29 @@ export function createForecastPlayback(
   }
 
   function setTime(t: number): void {
-    // A manual scrub or step takes the wheel: the play timer must not yank the thumb back.
+    // A manual scrub or step takes the wheel: the play timer must not move the thumb afterward.
     stopPlay();
-    const r = range();
-    if (r) getStore().setSelectedTime(clampTime(t, r));
+    const currentRange = range();
+    if (currentRange) getStore().setSelectedTime(clampTime(t, currentRange));
   }
 
   function step(dir: 1 | -1): void {
-    const r = range();
-    if (r) setTime(stepTime(getStore().selectedTime, dir, r));
+    const currentRange = range();
+    if (currentRange) setTime(stepTime(getStore().selectedTime, dir, currentRange));
   }
 
   function toggle(): void {
-    const r = range();
-    if (playing || !r) {
+    const currentRange = range();
+    if (playing || !currentRange) {
       stopPlay();
       return;
     }
     playing = true;
     playTimer = setInterval(() => {
-      const current = range();
-      if (current) getStore().setSelectedTime(advancePlay(getStore().selectedTime, current));
+      const nextRange = range();
+      if (nextRange) {
+        getStore().setSelectedTime(advancePlay(getStore().selectedTime, nextRange));
+      }
     }, PLAY_INTERVAL_MS);
   }
 

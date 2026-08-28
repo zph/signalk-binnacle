@@ -53,7 +53,7 @@ import { loadHistoryStrip, type TimeTravelController } from '$features/time-trav
 import { loadTracksPanel } from '$features/tracks';
 import { loadTrendsPanel } from '$features/trends';
 import { loadWaypointsPanel } from '$features/waypoints';
-import type { WeatherProvider } from '$features/weather';
+import { WEATHER_LAYER_IDS, type WeatherProvider, WindForecastStrip } from '$features/weather';
 import type { Bbox4, LatLon } from '$shared/geo';
 import { hasVisibleNavigationChart, type LayerSettings } from '$shared/map';
 import { etaSeconds } from '$shared/nav';
@@ -138,6 +138,7 @@ interface FlatProps {
   personalNotesStore: PersonalNotesStore;
   symbolsStore: SymbolsStore;
   userCharts: UserCharts;
+  chartWeather: WeatherStore;
   weather: WeatherStore;
   timeTravel: TimeTravelController;
   notificationsStore: NotificationsStore;
@@ -355,6 +356,7 @@ type EntityKey =
   | 'symbolsStore'
   | 'userCharts'
   | 'weather'
+  | 'chartWeather'
   | 'timeTravel'
   | 'notificationsStore';
 type ActionKey =
@@ -542,6 +544,7 @@ const {
   symbolsStore,
   userCharts,
   weather,
+  chartWeather,
   timeTravel,
   notificationsStore,
 } = $derived(entities);
@@ -613,6 +616,7 @@ const {
 let mapCommands = $state<MapCommands | undefined>();
 let serverChartsStatus = $state<'loading' | 'ready' | 'partial' | 'error'>('loading');
 let retryServerCharts = $state<(() => void) | undefined>();
+let retryWindForecast = $state<(() => void) | undefined>();
 let criticalOverlayError = $state<string | undefined>();
 let lazyPanelAttempt = $state(0);
 let radarDiscardRequested = $state(false);
@@ -734,6 +738,7 @@ function activeRouteForCoverage(): { name: string; waypoints: RouteWaypoint[] } 
   return route === undefined ? undefined : { name: route.name, waypoints: route.waypoints };
 }
 const radarEchoShown = $derived(layerSettings[MARINE_RADAR_OVERLAY_ID]?.visible ?? false);
+const windForecastShown = $derived(layerSettings[WEATHER_LAYER_IDS.wind]?.visible ?? false);
 // Whole-route time: the active leg's own estimate (server timeToGo, else positive-VMG) plus the
 // explicit planning speed across the legs ahead. Never cross-track SOG for the whole route: an
 // off-course five knots would promise an arrival the boat is not making. Any missing input leaves
@@ -852,6 +857,9 @@ $effect(() => {
     {recorder}
     {routeStore}
     tides={tidesStore}
+    weather={chartWeather}
+    {weatherLoader}
+    {weatherSource}
     theme={theme.theme}
     {trackSettings}
     {tripLog}
@@ -871,6 +879,7 @@ $effect(() => {
     {onUserChartsReady}
     onServerChartsReady={(retry) => (retryServerCharts = retry)}
     onServerChartsStatus={(status) => (serverChartsStatus = status)}
+    onWindRetryReady={(retry) => (retryWindForecast = retry)}
     onCriticalOverlayError={(ids) => {
       criticalOverlayError =
         ids.length === 0
@@ -981,6 +990,16 @@ $effect(() => {
             </div>
           </div>
         {/await}
+      {/if}
+      {#if windForecastShown}
+        <WindForecastStrip
+          store={chartWeather}
+          {weatherSource}
+          {units}
+          {clock}
+          onRetry={retryWindForecast}
+          onHide={() => setLayerVisible(WEATHER_LAYER_IDS.wind, false)}
+        />
       {/if}
       <NavStrip
         guidance={courseGuidance}

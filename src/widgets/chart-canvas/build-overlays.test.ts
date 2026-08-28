@@ -41,6 +41,7 @@ const factories = vi.hoisted(() => {
       marker('vessel'),
     ),
     createWaypointOverlay: vi.fn(() => marker('waypoints')),
+    createWindOverlay: vi.fn(() => marker('weather-wind')),
   };
 });
 
@@ -68,6 +69,7 @@ vi.mock('$features/track-layer', () => ({
 }));
 vi.mock('$features/vessel-layer', () => ({ createVesselOverlay: factories.createVesselOverlay }));
 vi.mock('$features/waypoints', () => ({ createWaypointOverlay: factories.createWaypointOverlay }));
+vi.mock('$features/weather', () => ({ createWindOverlay: factories.createWindOverlay }));
 
 function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => boolean) {
   const assessment = { contacts: [], worst: 'clear' };
@@ -89,6 +91,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     recorder: { name: 'recorder' },
     routeStore: { name: 'routes' },
     tides: { name: 'tides' },
+    weather: { name: 'weather' },
     units: { name: 'units' },
     waypoints: { name: 'waypoints' },
     symbols: { name: 'symbols' },
@@ -118,6 +121,7 @@ describe('buildDynamicOverlays', () => {
     const { overlays } = setup(radar);
 
     expect(overlays.map(({ id }) => id)).toEqual([
+      'weather-wind',
       'tides',
       'anchor',
       'measure',
@@ -142,6 +146,7 @@ describe('buildDynamicOverlays', () => {
   it('omits only the optional radar layer when no radar controller supplied one', () => {
     const { overlays } = setup();
     expect(overlays.map(({ id }) => id)).toEqual([
+      'weather-wind',
       'tides',
       'anchor',
       'measure',
@@ -170,6 +175,7 @@ describe('buildDynamicOverlays', () => {
       deps.units,
       deps.onTideStationSelect,
     );
+    expect(factories.createWindOverlay).toHaveBeenCalledWith(deps.weather);
     expect(factories.createAnchorOverlay).toHaveBeenCalledWith(
       deps.anchor,
       deps.vessel,

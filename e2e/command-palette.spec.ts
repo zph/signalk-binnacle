@@ -198,6 +198,22 @@ test('Command K enables and disables the trip log', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('Command K shows and hides the wind forecast overlay', async ({ page }) => {
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const search = palette.getByRole('searchbox', { name: 'Search commands' });
+  await search.fill('wind forecast overlay');
+  await palette.getByRole('option', { name: /Show wind forecast overlay/ }).click();
+  await expect(page.getByRole('complementary', { name: 'Wind forecast overlay' })).toBeVisible();
+
+  await page.keyboard.press('Control+K');
+  await search.fill('wind forecast overlay');
+  await palette.getByRole('option', { name: /Hide wind forecast overlay/ }).click();
+  await expect(page.getByRole('complementary', { name: 'Wind forecast overlay' })).toHaveCount(0);
+});
+
 test('Command K enters and exits browser full screen', async ({ page }) => {
   await page.addInitScript(() => {
     let fullScreenElement: Element | null = null;

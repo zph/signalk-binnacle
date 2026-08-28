@@ -11,6 +11,7 @@ import type { SavedTracksSource, TrackRecorder } from '$entities/track';
 import type { UnitsStore } from '$entities/units';
 import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
+import type { WeatherStore } from '$entities/weather';
 import {
   type AisMotionUpdate,
   type AisVesselKindMode,
@@ -35,6 +36,7 @@ import { createHistoryTrackOverlay, createTrackOverlay } from '$features/track-l
 import type { TripLogController } from '$features/tracks';
 import { createVesselOverlay } from '$features/vessel-layer';
 import { createWaypointOverlay } from '$features/waypoints';
+import { createWindOverlay } from '$features/weather';
 import type { LatLon } from '$shared/geo';
 import {
   type PersistedValue,
@@ -67,6 +69,7 @@ export interface DynamicOverlaysDeps {
   recorder: TrackRecorder;
   routeStore: RouteStore;
   tides: TidesStore;
+  weather: WeatherStore;
   onTideStationSelect?: (selection: TideStationSelectionEvent) => void;
   interactionsAllowed?: () => boolean;
   units: UnitsStore;
@@ -111,6 +114,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     recorder,
     routeStore,
     tides,
+    weather,
     onTideStationSelect,
     interactionsAllowed,
     units,
@@ -127,6 +131,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     marineRadarLayer,
   } = deps;
   return [
+    createWindOverlay(weather),
     interactionsAllowed
       ? createTidesOverlay(tides, units, onTideStationSelect, Date.now, interactionsAllowed)
       : createTidesOverlay(tides, units, onTideStationSelect),

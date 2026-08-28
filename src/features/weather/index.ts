@@ -1,3 +1,4 @@
+export { createChartWindController } from './chart-wind-controller.svelte';
 export { createCloudOverlay } from './cloud-overlay';
 export {
   GRID_SOURCE_LABEL,
@@ -5,6 +6,7 @@ export {
   WEATHER_FILL_IDS,
   WEATHER_LAYER_IDS,
 } from './fills';
+export { createForecastPlayback } from './forecast-playback.svelte';
 export { type WeatherLegend, weatherLegend } from './legend';
 export { createPointConditionsLoader, type PointConditionsLoader } from './point-conditions';
 export { createPointReadout } from './point-readout.svelte';
@@ -25,6 +27,7 @@ export {
 } from './signalk-weather';
 export { advancePlay, clampTime, stepTime, type TimeRange } from './time-scrub';
 export { default as WeatherConditions } from './WeatherConditions.svelte';
+export { default as WindForecastStrip } from './WindForecastStrip.svelte';
 export { createWavesOverlay } from './waves-overlay';
 export { createWeatherLoader, type WeatherLoader } from './weather-loader';
 export { precipUnitLabel, RAIN_VISIBLE_MM_H } from './weather-readout';
