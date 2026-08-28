@@ -1,9 +1,9 @@
 import type * as maplibregl from 'maplibre-gl';
 import type { OverlayContext } from './types';
 
-// How often store-driven overlays (AIS prune, tides, radar advance, collision) are synced when the
-// map is not moving on its own. Map moves still sync on every 'move', so this only covers the
-// overlays that change without a camera move; 250 ms is well under the radar frame dwell.
+// How often store-driven overlays (AIS prune, tides, radar advance, collision) are synced while the
+// camera is idle. Active gestures pause this work so MapLibre owns the interaction frame budget;
+// existing map layers follow its GPU camera transform without needing their sources rebuilt.
 const STORE_SYNC_MS = 250;
 
 // Anything the overlay sync can drive: the overlay modules all expose sync(ctx).
@@ -18,14 +18,12 @@ function syncableId(overlay: Syncable): string | undefined {
 }
 
 export interface OverlayTick {
-  // Start syncing the overlays: on every MapLibre 'move' (so pan and zoom update them)
-  // and on a low-frequency interval (so store-driven overlays that change without a camera move,
-  // like AIS prune, tides, radar advance, and collision, still tick). Both stop while the document
-  // is hidden. The per-overlay dirty-checks still gate real work, so this only changes WHEN sync is
-  // invoked, not what it does.
+  // Start syncing overlays on a low-frequency interval while the camera is idle. A pan, zoom,
+  // bearing, or pitch gesture pauses the interval and gets one catch-up sync at moveend. The timer
+  // also stops while the document is hidden. Per-overlay dirty checks still gate real work.
   runTick: (overlays: ReadonlyArray<Syncable>, onStatus?: OverlaySyncStatus) => void;
-  // Teardown for the sync wiring runTick installs (the 'move' listener, the interval, and the
-  // visibilitychange listener). A no-op until runTick is called; invoked once on destroy.
+  // Teardown for the sync wiring runTick installs (camera listeners, interval, and visibilitychange
+  // listener). A no-op until runTick is called; invoked once on destroy.
   stopTick: () => void;
 }
 
@@ -40,16 +38,16 @@ export function createOverlayTick(
   let teardown = () => {};
 
   const runTick = (overlays: ReadonlyArray<Syncable>, onStatus?: OverlaySyncStatus) => {
-    // A second call must not orphan the first 'move' listener, interval, and visibilitychange
+    // A second call must not orphan the first camera listeners, interval, and visibilitychange
     // listener, so tear down any prior wiring first.
     teardown();
     // An async widget initializer can reach runTick after the map owner has already torn down. Do
     // not reinstall listeners or timers on the dead map in that case.
     if (isDestroyed()) return;
     // Calling this once replaces the old unconditional rAF loop, which synced ~60x/sec for the life
-    // of the map even at anchor. Sync on camera movement, not every render: animated custom layers
-    // such as wind can repaint continuously without changing any store-driven overlay. Listening to
-    // render would multiply that animation cost across AIS, collision, routes, tides, and tracks.
+    // of the map even at anchor. Do not synchronize on either render or move: source-backed layers
+    // already follow MapLibre's camera transform, and rebuilding their data during a gesture steals
+    // the same main-thread budget that drag and pinch handling need.
     const failedOverlays = new WeakSet<Syncable>();
     const syncAll = () => {
       if (isDestroyed()) return;
@@ -71,13 +69,10 @@ export function createOverlayTick(
       }
     };
 
-    // MapLibre fires 'move' for pan, zoom, bearing, and pitch changes. Source layers move with the
-    // camera by themselves; this hook is for overlays whose derived data depends on projection.
-    map.on('move', syncAll);
-
     let interval = 0;
+    let moving = map.isMoving();
     const startInterval = () => {
-      if (interval) return;
+      if (interval || moving || document.hidden) return;
       interval = window.setInterval(syncAll, STORE_SYNC_MS);
     };
     const stopInterval = () => {
@@ -86,14 +81,28 @@ export function createOverlayTick(
       interval = 0;
     };
 
-    // Pause both the interval and (implicitly, since the map stops moving) the camera sync while
-    // the tab is hidden; resume and sync once on return so a hidden-tab change shows immediately.
+    const onMoveStart = () => {
+      moving = true;
+      stopInterval();
+    };
+    const onMoveEnd = () => {
+      moving = false;
+      // Viewport-sensitive overlays see the final camera once, and their normal interval can handle
+      // any settle delay. One batch here replaces potentially thousands during a sustained drag.
+      syncAll();
+      startInterval();
+    };
+    map.on('movestart', onMoveStart);
+    map.on('moveend', onMoveEnd);
+
+    // Pause the interval while hidden; resume and sync once on return so a hidden-tab change shows
+    // immediately. If a camera transition is still active, moveend owns that catch-up instead.
     const onVisibility = () => {
       if (document.hidden) {
         stopInterval();
       } else {
+        if (!moving) syncAll();
         startInterval();
-        syncAll();
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -101,7 +110,8 @@ export function createOverlayTick(
     syncAll();
 
     teardown = () => {
-      map.off('move', syncAll);
+      map.off('movestart', onMoveStart);
+      map.off('moveend', onMoveEnd);
       stopInterval();
       document.removeEventListener('visibilitychange', onVisibility);
       teardown = () => {};

@@ -100,6 +100,9 @@ vi.mock('maplibre-gl', () => {
     getZoom(): number {
       return 2;
     }
+    isMoving(): boolean {
+      return false;
+    }
     hasImage(): boolean {
       return false;
     }
@@ -381,11 +384,13 @@ describe('createThemedMap runTick', () => {
     map.fire('load');
     expect(api).toBeDefined();
     const overlay = { sync: vi.fn() };
-    const moveHandlersBeforeTick = map.handlers.get('move')?.size ?? 0;
+    const moveStartHandlersBeforeTick = map.handlers.get('movestart')?.size ?? 0;
+    const moveEndHandlersBeforeTick = map.handlers.get('moveend')?.size ?? 0;
     api?.runTick([overlay]);
     api?.runTick([overlay]);
-    // Exactly one live 'move' listener; the first runTick's was torn down.
-    expect(map.handlers.get('move')?.size ?? 0).toBe(moveHandlersBeforeTick + 1);
+    // Exactly one live camera listener pair; the first runTick's pair was torn down.
+    expect(map.handlers.get('movestart')?.size ?? 0).toBe(moveStartHandlersBeforeTick + 1);
+    expect(map.handlers.get('moveend')?.size ?? 0).toBe(moveEndHandlersBeforeTick + 1);
     expect(document.removeEventListener).toHaveBeenCalledWith(
       'visibilitychange',
       expect.any(Function),
@@ -417,7 +422,7 @@ describe('createThemedMap runTick', () => {
     const navigation = { id: 'own-vessel', sync: vi.fn() };
 
     api?.runTick([failing, navigation]);
-    map.fire('move');
+    map.fire('moveend');
 
     expect(navigation.sync).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalledTimes(1);
@@ -450,7 +455,7 @@ describe('createThemedMap runTick', () => {
     api?.runTick([overlay], onStatus);
     expect(onStatus).toHaveBeenCalledWith('own-vessel', expect.any(Error));
     failing = false;
-    map.fire('move');
+    map.fire('moveend');
     expect(onStatus).toHaveBeenLastCalledWith('own-vessel', undefined);
   });
 });
