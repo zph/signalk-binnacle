@@ -42,9 +42,13 @@ describe('bathymetry cell style', () => {
     expect(label.layout?.['text-field']).toEqual(['to-string', ['get', 'BATHY_LABEL']]);
     expect(label.layout?.['text-font']).toEqual(['Noto Sans Regular']);
     expect(label.layout?.['text-size']).toEqual([
-      '*',
-      ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
-      ['get', 'BATHY_LABEL_RELATIVE_SIZE'],
+      'interpolate',
+      ['linear'],
+      ['zoom'],
+      13,
+      ['*', 17, ['get', 'BATHY_LABEL_RELATIVE_SIZE']],
+      20,
+      ['*', 20, ['get', 'BATHY_LABEL_RELATIVE_SIZE']],
     ]);
     expect(label.layout?.['text-offset']).toEqual([0, 1.35]);
     expect(label.layout?.['text-allow-overlap']).toBe(true);

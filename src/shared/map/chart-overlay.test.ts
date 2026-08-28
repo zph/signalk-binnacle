@@ -117,14 +117,14 @@ describe('chart overlay', () => {
     expect(map.setLayoutProperty).toHaveBeenCalledWith(
       'chart-bathymetry-soundg-bathymetry-label',
       'text-size',
-      ['*', ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20], 1],
+      ['interpolate', ['linear'], ['zoom'], 13, ['*', 17, 1], 20, ['*', 20, 1]],
     );
 
     overlay.setLabelSizeScale?.(ctx, 1.7);
     expect(map.setLayoutProperty).toHaveBeenLastCalledWith(
       'chart-bathymetry-soundg-bathymetry-label',
       'text-size',
-      ['*', ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20], 1.7],
+      ['interpolate', ['linear'], ['zoom'], 13, ['*', 17, 1.7], 20, ['*', 20, 1.7]],
     );
   });
 

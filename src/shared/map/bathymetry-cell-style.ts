@@ -12,9 +12,13 @@ export const BATHYMETRY_THEME_PAINT_KEY = 'binnacle:bathymetryThemePaint';
 
 export function bathymetryLabelTextSize(relativeSize: number | ExpressionSpecification) {
   return [
-    '*',
-    ['interpolate', ['linear'], ['zoom'], 13, 17, 20, 20],
-    relativeSize,
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    13,
+    ['*', 17, relativeSize],
+    20,
+    ['*', 20, relativeSize],
   ] as ExpressionSpecification;
 }
 
