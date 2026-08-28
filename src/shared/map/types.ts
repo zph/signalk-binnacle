@@ -68,6 +68,13 @@ export interface OverlayFacet {
   setOpacity?(ctx: OverlayContext, opacity: number): void;
 }
 
+export interface OverlayFacetPreset {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly visibility: Readonly<Record<string, boolean>>;
+}
+
 export interface OverlayModule {
   readonly id: string;
   readonly title: string;
@@ -120,6 +127,9 @@ export interface OverlayModule {
   // Optional child controls over subsets of layerIds. Facets share this module's sources and
   // lifecycle, but LayerManager gives each one its own profile-owned visibility and opacity.
   readonly facets?: readonly OverlayFacet[];
+  // Named visibility bundles for the child facets. A preset changes only this overlay's children,
+  // and the layer manager persists the resulting ordinary facet state with the active profile.
+  readonly facetPresets?: readonly OverlayFacetPreset[];
   add(ctx: OverlayContext): void | Promise<void>;
   remove(ctx: OverlayContext): void;
   setVisible(ctx: OverlayContext, visible: boolean): void;

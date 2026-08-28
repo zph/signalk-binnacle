@@ -646,7 +646,9 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   sources. Each compact row has one separate drag grip, a name-sized visibility button whose enabled
   state lights the row, a child-layer caret, and one chart-detail action. A chart with facets discloses
   their visibility and opacity controls inline; a chart without facets keeps the caret disabled so the
-  row geometry and capability remain clear. Chart detail repeats the chart and facet controls as a
+  row geometry and capability remain clear. A source may also offer semantic facet presets above its
+  child toggles. Presets only batch ordinary child visibility choices, so profiles, manual adjustment,
+  and accessibility retain one state model. Chart detail repeats the chart and facet controls as a
   larger editing surface. The grip stays separate from visibility, disclosure, and detail because its
   pointer and keyboard gestures cannot be ambiguous. The detail shows bounds when known,
   and the list keeps "Add a chart" for user PMTiles URLs. Every query-bearing

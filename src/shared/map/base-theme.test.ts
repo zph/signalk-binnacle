@@ -114,12 +114,12 @@ describe('applyBaseWaterTransparency', () => {
     // biome-ignore lint/suspicious/noExplicitAny: minimal map stub for the test
     applyBaseWaterTransparency(map as any);
 
-    expect(map.getPaintProperty('water', 'fill-opacity')).toBe(0);
-    expect(map.getPaintProperty('river', 'line-opacity')).toBe(0);
+    expect(map.getLayoutProperty('water', 'visibility')).toBe('none');
+    expect(map.getLayoutProperty('river', 'visibility')).toBe('none');
     expect(map.getLayoutProperty('water-name', 'visibility')).toBe('none');
     expect(map.getLayoutProperty('city-name', 'visibility')).toBeUndefined();
-    expect(map.getPaintProperty('landuse', 'fill-opacity')).toBeUndefined();
-    expect(map.getPaintProperty('chart-fixture-depare', 'fill-opacity')).toBeUndefined();
+    expect(map.getLayoutProperty('landuse', 'visibility')).toBeUndefined();
+    expect(map.getLayoutProperty('chart-fixture-depare', 'visibility')).toBeUndefined();
   });
 });
 

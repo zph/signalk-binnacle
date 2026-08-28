@@ -5,7 +5,7 @@ import LayerRow, { focusLayerOpacityControl, restoreLayerOpacityFocus } from './
 import type { LayersView } from './layers-view.svelte';
 
 const noop = (): void => {};
-const view = { toggle: noop, setOpacity: noop } as unknown as LayersView;
+const view = { toggle: noop, setOpacity: noop, applyFacetPreset: noop } as unknown as LayersView;
 
 function layer(id: string, overrides: Partial<LayerListItem> = {}): LayerListItem {
   return {
@@ -187,5 +187,34 @@ describe('LayerRow child-layer disclosure', () => {
 
     expect(html).toContain('aria-label="No child layers for Open Maps"');
     expect(html).toMatch(/aria-label="No child layers for Open Maps"[^>]*disabled=""/);
+  });
+
+  it('renders semantic presets before configurable child facets', () => {
+    const roadsId = 'basemap:facet:roads';
+    const html = body(
+      layer('basemap', {
+        title: 'OpenFreeMap base',
+        facetPresets: [
+          {
+            id: 'lean',
+            title: 'Lean',
+            description: 'Fast marine reference map.',
+            visibility: { [roadsId]: false },
+          },
+          {
+            id: 'full',
+            title: 'Full',
+            description: 'Every detail layer.',
+            visibility: { [roadsId]: true },
+          },
+        ],
+      }),
+      [layer(roadsId, { title: 'Roads and rail', parent: 'basemap', visible: false })],
+    );
+
+    expect(html).toContain('aria-label="OpenFreeMap base detail preset"');
+    expect(html).toContain('Lean');
+    expect(html).toContain('Full');
+    expect(html).toContain('Start with a detail preset, then adjust any child layer.');
   });
 });

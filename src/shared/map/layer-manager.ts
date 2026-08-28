@@ -2,6 +2,7 @@ import type { ChartGroup } from 'signalk-chart-sources';
 
 import type { MapThemePaint } from './map-theme';
 import { installSentinels, sentinelId } from './sentinels';
+import type { OverlayFacetPreset } from './types';
 import {
   type ChartCoverageInfo,
   type ChartLayerInfo,
@@ -70,6 +71,7 @@ export interface LayerListItem {
   // Present when this row is a navigation chart the ambient chart badge counts. See
   // OverlayModule.chartCoverage.
   chartCoverage?: ChartCoverageInfo;
+  facetPresets?: readonly OverlayFacetPreset[];
 }
 
 export interface LayerManagerOptions {
@@ -555,6 +557,23 @@ export class LayerManager {
     if (persist) this.#persist();
   }
 
+  applyFacetPreset(parentId: string, visibility: Readonly<Record<string, boolean>>): void {
+    const parent = this.#modules.get(parentId);
+    if (!parent) return;
+    let changed = false;
+    for (const [id, visible] of Object.entries(visibility)) {
+      const module = this.#modules.get(id);
+      const state = this.#state.get(id);
+      if (!module || module.parent !== parentId || !state || state.visible === visible) continue;
+      state.visible = visible;
+      this.#suppressedChildren.get(parentId)?.delete(id);
+      this.#syncVisibility(module, state, true);
+      changed = true;
+    }
+    if (!changed) return;
+    this.#persist();
+  }
+
   setCellSizeScale(id: string, scale: number, persist = true): void {
     const module = this.#modules.get(id);
     const state = this.#state.get(id);
@@ -939,6 +958,7 @@ export class LayerManager {
             labelSizeControl: module.labelSizeControl,
             labelSizeScale: state.labelSizeScale,
             chartCoverage: module.chartCoverage,
+            facetPresets: module.facetPresets,
           },
         ];
       });

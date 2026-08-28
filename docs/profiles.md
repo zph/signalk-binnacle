@@ -16,7 +16,7 @@ stays within the visible viewport on narrow displays and while the panel scrolls
 A profile contains:
 
 - theme;
-- chart layers, visibility, opacity, and order;
+- chart layers, child-facet detail, visibility, opacity, and order;
 - weather layers;
 - collision and shallow-depth thresholds;
 - track recording and display settings;
@@ -40,6 +40,9 @@ the instrument is discovered again.
 Each browser keeps its own active profile. Selecting a profile on a tablet does not switch the helm
 display running in another browser. The chart center and zoom, instrument-dock open state, layer
 category disclosure, panel layout, dismissed hints, and similar browser chrome also stay local.
+Map rendering quality also stays here because it reflects this display's pixel density and graphics
+capability. Basemap detail facets remain in the profile because they describe the navigator's
+preferred chart content.
 
 The synced default is used when a browser has no active profile. If synced profiles exist without a
 default, Binnacle captures the browser's current settings as **Current setup** instead of applying an

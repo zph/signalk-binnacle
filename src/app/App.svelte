@@ -214,8 +214,11 @@ import {
   createPlanningSpeed,
   createThresholds,
   createTrackSettings,
+  DEFAULT_MAP_RENDERING_QUALITY,
   enumPersistedCodec,
   isMapView,
+  MAP_RENDERING_QUALITIES,
+  type MapRenderingQuality,
   type MapView,
   type PersistedCodec,
   PersistedValue,
@@ -552,7 +555,10 @@ let instrumentsPanelAttempt = $state(0);
 // A fresh object per request, not a bare string: the Layers panel adopts the requested tab on
 // each request's new identity, so repeating the same tab still re-targets it, while the
 // navigator's own tab clicks stay untouched between requests.
-let layersOpenRequest = $state<{ mode: 'charts' | 'overlays' }>({ mode: 'charts' });
+let layersOpenRequest = $state<{
+  mode: 'charts' | 'overlays';
+  target?: 'basemap';
+}>({ mode: 'charts' });
 // The left dock's open state is owned here, not inside AppMenu, so a panel's back action can expand
 // the menu after it collapsed on selection.
 let menuOpen = $state(false);
@@ -942,6 +948,12 @@ const layerCategoriesOpen = new PersistedValue<Record<string, boolean>>(
   {},
   undefined,
   booleanRecordPersistedCodec({ maxEntries: 128 }),
+);
+const mapRenderingQuality = new PersistedValue<MapRenderingQuality>(
+  binnacleStorageKey('mapRenderingQuality'),
+  DEFAULT_MAP_RENDERING_QUALITY,
+  undefined,
+  enumPersistedCodec(MAP_RENDERING_QUALITIES),
 );
 
 // Profiles: named bundles of portable settings, including theme, chart facets, overlays, opacity,
@@ -2179,6 +2191,20 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       },
     },
     {
+      id: 'basemap-settings',
+      label: 'Basemap detail',
+      description: 'Choose OpenFreeMap detail layers and rendering quality',
+      group: 'Chart',
+      keywords: ['OpenStreetMap', 'OpenFreeMap', 'performance', 'speed', 'quality', 'layers'],
+      icon: Layers,
+      disabled: !layersView,
+      disabledReason: 'Basemap settings need the chart to finish loading.',
+      onSelect: () => {
+        layersOpenRequest = { mode: 'charts', target: 'basemap' };
+        openPanel('layers');
+      },
+    },
+    {
       id: 'instruments-layout',
       label: 'Instruments',
       description: instruments.open
@@ -3073,6 +3099,7 @@ const plotterServices = {
   trackSettings,
   aisIconMode,
   categoriesOpen: layerCategoriesOpen,
+  mapRenderingQuality,
   arrivalMuted,
 };
 

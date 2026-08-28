@@ -34,6 +34,11 @@ export class LayersView {
     if (item) item.opacity = opacity;
   }
 
+  applyFacetPreset(parentId: string, visibility: Readonly<Record<string, boolean>>): void {
+    this.#manager.applyFacetPreset(parentId, visibility);
+    this.refresh();
+  }
+
   setCellSizeScale(id: string, scale: number, persist = true): void {
     this.#manager.setCellSizeScale(id, scale, persist);
     const item = this.items.find((candidate) => candidate.id === id);

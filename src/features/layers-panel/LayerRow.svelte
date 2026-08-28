@@ -50,6 +50,9 @@ interface Props {
   // drawn by the panel above the card; here it names the listitem so a screen reader speaks the group
   // the row belongs to, since the visible title is decorative.
   groupTitle?: string;
+  // A fresh object expands this row's child facets. Command K uses it to open basemap controls
+  // directly, including on a repeated request while the Layers panel is already mounted.
+  expandRequest?: object;
 }
 
 const {
@@ -67,6 +70,7 @@ const {
   draggable = true,
   subLayers = [],
   groupTitle,
+  expandRequest,
 }: Props = $props();
 
 // A layer at zero opacity while its toggle stays checked is a silent failure for safety layers
@@ -88,9 +92,25 @@ let tuneTrigger = $state<HTMLButtonElement>();
 let tuneControl = $state<HTMLInputElement>();
 let wasTuneOpen = false;
 let facetsExpanded = $state(false);
+$effect(() => {
+  if (expandRequest) facetsExpanded = true;
+});
 const componentId = $props.id();
 const itemUnavailableId = $derived(`layer-${item.id}-unavailable`);
 const facetPanelId = `${componentId}-chart-layers`;
+const activeFacetPresetId = $derived.by(() => {
+  for (const preset of item.facetPresets ?? []) {
+    if (
+      subLayers.every(
+        (sub) =>
+          preset.visibility[sub.id] === undefined || preset.visibility[sub.id] === sub.visible,
+      )
+    ) {
+      return preset.id;
+    }
+  }
+  return undefined;
+});
 
 function canTuneLayer(layer: LayerListItem): boolean {
   const parentAllows = layer.parent === undefined || (item.visible && item.available);
@@ -290,6 +310,27 @@ $effect(() => {
           aria-label={`${item.title} child layers`}
           hidden={!facetsExpanded}
         >
+          {#if item.facetPresets && item.facetPresets.length > 0}
+            <div class="facet-presets">
+              <p class="muted-note muted-note--xs">
+                Start with a detail preset, then adjust any child layer.
+              </p>
+              <div class="segmented" role="group" aria-label={`${item.title} detail preset`}>
+                {#each item.facetPresets as preset (preset.id)}
+                  <button
+                    type="button"
+                    class="btn"
+                    class:is-on={activeFacetPresetId === preset.id}
+                    aria-pressed={activeFacetPresetId === preset.id}
+                    title={preset.description}
+                    onclick={() => view.applyFacetPreset(item.id, preset.visibility)}
+                  >
+                    {preset.title}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
           {#each subLayers as sub (sub.id)}
             {@const subUnavailableId = `layer-${sub.id}-unavailable`}
             <div
@@ -414,6 +455,16 @@ $effect(() => {
 }
 .facet-disclosure {
   padding-inline-start: var(--space-3);
+}
+.facet-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+}
+.facet-presets .segmented,
+.facet-presets .btn {
+  inline-size: 100%;
 }
 .facet-disclosure[hidden] {
   display: none;

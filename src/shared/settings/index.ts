@@ -1,4 +1,10 @@
 export type { MapView } from '$shared/geo';
+export {
+  DEFAULT_MAP_RENDERING_QUALITY,
+  MAP_RENDERING_QUALITIES,
+  type MapRenderingQuality,
+  mapRenderingPixelRatio,
+} from './map-rendering-quality';
 export type {
   AlarmLocation,
   ChartOrientationMode,

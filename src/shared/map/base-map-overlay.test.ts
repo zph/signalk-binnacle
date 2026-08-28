@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createBaseMapOverlay } from './base-map-overlay';
+import { BASE_MAP_FACET_PRESETS, createBaseMapOverlay } from './base-map-overlay';
 import { applyBaseIconVisibility, applyBaseRasterVisibility } from './base-theme';
 import { mapThemePaint } from './map-theme';
 
@@ -58,7 +58,8 @@ function context(map: ReturnType<typeof fakeMap>) {
 
 describe('createBaseMapOverlay', () => {
   it('is a listed global chart control without owned draw layers', () => {
-    const overlay = createBaseMapOverlay();
+    const map = fakeMap();
+    const overlay = createBaseMapOverlay(context(map).map);
     expect(overlay).toMatchObject({
       id: 'basemap',
       title: 'OpenFreeMap base',
@@ -73,7 +74,7 @@ describe('createBaseMapOverlay', () => {
 
   it('installs stable MapLibre expressions and changes only global state on slider input', async () => {
     const map = fakeMap();
-    const overlay = createBaseMapOverlay();
+    const overlay = createBaseMapOverlay(context(map).map);
     await overlay.add(context(map));
     const paintCallCount = map.paintCalls.length;
     overlay.setOpacity?.(context(map), 0.5);
@@ -111,7 +112,7 @@ describe('createBaseMapOverlay', () => {
 
   it('reinstalls expressions overwritten by the theme visibility passes', async () => {
     const map = fakeMap();
-    const overlay = createBaseMapOverlay();
+    const overlay = createBaseMapOverlay(context(map).map);
     await overlay.add(context(map));
     overlay.setOpacity?.(context(map), 0.5);
     const dusk = mapThemePaint('dusk');
@@ -156,20 +157,51 @@ describe('createBaseMapOverlay', () => {
 
   it('restores each source visibility when toggled back on', async () => {
     const map = fakeMap();
-    const overlay = createBaseMapOverlay();
+    const overlay = createBaseMapOverlay(context(map).map);
     await overlay.add(context(map));
     overlay.setVisible(context(map), false);
-    expect(map.layout.get('land|visibility')).toBe('none');
+    expect(map.layout.get('background|visibility')).toBe('none');
     expect(map.layout.get('source-hidden|visibility')).toBe('none');
 
     overlay.setVisible(context(map), true);
-    expect(map.layout.get('land|visibility')).toBeUndefined();
+    expect(map.layout.get('background|visibility')).toBeUndefined();
     expect(map.layout.get('source-hidden|visibility')).toBe('none');
+  });
+
+  it('starts with lean marine facets and toggles only the selected detail family', async () => {
+    const map = fakeMap();
+    const overlay = createBaseMapOverlay(context(map).map);
+    await overlay.add(context(map));
+    for (const facet of overlay.facets ?? []) {
+      facet.setVisible(context(map), facet.defaultVisible ?? true);
+    }
+
+    expect(map.layout.get('background|visibility')).toBeUndefined();
+    expect(map.layout.get('places|visibility')).toBeUndefined();
+    expect(map.layout.get('land|visibility')).toBe('none');
+    expect(map.layout.get('road|visibility')).toBe('none');
+    expect(map.layout.get('poi|visibility')).toBe('none');
+    expect(map.layout.get('relief|visibility')).toBe('none');
+
+    const roads = overlay.facets?.find((facet) => facet.title === 'Roads and rail');
+    roads?.setVisible(context(map), true);
+    expect(map.layout.get('road|visibility')).toBeUndefined();
+    expect(map.layout.get('land|visibility')).toBe('none');
+  });
+
+  it('offers lean, standard, and full facet presets', () => {
+    expect(BASE_MAP_FACET_PRESETS.map((preset) => preset.title)).toEqual([
+      'Lean',
+      'Standard',
+      'Full',
+    ]);
+    expect(Object.values(BASE_MAP_FACET_PRESETS[0].visibility).filter(Boolean)).toHaveLength(2);
+    expect(Object.values(BASE_MAP_FACET_PRESETS[2].visibility).every(Boolean)).toBe(true);
   });
 
   it('restores source paint and clears its global state on removal', async () => {
     const map = fakeMap();
-    const overlay = createBaseMapOverlay();
+    const overlay = createBaseMapOverlay(context(map).map);
     await overlay.add(context(map));
 
     overlay.remove(context(map));

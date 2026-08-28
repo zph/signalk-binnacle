@@ -836,6 +836,46 @@ describe('LayerManager', () => {
     );
   });
 
+  it('applies a child-facet preset with one persisted snapshot', async () => {
+    const onChange = vi.fn();
+    const roadEvents: string[] = [];
+    const poiEvents: string[] = [];
+    const visibility = { roads: true, pois: false };
+    const manager = new LayerManager(fakeCtx(), { onChange });
+    await manager.register({
+      ...fakeOverlay('base', 'basemap'),
+      facetPresets: [{ id: 'lean', title: 'Lean', description: 'Lean detail.', visibility }],
+      facets: [
+        {
+          id: 'roads',
+          title: 'Roads',
+          description: 'Roads.',
+          supportsOpacity: false,
+          defaultVisible: false,
+          layerIds: [],
+          setVisible: (_ctx, visible) => roadEvents.push(`visible:${visible}`),
+        },
+        {
+          id: 'pois',
+          title: 'Points of interest',
+          description: 'Points of interest.',
+          supportsOpacity: false,
+          defaultVisible: true,
+          layerIds: [],
+          setVisible: (_ctx, visible) => poiEvents.push(`visible:${visible}`),
+        },
+      ],
+    });
+    onChange.mockClear();
+
+    manager.applyFacetPreset('base', visibility);
+
+    expect(roadEvents.at(-1)).toBe('visible:true');
+    expect(poiEvents.at(-1)).toBe('visible:false');
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(manager.layers().find((layer) => layer.id === 'base')?.facetPresets).toHaveLength(1);
+  });
+
   it('keeps a deliberately hidden virtual facet hidden across a parent off-on round trip', async () => {
     const depthEvents: string[] = [];
     const manager = new LayerManager(fakeCtx());

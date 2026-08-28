@@ -1,6 +1,7 @@
 import { render } from 'svelte/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { LayerListItem } from '$shared/map';
+import type { MapRenderingQuality, PersistedValue } from '$shared/settings';
 import type { AuthController } from '$shared/signalk';
 import LayersPanel from './LayersPanel.svelte';
 import type { LayersView } from './layers-view.svelte';
@@ -13,6 +14,7 @@ function renderPanel(
   authController: AuthController,
   items: Partial<LayerListItem>[] = [],
   mode: 'charts' | 'overlays' = 'charts',
+  quality?: 'performance' | 'balanced' | 'native',
 ): string {
   return render(LayersPanel, {
     props: {
@@ -21,6 +23,9 @@ function renderPanel(
       onClose: vi.fn(),
       onManageLayer: vi.fn(),
       request: { mode },
+      mapRenderingQuality: quality
+        ? ({ value: quality, set: vi.fn() } as unknown as PersistedValue<MapRenderingQuality>)
+        : undefined,
     },
   }).body;
 }
@@ -67,6 +72,16 @@ describe('LayersPanel write access', () => {
 });
 
 describe('LayersPanel chart guidance', () => {
+  it('offers the device rendering-quality control in the Charts view', () => {
+    const body = renderPanel(auth(false), [], 'charts', 'performance');
+
+    expect(body).toContain('<h3 class="caps-label">Map rendering quality</h3>');
+    expect(body).toContain('Lower quality reduces chart pixels');
+    expect(body).toMatch(/aria-pressed="true"[^>]*>\s*Fast/);
+    expect(body).toContain('Balanced');
+    expect(body).toContain('Crisp');
+  });
+
   it('exposes chart stacking handles in the Charts view', () => {
     const body = renderPanel(auth(false), [
       {

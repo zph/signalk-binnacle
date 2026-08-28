@@ -12,6 +12,111 @@ import type { OverlayModule } from './types';
 
 const BASE_MAP_OVERLAY_ID = 'basemap';
 
+const BASE_MAP_FACET_DEFINITIONS = [
+  {
+    key: 'geography',
+    title: 'Land and coastline',
+    description: 'The basic land, coast, waterway, and map background shapes',
+    defaultVisible: true,
+  },
+  {
+    key: 'places',
+    title: 'Place names',
+    description: 'Country, city, town, village, and water names',
+    defaultVisible: true,
+  },
+  {
+    key: 'roads',
+    title: 'Roads and rail',
+    description: 'Road, path, bridge, tunnel, and rail line work',
+    defaultVisible: false,
+  },
+  {
+    key: 'road-labels',
+    title: 'Road labels and shields',
+    description: 'Road names, route shields, and direction arrows',
+    defaultVisible: false,
+  },
+  {
+    key: 'buildings',
+    title: 'Buildings',
+    description: 'Building footprints and three-dimensional buildings',
+    defaultVisible: false,
+  },
+  {
+    key: 'land-detail',
+    title: 'Land use and vegetation',
+    description: 'Parks, woods, wetlands, residential areas, and other land detail',
+    defaultVisible: false,
+  },
+  {
+    key: 'boundaries',
+    title: 'Boundaries',
+    description: 'Administrative and disputed boundary lines',
+    defaultVisible: false,
+  },
+  {
+    key: 'points-of-interest',
+    title: 'Points of interest and airports',
+    description: 'Shops, services, transit stops, facilities, and airports',
+    defaultVisible: false,
+  },
+  {
+    key: 'relief',
+    title: 'Shaded relief',
+    description: 'Low-zoom terrain shading behind the vector map',
+    defaultVisible: false,
+  },
+] as const;
+
+type BaseMapFacetKey = (typeof BASE_MAP_FACET_DEFINITIONS)[number]['key'];
+
+function facetId(key: BaseMapFacetKey): string {
+  return `${BASE_MAP_OVERLAY_ID}:facet:${key}`;
+}
+
+const FACET_IDS = Object.fromEntries(
+  BASE_MAP_FACET_DEFINITIONS.map((facet) => [facet.key, facetId(facet.key)]),
+) as Record<BaseMapFacetKey, string>;
+
+const LEAN_VISIBLE = new Set<BaseMapFacetKey>(['geography', 'places']);
+const STANDARD_VISIBLE = new Set<BaseMapFacetKey>([
+  'geography',
+  'places',
+  'roads',
+  'road-labels',
+  'land-detail',
+  'boundaries',
+  'relief',
+]);
+
+function presetVisibility(visible: ReadonlySet<BaseMapFacetKey>): Record<string, boolean> {
+  return Object.fromEntries(
+    BASE_MAP_FACET_DEFINITIONS.map((facet) => [FACET_IDS[facet.key], visible.has(facet.key)]),
+  );
+}
+
+export const BASE_MAP_FACET_PRESETS = [
+  {
+    id: 'lean',
+    title: 'Lean',
+    description: 'Keep only basic geography and place names for the fastest marine reference map.',
+    visibility: presetVisibility(LEAN_VISIBLE),
+  },
+  {
+    id: 'standard',
+    title: 'Standard',
+    description: 'Add roads, land detail, boundaries, and shaded relief without buildings or POIs.',
+    visibility: presetVisibility(STANDARD_VISIBLE),
+  },
+  {
+    id: 'full',
+    title: 'Full',
+    description: 'Show every OpenFreeMap detail layer.',
+    visibility: presetVisibility(new Set(BASE_MAP_FACET_DEFINITIONS.map((facet) => facet.key))),
+  },
+] as const;
+
 interface OpacityProperty {
   property: string;
   base: unknown;
@@ -22,6 +127,7 @@ interface BaseMapLayerSnapshot {
   id: string;
   visibility: 'visible' | 'none' | undefined;
   opacity: OpacityProperty[];
+  facet: BaseMapFacetKey;
 }
 
 type OpacityChannel = 'base' | 'icon' | 'circle' | 'raster';
@@ -76,10 +182,39 @@ function opacityProperties(layer: BaseLayer): Array<{
   }
 }
 
+function facetForLayer(layer: BaseLayer): BaseMapFacetKey {
+  const sourceLayer = layer['source-layer'];
+  if (layer.type === 'raster') return 'relief';
+  if (sourceLayer === 'building') return 'buildings';
+  if (sourceLayer === 'boundary') return 'boundaries';
+  if (sourceLayer === 'landuse' || sourceLayer === 'landcover' || sourceLayer === 'park') {
+    return 'land-detail';
+  }
+  if (
+    sourceLayer === 'transportation_name' ||
+    (sourceLayer === 'transportation' && layer.type === 'symbol')
+  ) {
+    return 'road-labels';
+  }
+  if (sourceLayer === 'transportation') return 'roads';
+  if (sourceLayer === 'poi' || sourceLayer === 'aerodrome_label' || sourceLayer === 'aeroway') {
+    return 'points-of-interest';
+  }
+  if (
+    sourceLayer === 'place' ||
+    sourceLayer === 'water_name' ||
+    (sourceLayer === 'waterway' && layer.type === 'symbol')
+  ) {
+    return 'places';
+  }
+  return 'geography';
+}
+
 function capture(map: MapLibreMap): BaseMapLayerSnapshot[] {
   return themableBaseLayers(map).map((layer) => ({
     id: layer.id,
     visibility: map.getLayoutProperty(layer.id, 'visibility') as 'visible' | 'none' | undefined,
+    facet: facetForLayer(layer),
     opacity: opacityProperties(layer).flatMap(({ property, channel }) => {
       try {
         return [{ property, base: getPaintProp(map, layer.id, property), channel }];
@@ -109,17 +244,27 @@ function opacityState(opacity: number, paint: MapThemePaint): BaseOpacityState {
 }
 
 /** A listed control for the existing OpenFreeMap style. It owns no sources or draw layers. */
-export function createBaseMapOverlay(): OverlayModule {
-  let snapshot: BaseMapLayerSnapshot[] = [];
+export function createBaseMapOverlay(map: MapLibreMap): OverlayModule {
+  let snapshot = capture(map);
   let visible = true;
   let opacity = 1;
   let paint = DAY_PAINT;
+  const facetVisibility = new Map<BaseMapFacetKey, boolean>(
+    BASE_MAP_FACET_DEFINITIONS.map((facet) => [facet.key, facet.defaultVisible]),
+  );
+
+  const applySnapshotVisibility = (map: MapLibreMap, layer: BaseMapLayerSnapshot): void => {
+    if (!map.getLayer(layer.id)) return;
+    const facetVisible = facetVisibility.get(layer.facet) ?? true;
+    map.setLayoutProperty(
+      layer.id,
+      'visibility',
+      visible && facetVisible ? layer.visibility : 'none',
+    );
+  };
 
   const applyVisibility = (map: MapLibreMap): void => {
-    for (const layer of snapshot) {
-      if (!map.getLayer(layer.id)) continue;
-      map.setLayoutProperty(layer.id, 'visibility', visible ? layer.visibility : 'none');
-    }
+    for (const layer of snapshot) applySnapshotVisibility(map, layer);
   };
 
   const installOpacityControl = (map: MapLibreMap): void => {
@@ -166,6 +311,21 @@ export function createBaseMapOverlay(): OverlayModule {
     // These layers belong to the loaded style, not this module. An empty list keeps manager
     // restacking from moving dozens of base layers across its z-band sentinels.
     layerIds: [],
+    facets: BASE_MAP_FACET_DEFINITIONS.map((definition) => ({
+      id: FACET_IDS[definition.key],
+      title: definition.title,
+      description: definition.description,
+      supportsOpacity: false,
+      defaultVisible: definition.defaultVisible,
+      layerIds: [],
+      setVisible(ctx, nextVisible) {
+        facetVisibility.set(definition.key, nextVisible);
+        for (const layer of snapshot) {
+          if (layer.facet === definition.key) applySnapshotVisibility(ctx.map, layer);
+        }
+      },
+    })),
+    facetPresets: BASE_MAP_FACET_PRESETS,
     add(ctx) {
       snapshot = capture(ctx.map);
       installOpacityControl(ctx.map);

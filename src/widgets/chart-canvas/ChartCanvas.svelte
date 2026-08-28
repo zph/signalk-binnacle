@@ -62,7 +62,9 @@ import {
 import { binnacleStorageKey } from '$shared/persistence';
 import {
   DEFAULT_THRESHOLDS,
+  type MapRenderingQuality,
   type MapView,
+  mapRenderingPixelRatio,
   type PersistedValue,
   type Thresholds,
   type TrackSettings,
@@ -137,6 +139,7 @@ interface Props {
   initialView?: MapView;
   // Saved per-layer visibility and opacity, and a sink for changes to persist.
   savedLayers?: LayerSettings;
+  mapRenderingQuality: PersistedValue<MapRenderingQuality>;
   onLayersChange?: (settings: LayerSettings) => void;
   // Saved bottom-to-top order of non-pinned layers, and a sink for reorder changes.
   savedOrder?: string[];
@@ -228,6 +231,7 @@ const {
   chartsToken,
   initialView,
   savedLayers,
+  mapRenderingQuality,
   onLayersChange,
   savedOrder,
   onOrderChange,
@@ -303,6 +307,13 @@ let editGeneration = 0;
 // Captured from onLoad so the units effect below can reach
 // map.setGlobalStateProperty once the map exists. $state so the effect re-runs once it is assigned.
 let mapRef = $state<MapLibreMap | undefined>();
+
+$effect(() => {
+  const map = mapRef;
+  const quality = mapRenderingQuality.value;
+  if (!map) return;
+  map.setPixelRatio(mapRenderingPixelRatio(quality, window.devicePixelRatio));
+});
 
 function enterFullScreen(): void {
   chartMenu = undefined;
@@ -428,6 +439,7 @@ onMount(async () => {
     getToken: () => chartsToken,
     transparentBaseWater: true,
     view: initialView,
+    pixelRatio: mapRenderingPixelRatio(mapRenderingQuality.value, window.devicePixelRatio),
     managerOptions: {
       saved: savedLayers,
       onChange: (settings) => onLayersChange?.(settings),
@@ -668,7 +680,7 @@ onMount(async () => {
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local async accumulator
       const serverChartIds = new Set<string>();
       const providerResults = await mgr.registerBatch([
-        createBaseMapOverlay(),
+        createBaseMapOverlay(map),
         ...buildBathymetryOverlays({ companionBase: tileBase }),
         ...buildOceanSources().map((source) => createOceanOverlay(source)),
         // Within the safety band, registration order is z, so the seamark navigation aids draw over

@@ -50,17 +50,14 @@ export function themableBaseLayers(map: MapLibreMap): BaseLayer[] {
 }
 
 // Remove OpenFreeMap's water portrayal from the navigation chart while retaining its land, roads,
-// buildings, and place labels. ENC depth areas can then provide the only water fill. Water labels
-// are hidden through layout rather than transparent paint because invisible symbols would still
-// occupy collision space and could suppress ENC labels. The low-zoom Natural Earth raster is left
-// alone because its land and water pixels cannot be separated.
+// buildings, and place labels. Layout visibility prevents the hidden geometry from consuming draw
+// work or symbol collision space. The low-zoom Natural Earth raster is left alone because its land
+// and water pixels cannot be separated.
 export function applyBaseWaterTransparency(map: MapLibreMap, layers?: BaseLayer[]): void {
   for (const layer of layers ?? themableBaseLayers(map)) {
     if (!BASE_WATER_SOURCE_LAYERS.has(layer['source-layer'] ?? '')) continue;
     try {
-      if (layer.type === 'fill') setPaintProp(map, layer.id, 'fill-opacity', 0);
-      else if (layer.type === 'line') setPaintProp(map, layer.id, 'line-opacity', 0);
-      else if (layer.type === 'symbol') map.setLayoutProperty(layer.id, 'visibility', 'none');
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
     } catch {
       // A published style may omit a paint or layout property; skip that layer safely.
     }

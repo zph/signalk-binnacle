@@ -160,13 +160,16 @@ interface FlatProps {
   currentView: import('$shared/settings').MapView | undefined;
   layerSettings: LayerSettings;
   layerOrder: string[];
-  layersOpenRequest: { mode: 'charts' | 'overlays' };
+  layersOpenRequest: { mode: 'charts' | 'overlays'; target?: 'basemap' };
   weatherLayerSettings: LayerSettings;
   trackSettings: import('$shared/settings').PersistedValue<
     import('$shared/settings').TrackSettings
   >;
   trackPersistenceDegraded: boolean;
   categoriesOpen: import('$shared/settings').PersistedValue<Record<string, boolean>>;
+  mapRenderingQuality: import('$shared/settings').PersistedValue<
+    import('$shared/settings').MapRenderingQuality
+  >;
 
   // Panel state
   activePanel: PanelId | null;
@@ -321,6 +324,7 @@ type ServiceKey =
   | 'aisIconMode'
   | 'trackSettings'
   | 'categoriesOpen'
+  | 'mapRenderingQuality'
   | 'arrivalMuted';
 type ControllerKey =
   | 'anchorController'
@@ -501,6 +505,7 @@ const {
   aisIconMode,
   trackSettings,
   categoriesOpen,
+  mapRenderingQuality,
   arrivalMuted,
 } = $derived(services);
 let aisDisplaySettingsOpen = $state(false);
@@ -851,6 +856,7 @@ $effect(() => {
     {chartsToken}
     initialView={savedView}
     savedLayers={layerSettings}
+    {mapRenderingQuality}
     {onLayersChange}
     savedOrder={layerOrder}
     {onOrderChange}
@@ -1106,6 +1112,7 @@ $effect(() => {
               onRetryCharts={retryServerCharts}
               {userCharts}
               {categoriesOpen}
+              {mapRenderingQuality}
               onClose={closePanel}
               onBack={backToMenu}
               {onShowChartBounds}

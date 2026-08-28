@@ -38,7 +38,12 @@ source, and surrounding traffic before relying on it.
   opacity, and stack position. A failed replacement restores the accepted chart. Tapping a chart
   name toggles it and highlights the enabled row. A separate grip sets top-to-bottom stacking, while
   chart detail holds opacity and child-layer controls. Overlays remain in their own tab with
-  visibility, opacity, management, and stacking controls. Signal K style-document
+  visibility, opacity, management, and stacking controls. The OpenFreeMap base exposes semantic
+  child facets for geography, names, roads, buildings, land detail, boundaries, points of interest,
+  and relief. Lean, Standard, and Full presets update those ordinary profile-owned facet choices.
+  Lean is the default and retains only basic geography and place names. A device-local rendering
+  quality control defaults to Fast, with Balanced and Crisp alternatives for more capable displays.
+  The root Basemap detail Command K action opens these controls directly. Signal K style-document
   sources remain listed with details available for inspection, but they are disabled, forced off,
   and identified as unsupported instead of appearing as blank charts. Chart overlays under
   **Chart overlays and marks** include seabed infrastructure (power cables, telecom cables,

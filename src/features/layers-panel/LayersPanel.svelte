@@ -6,7 +6,7 @@ import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import type { UserCharts } from '$entities/user-charts';
 import type { Bbox4 } from '$shared/geo';
 import { hasVisibleNavigationChart, type LayerListItem } from '$shared/map';
-import type { PersistedValue } from '$shared/settings';
+import type { MapRenderingQuality, PersistedValue } from '$shared/settings';
 import type { AuthController } from '$shared/signalk';
 import { createPanelMinimize, SlideOver, WriteAccessNote } from '$shared/ui';
 import AddChartForm from './AddChartForm.svelte';
@@ -24,6 +24,7 @@ interface Props {
   userCharts?: UserCharts;
   // Per-category open/closed state, persisted so the panel reopens the way it was left.
   categoriesOpen?: PersistedValue<Record<string, boolean>>;
+  mapRenderingQuality?: PersistedValue<MapRenderingQuality>;
   onClose: () => void;
   onBack?: () => void;
   // A manageable overlay row (one declaring manageable on its module, like the marine radar) asks the
@@ -31,7 +32,7 @@ interface Props {
   // feature; it just forwards the row id.
   onManageLayer?: (id: string) => void;
   onShowChartBounds?: (bounds: Bbox4) => void;
-  request?: { mode: 'charts' | 'overlays' };
+  request?: { mode: 'charts' | 'overlays'; target?: 'basemap' };
 }
 
 const {
@@ -41,6 +42,7 @@ const {
   onRetryCharts,
   userCharts,
   categoriesOpen,
+  mapRenderingQuality,
   onClose,
   onBack,
   onManageLayer,
@@ -260,6 +262,9 @@ const reorderAnnouncement = $derived(
                 onHandlePointerDown={(e) => chartReorder.handlePointerDown(item.id, e)}
                 onHandleKeydown={(e) => chartReorder.handleKeydown(item.id, e)}
                 manageLabel={item.chart ? `Open ${item.title} chart details` : undefined}
+                expandRequest={item.id === 'basemap' && request.target === 'basemap'
+                  ? request
+                  : undefined}
                 onManage={item.chart
                   ? () => (detailId = item.id)
                   : undefined}
@@ -268,6 +273,44 @@ const reorderAnnouncement = $derived(
           </ul>
         {/if}
       </section>
+
+      {#if mapRenderingQuality}
+        <section class="category map-performance" aria-label="Map rendering quality">
+          <h3 class="caps-label">Map rendering quality</h3>
+          <p class="muted-note muted-note--xs">
+            Lower quality reduces chart pixels and keeps slower helm displays responsive.
+          </p>
+          <div class="segmented" role="group" aria-label="Map rendering quality">
+            <button
+              type="button"
+              class="btn"
+              class:is-on={mapRenderingQuality.value === 'performance'}
+              aria-pressed={mapRenderingQuality.value === 'performance'}
+              onclick={() => mapRenderingQuality.set('performance')}
+            >
+              Fast
+            </button>
+            <button
+              type="button"
+              class="btn"
+              class:is-on={mapRenderingQuality.value === 'balanced'}
+              aria-pressed={mapRenderingQuality.value === 'balanced'}
+              onclick={() => mapRenderingQuality.set('balanced')}
+            >
+              Balanced
+            </button>
+            <button
+              type="button"
+              class="btn"
+              class:is-on={mapRenderingQuality.value === 'native'}
+              aria-pressed={mapRenderingQuality.value === 'native'}
+              onclick={() => mapRenderingQuality.set('native')}
+            >
+              Crisp
+            </button>
+          </div>
+        </section>
+      {/if}
 
       <p class="muted-note">
         Outside US waters, add your own chart here or install a Signal K chart plugin on the server;
@@ -373,6 +416,13 @@ const reorderAnnouncement = $derived(
 }
 .layer-tabs .btn {
   flex: 1;
+}
+.map-performance {
+  gap: var(--space-2);
+}
+.map-performance .segmented,
+.map-performance .btn {
+  inline-size: 100%;
 }
 .load-note {
   display: flex;
