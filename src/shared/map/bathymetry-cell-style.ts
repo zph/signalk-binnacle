@@ -137,6 +137,12 @@ export function bathymetryCellLayers(
         // pixel label occupies roughly one-third of the cell height while retaining breathing room.
         'text-size': bathymetryLabelTextSize(['get', 'BATHY_LABEL_RELATIVE_SIZE']),
         'text-padding': 2,
+        // Measured local soundings are sparse, high-value evidence. Navigation-chart labels,
+        // marina names, and the vessel marker must not collision-hide the only measured depth in a
+        // cell. Let these labels overlap other sources and avoid reserving space that would suppress
+        // adjacent measured cells.
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
       },
       paint: {
         'text-color': bathymetryThemePaint('day', 'label', options.safetyDepth),
