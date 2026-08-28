@@ -432,13 +432,17 @@ describe('createInstrumentsController', () => {
     ctrl.setOpen(true);
     await flushPromises();
 
-    // Only concrete live paths are offered, not every possible reading for the instance.
-    expect(ctrl.catalog.length).toBe(staticCount + 2);
+    // Only concrete live paths are offered, not every possible reading for the instance. The
+    // battery face and the voltage tile both resolve because the voltage path is live; the soc,
+    // time, and current readings stay out until their own paths report.
+    expect(ctrl.catalog.length).toBe(staticCount + 4);
     expect(ctrl.catalog.some((d) => d.id === 'battery:house')).toBe(true);
+    expect(ctrl.catalog.some((d) => d.id === 'battery-status:house')).toBe(true);
     expect(ctrl.catalog.some((d) => d.id === 'battery-soc:house')).toBe(false);
     expect(ctrl.catalog.some((d) => d.id === 'battery-time:house')).toBe(false);
     expect(ctrl.catalog.some((d) => d.id === 'battery-current:house')).toBe(false);
     expect(ctrl.catalog.some((d) => d.id === 'battery:starter')).toBe(true);
+    expect(ctrl.catalog.some((d) => d.id === 'battery-status:starter')).toBe(true);
 
     ctrl.dispose();
   });

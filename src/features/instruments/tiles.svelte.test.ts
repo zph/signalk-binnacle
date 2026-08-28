@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
 import type { ZoneState } from '$shared/signalk';
 import AttitudeTile from './AttitudeTile.svelte';
+import BatteryStatusTile from './BatteryStatusTile.svelte';
 import CompassTile from './CompassTile.svelte';
 import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
@@ -187,6 +188,102 @@ describe('NumericTile', () => {
       props: { label: 'Speed', reading: LIVE, zone: normal, sensorGloss: GLOSS, abbr: 'SOG' },
     }).body;
     expect(html).toContain('<span class="abbr">SOG</span>');
+  });
+});
+
+describe('BatteryStatusTile', () => {
+  const metric = (value: string, unit: string) => ({ state: 'live' as const, value, unit });
+  const BATTERY_LIVE: TileReading = {
+    state: 'live',
+    value: '87',
+    unit: '%',
+    siValue: 0.87,
+    battery: {
+      soc: { ...metric('87', '%'), siValue: 0.87 },
+      power: { ...metric('-1.2', 'kW'), siValue: -1240 },
+      current: { ...metric('-100.0', 'A'), siValue: -100 },
+      voltage: { ...metric('12.4', 'V'), siValue: 12.4 },
+    },
+  };
+
+  it('renders the vertical drawing with the animated percent inside', () => {
+    const html = render(BatteryStatusTile, {
+      props: {
+        label: 'Battery · House battery',
+        reading: BATTERY_LIVE,
+        zone: normal,
+        sensorGloss: 'No battery data',
+      },
+    }).body;
+    // 0.87 of 64 interior units tall, rising from the bottom: y = 72 - 64 * 0.87.
+    expect(html).toContain('height="55.68"');
+    expect(html).toContain('y="16.32"');
+    expect(html).toContain('>87%<');
+  });
+
+  it('lists watts, current, and voltage beside the drawing', () => {
+    const html = render(BatteryStatusTile, {
+      props: {
+        label: 'Battery · House battery',
+        reading: BATTERY_LIVE,
+        zone: normal,
+        sensorGloss: 'No battery data',
+      },
+    }).body;
+    expect(html).toContain('>WATTS<');
+    expect(html).toContain('-1.2');
+    expect(html).toContain('kW');
+    expect(html).toContain('>CURRENT<');
+    expect(html).toContain('>VOLTAGE<');
+    expect(html).toContain('12.4');
+  });
+
+  it('names every metric in the accessible label', () => {
+    const html = render(BatteryStatusTile, {
+      props: {
+        label: 'Battery · House battery',
+        reading: BATTERY_LIVE,
+        zone: normal,
+        sensorGloss: 'No battery data',
+      },
+    }).body;
+    expect(html).toContain(
+      'aria-label="Battery · House battery. 87 % charged. Power -1.2 kW. Current -100.0 A. Voltage 12.4 V. Expand instrument"',
+    );
+  });
+
+  it('falls back to the sensor gloss when nothing has reported', () => {
+    const html = render(BatteryStatusTile, {
+      props: {
+        label: 'Battery · House battery',
+        reading: NEVER,
+        zone: normal,
+        sensorGloss: 'No battery data',
+      },
+    }).body;
+    expect(html).toContain('No battery data');
+    expect(html).toContain('tile--empty');
+  });
+
+  it('shows the unavailable dash for a metric that never reported', () => {
+    const html = render(BatteryStatusTile, {
+      props: {
+        label: 'Battery · House battery',
+        reading: {
+          ...BATTERY_LIVE,
+          battery: {
+            soc: { ...metric('87', '%'), siValue: 0.87 },
+            power: { state: 'never', value: '--', unit: 'W' },
+            current: { ...metric('-100.0', 'A'), siValue: -100 },
+            voltage: { ...metric('12.4', 'V'), siValue: 12.4 },
+          },
+        },
+        zone: normal,
+        sensorGloss: 'No battery data',
+      },
+    }).body;
+    // The never-reported power slot shows the dash, not a zero draw.
+    expect(html).toContain('--');
   });
 });
 

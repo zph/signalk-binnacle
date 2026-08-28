@@ -168,7 +168,7 @@ function spansWholeRow(kind: string, state: string): boolean {
     kind === 'ais-radar' ||
     kind === 'map' ||
     kind === 'tide' ||
-    (state !== 'never' && (kind === 'wind' || kind === 'position'))
+    (state !== 'never' && (kind === 'wind' || kind === 'position' || kind === 'battery'))
   );
 }
 

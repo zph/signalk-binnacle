@@ -75,6 +75,14 @@ export interface TileReading {
   };
   pitchRad?: number;
   rollRad?: number;
+  // The battery tile's per-metric bundle, so its face can draw state of charge while listing
+  // power, current, and voltage beside it, each graded and formatted independently.
+  battery?: {
+    soc: InstrumentMetric;
+    power: InstrumentMetric;
+    current: InstrumentMetric;
+    voltage: InstrumentMetric;
+  };
   tide?: TideReading;
   tideDepthMeters?: number;
   tideDepthStale?: boolean;
@@ -123,6 +131,7 @@ export interface TileDef {
     | 'heel'
     | 'attitude'
     | 'ais-radar'
+    | 'battery'
     | 'map'
     | 'tide';
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
@@ -1262,6 +1271,75 @@ export function batteryCurrentTileDef(instanceId: string): TileDef {
   };
 }
 
+// Combine per-path value states the way the wind rose does: live wins, then stale, then placeholder,
+// so one live metric keeps the tile honest about the paths that are not reporting.
+function combineValueStates(states: TileValueState[]): TileValueState {
+  if (states.includes('live')) return 'live';
+  if (states.includes('stale')) return 'stale';
+  if (states.includes('placeholder')) return 'placeholder';
+  return 'never';
+}
+
+function batteryMetric(
+  cell: ReturnType<TileDeps['store']['cell']>,
+  clock: ReactiveClock,
+  siValue: number | undefined,
+  value: string,
+  unit: string,
+): InstrumentMetric {
+  return { state: grade(cell, clock), value, unit, siValue };
+}
+
+// The battery face: one vertical-charge drawing with the percent inside, flanked by power, current,
+// and voltage readouts. Power falls back to current times voltage when the server reports no power
+// path, so a basic shunt-only installation still gets a wattage draw.
+export function batteryStatusTileDef(instanceId: string): TileDef {
+  const socPath = `electrical.batteries.${instanceId}.capacity.stateOfCharge`;
+  const powerPath = `electrical.batteries.${instanceId}.power`;
+  const currentPath = `electrical.batteries.${instanceId}.current`;
+  const voltagePath = `electrical.batteries.${instanceId}.voltage`;
+  const name = titledSource(instanceId, 'battery');
+  return {
+    id: `battery-status:${instanceId}`,
+    label: readingLabel('Battery', name),
+    description: `${name} state of charge with live power, current, and voltage.`,
+    sensorGloss: 'No battery data',
+    paths: [socPath, powerPath, currentPath, voltagePath],
+    zonesPath: socPath,
+    category: 'electrical',
+    kind: 'battery',
+    read({ store, clock }) {
+      const socCell = store.cell(socPath);
+      const powerCell = store.cell(powerPath);
+      const currentCell = store.cell(currentPath);
+      const voltageCell = store.cell(voltagePath);
+      const soc = asNumber(socCell.value);
+      const reportedPower = asNumber(powerCell.value);
+      const current = asNumber(currentCell.value);
+      const voltage = asNumber(voltageCell.value);
+      const derivedPower =
+        reportedPower === undefined && current !== undefined && voltage !== undefined
+          ? current * voltage
+          : undefined;
+      const power = reportedPower ?? derivedPower;
+      return {
+        state: combineValueStates(
+          [socCell, powerCell, currentCell, voltageCell].map((cell) => grade(cell, clock)),
+        ),
+        value: formatPercent(soc),
+        unit: '%',
+        siValue: soc,
+        battery: {
+          soc: batteryMetric(socCell, clock, soc, formatPercent(soc), '%'),
+          power: batteryMetric(powerCell, clock, power, formatWatts(power), wattsUnit(power)),
+          current: batteryMetric(currentCell, clock, current, formatFixed(current, 1), 'A'),
+          voltage: batteryMetric(voltageCell, clock, voltage, formatFixed(voltage, 1), 'V'),
+        },
+      };
+    },
+  };
+}
+
 function titleId(instanceId: string): string {
   return instanceId
     .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -1622,10 +1700,12 @@ function insidePressureTileDef(instanceId: string): TileDef {
   };
 }
 
-// The full per-instance tile set: voltage, state of charge, time remaining, and current. The
-// catalog getter and cell warm-up derive their paths from this so the four defs never drift.
+// The full per-instance tile set: the combined battery face, voltage, state of charge, time
+// remaining, and current. The catalog getter and cell warm-up derive their paths from this so the
+// five defs never drift.
 export function batteryDefsFor(instanceId: string): TileDef[] {
   return [
+    batteryStatusTileDef(instanceId),
     batteryTileDef(instanceId),
     batterySocTileDef(instanceId),
     batteryTimeTileDef(instanceId),
@@ -1666,7 +1746,7 @@ export function insideDefsFor(instanceId: string): TileDef[] {
 // Most dynamic instance ids allow digits, letters, underscores, and hyphens only. Tank ids may also
 // carry one dot because Signal K commonly nests tanks by type, such as tanks.fuel.port.
 const DYNAMIC_ID_RE =
-  /^(battery(?:-(?:soc|time|current))?|prop-(?:rpm|temp|coolant|oil|load)|tank-(?:level|volume)|solar-(?:power|current|yield)|inside-(?:temp|humidity|pressure)):([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?)$/;
+  /^(battery(?:-(?:soc|time|current|status))?|prop-(?:rpm|temp|coolant|oil|load)|tank-(?:level|volume)|solar-(?:power|current|yield)|inside-(?:temp|humidity|pressure)):([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?)$/;
 
 function dynamicDefsFor(kind: string, instanceId: string): TileDef[] {
   if (!kind.startsWith('tank-') && instanceId.includes('.')) return [];
@@ -1680,7 +1760,7 @@ function dynamicDefsFor(kind: string, instanceId: string): TileDef[] {
 
 // Dynamic defs are memoized by id: tileById runs on every tiles read (a hot, reactive path), and a
 // fresh def per call would allocate per render and break identity-keyed consumers. The id space is
-// finite (discovered instances times four), so the cache is bounded.
+// finite (discovered instances times five), so the cache is bounded.
 const dynamicDefCache = new Map<string, TileDef>();
 
 export function tileById(id: string): TileDef | undefined {

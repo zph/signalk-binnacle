@@ -14,6 +14,7 @@ import {
   batteryCurrentTileDef,
   batteryDefsFor,
   batterySocTileDef,
+  batteryStatusTileDef,
   batteryTileDef,
   batteryTimeTileDef,
   CLIENT_DEFAULT_ZONES,
@@ -996,6 +997,95 @@ describe('batteryCurrentTileDef', () => {
 
   it('resolves via tileById', () => {
     expect(tileById('battery-current:house')?.id).toBe('battery-current:house');
+  });
+});
+
+describe('batteryStatusTileDef', () => {
+  it('generates the battery face id, paths, and kind', () => {
+    const def = batteryStatusTileDef('house');
+    expect(def.id).toBe('battery-status:house');
+    expect(def.label).toBe('Battery · House battery');
+    expect(def.paths).toEqual([
+      'electrical.batteries.house.capacity.stateOfCharge',
+      'electrical.batteries.house.power',
+      'electrical.batteries.house.current',
+      'electrical.batteries.house.voltage',
+    ]);
+    expect(def.zonesPath).toBe('electrical.batteries.house.capacity.stateOfCharge');
+    expect(def.kind).toBe('battery');
+    expect(def.sensorGloss).toBe('No battery data');
+  });
+
+  it('reads percent, watts, amps, and volts with per-metric grades', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    const def = batteryStatusTileDef('house');
+    deps.store.ensureCells(def.paths);
+    deps.store.applyFrame(
+      skFrame(
+        {
+          'electrical.batteries.house.capacity.stateOfCharge': 0.87,
+          'electrical.batteries.house.power': -1240,
+          'electrical.batteries.house.current': -100,
+          'electrical.batteries.house.voltage': 12.4,
+        },
+        1000,
+      ),
+    );
+    const reading = def.read(deps);
+    expect(reading.state).toBe('live');
+    expect(reading.value).toBe('87');
+    expect(reading.unit).toBe('%');
+    expect(reading.siValue).toBeCloseTo(0.87);
+    expect(reading.battery?.soc.value).toBe('87');
+    // 1240 W is above the kW threshold, so the unit steps to kW rather than a four-digit watt count.
+    expect(reading.battery?.power.value).toBe('-1.2');
+    expect(reading.battery?.power.unit).toBe('kW');
+    expect(reading.battery?.power.siValue).toBeCloseTo(-1240);
+    expect(reading.battery?.current.value).toBe('-100.0');
+    expect(reading.battery?.current.unit).toBe('A');
+    expect(reading.battery?.voltage.value).toBe('12.4');
+    expect(reading.battery?.voltage.unit).toBe('V');
+  });
+
+  it('derives power from current times voltage when the power path is absent', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    const def = batteryStatusTileDef('house');
+    deps.store.ensureCells(def.paths);
+    deps.store.applyFrame(
+      skFrame(
+        {
+          'electrical.batteries.house.capacity.stateOfCharge': 0.62,
+          'electrical.batteries.house.current': -24.5,
+          'electrical.batteries.house.voltage': 12.6,
+        },
+        1000,
+      ),
+    );
+    const reading = def.read(deps);
+    expect(reading.battery?.power.siValue).toBeCloseTo(-308.7, 0);
+    expect(reading.battery?.power.value).toBe('-309');
+    expect(reading.battery?.power.unit).toBe('W');
+    // The power path itself never reported, so its own metric grades 'never' even though the
+    // derived wattage is shown.
+    expect(reading.battery?.power.state).toBe('never');
+  });
+
+  it('grades the tile never when no battery path has ever reported', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    const def = batteryStatusTileDef('house');
+    deps.store.ensureCells(def.paths);
+    const reading = def.read(deps);
+    expect(reading.state).toBe('never');
+    expect(reading.value).toBe(PLACEHOLDER);
+    expect(reading.battery?.soc.state).toBe('never');
+  });
+
+  it('is part of batteryDefsFor and resolves via tileById', () => {
+    expect(batteryDefsFor('house').map((d) => d.id)).toContain('battery-status:house');
+    expect(tileById('battery-status:house')?.id).toBe('battery-status:house');
   });
 });
 

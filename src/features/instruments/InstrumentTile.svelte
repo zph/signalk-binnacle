@@ -8,6 +8,7 @@ import type { Theme } from '$shared/ui';
 import AisRadarTile from './AisRadarTile.svelte';
 import AttitudeTile from './AttitudeTile.svelte';
 import type { AisRadarRangeNm } from './ais-radar-model';
+import BatteryStatusTile from './BatteryStatusTile.svelte';
 import CompassTile from './CompassTile.svelte';
 import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
@@ -102,6 +103,17 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     onOpen={onActivate}
     noGoAngleRad={windRoseNoGoAngleRad}
     arcMarginRad={windRoseArcMarginRad}
+  />
+{:else if def.kind === 'battery'}
+  <BatteryStatusTile
+    {label}
+    {reading}
+    {zone}
+    sensorGloss={def.sensorGloss}
+    {staleAgeText}
+    {expanded}
+    {actionLabel}
+    onOpen={onActivate}
   />
 {:else if def.kind === 'wind'}
   <WindTile
