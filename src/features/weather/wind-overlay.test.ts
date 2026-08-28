@@ -4,6 +4,20 @@ import { mapThemePaint } from '$shared/map';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { createWindOverlay } from './wind-overlay';
 
+function makeCanvas(): HTMLCanvasElement {
+  return {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      clearRect: vi.fn(),
+      createImageData: (width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+      putImageData: vi.fn(),
+    }),
+  } as unknown as HTMLCanvasElement;
+}
+
 function storeWithGrid(): WeatherStore {
   const store = new WeatherStore();
   store.setGrid({
@@ -23,30 +37,31 @@ function storeWithGrid(): WeatherStore {
 }
 
 describe('wind overlay', () => {
-  it('mounts its renderer only when the weather layer becomes visible', async () => {
-    const overlay = createWindOverlay(storeWithGrid());
+  it('mounts the static field and arrows hidden, then adds the animated renderer when visible', async () => {
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('weather');
-    expect(map.sources.size).toBe(0);
-    expect(map.layers.size).toBe(0);
+    expect(map.sources.size).toBe(2);
+    expect(map.layers.size).toBe(2);
 
     overlay.setVisible(fakeOverlayContext(map), true);
-    expect(map.sources.size).toBe(1);
-    expect(map.layers.size).toBe(1);
+    expect(map.sources.size).toBe(2);
+    expect(map.layers.size).toBeGreaterThanOrEqual(2);
   });
 
   it('syncs the arrow features from the grid', async () => {
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     overlay.sync(fakeOverlayContext(map));
-    expect(map.sources.size).toBe(0);
+    expect(map.sources.size).toBe(2);
 
     overlay.setVisible(fakeOverlayContext(map), true);
-    const source = [...map.sources.values()][0];
+    const source = map.sources.get('binnacle-weather-wind');
+    if (!source) throw new Error('wind arrow source was not added');
     const fc = source.data as GeoJSON.FeatureCollection;
     expect(fc.features).toHaveLength(4);
     overlay.sync(fakeOverlayContext(map));
@@ -54,7 +69,7 @@ describe('wind overlay', () => {
   });
 
   it('removes its layer and source', async () => {
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     overlay.remove(fakeOverlayContext(map));
@@ -63,7 +78,7 @@ describe('wind overlay', () => {
   });
 
   it('recolors for the theme without throwing', async () => {
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     expect(() =>

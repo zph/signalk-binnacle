@@ -209,7 +209,9 @@ source, and surrounding traffic before relying on it.
   NOAA GFS with U.S. HRRR coverage, DWD ICON with European regional coverage, or global ECMWF IFS,
   and provides earlier, later, playback, and five-day time-scrubbing controls. The source belongs to
   the active profile. Panning the primary chart loads the selected wind field for the settled chart
-  viewport.
+  viewport. A continuous color surface represents forecast intensity across the loaded area,
+  direction arrows remain visible on every renderer, and animated particles add motion when WebGL
+  and reduced-motion preferences permit it.
 - **Forecast** opens a weather mini-map at the navigation chart view. Wind and waves start visible on
   a fresh install, and its weather layer menu uses the same forecast-source choice as the primary
   chart overlay. Wind, gust, and current speeds use the Signal K preferred speed unit independently

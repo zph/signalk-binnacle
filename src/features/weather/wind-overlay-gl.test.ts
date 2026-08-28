@@ -31,6 +31,20 @@ vi.mock('./wind-gl/wind-particles', () => ({
 
 import { createWindOverlay } from './wind-overlay';
 
+function makeCanvas(): HTMLCanvasElement {
+  return {
+    width: 0,
+    height: 0,
+    getContext: () => ({
+      clearRect: vi.fn(),
+      createImageData: (width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+      }),
+      putImageData: vi.fn(),
+    }),
+  } as unknown as HTMLCanvasElement;
+}
+
 function storeWithGrid(): WeatherStore {
   const store = new WeatherStore();
   store.setGrid({
@@ -54,7 +68,7 @@ describe('wind overlay WebGL field', () => {
     vi.useFakeTimers();
     const documentTarget = Object.assign(new EventTarget(), { hidden: false });
     vi.stubGlobal('document', documentTarget);
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     const canvas = new EventTarget();
     Object.assign(map, {
@@ -105,7 +119,7 @@ describe('wind overlay WebGL field', () => {
   it('stays within the 25 fps composite budget during five accelerated minutes', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('document', Object.assign(new EventTarget(), { hidden: false }));
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     const canvas = new EventTarget();
     const addLayer = map.addLayer;
@@ -141,7 +155,7 @@ describe('wind overlay WebGL field', () => {
 
   it('suppresses hidden texture generation and pushes one texture when shown', async () => {
     vi.stubGlobal('document', Object.assign(new EventTarget(), { hidden: false }));
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     const canvas = new EventTarget();
     Object.assign(map, {
@@ -168,7 +182,7 @@ describe('wind overlay WebGL field', () => {
 
   it('passes the default projection matrix to the renderer without early conversion', async () => {
     vi.stubGlobal('document', Object.assign(new EventTarget(), { hidden: false }));
-    const overlay = createWindOverlay(storeWithGrid());
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     const canvas = new EventTarget();
     Object.assign(map, {

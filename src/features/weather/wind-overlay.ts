@@ -13,9 +13,11 @@ import {
   type OverlayContext,
   type OverlayModule,
   removeLayersAndSources,
+  setLayersVisibility,
   setSourceData,
 } from '$shared/map';
 import type { Theme } from '$shared/ui';
+import { type CanvasFactory, createFieldOverlay } from './field-overlay';
 import { WEATHER_LAYER_IDS } from './fills';
 import { gridTimeGate } from './grid-time-gate';
 import { becameVisible } from './overlay-visibility';
@@ -26,10 +28,13 @@ import { windFieldTexture } from './wind-field-texture';
 import type { GL } from './wind-gl/gl-resources';
 import { supportsWindGl } from './wind-gl/wind-gl-support';
 import { WindParticles } from './wind-gl/wind-particles';
+import { windSpeedFieldRgba } from './wind-speed-field';
 
 const SOURCE_ID = 'binnacle-weather-wind';
 const LAYER_ID = 'binnacle-weather-wind-line';
 const GL_LAYER_ID = 'binnacle-weather-wind-particles';
+const FIELD_SOURCE_ID = 'binnacle-weather-wind-field';
+const FIELD_LAYER_ID = 'binnacle-weather-wind-field-layer';
 // Cap both the particle simulation and its map composites at ~25 fps. A custom layer that calls
 // triggerRepaint directly from render follows the display refresh rate even when its simulation is
 // throttled, which still keeps the GPU and MapLibre worker hot on 60 Hz and 120 Hz displays.
@@ -52,7 +57,19 @@ function sameMatrix(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
 // layer when WebGL is unavailable. Rebuilds the wind texture only when the grid or selected time
 // changes; the animation runs in the custom layer's own render loop via triggerRepaint, throttled to
 // ~25 fps and paused while the document is hidden, and recovers from a WebGL context loss.
-export function createWindOverlay(store: WeatherStore): WindOverlay {
+export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactory): WindOverlay {
+  const field = createFieldOverlay(
+    store,
+    {
+      id: WEATHER_LAYER_IDS.wind,
+      title: 'Wind',
+      description: 'Wind speed and direction across the area.',
+      sourceId: FIELD_SOURCE_ID,
+      layerId: FIELD_LAYER_ID,
+      fieldRgba: windSpeedFieldRgba,
+    },
+    makeCanvas,
+  );
   let theme: Theme = 'day';
   let opacity = 1;
   let visible = false;
@@ -85,7 +102,7 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
         type: 'line',
         source: SOURCE_ID,
         layout: { 'line-cap': 'round', visibility: visible ? 'visible' : 'none' },
-        paint: { 'line-color': colorExpr(theme), 'line-width': 2, 'line-opacity': opacity },
+        paint: { 'line-color': colorExpr(theme), 'line-width': 1.75, 'line-opacity': opacity },
       };
       ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
     }
@@ -229,43 +246,43 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
     band: 'weather',
     supportsOpacity: true,
     defaultVisible: false,
-    // Both candidate ids: the particle layer normally, the arrow layer when WebGL is unavailable or
-    // a secondary init failure degraded to it. The LayerManager guards each id with getLayer, so the
-    // absent one is skipped and a restack never drops the one that is present.
-    layerIds: [GL_LAYER_ID, LAYER_ID],
-    // Keep a hidden wind overlay entirely out of MapLibre's render graph. setVisible mounts the
-    // chosen renderer on its first enable, which prevents an off-by-default custom WebGL layer from
-    // participating in unrelated chart repaints.
-    add() {},
+    // The color field is the base, particles animate over it when supported, and arrows keep
+    // direction visible even when the custom WebGL renderer cannot initialize.
+    layerIds: [FIELD_LAYER_ID, GL_LAYER_ID, LAYER_ID],
+    add(ctx) {
+      void field.add(ctx);
+      addArrowLayer(ctx);
+    },
     reset() {
       // The manager calls this on a base-style swap; without it the arrow fallback stays blank when
       // the grid object is unchanged, the same hazard radar-overlay guards against.
       gate.reset();
+      field.reset?.();
     },
     sync(ctx) {
       if (!visible) return;
+      field.sync(ctx);
       if (!gate.changed()) return;
       pushWind(); // a no-op without particles
-      if (!particles && ctx.map.getLayer(LAYER_ID)) syncArrows(ctx);
+      syncArrows(ctx);
     },
     remove(ctx) {
       visible = false;
       stopParticleLoop();
       removeLayersAndSources(ctx.map, [GL_LAYER_ID, LAYER_ID], [SOURCE_ID]);
+      field.remove(ctx);
     },
     setVisible(ctx, value) {
       const justBecameVisible = becameVisible(visible, value);
       visible = value;
-      if (value && !ctx.map.getLayer(GL_LAYER_ID) && !ctx.map.getLayer(LAYER_ID)) {
+      field.setVisible(ctx, value);
+      if (value && !ctx.map.getLayer(GL_LAYER_ID)) {
         // The animated particle field is a continuous, self-driving render loop, so reduced motion
-        // uses static arrows. Evaluate this on first enable so a preference change made while the
-        // layer was off is honored without a reload.
+        // uses the color surface and static arrows. Evaluate this on first enable so a preference
+        // change made while the layer was off is honored without a reload.
         if (supportsWindGl() && !prefersReducedMotion()) addParticleLayer(ctx);
-        else addArrowLayer(ctx);
       }
-      if (ctx.map.getLayer(LAYER_ID)) {
-        ctx.map.setLayoutProperty(LAYER_ID, 'visibility', value ? 'visible' : 'none');
-      }
+      setLayersVisibility(ctx.map, [LAYER_ID], value);
       if (justBecameVisible) {
         gate.reset();
         this.sync(ctx);
@@ -276,11 +293,13 @@ export function createWindOverlay(store: WeatherStore): WindOverlay {
     },
     setOpacity(ctx, value) {
       opacity = value;
+      field.setOpacity?.(ctx, value);
       particles?.setOpacity(value);
       if (ctx.map.getLayer(LAYER_ID)) ctx.map.setPaintProperty(LAYER_ID, 'line-opacity', value);
     },
     applyTheme(ctx, paint) {
       theme = paint.theme;
+      field.applyTheme?.(ctx, paint);
       particles?.setTheme(windColorTexture(theme));
       if (ctx.map.getLayer(LAYER_ID)) {
         ctx.map.setPaintProperty(LAYER_ID, 'line-color', colorExpr(theme));
