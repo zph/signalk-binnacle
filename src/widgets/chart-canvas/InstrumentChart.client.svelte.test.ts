@@ -9,14 +9,17 @@ const mocks = vi.hoisted(() => {
     easeTo: vi.fn(),
     getCenter: vi.fn(() => ({ lat: 38.04, lng: -122.19 })),
     getZoom: vi.fn(() => 12),
+    getPixelRatio: vi.fn(() => 1),
     on: vi.fn((event: string, handler: () => void) => handlers.set(event, handler)),
     setCenter: vi.fn(),
     setGlobalStateProperty: vi.fn(),
+    setPixelRatio: vi.fn(),
   };
   const manager = {
     registerBatch: vi.fn(async (overlays: Array<{ id: string }>) =>
       overlays.map((overlay) => ({ id: overlay.id, status: 'registered' as const })),
     ),
+    toggle: vi.fn(),
   };
   const destroy = vi.fn();
   let options: Parameters<typeof import('$shared/map').createThemedMap>[0] | undefined;
@@ -86,6 +89,9 @@ describe('map instrument chart', () => {
         props: {
           origin: 'http://localhost:3000',
           vessel: vessel as never,
+          aisTargets: { list: () => [], version: 0 } as never,
+          aisAssessment: () => ({ contacts: [] }) as never,
+          aisKindMode: 'type-specific',
           units: { depthUnit: 'm' } as never,
           thresholds: { value: { shallowDepthMeters: 2 } } as never,
           userCharts: { sources: [] } as never,
@@ -96,6 +102,11 @@ describe('map instrument chart', () => {
           savedLayers: {},
           savedOrder: [],
           mapRenderingQuality: 'balanced',
+          qualityOverride: null,
+          onQualityOverrideChange: vi.fn(),
+          mainMapAisVisible: true,
+          aisVisibilityOverride: null,
+          onAisVisibilityOverrideChange: vi.fn(),
           following: false,
           onFollowingChange,
           onViewChange,
@@ -140,5 +151,114 @@ describe('map instrument chart', () => {
     mounted.pop();
     target.remove();
     expect(mocks.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('inherits app quality and offers a persisted instrument override', async () => {
+    const onQualityOverrideChange = vi.fn();
+    const target = document.createElement('div');
+    document.body.append(target);
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(InstrumentChart, {
+        target,
+        props: {
+          origin: 'http://localhost:3000',
+          vessel: { positionStale: false } as never,
+          aisTargets: { list: () => [], version: 0 } as never,
+          aisAssessment: () => ({ contacts: [] }) as never,
+          aisKindMode: 'type-specific',
+          units: { depthUnit: 'm' } as never,
+          thresholds: { value: { shallowDepthMeters: 2 } } as never,
+          userCharts: { sources: [] } as never,
+          theme: 'day',
+          companionBase: null,
+          companionTiles: () => null,
+          savedLayers: {},
+          savedOrder: [],
+          mapRenderingQuality: 'performance',
+          qualityOverride: null,
+          onQualityOverrideChange,
+          mainMapAisVisible: false,
+          aisVisibilityOverride: null,
+          onAisVisibilityOverrideChange: vi.fn(),
+          following: false,
+          onFollowingChange: vi.fn(),
+          onViewChange: vi.fn(),
+          actionLabel: 'Expand instrument',
+          onOpen: vi.fn(),
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+    await vi.waitFor(() => expect(target.querySelector('.map-surface.ready')).not.toBeNull());
+
+    expect(mocks.options?.pixelRatio).toBe(1);
+    const qualityButton = target.querySelector<HTMLButtonElement>(
+      '[aria-label="Map quality: App default (Fast)"]',
+    );
+    flushSync(() => qualityButton?.click());
+    const crisp = [...target.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(
+      (button) => button.textContent?.trim() === 'Crisp',
+    );
+    flushSync(() => crisp?.click());
+    expect(onQualityOverrideChange).toHaveBeenCalledWith('native');
+  });
+
+  it('inherits main-map AIS visibility and offers an instrument override', async () => {
+    const onAisVisibilityOverrideChange = vi.fn();
+    const target = document.createElement('div');
+    document.body.append(target);
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(InstrumentChart, {
+        target,
+        props: {
+          origin: 'http://localhost:3000',
+          vessel: { positionStale: false } as never,
+          aisTargets: { list: () => [], version: 0 } as never,
+          aisAssessment: () => ({ contacts: [] }) as never,
+          aisKindMode: 'type-specific',
+          units: { depthUnit: 'm' } as never,
+          thresholds: { value: { shallowDepthMeters: 2 } } as never,
+          userCharts: { sources: [] } as never,
+          theme: 'day',
+          companionBase: null,
+          companionTiles: () => null,
+          savedLayers: {},
+          savedOrder: [],
+          mapRenderingQuality: 'performance',
+          qualityOverride: null,
+          onQualityOverrideChange: vi.fn(),
+          mainMapAisVisible: false,
+          aisVisibilityOverride: null,
+          onAisVisibilityOverrideChange,
+          following: false,
+          onFollowingChange: vi.fn(),
+          onViewChange: vi.fn(),
+          actionLabel: 'Expand instrument',
+          onOpen: vi.fn(),
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+    await vi.waitFor(() => expect(target.querySelector('.map-surface.ready')).not.toBeNull());
+
+    expect(mocks.options?.managerOptions?.saved?.ais?.visible).toBe(false);
+    expect(mocks.manager.toggle).toHaveBeenCalledWith('ais', false);
+    const aisButton = target.querySelector<HTMLButtonElement>(
+      '[aria-label="AIS: App default (Off)"]',
+    );
+    flushSync(() => aisButton?.click());
+    const on = [...target.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(
+      (button) => button.textContent?.trim() === 'On',
+    );
+    flushSync(() => on?.click());
+    expect(onAisVisibilityOverrideChange).toHaveBeenCalledWith(true);
   });
 });

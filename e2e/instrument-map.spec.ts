@@ -21,6 +21,20 @@ test('the map instrument opens from Command K with an independent interactive vi
   await expect(instrument.locator('.instrument-map canvas')).toBeVisible();
   await expect(instrument.getByRole('button', { name: 'Zoom in' })).toBeVisible();
   await expect(instrument.getByRole('button', { name: 'Zoom out' })).toBeVisible();
+  const quality = instrument.getByRole('button', { name: /Map quality: App default/ });
+  await expect(quality).toBeVisible();
+  await quality.click();
+  const qualityMenu = page.getByRole('radiogroup', { name: 'Map quality' });
+  await expect(qualityMenu.getByRole('radio', { name: /App default/ })).toBeChecked();
+  await qualityMenu.getByRole('radio', { name: 'Crisp' }).click();
+  await expect(instrument.getByRole('button', { name: 'Map quality: Crisp' })).toBeVisible();
+  const ais = instrument.getByRole('button', { name: /AIS: App default/ });
+  await expect(ais).toBeVisible();
+  await ais.click();
+  const aisMenu = page.getByRole('radiogroup', { name: 'AIS visibility' });
+  await expect(aisMenu.getByRole('radio', { name: /App default/ })).toBeChecked();
+  await aisMenu.getByRole('radio', { name: 'Off' }).click();
+  await expect(instrument.getByRole('button', { name: 'AIS: Off' })).toBeVisible();
   await expect(instrument.getByRole('button', { name: 'Follow boat' })).toBeDisabled();
   await expect(instrument.getByRole('button', { name: 'Collapse instrument' })).toBeVisible();
 

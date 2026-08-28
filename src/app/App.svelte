@@ -65,7 +65,7 @@ import { cleanUserChartSource, type UserChartSource, UserCharts } from '$entitie
 import { OwnVessel } from '$entities/vessel';
 import { WaypointsStore } from '$entities/waypoint';
 import { WeatherStore } from '$entities/weather';
-import type { AisVesselKindMode } from '$features/ais-layer';
+import { AIS_OVERLAY_ID, type AisVesselKindMode } from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
 import { ANCHOR_TONE, createAnchorController } from '$features/anchor-watch';
 import { createUserChartsController } from '$features/charts';
@@ -228,6 +228,7 @@ import {
   type MapView,
   MIN_WIND_ROSE_ARC_MARGIN_RAD,
   MIN_WIND_ROSE_NO_GO_ANGLE_RAD,
+  nullablePersistedCodec,
   type PersistedCodec,
   PersistedValue,
   preferTrackHistory,
@@ -266,7 +267,7 @@ import {
   type Theme,
   trapFocus,
 } from '$shared/ui';
-import { InstrumentChart, type MapCommands } from '$widgets/chart-canvas';
+import { loadInstrumentChart, type MapCommands } from '$widgets/chart-canvas';
 import { PlotterView } from '../views';
 import AppInfo from './AppInfo.svelte';
 import { resolveOrientation } from './chart-orientation';
@@ -813,6 +814,11 @@ let instrumentMapView = $state<MapView | undefined>(
   isMapView(instrumentMapViewStore.value) ? instrumentMapViewStore.value : undefined,
 );
 let instrumentMapFollowing = $state(false);
+let instrumentChartLoadAttempt = $state(0);
+function instrumentChartForAttempt(): ReturnType<typeof loadInstrumentChart> {
+  void instrumentChartLoadAttempt;
+  return loadInstrumentChart();
+}
 // The live map view if one has been reported, else the persisted view: the fallback that the tides
 // load and the weather map's initial view share.
 const currentView = $derived(mapView ?? savedView);
@@ -1005,6 +1011,19 @@ const mapRenderingQuality = new PersistedValue<MapRenderingQuality>(
   undefined,
   enumPersistedCodec(MAP_RENDERING_QUALITIES),
 );
+const instrumentMapRenderingQuality = new PersistedValue<MapRenderingQuality | null>(
+  binnacleStorageKey('instrumentMapRenderingQuality'),
+  null,
+  undefined,
+  nullablePersistedCodec(enumPersistedCodec(MAP_RENDERING_QUALITIES)),
+);
+const instrumentMapAisVisibility = new PersistedValue<boolean | null>(
+  binnacleStorageKey('instrumentMapAisVisibility'),
+  null,
+  undefined,
+  nullablePersistedCodec(booleanPersistedCodec),
+);
+const mainMapAisVisible = $derived(layerSettings.value[AIS_OVERLAY_ID]?.visible ?? true);
 
 // Profiles: named bundles of portable settings, including theme, chart facets, overlays, opacity,
 // order, provider display settings, weather layers, thresholds, track, and planning preferences.
@@ -3543,27 +3562,46 @@ const plotterActions = {
 
   {#if instruments.open}
     {#snippet mapInstrument(expanded: boolean, actionLabel: string, onOpen: () => void)}
-      <InstrumentChart
-        {origin}
-        {vessel}
-        {units}
-        {thresholds}
-        {userCharts}
-        theme={theme.theme}
-        {companionBase}
-        companionTiles={() => companionTileBase}
-        {chartsToken}
-        initialView={instrumentMapView}
-        savedLayers={layerSettings.value}
-        savedOrder={layerOrder.value}
-        mapRenderingQuality={mapRenderingQuality.value}
-        following={instrumentMapFollowing}
-        onFollowingChange={(following) => (instrumentMapFollowing = following)}
-        onViewChange={onInstrumentMapViewChange}
-        {expanded}
-        {actionLabel}
-        {onOpen}
-      />
+      {#await instrumentChartForAttempt()}
+        <div class="tile tile--empty"><p class="muted-note">Loading map…</p></div>
+      {:then module}
+        <module.default
+          {origin}
+          {vessel}
+          {aisTargets}
+          aisAssessment={() => collision.assessment}
+          aisKindMode={aisIconMode.value}
+          {units}
+          {thresholds}
+          {userCharts}
+          theme={theme.theme}
+          {companionBase}
+          companionTiles={() => companionTileBase}
+          {chartsToken}
+          initialView={instrumentMapView}
+          savedLayers={layerSettings.value}
+          savedOrder={layerOrder.value}
+          mapRenderingQuality={mapRenderingQuality.value}
+          qualityOverride={instrumentMapRenderingQuality.value}
+          onQualityOverrideChange={(quality) => instrumentMapRenderingQuality.set(quality)}
+          {mainMapAisVisible}
+          aisVisibilityOverride={instrumentMapAisVisibility.value}
+          onAisVisibilityOverrideChange={(visible) => instrumentMapAisVisibility.set(visible)}
+          following={instrumentMapFollowing}
+          onFollowingChange={(following) => (instrumentMapFollowing = following)}
+          onViewChange={onInstrumentMapViewChange}
+          {expanded}
+          {actionLabel}
+          {onOpen}
+        />
+      {:catch}
+        <div class="tile tile--empty">
+          <p class="alert-note">Map failed to load.</p>
+          <button type="button" class="btn" onclick={() => (instrumentChartLoadAttempt += 1)}>
+            Retry
+          </button>
+        </div>
+      {/await}
     {/snippet}
     {#await instrumentsPanelForAttempt()}
       {@render instrumentsState('Loading Instruments controls…')}

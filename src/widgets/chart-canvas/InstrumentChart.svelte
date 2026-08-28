@@ -4,21 +4,28 @@ import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import Minus from '@lucide/svelte/icons/minus';
 import Navigation from '@lucide/svelte/icons/navigation';
 import Plus from '@lucide/svelte/icons/plus';
+import Settings from '@lucide/svelte/icons/settings';
+import Ship from '@lucide/svelte/icons/ship';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { onMount } from 'svelte';
+import type { AisTargets } from '$entities/ais';
+import type { Assessment } from '$entities/collision';
 import type { UnitsStore } from '$entities/units';
 import { type UserCharts, userChartToSignalK } from '$entities/user-charts';
 import type { OwnVessel } from '$entities/vessel';
+import { AIS_OVERLAY_ID, type AisVesselKindMode, createAisOverlay } from '$features/ais-layer';
 import { fetchCharts } from '$features/charts';
 import { createVesselOverlay, OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import {
   createChartOverlay,
   createThemedMap,
+  type LayerManager,
   type LayerSettings,
   type ThemedMapHandle,
 } from '$shared/map';
 import {
   DEFAULT_THRESHOLDS,
+  MAP_RENDERING_QUALITIES,
   type MapRenderingQuality,
   type MapView,
   mapRenderingPixelRatio,
@@ -27,10 +34,14 @@ import {
 } from '$shared/settings';
 import type { Theme } from '$shared/ui';
 import { buildReferenceOverlays } from './build-reference-overlays';
+import InstrumentMapChoice from './InstrumentMapChoice.svelte';
 
 interface Props {
   origin: string;
   vessel: OwnVessel;
+  aisTargets: AisTargets;
+  aisAssessment: () => Assessment;
+  aisKindMode: AisVesselKindMode;
   units: UnitsStore;
   thresholds: PersistedValue<Thresholds>;
   userCharts: UserCharts;
@@ -42,6 +53,11 @@ interface Props {
   savedLayers: LayerSettings;
   savedOrder: string[];
   mapRenderingQuality: MapRenderingQuality;
+  qualityOverride: MapRenderingQuality | null;
+  onQualityOverrideChange: (quality: MapRenderingQuality | null) => void;
+  mainMapAisVisible: boolean;
+  aisVisibilityOverride: boolean | null;
+  onAisVisibilityOverrideChange: (visible: boolean | null) => void;
   following: boolean;
   onFollowingChange: (following: boolean) => void;
   onViewChange: (view: MapView) => void;
@@ -53,6 +69,9 @@ interface Props {
 const {
   origin,
   vessel,
+  aisTargets,
+  aisAssessment,
+  aisKindMode,
   units,
   thresholds,
   userCharts,
@@ -64,6 +83,11 @@ const {
   savedLayers,
   savedOrder,
   mapRenderingQuality,
+  qualityOverride,
+  onQualityOverrideChange,
+  mainMapAisVisible,
+  aisVisibilityOverride,
+  onAisVisibilityOverrideChange,
   following,
   onFollowingChange,
   onViewChange,
@@ -78,6 +102,30 @@ let map = $state<MapLibreMap>();
 let recolor = $state<((theme: Theme) => void) | undefined>();
 let ready = $state(false);
 let chartWarning = $state(false);
+let layerManager: LayerManager | undefined;
+
+const effectiveQuality = $derived(qualityOverride ?? mapRenderingQuality);
+const effectiveQualityLabel = $derived(qualityLabel(effectiveQuality));
+const qualityButtonLabel = $derived(
+  qualityOverride === null
+    ? `Map quality: App default (${effectiveQualityLabel})`
+    : `Map quality: ${effectiveQualityLabel}`,
+);
+const qualityChoices = $derived([
+  { id: 'default', label: `App default (${qualityLabel(mapRenderingQuality)})` },
+  ...MAP_RENDERING_QUALITIES.map((quality) => ({ id: quality, label: qualityLabel(quality) })),
+]);
+const effectiveAisVisible = $derived(aisVisibilityOverride ?? mainMapAisVisible);
+const aisButtonLabel = $derived(
+  aisVisibilityOverride === null
+    ? `AIS: App default (${effectiveAisVisible ? 'On' : 'Off'})`
+    : `AIS: ${effectiveAisVisible ? 'On' : 'Off'}`,
+);
+const aisChoices = $derived([
+  { id: 'default', label: `App default (${mainMapAisVisible ? 'On' : 'Off'})` },
+  { id: 'on', label: 'On' },
+  { id: 'off', label: 'Off' },
+]);
 
 const canStartFollowing = $derived(
   following || (vessel.position !== undefined && !vessel.positionStale),
@@ -102,6 +150,20 @@ function toggleFollow(): void {
   onFollowingChange(!following);
 }
 
+function qualityLabel(quality: MapRenderingQuality): string {
+  if (quality === 'performance') return 'Fast';
+  if (quality === 'balanced') return 'Balanced';
+  return 'Crisp';
+}
+
+function selectQuality(quality: MapRenderingQuality | null): void {
+  onQualityOverrideChange(quality);
+}
+
+function selectAisVisibility(visible: boolean | null): void {
+  onAisVisibilityOverrideChange(visible);
+}
+
 function reportView(): void {
   if (!map) return;
   const center = map.getCenter();
@@ -121,9 +183,15 @@ onMount(() => {
     defaultCenter: position ? [position.longitude, position.latitude] : undefined,
     defaultZoom: 12,
     showMapControls: false,
-    pixelRatio: expanded ? mapRenderingPixelRatio(mapRenderingQuality, window.devicePixelRatio) : 1,
+    pixelRatio: mapRenderingPixelRatio(effectiveQuality, window.devicePixelRatio),
     managerOptions: {
-      saved: savedLayers,
+      saved: {
+        ...savedLayers,
+        [AIS_OVERLAY_ID]: {
+          ...(savedLayers[AIS_OVERLAY_ID] ?? { opacity: 1 }),
+          visible: effectiveAisVisible,
+        },
+      },
       savedOrder,
       pinned: [OWN_VESSEL_OVERLAY_ID],
     },
@@ -131,17 +199,32 @@ onMount(() => {
     cannotStartNotice: 'This map needs WebGL2 support.',
     onLoad: async (api) => {
       map = api.map;
+      layerManager = api.manager;
       recolor = api.recolor;
       api.map.setGlobalStateProperty('unit', units.depthUnit);
       api.map.on('moveend', reportView);
 
       const vesselOverlay = createVesselOverlay(vessel);
-      const [vesselResult] = await api.manager.registerBatch([vesselOverlay]);
+      const aisOverlay = createAisOverlay(aisTargets, {
+        assessment: aisAssessment,
+        kindMode: () => aisKindMode,
+        interactionsAllowed: () => false,
+      });
+      const [vesselResult, aisResult] = await api.manager.registerBatch([
+        vesselOverlay,
+        aisOverlay,
+      ]);
       if (destroyed || api.isDestroyed()) return;
-      if (vesselResult?.status === 'registered') api.runTick([vesselOverlay]);
+      const tickOverlays = [];
+      if (vesselResult?.status === 'registered') tickOverlays.push(vesselOverlay);
       else if (vesselResult?.status === 'failed') {
         console.warn('Could not register the instrument map vessel overlay.', vesselResult.error);
       }
+      if (aisResult?.status === 'registered') tickOverlays.push(aisOverlay);
+      else if (aisResult?.status === 'failed') {
+        console.warn('Could not register the instrument map AIS overlay.', aisResult.error);
+      }
+      if (tickOverlays.length > 0) api.runTick(tickOverlays);
 
       const tileBase = companionTiles() ?? companionBase;
       const referenceResults = await api.manager.registerBatch(
@@ -210,8 +293,18 @@ $effect(() => {
 });
 
 $effect(() => {
+  layerManager?.toggle(AIS_OVERLAY_ID, effectiveAisVisible);
+});
+
+$effect(() => {
   if (!map) return;
   map.setGlobalStateProperty('unit', units.depthUnit);
+});
+
+$effect(() => {
+  if (!map) return;
+  const pixelRatio = mapRenderingPixelRatio(effectiveQuality, window.devicePixelRatio);
+  if (map.getPixelRatio() !== pixelRatio) map.setPixelRatio(pixelRatio);
 });
 
 // Follow only changes the center. The independent zoom survives every GPS fix, which is what lets
@@ -227,6 +320,37 @@ $effect(() => {
 <section class="tile instrument-map" class:expanded aria-label={`Map instrument, ${statusText}`}>
   <div class="map-surface" class:ready bind:this={container}></div>
   <div class="map-controls" role="group" aria-label="Map controls">
+    <InstrumentMapChoice
+      label={qualityButtonLabel}
+      menuLabel="Map quality"
+      menuId="instrument-map-quality-menu"
+      choices={qualityChoices}
+      selectedId={qualityOverride ?? 'default'}
+      active={qualityOverride !== null}
+      onSelect={(id) =>
+        selectQuality(id === 'default' ? null : (id as MapRenderingQuality))}
+    >
+      {#snippet icon()}
+        <Settings size={18} aria-hidden="true" />
+      {/snippet}
+    </InstrumentMapChoice>
+    <InstrumentMapChoice
+      label={aisButtonLabel}
+      menuLabel="AIS visibility"
+      menuId="instrument-map-ais-menu"
+      choices={aisChoices}
+      selectedId={aisVisibilityOverride === null
+        ? 'default'
+        : aisVisibilityOverride
+          ? 'on'
+          : 'off'}
+      active={effectiveAisVisible}
+      onSelect={(id) => selectAisVisibility(id === 'default' ? null : id === 'on')}
+    >
+      {#snippet icon()}
+        <Ship size={18} aria-hidden="true" />
+      {/snippet}
+    </InstrumentMapChoice>
     <button
       type="button"
       class="icon-btn"
