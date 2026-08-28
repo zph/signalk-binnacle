@@ -1,3 +1,4 @@
+export { AIS_NAME_CACHE_TTL_MS, AisNameCache } from './ais-name-cache.svelte';
 export {
   AIS_APPROACH_STALE_TTL_MS,
   AIS_MOTION_STALE_TTL_MS,

@@ -37,7 +37,7 @@ import Wind from '@lucide/svelte/icons/wind';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { onDestroy, onMount, tick, untrack } from 'svelte';
 import { slide } from 'svelte/transition';
-import { AisTargets } from '$entities/ais';
+import { AisNameCache, AisTargets } from '$entities/ais';
 import { AnchorWatch } from '$entities/anchor';
 import { CollisionAssessment } from '$entities/collision';
 import { CourseGuidance } from '$entities/course';
@@ -298,7 +298,10 @@ const alarmAudioGate = new AlarmAudioGate(clock);
 const audioState = $derived(alarmAudioGate.state);
 const audioBlocked = $derived(alarmAudioGate.blocked);
 const vessel = new OwnVessel(store, clock);
-const aisTargets = new AisTargets(store);
+// Remember slow-reporting AIS static names across target pruning and reconnects. The cache is
+// display-local, bounded, and expires each name 24 hours after it was last heard over AIS.
+const aisNameCache = new AisNameCache();
+const aisTargets = new AisTargets(store, Date.now, aisNameCache);
 // A worker that dies after connect fires no Comlink settle; the failure callback routes it into
 // the stream controller's error state, whose retry restarts the worker. Deferred through a closure
 // because the controller is constructed further down; the callback can only fire after connect.

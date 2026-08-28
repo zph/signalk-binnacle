@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { SKFrame } from '$shared/signalk';
 import { SignalKStore } from '$shared/signalk';
+import { createFakeStorage } from '$shared/testing';
+import { AIS_NAME_CACHE_TTL_MS, AisNameCache } from './ais-name-cache.svelte';
 import { AisTargets, parseIso8601DurationSeconds } from './ais-targets.svelte';
 
 function frame(ais: Record<string, Record<string, unknown>>, epoch = Date.now()): SKFrame {
@@ -222,6 +224,72 @@ describe('AisTargets', () => {
     expect(ais.list()).toHaveLength(1);
     store.applyFrame({ ...frame({}), generation: 2 });
     expect(ais.list()).toHaveLength(0);
+  });
+
+  it('uses a recently heard name after a reconnect omits static AIS data', () => {
+    let now = 1_000;
+    const store = new SignalKStore();
+    const names = new AisNameCache(createFakeStorage(), () => now);
+    const ais = new AisTargets(store, () => now, names);
+    const id = 'vessels.urn:mrn:imo:mmsi:368123456';
+    store.applyFrame({
+      ...frame(
+        { [id]: { 'navigation.position': { latitude: 0, longitude: 0 }, name: 'WANDERER' } },
+        now,
+      ),
+      generation: 1,
+    });
+    expect(ais.list()[0].name).toBe('WANDERER');
+
+    now += 1_000;
+    store.applyFrame({
+      ...frame({ [id]: { 'navigation.position': { latitude: 1, longitude: 1 } } }, now),
+      generation: 2,
+    });
+    expect(ais.list()[0].name).toBe('WANDERER');
+
+    now = 1_000 + AIS_NAME_CACHE_TTL_MS - 1;
+    store.applyFrame({
+      ...frame({ [id]: { 'navigation.position': { latitude: 2, longitude: 2 } } }, now),
+      generation: 2,
+    });
+    expect(ais.list()[0].name).toBe('WANDERER');
+
+    now += 1;
+    expect(ais.list()[0].name).toBeUndefined();
+  });
+
+  it('renews a cached name when the same AIS static report is heard again', () => {
+    let now = 1_000;
+    const store = new SignalKStore();
+    const names = new AisNameCache(createFakeStorage(), () => now);
+    const ais = new AisTargets(store, () => now, names);
+    const id = 'vessels.urn:mrn:imo:mmsi:368123456';
+    store.applyFrame({
+      ...frame(
+        { [id]: { 'navigation.position': { latitude: 0, longitude: 0 }, name: 'WANDERER' } },
+        now,
+      ),
+      generation: 1,
+    });
+    expect(ais.list()[0].name).toBe('WANDERER');
+
+    now += 23 * 60 * 60_000;
+    store.applyFrame({
+      ...frame(
+        { [id]: { 'navigation.position': { latitude: 1, longitude: 1 }, name: 'WANDERER' } },
+        now,
+      ),
+      generation: 1,
+    });
+    expect(ais.list()[0].name).toBe('WANDERER');
+
+    now += 2 * 60 * 60_000;
+    store.applyFrame({
+      ...frame({ [id]: { 'navigation.position': { latitude: 2, longitude: 2 } } }, now),
+      generation: 2,
+    });
+    expect(ais.list()[0].name).toBe('WANDERER');
   });
 
   it('does not keep an old position alive when an unrelated target field updates', () => {

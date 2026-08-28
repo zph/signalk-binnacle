@@ -31,6 +31,7 @@ const BINNACLE_STORAGE_KEYS = {
   layers: { key: 'binnacle-custom:layers', scope: 'profile' },
   layerOrder: { key: 'binnacle-custom:layer-order', scope: 'profile' },
   aisIconMode: { key: 'binnacle-custom:ais-icon-mode', scope: 'device' },
+  aisNames: { key: 'binnacle-custom:ais-names', scope: 'cache' },
   radarAutoEnabled: { key: 'binnacle-custom:radar-autoenabled', scope: 'device' },
   pinnedActions: { key: 'binnacle-custom:pinned-actions', scope: 'profile' },
   bottomToolbarLabels: { key: 'binnacle-custom:bottom-toolbar-labels', scope: 'device' },

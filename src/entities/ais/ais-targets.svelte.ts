@@ -1,12 +1,14 @@
 import { asNumber, isLatLon, type LatLon } from '$shared/geo';
 import { isFiniteNumber, isRecord } from '$shared/lib';
 import { type SignalKStore, SK_PATHS } from '$shared/signalk';
+import type { AisNameCache } from './ais-name-cache.svelte';
 import {
   AIS_APPROACH_STALE_TTL_MS,
   AIS_MOTION_STALE_TTL_MS,
   AIS_PRUNE_INTERVAL_MS,
   AIS_STALE_TTL_MS,
 } from './ais-staleness';
+import { shortVesselId } from './vessel-id';
 
 // The Signal K spec types closestApproach.timeTo as an ISO-8601 duration string (e.g. "PT1M30S"),
 // but some providers publish a raw number of seconds. Parse both: a number passes through, a
@@ -86,10 +88,12 @@ export class AisTargets {
   // per visited vessel and no second pass.
   #index = new Map<string, AisTargetView>();
   #now: () => number;
+  #nameCache: AisNameCache | undefined;
 
-  constructor(store: SignalKStore, now: () => number = Date.now) {
+  constructor(store: SignalKStore, now: () => number = Date.now, nameCache?: AisNameCache) {
     this.#store = store;
     this.#now = now;
+    this.#nameCache = nameCache;
   }
 
   // Start the staleness prune timer; returns the disposer. The entity owns the policy (TTL and
@@ -161,7 +165,18 @@ export class AisTargets {
         this.#views.delete(id);
         continue;
       }
-      const name = current(SK_PATHS.name);
+      const reportedName = current(SK_PATHS.name);
+      const mmsi = shortVesselId(id);
+      let name =
+        typeof reportedName === 'string' && reportedName.trim() ? reportedName.trim() : undefined;
+      if (name) {
+        const nameEpoch = target.epochs.get(SK_PATHS.name);
+        if (nameEpoch !== undefined) this.#nameCache?.remember(mmsi, name, nameEpoch);
+      } else {
+        const cachedName = this.#nameCache?.lookup(mmsi, now);
+        name = cachedName?.name;
+        if (cachedName) vesselExpiresAt = Math.min(vesselExpiresAt, cachedName.expiresAt);
+      }
       const approachEpoch = target.epochs.get(SK_PATHS.closestApproach);
       const approachFresh =
         target.generations.get(SK_PATHS.closestApproach) === this.#store.generation &&
@@ -177,7 +192,7 @@ export class AisTargets {
       const navState = current(SK_PATHS.navigationState);
       const view: AisTargetView = {
         id,
-        name: typeof name === 'string' ? name : undefined,
+        name,
         position,
         cogRad: asNumber(current(SK_PATHS.courseOverGroundTrue, AIS_MOTION_STALE_TTL_MS)),
         headingRad: asNumber(current(SK_PATHS.headingTrue, AIS_MOTION_STALE_TTL_MS)),
