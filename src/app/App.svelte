@@ -565,6 +565,11 @@ let menuOpen = $state(false);
 let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
 let browserFullScreen = $state(false);
+
+function openCommandPalette(): void {
+  browserFullScreen = document.fullscreenElement !== null;
+  commandPaletteOpen = true;
+}
 let mobCommandRequest = $state(0);
 // The helm toolbar can be tucked away without entering browser fullscreen. Its attached tab stays
 // reachable at the viewport edge, so the toolbar always has an obvious route back.
@@ -2041,7 +2046,7 @@ const menuItems = $derived<MenuItem[]>([
     sublabel: 'Search actions with Command K or Control K',
     icon: Search,
     group: 'Settings',
-    onSelect: () => (commandPaletteOpen = true),
+    onSelect: openCommandPalette,
   },
   {
     id: 'help',
@@ -2974,7 +2979,8 @@ onMount(() => {
   const onCommandPaletteShortcut = (event: KeyboardEvent): void => {
     if (event.key.toLocaleLowerCase() !== 'k' || (!event.metaKey && !event.ctrlKey)) return;
     event.preventDefault();
-    commandPaletteOpen = !commandPaletteOpen;
+    if (commandPaletteOpen) commandPaletteOpen = false;
+    else openCommandPalette();
     menuOpen = false;
   };
   window.addEventListener('keydown', onCommandPaletteShortcut);
