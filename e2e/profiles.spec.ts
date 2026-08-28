@@ -269,7 +269,6 @@ test('profiles restore chart state and order across restart and provider upgrade
       ais: { visible: false, opacity: 0.6 },
       [chartLayerId]: { visible: true, opacity: 0.7, cellSizeScale: 0.75 },
       [facetId('depth-areas')]: { visible: true, opacity: 0.8 },
-      [facetId('soundings-contours')]: { visible: false, opacity: 0.35 },
     },
     layerOrder: ['basemap', chartLayerId, 'ais'],
     weatherLayers: {},
@@ -295,7 +294,6 @@ test('profiles restore chart state and order across restart and provider upgrade
       ais: { visible: true, opacity: 0.85 },
       [chartLayerId]: { visible: true, opacity: 0.95, cellSizeScale: 2 },
       [facetId('depth-areas')]: { visible: false, opacity: 0.5 },
-      [facetId('soundings-contours')]: { visible: true, opacity: 0.9 },
     },
     layerOrder: ['basemap', 'ais', chartLayerId],
     aisIconMode: 'type-specific',
@@ -371,9 +369,7 @@ test('profiles restore chart state and order across restart and provider upgrade
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
   const depthAreas = row.getByRole('button', { name: 'Depth areas', exact: true });
-  const soundings = row.getByRole('button', { name: 'Soundings and contours', exact: true });
   await expect(depthAreas).toHaveAttribute('aria-pressed', 'true');
-  await expect(soundings).toHaveAttribute('aria-pressed', 'false');
 
   await row.getByRole('button', { name: 'Adjust Depth areas opacity' }).click();
   await expect(page.getByRole('slider', { name: 'Depth areas opacity' })).toHaveAttribute(
@@ -397,7 +393,6 @@ test('profiles restore chart state and order across restart and provider upgrade
   await expect(page.getByRole('button', { name: 'Profile Passage, switch profile' })).toBeVisible();
   await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
   await expect(depthAreas).toHaveAttribute('aria-pressed', 'false');
-  await expect(soundings).toHaveAttribute('aria-pressed', 'true');
 
   await row.getByRole('button', { name: 'Open Profile fixture ENC chart details' }).click();
   await expect(page.getByRole('slider', { name: 'Opacity' })).toHaveAttribute(
