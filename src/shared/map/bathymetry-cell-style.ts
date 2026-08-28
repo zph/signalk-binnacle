@@ -131,7 +131,9 @@ export function bathymetryCellLayers(
       filter: ['all', ['has', 'BATHY_LABEL'], ['==', ['get', 'BATHY_SHOW_DEPTH_LABELS'], true]],
       minzoom: 13,
       layout: {
-        'text-field': ['get', 'BATHY_LABEL'],
+        // Normalize provider output because vector-tile encoders may preserve this value as either
+        // a string or a number. MapLibre requires text-field to resolve to a string at evaluation.
+        'text-field': ['to-string', ['get', 'BATHY_LABEL']],
         // Use the same font stack as working ENC labels. The configured glyph endpoint does not
         // provide Noto Sans Bold, and MapLibre silently drops text when a font stack is unavailable.
         'text-font': ['Noto Sans Regular'],

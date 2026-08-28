@@ -40,7 +40,7 @@ describe('bathymetry cell style', () => {
       ['has', 'BATHY_LABEL'],
       ['==', ['get', 'BATHY_SHOW_DEPTH_LABELS'], true],
     ]);
-    expect(label.layout?.['text-field']).toEqual(['get', 'BATHY_LABEL']);
+    expect(label.layout?.['text-field']).toEqual(['to-string', ['get', 'BATHY_LABEL']]);
     expect(label.layout?.['text-font']).toEqual(['Noto Sans Regular']);
     expect(label.layout?.['text-size']).toEqual([
       '*',
