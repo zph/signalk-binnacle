@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 describe('AIS radar target details', () => {
-  it('opens the same live detail overlay from a marker and its legend row', () => {
+  it('opens live target details from the radar marker without a side legend', () => {
     const targetView: AisTargetView = {
       id: 'vessels.urn:mrn:imo:mmsi:123456789',
       name: 'TEST BOAT',
@@ -93,6 +93,7 @@ describe('AIS radar target details', () => {
 
     const marker = host.querySelector<HTMLButtonElement>('.target-hit');
     expect(marker?.ariaLabel).toBe('Open details for target 1, TEST BOAT');
+    expect(host.querySelector('[aria-label="AIS target index"]')).toBeNull();
     flushSync(() => marker?.click());
     expect(onOpen).not.toHaveBeenCalled();
     expect(host.querySelector('.ais-target-popover')?.textContent).toContain('TEST BOAT');
@@ -105,9 +106,5 @@ describe('AIS radar target details', () => {
     );
     flushSync(() => close?.click());
     expect(host.querySelector('.ais-target-popover')).toBeNull();
-
-    const legend = host.querySelector<HTMLButtonElement>('.legend-row');
-    flushSync(() => legend?.click());
-    expect(host.querySelector('.ais-target-popover')?.textContent).toContain('TEST BOAT');
   });
 });
