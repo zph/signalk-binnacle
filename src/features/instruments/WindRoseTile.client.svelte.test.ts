@@ -63,6 +63,9 @@ describe('WindRoseTile sectors', () => {
     expect(target.querySelector('.wind-sector-lines')?.getAttribute('transform')).toContain(
       'rotate(40.107',
     );
+    const sectorFill = target.querySelector('.wind-sector-fill');
+    expect(sectorFill?.getAttribute('transform')).toContain('rotate(40.107');
+    expect(getComputedStyle(sectorFill as Element).fillOpacity).toBe('0.2');
 
     const roseTile = target.querySelector('.tile--wind-rose');
     expect(roseTile).not.toBeNull();

@@ -423,6 +423,9 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('Speed over ground 6.4 kn');
     expect(html).toContain('Heading 057°');
     expect(html).toContain('class="fixed-dial ');
+    expect(html).toContain('class="wind-sector-fill ');
+    expect(html).toContain('M186 186 A444 444 0 0 1 814 186 L500 500 Z');
+    expect(html.indexOf('wind-sector-fill')).toBeLessThan(html.indexOf('fixed-dial'));
     expect(html).toContain('class="wind-sectors"');
     expect(html).toContain('data-reference="true"');
     expect(html).toContain('rotate(40.107');

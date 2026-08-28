@@ -213,6 +213,13 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
+        {#if rawSectorReference}
+          <path
+            class="wind-sector-fill"
+            d="M186 186 A444 444 0 0 1 814 186 L500 500 Z"
+            transform="rotate({sectorRotation} 500 500)"
+          />
+        {/if}
         <circle class="fixed-dial" cx="500" cy="500" r="444" />
         {#if rawSectorReference}
           <g
@@ -390,6 +397,10 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
 .crosshair,
 .boat-outline {
   fill: none;
+}
+.wind-sector-fill {
+  fill: var(--wind-port);
+  fill-opacity: 0.2;
 }
 .fixed-dial {
   stroke: var(--wind-dial);
