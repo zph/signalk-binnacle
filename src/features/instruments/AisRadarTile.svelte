@@ -6,6 +6,7 @@ import type { OwnVessel } from '$entities/vessel';
 import { RAD_TO_DEG } from '$shared/lib';
 import type { Theme } from '$shared/ui';
 import AisRadarSeascape from './AisRadarSeascape.svelte';
+import AisRadarTargetPopover from './AisRadarTargetPopover.svelte';
 import {
   AIS_RADAR_RANGES_NM,
   type AisRadarRangeNm,
@@ -60,6 +61,15 @@ const contacts = $derived.by(() => {
 });
 const indexContacts = createAisRadarContactIndexer();
 const indexedContacts = $derived(indexContacts(contacts));
+let selectedTargetId = $state<string | undefined>();
+let detailAnchor = $state<HTMLElement | undefined>();
+const selectedContact = $derived(
+  selectedTargetId ? indexedContacts.find((contact) => contact.id === selectedTargetId) : undefined,
+);
+const selectedTarget = $derived.by(() => {
+  void targets.version;
+  return selectedTargetId ? targets.find(selectedTargetId) : undefined;
+});
 const ownDirectionDeg = $derived((vessel.headingRad ?? vessel.cogRad ?? 0) * RAD_TO_DEG);
 const statusText = $derived(
   reading.state === 'never'
@@ -75,6 +85,19 @@ const PLOT_RADIUS = 176;
 const RINGS = [0.25, 0.5, 0.75, 1] as const;
 const labelForRing = (fraction: number): string => `${Number((rangeNm * fraction).toFixed(2))} nm`;
 const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RADIUS;
+
+function showTargetDetails(id: string, event: MouseEvent): void {
+  if (!(event.currentTarget instanceof HTMLElement)) return;
+  selectedTargetId = id;
+  detailAnchor = event.currentTarget;
+}
+
+function closeTargetDetails(): void {
+  const anchor = detailAnchor;
+  selectedTargetId = undefined;
+  detailAnchor = undefined;
+  requestAnimationFrame(() => anchor?.isConnected && anchor.focus({ preventScroll: true }));
+}
 </script>
 
 {#snippet radarFace()}
@@ -145,6 +168,20 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
           <circle cx="0" cy="0" r="12" />
         </g>
       </svg>
+      {#each indexedContacts as contact (contact.id)}
+        {@const x = coordinate(contact.x)}
+        {@const y = coordinate(contact.y)}
+        <button
+          type="button"
+          class="target-hit"
+          class:danger={contact.severity === 'danger'}
+          class:warning={contact.severity === 'warning'}
+          style={`--target-x: ${x / 4}%; --target-y: ${y / 4}%;`}
+          aria-label={`Open details for target ${contact.index}, ${contact.name}`}
+          title={`Open details for ${contact.name}`}
+          onclick={(event) => showTargetDetails(contact.id, event)}
+        ></button>
+      {/each}
     </div>
     {#if indexedContacts.length > 0}
       <aside class="target-legend" aria-label="AIS target index">
@@ -156,12 +193,20 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
               class:warning={contact.severity === 'warning'}
               class:unassessed={contact.severity === 'unassessed'}
             >
-              <span class="legend-index">{contact.index}</span>
-              <span class="legend-details">
-                <strong>{contact.name}</strong>
-                <span>{contact.sogText}</span>
-                <span>{contact.cpaText}</span>
-              </span>
+              <button
+                type="button"
+                class="legend-row"
+                aria-label={`Open details for target ${contact.index}, ${contact.name}`}
+                title={`Open details for ${contact.name}`}
+                onclick={(event) => showTargetDetails(contact.id, event)}
+              >
+                <span class="legend-index">{contact.index}</span>
+                <span class="legend-details">
+                  <strong>{contact.name}</strong>
+                  <span>{contact.sogText}</span>
+                  <span>{contact.cpaText}</span>
+                </span>
+              </button>
             </li>
           {/each}
         </ol>
@@ -175,6 +220,14 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
     <span>{label}</span>
     <span>{rangeNm} nm · {contacts.length} AIS</span>
   </div>
+  {#if selectedTarget && selectedContact && detailAnchor}
+    <AisRadarTargetPopover
+      target={selectedTarget}
+      contact={selectedContact}
+      anchor={detailAnchor}
+      onClose={closeTargetDetails}
+    />
+  {/if}
 {/snippet}
 
 {#if expanded}
@@ -204,15 +257,16 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
     <div class="face face--expanded">{@render radarFace()}</div>
   </section>
 {:else}
-  <button
-    class="tile ais-radar"
-    type="button"
-    aria-label={accessibleLabel}
-    title={accessibleLabel}
-    onclick={onOpen}
-  >
+  <section class="tile ais-radar">
+    <button
+      class="tile tile-open"
+      type="button"
+      aria-label={accessibleLabel}
+      title={accessibleLabel}
+      onclick={onOpen}
+    ></button>
     <div class="face">{@render radarFace()}</div>
-  </button>
+  </section>
 {/if}
 
 <style>
@@ -231,6 +285,28 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   inline-size: 100%;
   min-inline-size: 0;
   place-items: center;
+  pointer-events: none;
+}
+.face :global(button) {
+  pointer-events: auto;
+}
+.face :global(.ais-target-popover) {
+  pointer-events: auto;
+}
+.tile-open {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.tile-open:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .radar-stage {
   position: relative;
@@ -326,6 +402,36 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
+.target-hit {
+  position: absolute;
+  inset-inline-start: var(--target-x);
+  inset-block-start: var(--target-y);
+  z-index: 2;
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+.target-hit:hover,
+.target-hit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-tint);
+}
+.target-hit.danger:hover,
+.target-hit.danger:focus-visible {
+  outline-color: var(--alarm);
+  background: var(--alarm-tint);
+}
+.target-hit.warning:hover,
+.target-hit.warning:focus-visible {
+  outline-color: var(--warning);
+  background: var(--warning-tint);
+}
 .motion-vector {
   stroke: var(--accent);
   stroke-width: 1;
@@ -386,11 +492,6 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   list-style: none;
 }
 .target-legend li {
-  display: grid;
-  grid-template-columns: 1.6rem minmax(0, 1fr);
-  gap: var(--space-2);
-  align-items: start;
-  padding: var(--space-1);
   border-inline-start: 2px solid var(--accent);
 }
 .target-legend li.danger {
@@ -399,6 +500,26 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
 .target-legend li.warning,
 .target-legend li.unassessed {
   border-inline-start-color: var(--warning);
+}
+.legend-row {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+  inline-size: 100%;
+  min-block-size: var(--control-size);
+  padding: var(--space-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.legend-row:hover,
+.legend-row:focus-visible {
+  background: var(--accent-tint);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .legend-index {
   display: grid;
@@ -525,6 +646,9 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
     padding: var(--space-1);
   }
   .target-legend li {
+    min-inline-size: 0;
+  }
+  .legend-row {
     grid-template-columns: 1.4rem minmax(0, 1fr);
     gap: var(--space-1);
   }

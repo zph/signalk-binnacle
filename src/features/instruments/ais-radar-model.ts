@@ -21,6 +21,9 @@ export interface AisRadarContact {
   vectorX: number;
   vectorY: number;
   rangeMeters: number;
+  bearingRad: number;
+  cpaMeters?: number;
+  tcpaSeconds?: number;
   sogText: string;
   cpaText: string;
   severity: Severity | 'unassessed';
@@ -124,6 +127,9 @@ export function buildAisRadarContacts({
       vectorX: course === undefined ? 0 : Math.sin(course) * projected,
       vectorY: course === undefined ? 0 : -Math.cos(course) * projected,
       rangeMeters: distance,
+      bearingRad: bearing,
+      cpaMeters,
+      tcpaSeconds,
       sogText: sogMps === undefined ? 'SOG --' : `SOG ${formatKnotsOr(sogMps)} kn`,
       cpaText:
         cpaMeters === undefined || tcpaSeconds === undefined
