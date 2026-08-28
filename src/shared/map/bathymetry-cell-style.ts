@@ -132,7 +132,9 @@ export function bathymetryCellLayers(
       minzoom: 13,
       layout: {
         'text-field': ['get', 'BATHY_LABEL'],
-        'text-font': ['Noto Sans Bold'],
+        // Use the same font stack as working ENC labels. The configured glyph endpoint does not
+        // provide Noto Sans Bold, and MapLibre silently drops text when a font stack is unavailable.
+        'text-font': ['Noto Sans Regular'],
         // H3 cells remain nearly constant in screen size as their resolution changes. A 17 to 20
         // pixel label occupies roughly one-third of the cell height while retaining breathing room.
         'text-size': bathymetryLabelTextSize(['get', 'BATHY_LABEL_RELATIVE_SIZE']),
