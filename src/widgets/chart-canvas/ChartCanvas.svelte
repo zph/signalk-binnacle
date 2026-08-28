@@ -310,7 +310,11 @@ const markerInteractionsAllowed = (): boolean =>
   !marineRadarLayer?.chartEditing();
 const selectChartFeature = (selection: ChartFeatureSelection): void => {
   if (!markerInteractionsAllowed()) return;
-  if (selection.properties.BATHYMETRY_PROVIDER === 'signalk-bathymetry' && mapRef) {
+  if (
+    selection.properties.BATHY_DEPTH_M !== undefined &&
+    selection.properties.BATHY_VERTICAL_SIGMA_M !== undefined &&
+    mapRef
+  ) {
     const point = mapRef.project([selection.longitude, selection.latitude]);
     const nearby = mapRef.queryRenderedFeatures(
       [
@@ -321,7 +325,7 @@ const selectChartFeature = (selection: ChartFeatureSelection): void => {
     );
     const depths = nearby
       .filter((feature) => feature.sourceLayer === 'SOUNDG')
-      .filter((feature) => feature.properties?.BATHYMETRY_PROVIDER !== 'signalk-bathymetry')
+      .filter((feature) => feature.properties?.BATHY_DEPTH_M === undefined)
       .map((feature) => {
         const value =
           feature.properties?.VALSOU ?? feature.properties?.DEPTH ?? feature.properties?.DRVAL1;
@@ -341,10 +345,11 @@ const selectChartFeature = (selection: ChartFeatureSelection): void => {
       if (Number.isFinite(localDepth)) {
         selection = {
           ...selection,
-          officialComparison: {
+          bathymetryComparison: {
             depthM: officialDepthM,
             deltaM: localDepth - officialDepthM,
             count: depths.length,
+            source: 'visible chart',
           },
         };
       }

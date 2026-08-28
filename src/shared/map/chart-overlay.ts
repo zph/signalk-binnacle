@@ -38,10 +38,11 @@ export interface ChartFeatureSelection {
   height: number;
   longitude: number;
   latitude: number;
-  officialComparison?: {
+  bathymetryComparison?: {
     depthM: number;
     deltaM: number;
     count: number;
+    source: string;
   };
 }
 

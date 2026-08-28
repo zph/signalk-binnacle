@@ -96,15 +96,15 @@ const change = $derived(
         <span class="num">{details.robustDepth}</span><span class="unit">{details.depthUnit}</span>
       </dd>
     {/if}
-    {#if details.officialComparison}
+    {#if details.bathymetryComparison}
       <dt>Nearby chart sounding</dt>
       <dd>
-        <span class="num">{details.officialComparison.depth}</span
+        <span class="num">{details.bathymetryComparison.depth}</span
         ><span class="unit">{details.depthUnit}</span>
       </dd>
       <dt>Difference (local − official)</dt>
       <dd>
-        <span class="num">{details.officialComparison.delta}</span
+        <span class="num">{details.bathymetryComparison.delta}</span
         ><span class="unit">{details.depthUnit}</span>
       </dd>
     {/if}
@@ -149,11 +149,11 @@ const change = $derived(
       retain credible shallower evidence while a deeper seabed estimate is being evaluated.
     </p>
   {/if}
-  {#if details.isLocalBathymetry && details.officialComparison}
+  {#if details.isLocalBathymetry && details.bathymetryComparison}
     <p class="muted-note muted-note--xs">
-      Compared with {details.officialComparison.count} nearby chart sounding{details.officialComparison.count === 1 ? '' : 's'}.
-      When an official vector chart is visible, these are its measurements. The difference is a
-      consistency check, not a correction or a safety guarantee.
+      Compared with {details.bathymetryComparison.count} nearby chart sounding{details.bathymetryComparison.count === 1 ? '' : 's'}
+      from {details.bathymetryComparison.source}. The difference is a consistency check, not a
+      correction or a safety guarantee.
     </p>
   {/if}
   {#if change}

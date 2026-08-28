@@ -49,7 +49,12 @@ describe('chartFeatureDetails', () => {
     expect(details.observations).toBe(3);
     expect(details.soundings).toBe(27);
     expect(details.safetyThreshold).toBe('2.3');
-    expect(details.officialComparison).toEqual({ depth: '6.5', delta: '0.3', count: 4 });
+    expect(details.bathymetryComparison).toEqual({
+      depth: '6.5',
+      delta: '0.3',
+      count: 4,
+      source: 'visible chart',
+    });
   });
 
   it('converts meter-native tile values into the active imperial display unit', () => {

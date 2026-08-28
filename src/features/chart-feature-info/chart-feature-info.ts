@@ -22,7 +22,7 @@ export interface ChartFeatureDetails {
   datum?: string;
   mode?: 'datum' | 'water';
   changeState?: string;
-  officialComparison?: { depth: string; delta: string; count: number };
+  bathymetryComparison?: { depth: string; delta: string; count: number; source: string };
   safetyThreshold?: string;
 }
 
@@ -40,13 +40,12 @@ export function chartFeatureDetails(
       .filter(Boolean)
       .map(humanizeReason) ?? [];
   const result: ChartFeatureDetails = {
-    isLocalBathymetry: stringProperty(properties, 'BATHYMETRY_PROVIDER') === 'signalk-bathymetry',
-    title:
-      stringProperty(properties, 'BATHYMETRY_PROVIDER') === 'signalk-bathymetry'
-        ? 'Local bathymetry cell'
-        : selection.sourceLayer === 'SOUNDG'
-          ? 'Chart sounding'
-          : 'Chart depth area',
+    isLocalBathymetry: hasBathymetryMetadata(properties),
+    title: hasBathymetryMetadata(properties)
+      ? 'Local bathymetry cell'
+      : selection.sourceLayer === 'SOUNDG'
+        ? 'Chart sounding'
+        : 'Chart depth area',
     depthUnit,
     cellSizeUnit: lengthUnit(mode),
     confidenceReasons: reasons,
@@ -74,15 +73,23 @@ export function chartFeatureDetails(
   const officialDeltaM = numberProperty(properties, 'BATHY_OFFICIAL_DELTA_M');
   const officialCount = integerProperty(properties, 'BATHY_OFFICIAL_COUNT');
   if (officialDepthM !== undefined && officialDeltaM !== undefined && officialCount !== undefined) {
-    result.officialComparison = {
+    result.bathymetryComparison = {
       depth: formatDepth(officialDepthM, depthUnit),
       delta: formatDepth(officialDeltaM, depthUnit),
       count: officialCount,
+      source: stringProperty(properties, 'BATHY_OFFICIAL_SOURCE') ?? 'visible chart',
     };
   }
   const thresholdM = numberProperty(properties, 'BATHY_SAFETY_THRESHOLD_M');
   if (thresholdM !== undefined) result.safetyThreshold = formatDepth(thresholdM, depthUnit);
   return result;
+}
+
+function hasBathymetryMetadata(properties: Record<string, unknown>): boolean {
+  return (
+    numberProperty(properties, 'BATHY_DEPTH_M') !== undefined &&
+    numberProperty(properties, 'BATHY_VERTICAL_SIGMA_M') !== undefined
+  );
 }
 
 function formatDepth(meters: number, unit: DepthUnit): string {
