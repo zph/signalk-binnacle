@@ -4,6 +4,8 @@ import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
 import type { OwnVessel } from '$entities/vessel';
 import { RAD_TO_DEG } from '$shared/lib';
+import type { Theme } from '$shared/ui';
+import AisRadarSeascape from './AisRadarSeascape.svelte';
 import {
   AIS_RADAR_RANGES_NM,
   type AisRadarRangeNm,
@@ -19,6 +21,9 @@ interface Props {
   collision: CollisionAssessment;
   rangeNm: AisRadarRangeNm;
   onRangeChange: (rangeNm: AisRadarRangeNm) => void;
+  theme: Theme;
+  companionBase?: string | null;
+  getToken?: () => string | undefined;
   expanded?: boolean;
   actionLabel: string;
   onOpen: () => void;
@@ -32,6 +37,9 @@ const {
   collision,
   rangeNm,
   onRangeChange,
+  theme,
+  companionBase,
+  getToken,
   expanded = false,
   actionLabel,
   onOpen,
@@ -67,71 +75,76 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
 </script>
 
 {#snippet radarFace()}
-  <svg class="radar" viewBox="0 0 400 400" aria-hidden="true">
-    <circle class="sector sector--outer" cx={CENTER} cy={CENTER} r={PLOT_RADIUS} />
-    <circle class="sector sector--yellow" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.75} />
-    <circle class="sector sector--amber" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.5} />
-    <circle class="sector sector--red" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.25} />
-    <path
-      class="heading-sector"
-      d="M 200 200 L 154.45 30 A 176 176 0 0 1 245.55 30 Z"
-      transform={`rotate(${ownDirectionDeg} ${CENTER} ${CENTER})`}
-    />
-    <line class="bearing-line" x1={CENTER} y1={24} x2={CENTER} y2={376} />
-    <line class="bearing-line" x1={24} y1={CENTER} x2={376} y2={CENTER} />
-    <g class="north-compass" transform="translate(42 42)">
-      <circle r="17" />
-      <path d="M 0 -13 L 4 2 L 0 -1 L -4 2 Z" />
-      <line x1="0" y1="-1" x2="0" y2="11" />
-      <text y="-21" text-anchor="middle">N</text>
-    </g>
-    {#each RINGS as fraction (fraction)}
-      <text class="ring-label" x={CENTER + 5} y={CENTER - PLOT_RADIUS * fraction + 11}>
-        {labelForRing(fraction)}
-      </text>
-    {/each}
-
-    {#each contacts as contact (contact.id)}
-      {@const x = coordinate(contact.x)}
-      {@const y = coordinate(contact.y)}
-      {@const anchor = contact.x > 0.42 ? 'end' : 'start'}
-      {@const labelX = contact.x > 0.42 ? x - 9 : x + 9}
-      <g
-        class:danger={contact.severity === 'danger'}
-        class:warning={contact.severity === 'warning'}
-        class:unassessed={contact.severity === 'unassessed'}
-      >
-        <title>{contact.name}, {contact.sogText}, {contact.cpaText}</title>
-        {#if contact.vectorX !== 0 || contact.vectorY !== 0}
-          <line
-            class="motion-vector"
-            x1={x}
-            y1={y}
-            x2={coordinate(contact.x + contact.vectorX)}
-            y2={coordinate(contact.y + contact.vectorY)}
-          />
-        {/if}
-        <path
-          class="target"
-          d="M 0 -8 L 5.5 7 L 0 4.5 L -5.5 7 Z"
-          transform={`translate(${x} ${y}) rotate(${contact.directionDeg})`}
-        />
-        {#if contact.severity === 'unassessed'}
-          <text class="quality-mark" {x} y={y - 10} text-anchor="middle">?</text>
-        {/if}
-        <text class="target-label" x={labelX} y={y - 2} text-anchor={anchor}>
-          <tspan class="target-name" x={labelX}>{contact.name}</tspan>
-          <tspan x={labelX} dy="9">{contact.sogText}</tspan>
-          <tspan x={labelX} dy="9">{contact.cpaText}</tspan>
-        </text>
+  <div class="radar-stage">
+    {#if ownPosition}
+      <AisRadarSeascape position={ownPosition} {rangeNm} {theme} {companionBase} {getToken} />
+    {/if}
+    <svg class="radar" viewBox="0 0 400 400" aria-hidden="true">
+      <circle class="sector sector--outer" cx={CENTER} cy={CENTER} r={PLOT_RADIUS} />
+      <circle class="sector sector--yellow" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.75} />
+      <circle class="sector sector--amber" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.5} />
+      <circle class="sector sector--red" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.25} />
+      <path
+        class="heading-sector"
+        d="M 200 200 L 154.45 30 A 176 176 0 0 1 245.55 30 Z"
+        transform={`rotate(${ownDirectionDeg} ${CENTER} ${CENTER})`}
+      />
+      <line class="bearing-line" x1={CENTER} y1={24} x2={CENTER} y2={376} />
+      <line class="bearing-line" x1={24} y1={CENTER} x2={376} y2={CENTER} />
+      <g class="north-compass" transform="translate(42 42)">
+        <circle r="17" />
+        <path d="M 0 -13 L 4 2 L 0 -1 L -4 2 Z" />
+        <line x1="0" y1="-1" x2="0" y2="11" />
+        <text y="-21" text-anchor="middle">N</text>
       </g>
-    {/each}
+      {#each RINGS as fraction (fraction)}
+        <text class="ring-label" x={CENTER + 5} y={CENTER - PLOT_RADIUS * fraction + 11}>
+          {labelForRing(fraction)}
+        </text>
+      {/each}
 
-    <g class="own-ship" transform={`translate(${CENTER} ${CENTER}) rotate(${ownDirectionDeg})`}>
-      <path d="M 0 -13 L 7 7 L 5 11 L -5 11 L -7 7 Z" />
-      <circle cx="0" cy="0" r="12" />
-    </g>
-  </svg>
+      {#each contacts as contact (contact.id)}
+        {@const x = coordinate(contact.x)}
+        {@const y = coordinate(contact.y)}
+        {@const anchor = contact.x > 0.42 ? 'end' : 'start'}
+        {@const labelX = contact.x > 0.42 ? x - 9 : x + 9}
+        <g
+          class:danger={contact.severity === 'danger'}
+          class:warning={contact.severity === 'warning'}
+          class:unassessed={contact.severity === 'unassessed'}
+        >
+          <title>{contact.name}, {contact.sogText}, {contact.cpaText}</title>
+          {#if contact.vectorX !== 0 || contact.vectorY !== 0}
+            <line
+              class="motion-vector"
+              x1={x}
+              y1={y}
+              x2={coordinate(contact.x + contact.vectorX)}
+              y2={coordinate(contact.y + contact.vectorY)}
+            />
+          {/if}
+          <path
+            class="target"
+            d="M 0 -8 L 5.5 7 L 0 4.5 L -5.5 7 Z"
+            transform={`translate(${x} ${y}) rotate(${contact.directionDeg})`}
+          />
+          {#if contact.severity === 'unassessed'}
+            <text class="quality-mark" {x} y={y - 10} text-anchor="middle">?</text>
+          {/if}
+          <text class="target-label" x={labelX} y={y - 2} text-anchor={anchor}>
+            <tspan class="target-name" x={labelX}>{contact.name}</tspan>
+            <tspan x={labelX} dy="9">{contact.sogText}</tspan>
+            <tspan x={labelX} dy="9">{contact.cpaText}</tspan>
+          </text>
+        </g>
+      {/each}
+
+      <g class="own-ship" transform={`translate(${CENTER} ${CENTER}) rotate(${ownDirectionDeg})`}>
+        <path d="M 0 -13 L 7 7 L 5 11 L -5 11 L -7 7 Z" />
+        <circle cx="0" cy="0" r="12" />
+      </g>
+    </svg>
+  </div>
   {#if reading.state !== 'live'}
     <div class="radar-message">{statusText}</div>
   {/if}
@@ -196,11 +209,19 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
   min-inline-size: 0;
   place-items: center;
 }
-.radar {
-  display: block;
+.radar-stage {
+  position: relative;
+  display: grid;
   inline-size: min(100%, 28rem);
-  block-size: 100%;
   max-block-size: 100%;
+  aspect-ratio: 1;
+}
+.radar {
+  position: relative;
+  z-index: 1;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
   color: var(--accent);
 }
 .sector {
@@ -381,7 +402,7 @@ const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RA
 .face--expanded {
   padding: calc(var(--touch-target) + var(--space-3)) var(--space-3) var(--space-3);
 }
-.face--expanded .radar {
+.face--expanded .radar-stage {
   inline-size: min(78vmin, 100%);
   max-inline-size: 70rem;
 }

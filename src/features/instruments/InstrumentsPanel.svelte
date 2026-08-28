@@ -6,6 +6,7 @@ import { type Snippet, untrack } from 'svelte';
 import type { Action } from 'svelte/action';
 import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
+import type { Theme } from '$shared/ui';
 import { CustomizeToggle, createReorder, dialog, PanelHeader, trapFocus } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
@@ -25,6 +26,9 @@ interface Props {
   collision?: CollisionAssessment;
   aisRadarRangeNm?: AisRadarRangeNm;
   onAisRadarRangeChange?: (rangeNm: AisRadarRangeNm) => void;
+  theme?: Theme;
+  companionBase?: string | null;
+  chartToken?: string;
   initialExpandedRequest?: { id: string; sequence: number };
   onExpandedRequestHandled?: () => void;
   initialDetailId?: string;
@@ -52,6 +56,9 @@ const {
   collision,
   aisRadarRangeNm = DEFAULT_AIS_RADAR_RANGE_NM,
   onAisRadarRangeChange = () => {},
+  theme = 'day',
+  companionBase,
+  chartToken,
   initialExpandedRequest,
   onExpandedRequestHandled,
   initialDetailId,
@@ -76,6 +83,9 @@ const aisRadar = $derived(
         collision,
         rangeNm: aisRadarRangeNm,
         onRangeChange: onAisRadarRangeChange,
+        theme,
+        companionBase,
+        getToken: () => chartToken,
       }
     : undefined,
 );

@@ -213,6 +213,21 @@ describe('createThemedMap attribution', () => {
 });
 
 describe('createThemedMap onLoad', () => {
+  it('supports a noninteractive map without navigation and scale controls', async () => {
+    createThemedMap({
+      container,
+      interactive: false,
+      showMapControls: false,
+      attributionControl: false,
+      onLoad: () => {},
+    });
+    const map = await lastMap();
+
+    expect(map.options.interactive).toBe(false);
+    expect(map.options.attributionControl).toBe(false);
+    expect(map.controls).toEqual([]);
+  });
+
   it('exposes the initialized map before the style loads', async () => {
     const onLoad = vi.fn();
     const handle = createThemedMap({ container, onLoad });

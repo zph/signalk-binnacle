@@ -3386,6 +3386,9 @@ const plotterActions = {
           {collision}
           aisRadarRangeNm={aisRadarRangeNm.value}
           onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
+          theme={theme.theme}
+          {companionBase}
+          chartToken={chartsToken}
           initialExpandedRequest={instrumentExpandedRequest}
           onExpandedRequestHandled={() => (instrumentExpandedRequest = undefined)}
           onOpenTideSettings={openTideStationSettings}

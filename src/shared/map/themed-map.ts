@@ -42,6 +42,11 @@ export interface ThemedMapApi {
 
 export interface ThemedMapOptions {
   container: HTMLElement;
+  // Secondary read-only map surfaces can disable gesture handlers, map controls, and, when the
+  // containing primary map already carries it, the duplicate attribution control.
+  interactive?: boolean;
+  showMapControls?: boolean;
+  attributionControl?: boolean;
   // The Chart Locker plugin base when installed, so the basemap style is proxied and cached, or
   // null or undefined for the direct openfreemap style.
   companionBase?: string | null;
@@ -183,6 +188,7 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       minZoom: opts.minZoom,
       maxZoom: opts.maxZoom,
       pixelRatio: opts.pixelRatio,
+      interactive: opts.interactive,
       canvasContextAttributes: MAP_CONTEXT_ATTRIBUTES,
       // MapLibre 6 defaults to 4. Undefined preserves v5 vector rendering and query behavior.
       zoomLevelsToOverscale: undefined,
@@ -190,7 +196,7 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       touchPitch: false,
       pitchWithRotate: false,
       maxPitch: 0,
-      attributionControl: { compact: true },
+      attributionControl: opts.attributionControl === false ? false : { compact: true },
       transformRequest: (url: string) => {
         let parsed: URL;
         try {
@@ -266,14 +272,20 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
   map.on('terrain', collapseAttribution);
 
   const mapInstance = map;
-  mapInstance.addControl(
-    new maplibregl.NavigationControl({ showCompass: false, showZoom: true, visualizePitch: false }),
-    'top-right',
-  );
-  mapInstance.addControl(
-    new maplibregl.ScaleControl({ maxWidth: 120, unit: 'nautical' }),
-    'bottom-right',
-  );
+  if (opts.showMapControls !== false) {
+    mapInstance.addControl(
+      new maplibregl.NavigationControl({
+        showCompass: false,
+        showZoom: true,
+        visualizePitch: false,
+      }),
+      'top-right',
+    );
+    mapInstance.addControl(
+      new maplibregl.ScaleControl({ maxWidth: 120, unit: 'nautical' }),
+      'bottom-right',
+    );
+  }
   let destroyed = false;
   // Teardown for the sync wiring runTick installs (the 'render' listener, the interval, and the
   // visibilitychange listener). A no-op until the overlay tick is built on 'load', then it delegates

@@ -3,6 +3,7 @@ import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
 import type { OwnVessel } from '$entities/vessel';
 import type { ZoneState } from '$shared/signalk';
+import type { Theme } from '$shared/ui';
 import AisRadarTile from './AisRadarTile.svelte';
 import AttitudeTile from './AttitudeTile.svelte';
 import type { AisRadarRangeNm } from './ais-radar-model';
@@ -29,6 +30,9 @@ interface Props {
     collision: CollisionAssessment;
     rangeNm: AisRadarRangeNm;
     onRangeChange: (rangeNm: AisRadarRangeNm) => void;
+    theme: Theme;
+    companionBase?: string | null;
+    getToken?: () => string | undefined;
   };
   onActivate: () => void;
   onTideSettings?: () => void;
@@ -59,6 +63,9 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     collision={aisRadar.collision}
     rangeNm={aisRadar.rangeNm}
     onRangeChange={aisRadar.onRangeChange}
+    theme={aisRadar.theme}
+    companionBase={aisRadar.companionBase}
+    getToken={aisRadar.getToken}
     {expanded}
     {actionLabel}
     onOpen={onActivate}
