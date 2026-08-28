@@ -1,6 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { FIXTURE_SERVER, openMenuItem, stubVesselsSelf } from './helpers';
+import {
+  chooseInstrumentPaneAction,
+  FIXTURE_SERVER,
+  openMenuItem,
+  stubVesselsSelf,
+} from './helpers';
 import { inspectInstrument } from './instrument-helpers';
 
 // The mariner helm scenarios: emergency reachability, alarm pileups, and staleness honesty under
@@ -186,7 +191,7 @@ async function exerciseHelmSurfaces(page: Page, cycle: number): Promise<void> {
   const expanded = page.getByRole('dialog', { name: 'Speed full-screen instrument' });
   await expect(expanded).toBeVisible();
   await expanded.getByRole('button', { name: /^Speed,.*Collapse instrument$/ }).click();
-  await dock.getByRole('button', { name: 'Close instruments dock' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Close instruments');
 
   await openSoakMenuItem(page, 'Layers and charts');
   const layers = page.getByRole('complementary', { name: 'Layers and charts' });
@@ -531,9 +536,9 @@ test('numeric drawer tiles fill their faces above bottom-pinned labels', async (
   await openMenuItem(page, 'Instrument dock');
 
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   await dock.getByRole('checkbox', { name: 'State of charge · 277 battery', exact: true }).check();
-  await dock.getByRole('button', { name: 'Done', exact: true }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
   const numericTiles = [
     dock.getByRole('button', { name: /^State of charge · 277 battery, 100 %/ }),
     dock.getByRole('button', { name: /^Depth \(Keel\), 0\.5 m/ }),

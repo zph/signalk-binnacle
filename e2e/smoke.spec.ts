@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import {
+  chooseInstrumentPaneAction,
   expectInsideViewport,
   expectNoHorizontalOverflow,
   openMenuItem,
@@ -1007,7 +1008,7 @@ test('saved route secondary actions use a labeled overflow menu', async ({ page 
   await expect(actions.getByRole('menuitem', { name: 'Delete route' })).toBeVisible();
 });
 
-test('instrument dock opens beside a still-present chart and closes from its header', async ({
+test('instrument dock opens beside a still-present chart and closes from its pane menu', async ({
   page,
 }) => {
   await page.goto('/');
@@ -1054,14 +1055,30 @@ test('instrument dock opens beside a still-present chart and closes from its hea
   await expect(dock.getByText('navigation.speedOverGround')).toBeVisible();
   await dock.getByRole('button', { name: 'Back to instruments' }).click();
   // Customize flips to the catalog rows and back.
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   await expect(dock.getByText('Tap an instrument to show or hide', { exact: false })).toBeVisible();
   await expect(dock.getByRole('button', { name: /Rescan|Scanning/ })).toBeVisible();
   await expect(dock.getByRole('heading', { name: 'Navigation' })).toBeVisible();
-  await dock.getByRole('button', { name: 'Done' }).click();
-  // Close from the header returns to the chart-only shell.
-  await dock.getByRole('button', { name: 'Close instruments dock' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
+  // The pane menu closes Instruments without reserving a chrome row.
+  await chooseInstrumentPaneAction(page, dock, 'Close instruments');
   await expect(dock).not.toBeVisible();
+});
+
+test('instrument tiles never require a pane-level vertical scrollbar', async ({ page }) => {
+  for (const width of [320, 600, 901, 1440]) {
+    await page.setViewportSize({ width, height: 520 });
+    await page.goto('/');
+    await openMenuItem(page, 'Instrument dock');
+    const dock = page.locator('#instrument-dock');
+    const tiles = dock.locator('.tiles');
+    await expect(tiles).toBeVisible();
+    await expect(dock.locator('.panel-header')).toHaveCount(0);
+    await expect
+      .poll(() => tiles.evaluate((element) => element.scrollHeight <= element.clientHeight + 1))
+      .toBe(true);
+    await chooseInstrumentPaneAction(page, dock, 'Close instruments');
+  }
 });
 
 test('instrument dock offers the combined wind rose with SOG and depth corners', async ({
@@ -1070,9 +1087,9 @@ test('instrument dock offers the combined wind rose with SOG and depth corners',
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   await dock.getByRole('checkbox', { name: 'Wind rose', exact: true }).check();
-  await dock.getByRole('button', { name: 'Done' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
 
   const rose = dock.locator('.tile--wind-rose');
   await expect(rose).toBeVisible();
@@ -1296,7 +1313,7 @@ test('history-only engine readings stay identifiable through selection and detai
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   await expect.poll(() => pathRequests).toBeGreaterThan(0);
   await expect.poll(() => valueRequests).toBeGreaterThan(0);
   expect(pathQuery).toEqual({
@@ -1321,7 +1338,7 @@ test('history-only engine readings stay identifiable through selection and detai
   await expect(rpmHistoryNote).toHaveText('Previously seen, no live data');
   await portEngine.check();
   await expect(rpmHistoryNote).toHaveText('Previously seen, no live data');
-  await dock.getByRole('button', { name: 'Done' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
   await inspectInstrument(
     dock.getByRole('button', { name: /^RPM · Port engine,.*Expand instrument$/ }),
   );
@@ -1348,9 +1365,9 @@ test('focused trends return to instrument detail without changing the saved over
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
   let dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   await dock.getByRole('checkbox', { name: 'Water speed', exact: true }).check();
-  await dock.getByRole('button', { name: 'Done' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
   await inspectInstrument(dock.getByRole('button', { name: /^Water speed,.*Expand instrument$/ }));
   const trendAction = dock.getByRole('button', { name: 'View recent trend' });
   await trendAction.click();
@@ -1488,7 +1505,7 @@ test('a touch drag on a customize grip reorders the shown instruments', async ({
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
 
   const shownTitles = () =>
     page.$$eval('.tile-list li[data-tile-row] .title', (els) =>
@@ -1525,7 +1542,7 @@ test('instrument tiles take the full screen under the breakpoint with their own 
   const dock = page.getByRole('dialog', { name: 'Instruments' });
   await expect(dock).toBeVisible();
   // Full-screen mode swaps the close label; this chrome is the only way back on a phone.
-  await dock.getByRole('button', { name: 'Close instruments, return to chart' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Close instruments');
   await expect(dock).not.toBeVisible();
 });
 

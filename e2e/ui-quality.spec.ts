@@ -1,6 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { expectInsideViewport, expectNoHorizontalOverflow, openMenuItem } from './helpers';
+import {
+  chooseInstrumentPaneAction,
+  expectInsideViewport,
+  expectNoHorizontalOverflow,
+  openMenuItem,
+} from './helpers';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -178,9 +183,7 @@ test('keeps chart controls legible and the instrument title on one line', async 
       }),
     )
     .toBe(1);
-  const customizeInstruments = page.getByRole('button', { name: 'Customize instruments' });
-  await expect(customizeInstruments.locator('svg.lucide-pencil')).toBeVisible();
-  await expect(customizeInstruments).toHaveText('');
+  await expect(page.locator('#instrument-dock .panel-header')).toHaveCount(0);
   await expect
     .poll(async () => {
       const [mapBox, scaleBox] = await Promise.all([
@@ -218,7 +221,7 @@ test('keeps long battery readings distinguishable in a night-red tablet dock', a
   await openMenuItem(page, 'Instrument dock');
   const dock = page.getByRole('complementary', { name: 'Instruments' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'night-red');
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   const labels = [
     'Voltage · Very Long House Battery Bank',
     'State of charge · Very Long House Battery Bank',
@@ -230,7 +233,7 @@ test('keeps long battery readings distinguishable in a night-red tablet dock', a
     await expect(checkbox).toBeVisible();
     await checkbox.check();
   }
-  await dock.getByRole('button', { name: 'Done' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
   for (const label of labels) {
     await expect(dock.getByRole('button', { name: new RegExp(`^${label},`) })).toBeVisible();
   }

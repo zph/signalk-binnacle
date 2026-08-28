@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openMenuItem, stubVesselsSelf } from './helpers';
+import { chooseInstrumentPaneAction, openMenuItem, stubVesselsSelf } from './helpers';
 
 test('unlocked instrument tiles drag into the persisted Customize order', async ({ page }) => {
   await page.addInitScript(() => {
@@ -17,8 +17,7 @@ test('unlocked instrument tiles drag into the persisted Customize order', async 
   const before = await tileOrder();
   expect(before.slice(0, 2)).toEqual(['sog', 'heading']);
 
-  await dock.getByRole('button', { name: 'Unlock instrument arrangement' }).click();
-  await expect(dock.getByRole('button', { name: 'Lock instrument arrangement' })).toBeVisible();
+  await chooseInstrumentPaneAction(page, dock, 'Unlock instrument arrangement');
   const firstHandle = dock.getByRole('button', { name: /^Move Speed, position 1 of/ });
   const secondTile = dock.locator('[data-tile-row="heading"]');
   const [handleBox, targetBox] = await Promise.all([
@@ -35,16 +34,17 @@ test('unlocked instrument tiles drag into the persisted Customize order', async 
   await page.mouse.up();
 
   await expect.poll(async () => (await tileOrder()).slice(0, 2)).toEqual(['heading', 'sog']);
-  await dock.getByRole('button', { name: 'Lock instrument arrangement' }).click();
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Lock instrument arrangement');
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   const customizeOrder = await dock
     .locator('.tile-list [data-tile-row]')
     .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-tile-row')));
   expect(customizeOrder.slice(0, 2)).toEqual(['heading', 'sog']);
 
-  await dock.getByRole('button', { name: 'Done', exact: true }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Finish customizing');
   await page.reload();
   await expect(dock).toBeVisible();
   await expect.poll(async () => (await tileOrder()).slice(0, 2)).toEqual(['heading', 'sog']);
-  await expect(dock.getByRole('button', { name: 'Unlock instrument arrangement' })).toBeVisible();
+  await dock.click({ button: 'right', position: { x: 12, y: 12 } });
+  await expect(page.getByRole('menuitem', { name: 'Unlock instrument arrangement' })).toBeVisible();
 });

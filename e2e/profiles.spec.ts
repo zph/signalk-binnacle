@@ -1,5 +1,10 @@
 import { expect, type Page, test } from '@playwright/test';
-import { expectInsideViewport, openMenuItem, stubVesselsSelf } from './helpers';
+import {
+  chooseInstrumentPaneAction,
+  expectInsideViewport,
+  openMenuItem,
+  stubVesselsSelf,
+} from './helpers';
 import { installMapLibreWorkerProof } from './maplibre-worker-proof';
 
 test.use({ serviceWorkers: 'block' });
@@ -141,7 +146,7 @@ test('profiles restore instrument order in a different browser', async ({ browse
   ).toBeVisible();
   await page.getByRole('button', { name: 'Open instrument dock' }).click();
   const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await dock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(page, dock, 'Customize instruments');
   const shownTitles = () =>
     page.$$eval('.tile-list li[data-tile-row] .title', (elements) =>
       elements.map((element) => element.textContent?.trim()),
@@ -191,7 +196,7 @@ test('profiles restore instrument order in a different browser', async ({ browse
 
   await secondPage.getByRole('button', { name: 'Open instrument dock' }).click();
   const secondDock = secondPage.getByRole('complementary', { name: 'Instruments' });
-  await secondDock.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(secondPage, secondDock, 'Customize instruments');
   const restoredTitles = await secondPage.$$eval(
     '.tile-list li[data-tile-row] .title',
     (elements) => elements.map((element) => element.textContent?.trim()),

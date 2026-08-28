@@ -101,50 +101,40 @@ describe('InstrumentsPanel', () => {
         y: 120,
         viewportWidth: 320,
         viewportHeight: 240,
+        customizing: false,
+        reordering: false,
         onInspect: () => {},
+        onToggleCustomize: () => {},
+        onToggleReorder: () => {},
+        onClosePanel: () => {},
         onClose: () => {},
       },
     });
     expect(body).toContain('aria-label="Speed actions"');
     expect(body).toContain('role="menuitem"');
-    expect(body).toContain('Inspect</button>');
+    expect(body).toContain('Inspect');
+    expect(body).toContain('Unlock instrument arrangement');
+    expect(body).toContain('Customize instruments');
+    expect(body).toContain('Close instruments');
   });
 
-  it('renders the Instruments heading in the panel header', () => {
+  it('uses a headerless instrument pane', () => {
     const controller = makeController();
     const deps = makeDeps();
     const { body } = render(InstrumentsPanel, { props: { controller, deps } });
-    expect(body).toContain('Instruments');
+    expect(body).not.toContain('panel-header');
+    expect(body).not.toContain('Close instruments dock');
   });
 
-  it('renders close button with aria-label "Close instruments dock" when not at full-screen breakpoint', () => {
-    // matchMedia is absent in node, so the component falls back to the dock label.
-    const controller = makeController();
-    const deps = makeDeps();
-    const { body } = render(InstrumentsPanel, { props: { controller, deps } });
-    expect(body).toContain('aria-label="Close instruments dock"');
-  });
-
-  it('renders the Customize instruments button as an accessible pencil icon', () => {
-    const controller = makeController();
-    const deps = makeDeps();
-    const { body } = render(InstrumentsPanel, { props: { controller, deps } });
-    expect(body).toContain('aria-label="Customize instruments"');
-    expect(body).toContain('lucide-pencil');
-    expect(body).not.toContain('>Customize<');
-  });
-
-  it('offers a locked arrangement mode independently of instrument customization', () => {
+  it('keeps pane actions out of persistent chrome', () => {
     const { body } = render(InstrumentsPanel, {
       props: {
         controller: makeController({ selectedIds: SELECTED_IDS }),
         deps: makeDeps(),
       },
     });
-    expect(body).toContain('aria-label="Unlock instrument arrangement"');
-    expect(body).toContain('aria-pressed="false"');
-    expect(body).toContain('lucide-lock');
-    expect(body).toContain('aria-label="Customize instruments"');
+    expect(body).not.toContain('Unlock instrument arrangement');
+    expect(body).not.toContain('Customize instruments');
   });
 
   it('uses the tile to expand without rendering a separate information control', () => {

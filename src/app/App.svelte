@@ -18,6 +18,7 @@ import LockOpen from '@lucide/svelte/icons/lock-open';
 import MapPin from '@lucide/svelte/icons/map-pin';
 import Maximize2 from '@lucide/svelte/icons/maximize-2';
 import MenuIcon from '@lucide/svelte/icons/menu';
+import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import Moon from '@lucide/svelte/icons/moon';
 import Navigation from '@lucide/svelte/icons/navigation';
 import PanelRight from '@lucide/svelte/icons/panel-right';
@@ -253,7 +254,6 @@ import {
   ErrorBoundary,
   LazyPanelState,
   PANEL_TRANSITION_MS,
-  PanelHeader,
   type PanelId,
   type Theme,
   trapFocus,
@@ -564,6 +564,7 @@ let layersOpenRequest = $state<{
 let menuOpen = $state(false);
 let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
+let browserFullScreen = $state(false);
 let mobCommandRequest = $state(0);
 // The helm toolbar can be tucked away without entering browser fullscreen. Its attached tab stays
 // reachable at the viewport edge, so the toolbar always has an obvious route back.
@@ -2128,6 +2129,24 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   const dockLayoutsBlocked = instrumentsViewportFullScreen;
   return [
     {
+      id: 'browser-fullscreen',
+      label: browserFullScreen ? 'Exit full screen' : 'Enter full screen',
+      description: browserFullScreen
+        ? 'Return Binnacle to its browser window'
+        : 'Use the entire display for Binnacle',
+      group: 'Display',
+      keywords: ['fullscreen', 'full-screen', 'screen', 'display'],
+      icon: browserFullScreen ? Minimize2 : Maximize2,
+      disabled:
+        typeof document === 'undefined' ||
+        (!browserFullScreen && typeof document.documentElement.requestFullscreen !== 'function'),
+      disabledReason: 'This browser does not offer full-screen mode.',
+      onSelect: () => {
+        if (document.fullscreenElement) void document.exitFullscreen();
+        else void document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      },
+    },
+    {
       id: 'go-to',
       label: 'Go to',
       description: 'Search chart layers, waypoints, AIS names, and OpenStreetMap',
@@ -2950,6 +2969,11 @@ onMount(() => {
     menuOpen = false;
   };
   window.addEventListener('keydown', onCommandPaletteShortcut);
+  const syncBrowserFullScreen = (): void => {
+    browserFullScreen = document.fullscreenElement !== null;
+  };
+  syncBrowserFullScreen();
+  document.addEventListener('fullscreenchange', syncBrowserFullScreen);
   // The auth controller owns the focus and cross-tab listeners that pick up an approval.
   auth.watch();
   void auth.probe().finally(() => {
@@ -3040,6 +3064,7 @@ onMount(() => {
     privacyChannel?.close();
     clearTimeout(profileStartupFallback);
     window.removeEventListener('keydown', onCommandPaletteShortcut);
+    document.removeEventListener('fullscreenchange', syncBrowserFullScreen);
   };
 });
 
@@ -3376,13 +3401,6 @@ const plotterActions = {
       use:dialog={() => instruments.setOpen(false)}
       use:trapFocus={instrumentsFullScreen}
     >
-      <PanelHeader
-        title="Instruments"
-        closeLabel={instrumentsFullScreen
-          ? 'Close instruments, return to chart'
-          : 'Close instruments dock'}
-        onClose={() => instruments.setOpen(false)}
-      />
       <div class="panel-body panel-body--flex">
         <div
           class:panel-loading={!onRetry}

@@ -23,6 +23,21 @@ export async function openMenuItem(page: Page, itemName: string): Promise<void> 
     .click();
 }
 
+// Pane chrome is intentionally absent so every vertical pixel is available to instruments. Open
+// its actions from any point in the pane, matching a mariner's right-click interaction.
+export async function chooseInstrumentPaneAction(
+  page: Page,
+  pane: Locator,
+  actionName: string | RegExp,
+): Promise<void> {
+  const box = await pane.boundingBox();
+  await pane.click({
+    button: 'right',
+    position: { x: Math.max(1, (box?.width ?? 24) - 12), y: 12 },
+  });
+  await page.getByRole('menuitem', { name: actionName }).click();
+}
+
 // The stream fixture's port and origins, in one place: playwright.config.ts starts the server
 // with this port, the mariner project navigates the app origin, and the spec drives the control
 // channel at the server root, so the three cannot desync.

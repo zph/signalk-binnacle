@@ -373,9 +373,10 @@ Shared behavior lives here. Compose these; do not re-implement them.
   radar-area placement are the canonical minimize examples. Every left-docked panel is a SlideOver.
 - `PanelHeader`: the header triad, a back arrow, the title and subtitle heading with an optional
   interleaved `headerExtra`, a minimize control, and the close button. SlideOver renders its header
-  through it, and the floating weather map panel and the instruments dock reuse it (the dock passes
-  its compact "Customize" entry through `headerExtra`, with "Customize instruments" retained as the
-  accessible name), so the headers cannot drift apart. Do not hand-roll a panel header.
+  through it, and the floating weather map panel reuses it, so the headers cannot drift apart. The
+  instruments dock deliberately has no header to reserve its full height for instrument faces. Its
+  close, arrangement-lock, and Customize actions live in the pane-wide right-click menu. Do not
+  hand-roll a panel header.
 - `ErrorBoundary`: the render boundary around every resolved lazy component. Its fallback receives
   the error and a one-use reset function. Render the same contextual Back, Close, Exit, or Done
   controls as the import-failure state, plus Retry. Update any local state that caused the failure

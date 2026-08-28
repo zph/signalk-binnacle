@@ -197,6 +197,40 @@ test('Command K enables and disables the trip log', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('Command K enters and exits browser full screen', async ({ page }) => {
+  await page.addInitScript(() => {
+    let fullScreenElement: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      get: () => fullScreenElement,
+    });
+    HTMLElement.prototype.requestFullscreen = async function () {
+      fullScreenElement = this;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+    document.exitFullscreen = async () => {
+      fullScreenElement = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+  });
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const search = palette.getByRole('searchbox', { name: 'Search commands' });
+  await search.fill('full screen');
+  await palette.getByRole('option', { name: /Enter full screen/ }).click();
+
+  await page.keyboard.press('Control+K');
+  await search.fill('full screen');
+  await expect(palette.getByRole('option', { name: /Exit full screen/ })).toBeVisible();
+  await palette.getByRole('option', { name: /Exit full screen/ }).click();
+
+  await page.keyboard.press('Control+K');
+  await search.fill('full screen');
+  await expect(palette.getByRole('option', { name: /Enter full screen/ })).toBeVisible();
+});
+
 test('opens the tide instrument full screen from the command palette', async ({ page }) => {
   await page.goto('/');
 

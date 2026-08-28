@@ -1,13 +1,21 @@
 import { expect, type Page, test } from '@playwright/test';
-import { openMenuItem } from './helpers';
+import { chooseInstrumentPaneAction, openMenuItem } from './helpers';
 
 async function openFullScreenWindRose(page: Page): Promise<void> {
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
 
-  await page.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(
+    page,
+    page.getByRole('complementary', { name: 'Instruments' }),
+    'Customize instruments',
+  );
   await page.getByRole('checkbox', { name: 'Wind rose', exact: true }).check();
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await chooseInstrumentPaneAction(
+    page,
+    page.getByRole('complementary', { name: 'Instruments' }),
+    'Finish customizing',
+  );
   await page.getByRole('button', { name: /^Wind rose\./ }).click();
 }
 
@@ -208,12 +216,20 @@ test('a half-page docked wind rose reserves gutters for its corner readouts', as
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
-  await page.getByRole('button', { name: 'Customize instruments' }).click();
+  await chooseInstrumentPaneAction(
+    page,
+    page.getByRole('complementary', { name: 'Instruments' }),
+    'Customize instruments',
+  );
   await page.getByRole('checkbox', { name: 'Heading', exact: true }).uncheck();
   await page.getByRole('checkbox', { name: 'Depth', exact: true }).uncheck();
   await page.getByRole('checkbox', { name: 'Wind', exact: true }).uncheck();
   await page.getByRole('checkbox', { name: 'Wind rose', exact: true }).check();
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await chooseInstrumentPaneAction(
+    page,
+    page.getByRole('complementary', { name: 'Instruments' }),
+    'Finish customizing',
+  );
   await page.getByRole('slider', { name: 'Resize instruments dock' }).press('End');
 
   const tile = page.getByRole('button', { name: /^Wind rose\./ });

@@ -1,13 +1,11 @@
 <script lang="ts">
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
-import Lock from '@lucide/svelte/icons/lock';
-import LockOpen from '@lucide/svelte/icons/lock-open';
 import { type Snippet, untrack } from 'svelte';
 import type { Action } from 'svelte/action';
 import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
 import type { Theme } from '$shared/ui';
-import { CustomizeToggle, createReorder, dialog, PanelHeader, trapFocus } from '$shared/ui';
+import { createReorder, dialog, trapFocus } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
 import InstrumentContextMenu from './InstrumentContextMenu.svelte';
@@ -96,13 +94,13 @@ let detailId = $state<string | undefined>();
 let expandedId = $state<string | undefined>();
 let tilesEl = $state<HTMLElement | undefined>();
 let instrumentMenu = $state<{
-  id: string;
-  label: string;
+  id?: string;
+  label?: string;
   x: number;
   y: number;
   viewportWidth: number;
   viewportHeight: number;
-  trigger: HTMLButtonElement;
+  trigger: HTMLElement;
 }>();
 $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
@@ -142,13 +140,7 @@ function spansWholeRow(kind: string, state: string): boolean {
   );
 }
 
-interface InstrumentMenuTarget {
-  id: string;
-  label: string;
-}
-
-const instrumentContextMenu: Action<HTMLElement, InstrumentMenuTarget> = (node, initialTarget) => {
-  let target = initialTarget;
+const instrumentContextMenu: Action<HTMLElement> = (node) => {
   const tileFromTarget = (eventTarget: EventTarget | null): HTMLButtonElement | undefined => {
     const tile =
       eventTarget instanceof Element
@@ -156,41 +148,38 @@ const instrumentContextMenu: Action<HTMLElement, InstrumentMenuTarget> = (node, 
         : undefined;
     return tile && node.contains(tile) ? tile : undefined;
   };
-  const openMenu = (tile: HTMLButtonElement, x?: number, y?: number): void => {
-    const bounds = tile.getBoundingClientRect();
+  const openMenu = (trigger: HTMLElement, x?: number, y?: number): void => {
+    const tile = tileFromTarget(trigger);
+    const shell = tile?.closest<HTMLElement>('[data-instrument-id]');
+    const focusTrigger = tile ?? trigger;
+    const bounds = focusTrigger.getBoundingClientRect();
     instrumentMenu = {
-      ...target,
+      id: shell?.dataset.instrumentId,
+      label: shell?.dataset.instrumentLabel,
       x: x ?? bounds.left + bounds.width / 2,
       y: y ?? bounds.top + bounds.height / 2,
       viewportWidth: document.documentElement.clientWidth,
       viewportHeight: document.documentElement.clientHeight,
-      trigger: tile,
+      trigger: focusTrigger,
     };
   };
   const handleContextMenu = (event: MouseEvent): void => {
-    const tile = tileFromTarget(event.target);
-    if (!tile) return;
     event.preventDefault();
     const keyboardPosition = event.clientX === 0 && event.clientY === 0;
     openMenu(
-      tile,
+      event.target instanceof HTMLElement ? event.target : node,
       keyboardPosition ? undefined : event.clientX,
       keyboardPosition ? undefined : event.clientY,
     );
   };
   const handleKeydown = (event: KeyboardEvent): void => {
     if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
-    const tile = tileFromTarget(event.target);
-    if (!tile) return;
     event.preventDefault();
-    openMenu(tile);
+    openMenu(event.target instanceof HTMLElement ? event.target : node);
   };
   node.addEventListener('contextmenu', handleContextMenu);
   node.addEventListener('keydown', handleKeydown);
   return {
-    update(nextTarget): void {
-      target = nextTarget;
-    },
     destroy(): void {
       node.removeEventListener('contextmenu', handleContextMenu);
       node.removeEventListener('keydown', handleKeydown);
@@ -210,6 +199,25 @@ function inspectInstrument(): void {
   instrumentMenu = undefined;
   expandedId = undefined;
   detailId = id;
+}
+
+function toggleReordering(): void {
+  instrumentMenu = undefined;
+  detailId = undefined;
+  customizing = false;
+  reordering = !reordering;
+}
+
+function toggleCustomizing(): void {
+  instrumentMenu = undefined;
+  detailId = undefined;
+  reordering = false;
+  customizing = !customizing;
+}
+
+function closePanel(): void {
+  instrumentMenu = undefined;
+  controller.setOpen(false);
 }
 
 // Session-only sparkline history: sampled here on the shared reactive clock so the buffers only
@@ -250,7 +258,12 @@ $effect(() => {
       y={instrumentMenu.y}
       viewportWidth={instrumentMenu.viewportWidth}
       viewportHeight={instrumentMenu.viewportHeight}
-      onInspect={inspectInstrument}
+      {customizing}
+      {reordering}
+      onInspect={instrumentMenu.id ? inspectInstrument : undefined}
+      onToggleCustomize={toggleCustomizing}
+      onToggleReorder={toggleReordering}
+      onClosePanel={closePanel}
       onClose={closeInstrumentMenu}
     />
   {/if}
@@ -267,50 +280,15 @@ $effect(() => {
   tabindex="-1"
   use:dialog={() => controller.setOpen(false)}
   use:trapFocus={fullscreen && expandedDef === undefined}
+  use:instrumentContextMenu
 >
   {#if !fullscreen}
     <InstrumentDockResize width={dockWidth} onResize={onDockResize} onCommit={onDockResizeCommit} />
   {/if}
-  <PanelHeader
-    title="Instruments"
-    closeLabel={fullscreen ? 'Close instruments, return to chart' : 'Close instruments dock'}
-    onClose={() => controller.setOpen(false)}
-  >
-    {#snippet headerExtra()}
-      {#if fullscreen && emergencyAction}
-        {@render emergencyAction()}
-      {/if}
-      {#if !customizing && !detailDef}
-        <button
-          type="button"
-          class="icon-btn"
-          class:icon-btn--accent={reordering}
-          aria-label={reordering ? 'Lock instrument arrangement' : 'Unlock instrument arrangement'}
-          aria-pressed={reordering}
-          title={reordering ? 'Lock instrument arrangement' : 'Unlock instrument arrangement'}
-          onclick={() => (reordering = !reordering)}
-        >
-          {#if reordering}
-            <LockOpen size={18} aria-hidden="true" />
-          {:else}
-            <Lock size={18} aria-hidden="true" />
-          {/if}
-        </button>
-      {/if}
-      <CustomizeToggle
-        object="instruments"
-        editing={customizing}
-        compact
-        iconOnly
-        onToggle={() => {
-          detailId = undefined;
-          reordering = false;
-          customizing = !customizing;
-        }}
-      />
-    {/snippet}
-  </PanelHeader>
   {#if fullscreen && !expandedDef}
+    {#if emergencyAction}
+      <div class="instrument-emergency-action">{@render emergencyAction()}</div>
+    {/if}
     {@render fixedLockAction()}
   {/if}
   {#if detailDef}
@@ -358,13 +336,14 @@ $effect(() => {
         {@const resolvedLabel = controller.resolvedLabel(def)}
         <div
           data-tile-row={def.id}
+          data-instrument-id={def.id}
+          data-instrument-label={resolvedLabel}
           class="tile-shell"
           class:tile-shell--wide={spansWholeRow(def.kind, reading.state)}
           class:reorder-row={reordering}
           class:dragging={reordering && reorder.dragId === def.id}
           class:drop-before={reordering && indicator.before}
           class:drop-after={reordering && indicator.after}
-          use:instrumentContextMenu={{ id: def.id, label: resolvedLabel }}
         >
           <InstrumentTile
             {def}
@@ -413,10 +392,8 @@ $effect(() => {
       tabindex="-1"
       use:dialog={() => (expandedId = undefined)}
       use:trapFocus={true}
-      use:instrumentContextMenu={{
-        id: expandedDef.id,
-        label: controller.resolvedLabel(expandedDef),
-      }}
+      data-instrument-id={expandedDef.id}
+      data-instrument-label={controller.resolvedLabel(expandedDef)}
     >
       <InstrumentTile
         def={expandedDef}
@@ -453,16 +430,19 @@ $effect(() => {
      Rows split the leftover dock height so the grid spans the dock, collapsing to min-content (and
      the existing scroll) when the tile set outgrows it. */
   grid-auto-flow: row;
-  grid-auto-rows: minmax(min-content, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
   gap: var(--space-2);
   flex: 1;
-  overflow-y: auto;
+  min-block-size: 0;
+  overflow: hidden;
   padding: var(--space-2) var(--space-3);
 }
 .tile-shell {
   position: relative;
   display: flex;
   min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
 }
 .tile-shell--wide {
   grid-column: 1 / -1;
@@ -527,6 +507,12 @@ $effect(() => {
 .instrument-lock-action {
   position: fixed;
   inset-inline-end: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+  inset-block-end: calc(var(--space-2) + var(--system-bar-clearance));
+  z-index: calc(var(--z-menu) + 1);
+}
+.instrument-emergency-action {
+  position: fixed;
+  inset-inline-start: calc(var(--space-4) + env(safe-area-inset-left, 0px));
   inset-block-end: calc(var(--space-2) + var(--system-bar-clearance));
   z-index: calc(var(--z-menu) + 1);
 }
