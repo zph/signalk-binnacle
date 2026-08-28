@@ -131,7 +131,6 @@ export function bathymetryCellLayers(
       // these properties onto DEPARE, and MapLibre places point-layout symbols at polygon centers.
       // This keeps each depth inside its cell without relying on the separate SOUNDG point geometry.
       'source-layer': 'DEPARE',
-      filter: ['all', ['has', 'BATHY_LABEL'], ['==', ['get', 'BATHY_SHOW_DEPTH_LABELS'], true]],
       minzoom: 13,
       layout: {
         // Normalize provider output because vector-tile encoders may preserve this value as either

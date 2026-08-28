@@ -36,11 +36,7 @@ describe('bathymetry cell style', () => {
     const label = layer(layers, 'soundg-bathymetry-label') as SymbolLayerSpecification;
     expect(label['source-layer']).toBe('DEPARE');
     expect(label.minzoom).toBe(13);
-    expect(label.filter).toEqual([
-      'all',
-      ['has', 'BATHY_LABEL'],
-      ['==', ['get', 'BATHY_SHOW_DEPTH_LABELS'], true],
-    ]);
+    expect(label.filter).toBeUndefined();
     expect(label.layout?.['text-field']).toEqual(['to-string', ['get', 'BATHY_LABEL']]);
     expect(label.layout?.['text-font']).toEqual(['Noto Sans Regular']);
     expect(label.layout?.['text-size']).toEqual([
