@@ -161,7 +161,12 @@ export function createChartOverlay(
   }
   // Interactive local soundings are an overlay on the navigation chart, not a competing base
   // chart. Keep them in the bathymetry band so their translucent cells remain visible over ENC.
-  const overlayBand = chart.featureInfo === 'bathymetry-cell' ? 'bathymetry' : band;
+  const overlayBand =
+    chart.featureInfo === 'bathymetry-cell'
+      ? 'bathymetry'
+      : chart.featureInfo === 'boat-friend'
+        ? 'traffic'
+        : band;
   const specs = chartToSpecs(chart, serverBase, { s57Style: options.s57Style });
   const labelSizeControl =
     chart.featureInfo === 'bathymetry-cell' ? BATHYMETRY_LABEL_SIZE_CONTROL : undefined;

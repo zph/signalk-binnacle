@@ -1,5 +1,6 @@
 import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
 import { bathymetryCellLayers } from './bathymetry-cell-style';
+import { boatFriendLayers } from './boat-friend-style';
 import type { SignalKChart } from './chart-types';
 import { DAY_PAINT, type MapColorKey } from './map-theme';
 import { type S57StyleOptions, s57ChartLayers } from './s57-chart-style';
@@ -212,10 +213,12 @@ function vectorSpecs(chart: SignalKChart, base: string, s57Style?: S57StyleOptio
       chart.type === 'S-57'
         ? chart.featureInfo === 'bathymetry-cell'
           ? bathymetryCellLayers(sourceId, chart.layers ?? [], s57Style)
-          : [
-              ...s57ChartLayers(sourceId, chart.layers ?? [], s57Style),
-              ...s57SymbolLayers(sourceId, chart.layers ?? []),
-            ]
+          : chart.featureInfo === 'boat-friend'
+            ? boatFriendLayers(sourceId)
+            : [
+                ...s57ChartLayers(sourceId, chart.layers ?? [], s57Style),
+                ...s57SymbolLayers(sourceId, chart.layers ?? []),
+              ]
         : vectorDrawLayers(sourceId, chart.layers ?? []),
   };
 }

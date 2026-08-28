@@ -26,6 +26,6 @@ export interface SignalKChart {
   tilemapUrl?: string;
   layers?: string[];
   defaultVisible?: boolean;
-  featureInfo?: 'bathymetry-cell';
+  featureInfo?: 'bathymetry-cell' | 'boat-friend';
   cellSizeControl?: ChartCellSizeControl;
 }

@@ -90,7 +90,9 @@ function chartFromEntry(id: string, raw: unknown): SignalKChart | undefined {
   if (url) chart.url = url;
   if (tilemapUrl) chart.tilemapUrl = tilemapUrl;
   if (typeof raw.defaultVisible === 'boolean') chart.defaultVisible = raw.defaultVisible;
-  if (raw.featureInfo === 'bathymetry-cell') chart.featureInfo = raw.featureInfo;
+  if (raw.featureInfo === 'bathymetry-cell' || raw.featureInfo === 'boat-friend') {
+    chart.featureInfo = raw.featureInfo;
+  }
   const cellSizeControl = safeCellSizeControl(raw.cellSizeControl);
   if (cellSizeControl && raw.featureInfo === 'bathymetry-cell') {
     chart.cellSizeControl = cellSizeControl;

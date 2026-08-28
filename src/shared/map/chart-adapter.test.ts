@@ -230,6 +230,34 @@ describe('chartToSpecs', () => {
     expect(JSON.stringify(layers[2]?.layout)).toContain('BATHY_LABEL_RELATIVE_SIZE');
   });
 
+  it('renders Boat Friends globally with stale positions faded', () => {
+    const chart: SignalKChart = {
+      identifier: 'signalk-boat-friends',
+      name: 'Boat Friends',
+      type: 'S-57',
+      format: 'pbf',
+      tilemapUrl: '/plugins/signalk-boat-friends/tiles/{z}/{x}/{y}.pbf',
+      layers: ['BOAT_FRIEND'],
+      featureInfo: 'boat-friend',
+      minzoom: 0,
+      maxzoom: 14,
+    };
+
+    const { sources, layers } = chartToSpecs(chart, base);
+
+    expect(sources['chart-signalk-boat-friends']).toMatchObject({
+      type: 'vector',
+      minzoom: 0,
+      maxzoom: 14,
+    });
+    expect(layers.map(({ id }) => id)).toEqual([
+      'chart-signalk-boat-friends-boat-friend-position',
+      'chart-signalk-boat-friends-boat-friend-label',
+    ]);
+    expect(layers[0]?.minzoom).toBeUndefined();
+    expect(JSON.stringify(layers[0]?.paint)).toContain('BOAT_FRIEND_STALE');
+  });
+
   it('treats S-57 as vector without relying on a format hint', () => {
     const chart: SignalKChart = {
       identifier: 'enc-without-format',

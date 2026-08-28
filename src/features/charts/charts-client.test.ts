@@ -186,6 +186,34 @@ describe('fetchCharts', () => {
     ]);
   });
 
+  it('retains the Boat Friends rendering contract', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        jsonResponse(200, {
+          friends: {
+            name: 'Boat Friends',
+            type: 'S-57',
+            featureInfo: 'boat-friend',
+            layers: ['BOAT_FRIEND'],
+            defaultVisible: true,
+          },
+        }),
+      ),
+    );
+
+    expect(await fetchCharts('http://pi.local')).toEqual([
+      {
+        identifier: 'friends',
+        name: 'Boat Friends',
+        type: 'S-57',
+        featureInfo: 'boat-friend',
+        layers: ['BOAT_FRIEND'],
+        defaultVisible: true,
+      },
+    ]);
+  });
+
   it('accepts a bounded cell-size control only for interactive bathymetry charts', async () => {
     const control = {
       queryParameter: 'cellScale',

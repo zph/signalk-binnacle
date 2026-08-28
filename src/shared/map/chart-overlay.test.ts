@@ -189,6 +189,22 @@ describe('chart overlay', () => {
     expect(overlay.band).toBe('bathymetry');
   });
 
+  it('places Boat Friends in the live traffic band', () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'signalk-boat-friends',
+        name: 'Boat Friends',
+        type: 'S-57',
+        featureInfo: 'boat-friend',
+        tilemapUrl: '/plugins/signalk-boat-friends/tiles/{z}/{x}/{y}.pbf',
+        layers: ['BOAT_FRIEND'],
+      },
+      'http://pi.local',
+    );
+
+    expect(overlay.band).toBe('traffic');
+  });
+
   it('remove deletes the layer and source', async () => {
     const overlay = createChartOverlay(
       { identifier: 'noaa', name: 'NOAA', type: 'tilelayer', tilemapUrl: '/t/{z}/{x}/{y}' },
