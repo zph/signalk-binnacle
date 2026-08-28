@@ -244,6 +244,7 @@ function closeTargetDetails(): void {
   display: flex;
   min-block-size: 15rem;
   overflow: hidden;
+  padding: var(--space-1);
   background: var(--surface-raised);
   color: var(--text);
 }
@@ -251,9 +252,7 @@ function closeTargetDetails(): void {
   position: relative;
   display: grid;
   inline-size: 100%;
-  block-size: 100%;
   min-inline-size: 0;
-  min-block-size: 0;
   place-items: center;
   pointer-events: none;
 }
@@ -281,9 +280,7 @@ function closeTargetDetails(): void {
 .radar-stage {
   position: relative;
   display: grid;
-  inline-size: auto;
-  block-size: min(100%, 28rem);
-  max-inline-size: 100%;
+  inline-size: min(100%, 28rem);
   max-block-size: 100%;
   aspect-ratio: 1;
 }
@@ -496,10 +493,12 @@ function closeTargetDetails(): void {
   background: var(--accent);
   color: var(--surface);
 }
+.face--expanded {
+  padding: calc(var(--touch-target) + var(--space-3)) var(--space-3) var(--space-3);
+}
 .face--expanded .radar-stage {
-  inline-size: auto;
-  block-size: 100%;
-  max-inline-size: min(100%, 70rem);
+  inline-size: min(78vmin, 100%);
+  max-inline-size: 70rem;
 }
 @media (max-width: 600px) {
   .ais-radar {
