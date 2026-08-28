@@ -564,10 +564,8 @@ let layersOpenRequest = $state<{
 let menuOpen = $state(false);
 let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
-let browserFullScreen = $state(false);
 
 function openCommandPalette(): void {
-  browserFullScreen = document.fullscreenElement !== null;
   commandPaletteOpen = true;
 }
 let mobCommandRequest = $state(0);
@@ -2112,18 +2110,16 @@ const CONFIGURABLE_MENU_ITEM_IDS = new Set([
 ]);
 
 async function toggleBrowserFullScreen(): Promise<void> {
-  try {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-  } finally {
-    // Chromium resolves the Fullscreen API promise after the document state changes, but an
-    // embedded browser can deliver fullscreenchange outside Svelte's event turn. Sync explicitly
-    // as well so reopening Command K always offers the inverse action immediately.
-    browserFullScreen = document.fullscreenElement !== null;
-  }
+  if (document.fullscreenElement) await document.exitFullscreen();
+  else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
 }
 
 const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
+  // Opening the palette invalidates this derived list. Read the browser directly at that point,
+  // because embedded Chromium can update fullscreenElement after both its event and API promise.
+  void commandPaletteOpen;
+  const browserFullScreenNow =
+    typeof document !== 'undefined' && document.fullscreenElement !== null;
   const menuCommands = menuItems
     .filter((item) => item.id !== 'instruments' && item.id !== 'command-palette')
     .map((item) => ({
@@ -2147,16 +2143,16 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   return [
     {
       id: 'browser-fullscreen',
-      label: browserFullScreen ? 'Exit full screen' : 'Enter full screen',
-      description: browserFullScreen
+      label: browserFullScreenNow ? 'Exit full screen' : 'Enter full screen',
+      description: browserFullScreenNow
         ? 'Return Binnacle to its browser window'
         : 'Use the entire display for Binnacle',
       group: 'Display',
       keywords: ['fullscreen', 'full-screen', 'screen', 'display'],
-      icon: browserFullScreen ? Minimize2 : Maximize2,
+      icon: browserFullScreenNow ? Minimize2 : Maximize2,
       disabled:
         typeof document === 'undefined' ||
-        (!browserFullScreen && typeof document.documentElement.requestFullscreen !== 'function'),
+        (!browserFullScreenNow && typeof document.documentElement.requestFullscreen !== 'function'),
       disabledReason: 'This browser does not offer full-screen mode.',
       onSelect: () => void toggleBrowserFullScreen(),
     },
@@ -2984,11 +2980,6 @@ onMount(() => {
     menuOpen = false;
   };
   window.addEventListener('keydown', onCommandPaletteShortcut);
-  const syncBrowserFullScreen = (): void => {
-    browserFullScreen = document.fullscreenElement !== null;
-  };
-  syncBrowserFullScreen();
-  document.addEventListener('fullscreenchange', syncBrowserFullScreen);
   // The auth controller owns the focus and cross-tab listeners that pick up an approval.
   auth.watch();
   void auth.probe().finally(() => {
@@ -3079,7 +3070,6 @@ onMount(() => {
     privacyChannel?.close();
     clearTimeout(profileStartupFallback);
     window.removeEventListener('keydown', onCommandPaletteShortcut);
-    document.removeEventListener('fullscreenchange', syncBrowserFullScreen);
   };
 });
 
