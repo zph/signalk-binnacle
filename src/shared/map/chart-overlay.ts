@@ -185,10 +185,7 @@ export function createChartOverlay(
         property,
         base: typeof paint?.[property] === 'number' ? paint[property] : 1,
       })),
-      bathymetryLabel:
-        chart.featureInfo === 'bathymetry-cell' &&
-        layer.type === 'symbol' &&
-        (layer as { 'source-layer'?: string })['source-layer'] === 'SOUNDG',
+      bathymetryLabel: chart.featureInfo === 'bathymetry-cell' && layer.type === 'symbol',
     };
   });
   const layerIds = layers.map((layer) => layer.id);

@@ -34,6 +34,7 @@ describe('bathymetry cell style', () => {
       'line-opacity': 0.9,
     });
     const label = layer(layers, 'soundg-bathymetry-label') as SymbolLayerSpecification;
+    expect(label['source-layer']).toBe('DEPARE');
     expect(label.minzoom).toBe(13);
     expect(label.filter).toEqual([
       'all',
