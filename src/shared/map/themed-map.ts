@@ -99,10 +99,6 @@ export interface ThemedMapHandle {
 
 const DEFAULT_CENTER: [number, number] = [0, 30];
 const DEFAULT_ZOOM = 2;
-// Higher display resolution is valuable once the chart settles, but its quadratic framebuffer cost
-// is wasted while pixels are moving under a pointer. Balanced and Crisp maps temporarily use one
-// device-independent pixel per CSS pixel, then restore their configured ratio at moveend.
-const INTERACTION_PIXEL_RATIO = 1;
 const STYLE_ARRIVAL_TIMEOUT_MS = 8_000;
 const MAP_CONTEXT_ATTRIBUTES = {
   alpha: true,
@@ -197,6 +193,7 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       maxZoom: opts.maxZoom,
       pixelRatio: opts.pixelRatio,
       interactive: opts.interactive ?? true,
+      trackResize: false,
       canvasContextAttributes: MAP_CONTEXT_ATTRIBUTES,
       // MapLibre 6 defaults to 4. Undefined preserves v5 vector rendering and query behavior.
       zoomLevelsToOverscale: undefined,
@@ -280,27 +277,6 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
   map.on('terrain', collapseAttribution);
 
   const mapInstance = map;
-  let restingPixelRatio: number | undefined;
-  let changingPixelRatio = false;
-  const lowerInteractionResolution = () => {
-    if (changingPixelRatio || restingPixelRatio !== undefined) return;
-    const current = mapInstance.getPixelRatio();
-    if (current <= INTERACTION_PIXEL_RATIO) return;
-    restingPixelRatio = current;
-    changingPixelRatio = true;
-    mapInstance.setPixelRatio(INTERACTION_PIXEL_RATIO);
-    changingPixelRatio = false;
-  };
-  const restoreRestingResolution = () => {
-    if (changingPixelRatio || restingPixelRatio === undefined) return;
-    const restore = restingPixelRatio;
-    restingPixelRatio = undefined;
-    changingPixelRatio = true;
-    mapInstance.setPixelRatio(restore);
-    changingPixelRatio = false;
-  };
-  mapInstance.on('movestart', lowerInteractionResolution);
-  mapInstance.on('moveend', restoreRestingResolution);
 
   if (opts.showMapControls !== false) {
     mapInstance.addControl(
@@ -399,10 +375,43 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
     mapInstance.addImage(id, transparentPixel);
   });
 
-  // The container resizes when side panels open or the viewport changes without a window resize, so
-  // observe it and let MapLibre re-fit rather than sit at a stale size.
-  const resizeObserver = new ResizeObserver(() => mapInstance.resize());
+  // The container resizes when side panels open or the viewport changes without a window resize.
+  // MapLibre resize stops its active camera transition, so defer an observer notification until a
+  // gesture ends instead of terminating a held drag while the surrounding shell is settling.
+  let resizePending = false;
+  const heldPointers = new Set<number>();
+  const resizeMap = () => {
+    if (heldPointers.size > 0 || mapInstance.isMoving()) {
+      resizePending = true;
+      return;
+    }
+    resizePending = false;
+    mapInstance.resize();
+  };
+  const flushPendingResize = () => {
+    if (resizePending) resizeMap();
+  };
+  const resizeObserver = new ResizeObserver(resizeMap);
   resizeObserver.observe(opts.container);
+  mapInstance.on('moveend', flushPendingResize);
+  const canvas = mapInstance.getCanvas();
+  const onPointerDown = (event: PointerEvent) => {
+    heldPointers.add(event.pointerId);
+  };
+  const onPointerEnd = (event: PointerEvent) => {
+    heldPointers.delete(event.pointerId);
+    if (heldPointers.size > 0 || !resizePending) return;
+    requestAnimationFrame(() => flushPendingResize());
+  };
+  const onVisibilityChange = () => {
+    if (!document.hidden || heldPointers.size === 0) return;
+    heldPointers.clear();
+    if (resizePending) requestAnimationFrame(() => flushPendingResize());
+  };
+  canvas.addEventListener('pointerdown', onPointerDown);
+  document.addEventListener('pointerup', onPointerEnd);
+  document.addEventListener('pointercancel', onPointerEnd);
+  document.addEventListener('visibilitychange', onVisibilityChange);
 
   // The 'move' event fires many times per drag frame; coalesce to one emit per animation frame.
   let viewPending = false;
@@ -505,8 +514,11 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       cancelLongPress();
       removeCanvasListeners();
       stopTick();
-      mapInstance.off('movestart', lowerInteractionResolution);
-      mapInstance.off('moveend', restoreRestingResolution);
+      mapInstance.off('moveend', flushPendingResize);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('pointerup', onPointerEnd);
+      document.removeEventListener('pointercancel', onPointerEnd);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       resizeObserver.disconnect();
       manager?.dispose();
       mapInstance.remove();

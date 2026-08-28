@@ -22,6 +22,9 @@ vi.mock('maplibre-gl', () => {
       set.add(fn);
       this.listeners.set(type, set);
     }
+    removeEventListener(type: string, fn: (e: unknown) => void): void {
+      this.listeners.get(type)?.delete(fn);
+    }
     dispatch(type: string, e: unknown): void {
       for (const fn of [...(this.listeners.get(type) ?? [])]) fn(e);
     }
@@ -35,7 +38,6 @@ vi.mock('maplibre-gl', () => {
     canvas = new FakeCanvas();
     options: Record<string, unknown>;
     controls: { control: unknown; position?: string }[] = [];
-    pixelRatio: number;
     painter: Record<string, never> | undefined = {};
     keyboard: { disableRotation: ReturnType<typeof vi.fn> } | undefined = {
       disableRotation: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('maplibre-gl', () => {
     touchZoomRotate: { disableRotation: ReturnType<typeof vi.fn> } | undefined = {
       disableRotation: vi.fn(),
     };
+    moving = false;
     // A stand-in for the real maplibregl-ctrl-attrib <details> element, so a test can assert
     // createThemedMap's collapse call actually reaches it, not just that the no-op path
     // (selector finds nothing) is safe.
@@ -56,7 +59,6 @@ vi.mock('maplibre-gl', () => {
       if (FakeMap.throwOnConstruct) throw new Error('WebGL2 unavailable');
       FakeMap.instances.push(this);
       this.options = opts;
-      this.pixelRatio = typeof opts.pixelRatio === 'number' ? opts.pixelRatio : 1;
       if (FakeMap.returnWithoutRenderer) {
         this.painter = undefined;
         this.keyboard = undefined;
@@ -103,14 +105,8 @@ vi.mock('maplibre-gl', () => {
       return 2;
     }
     isMoving(): boolean {
-      return false;
+      return this.moving;
     }
-    getPixelRatio(): number {
-      return this.pixelRatio;
-    }
-    setPixelRatio = vi.fn((pixelRatio: number) => {
-      this.pixelRatio = pixelRatio;
-    });
     hasImage(): boolean {
       return false;
     }
@@ -136,7 +132,7 @@ vi.mock('maplibre-gl', () => {
       return undefined;
     }
     setPaintProperty(): void {}
-    resize(): void {}
+    resize = vi.fn();
     remove = vi.fn();
     unproject([x, y]: [number, number]): { lng: number; lat: number } {
       return { lng: x, lat: y };
@@ -160,12 +156,12 @@ interface FakeMapInstance {
   painter?: Record<string, never>;
   keyboard?: { disableRotation: ReturnType<typeof vi.fn> };
   touchZoomRotate?: { disableRotation: ReturnType<typeof vi.fn> };
+  moving: boolean;
   attribElement: { classList: { remove: ReturnType<typeof vi.fn> } };
   remove: ReturnType<typeof vi.fn>;
   addedImages: string[];
   missingImageResolver: ((id: string) => void | Promise<void>) | null;
-  getPixelRatio(): number;
-  setPixelRatio: ReturnType<typeof vi.fn>;
+  resize: ReturnType<typeof vi.fn>;
   styles: unknown[];
 }
 
@@ -231,6 +227,7 @@ describe('createThemedMap onLoad', () => {
     const map = await lastMap();
 
     expect(map.options.interactive).toBe(true);
+    expect(map.options.trackResize).toBe(false);
   });
 
   it('supports a noninteractive map without navigation and scale controls', async () => {
@@ -326,46 +323,71 @@ describe('createThemedMap onLoad', () => {
     expect((await lastMap()).options.pixelRatio).toBe(1.5);
   });
 
-  it('renders a Crisp map at interaction resolution only while the camera is moving', async () => {
-    createThemedMap({ container, pixelRatio: 3, onLoad: () => {} });
+  it('defers an observed resize until active map movement ends', async () => {
+    let notifyResize = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          notifyResize = callback;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    createThemedMap({ container, onLoad: () => {} });
     const map = await lastMap();
 
-    map.fire('movestart');
-    for (let frame = 0; frame < 10_000; frame += 1) map.fire('move');
-    expect(map.setPixelRatio).toHaveBeenCalledTimes(1);
-    expect(map.setPixelRatio).toHaveBeenLastCalledWith(1);
-    expect(map.getPixelRatio()).toBe(1);
+    map.moving = true;
+    notifyResize();
+    expect(map.resize).not.toHaveBeenCalled();
 
+    map.moving = false;
     map.fire('moveend');
-    expect(map.setPixelRatio).toHaveBeenCalledTimes(2);
-    expect(map.setPixelRatio).toHaveBeenLastCalledWith(3);
-    expect(map.getPixelRatio()).toBe(3);
+    expect(map.resize).toHaveBeenCalledOnce();
   });
 
-  it('uses interaction resolution for Balanced and restores its capped ratio', async () => {
-    createThemedMap({ container, pixelRatio: 1.5, onLoad: () => {} });
+  it('defers an observed resize through pointer release and hidden-tab cancellation', async () => {
+    let notifyResize = () => {};
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          notifyResize = callback;
+        }
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    createThemedMap({ container, onLoad: () => {} });
     const map = await lastMap();
 
-    map.fire('movestart');
-    for (let frame = 0; frame < 10_000; frame += 1) map.fire('move');
-    expect(map.setPixelRatio).toHaveBeenCalledTimes(1);
-    expect(map.setPixelRatio).toHaveBeenLastCalledWith(1);
-    expect(map.getPixelRatio()).toBe(1);
-
+    map.canvas.dispatch('pointerdown', { pointerId: 7 });
+    notifyResize();
     map.fire('moveend');
-    expect(map.setPixelRatio).toHaveBeenCalledTimes(2);
-    expect(map.setPixelRatio).toHaveBeenLastCalledWith(1.5);
-    expect(map.getPixelRatio()).toBe(1.5);
-  });
+    expect(map.resize).not.toHaveBeenCalled();
 
-  it('keeps Fast at its native interaction ratio without canvas resizes', async () => {
-    createThemedMap({ container, pixelRatio: 1, onLoad: () => {} });
-    const map = await lastMap();
+    const pointerUp = vi
+      .mocked(document.addEventListener)
+      .mock.calls.find(([event]) => event === 'pointerup')?.[1] as
+      | ((event: Pick<PointerEvent, 'pointerId'>) => void)
+      | undefined;
+    pointerUp?.({ pointerId: 7 });
+    expect(map.resize).toHaveBeenCalledOnce();
 
-    map.fire('movestart');
-    map.fire('moveend');
-
-    expect(map.setPixelRatio).not.toHaveBeenCalled();
+    map.resize.mockClear();
+    map.canvas.dispatch('pointerdown', { pointerId: 8 });
+    notifyResize();
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    const visibilityChange = vi
+      .mocked(document.addEventListener)
+      .mock.calls.find(([event]) => event === 'visibilitychange')?.[1] as (() => void) | undefined;
+    visibilityChange?.();
+    expect(map.resize).toHaveBeenCalledOnce();
   });
 
   it('preserves MapLibre 5 vector overscaling behavior', async () => {

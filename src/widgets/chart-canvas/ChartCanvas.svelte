@@ -338,7 +338,8 @@ $effect(() => {
   const map = mapRef;
   const quality = mapRenderingQuality.value;
   if (!map) return;
-  map.setPixelRatio(mapRenderingPixelRatio(quality, window.devicePixelRatio));
+  const pixelRatio = mapRenderingPixelRatio(quality, window.devicePixelRatio);
+  if (map.getPixelRatio() !== pixelRatio) map.setPixelRatio(pixelRatio);
 });
 
 function enterFullScreen(): void {
