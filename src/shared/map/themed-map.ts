@@ -188,7 +188,7 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       minZoom: opts.minZoom,
       maxZoom: opts.maxZoom,
       pixelRatio: opts.pixelRatio,
-      interactive: opts.interactive,
+      interactive: opts.interactive ?? true,
       canvasContextAttributes: MAP_CONTEXT_ATTRIBUTES,
       // MapLibre 6 defaults to 4. Undefined preserves v5 vector rendering and query behavior.
       zoomLevelsToOverscale: undefined,

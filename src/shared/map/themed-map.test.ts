@@ -213,6 +213,13 @@ describe('createThemedMap attribution', () => {
 });
 
 describe('createThemedMap onLoad', () => {
+  it('keeps the navigation chart interactive by default', async () => {
+    createThemedMap({ container, onLoad: () => {} });
+    const map = await lastMap();
+
+    expect(map.options.interactive).toBe(true);
+  });
+
   it('supports a noninteractive map without navigation and scale controls', async () => {
     createThemedMap({
       container,
