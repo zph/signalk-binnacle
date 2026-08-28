@@ -128,6 +128,24 @@ describe('chart overlay', () => {
     );
   });
 
+  it('does not expose a sole facet that can hide every bathymetry cell', () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'bathymetry',
+        name: 'Bathymetry cells',
+        type: 'S-57',
+        format: 'pbf',
+        featureInfo: 'bathymetry-cell',
+        layers: ['DEPARE', 'SOUNDG'],
+        tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+      },
+      'http://pi.local',
+    );
+
+    expect(overlay.facets).toEqual([]);
+    expect(overlay.layerIds).toHaveLength(3);
+  });
+
   it('exposes chart metadata for the layer list', () => {
     const overlay = createChartOverlay(
       {

@@ -254,31 +254,36 @@ export function createChartOverlay(
       );
     }
   };
-  const facets: OverlayFacet[] = isS57
-    ? s57FacetLayerGroups(specs.layers).map((group) => {
-        const id = `${chartId}:facet:${group.key}`;
-        visibilityByFacet.set(id, true);
-        opacityByFacet.set(id, 1);
-        for (const layerId of group.layerIds) facetIdByLayer.set(layerId, id);
-        return {
-          id,
-          title: group.title,
-          description: group.description,
-          supportsOpacity: true,
-          defaultVisible: true,
-          defaultOpacity: 1,
-          layerIds: group.layerIds,
-          setVisible(ctx, visible) {
-            visibilityByFacet.set(id, visible);
-            for (const layerId of group.layerIds) applyLayerVisibility(ctx, layerId);
-          },
-          setOpacity(ctx, opacity) {
-            opacityByFacet.set(id, opacity);
-            for (const layerId of group.layerIds) applyLayerOpacity(ctx, layerId);
-          },
-        };
-      })
-    : [];
+  const facetGroups = isS57 ? s57FacetLayerGroups(specs.layers) : [];
+  // A sole facet that owns every draw layer duplicates the parent visibility control. Persisting
+  // that child as hidden can otherwise leave the parent visibly enabled while rendering nothing.
+  const configurableFacetGroups =
+    facetGroups.length === 1 && facetGroups[0]?.layerIds.length === layerIds.length
+      ? []
+      : facetGroups;
+  const facets: OverlayFacet[] = configurableFacetGroups.map((group) => {
+    const id = `${chartId}:facet:${group.key}`;
+    visibilityByFacet.set(id, true);
+    opacityByFacet.set(id, 1);
+    for (const layerId of group.layerIds) facetIdByLayer.set(layerId, id);
+    return {
+      id,
+      title: group.title,
+      description: group.description,
+      supportsOpacity: true,
+      defaultVisible: true,
+      defaultOpacity: 1,
+      layerIds: group.layerIds,
+      setVisible(ctx, visible) {
+        visibilityByFacet.set(id, visible);
+        for (const layerId of group.layerIds) applyLayerVisibility(ctx, layerId);
+      },
+      setOpacity(ctx, opacity) {
+        opacityByFacet.set(id, opacity);
+        for (const layerId of group.layerIds) applyLayerOpacity(ctx, layerId);
+      },
+    };
+  });
   let symbolGeneration = 0;
   const hitHandlers =
     isS57 &&
