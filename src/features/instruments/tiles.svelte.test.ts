@@ -431,6 +431,8 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('rotate(40.107');
     expect(html).toContain('class="port-sector ');
     expect(html).toContain('class="starboard-sector ');
+    expect(html).toContain('M163 367 A362 362 0 0 1 373 161');
+    expect(html).toContain('M627 161 A362 362 0 0 1 837 367');
     expect(html).toContain('class="port-sector-line ');
     expect(html).toContain('class="starboard-sector-line ');
     expect(html).toContain('M186 186 L500 500');

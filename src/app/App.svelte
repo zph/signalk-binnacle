@@ -2106,6 +2106,18 @@ const CONFIGURABLE_MENU_ITEM_IDS = new Set([
   'profiles',
 ]);
 
+async function toggleBrowserFullScreen(): Promise<void> {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+  } finally {
+    // Chromium resolves the Fullscreen API promise after the document state changes, but an
+    // embedded browser can deliver fullscreenchange outside Svelte's event turn. Sync explicitly
+    // as well so reopening Command K always offers the inverse action immediately.
+    browserFullScreen = document.fullscreenElement !== null;
+  }
+}
+
 const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   const menuCommands = menuItems
     .filter((item) => item.id !== 'instruments' && item.id !== 'command-palette')
@@ -2141,10 +2153,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         typeof document === 'undefined' ||
         (!browserFullScreen && typeof document.documentElement.requestFullscreen !== 'function'),
       disabledReason: 'This browser does not offer full-screen mode.',
-      onSelect: () => {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-      },
+      onSelect: () => void toggleBrowserFullScreen(),
     },
     {
       id: 'go-to',
