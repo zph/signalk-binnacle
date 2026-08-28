@@ -22,6 +22,8 @@ export interface ChartFeatureDetails {
   datum?: string;
   mode?: 'datum' | 'water';
   changeState?: string;
+  officialComparison?: { depth: string; delta: string; count: number };
+  safetyThreshold?: string;
 }
 
 export function chartFeatureDetails(
@@ -68,6 +70,18 @@ export function chartFeatureDetails(
   const bathyMode = stringProperty(properties, 'BATHY_MODE');
   if (bathyMode === 'datum' || bathyMode === 'water') result.mode = bathyMode;
   result.changeState = stringProperty(properties, 'BATHY_CHANGE_STATE');
+  const officialDepthM = numberProperty(properties, 'BATHY_OFFICIAL_DEPTH_M');
+  const officialDeltaM = numberProperty(properties, 'BATHY_OFFICIAL_DELTA_M');
+  const officialCount = integerProperty(properties, 'BATHY_OFFICIAL_COUNT');
+  if (officialDepthM !== undefined && officialDeltaM !== undefined && officialCount !== undefined) {
+    result.officialComparison = {
+      depth: formatDepth(officialDepthM, depthUnit),
+      delta: formatDepth(officialDeltaM, depthUnit),
+      count: officialCount,
+    };
+  }
+  const thresholdM = numberProperty(properties, 'BATHY_SAFETY_THRESHOLD_M');
+  if (thresholdM !== undefined) result.safetyThreshold = formatDepth(thresholdM, depthUnit);
   return result;
 }
 

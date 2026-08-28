@@ -69,8 +69,14 @@ const change = $derived(
   </header>
 
   {#if details.depth}
-    <p class="depth-label">Safety-conservative chart depth</p>
+    <p class="depth-label">Conservative depth below chart datum</p>
     <p class="depth"><span class="num">{details.depth}</span> {details.depthUnit}</p>
+  {/if}
+  {#if details.safetyThreshold}
+    <p class="muted-note muted-note--xs">
+      Safety threshold: {details.safetyThreshold} {details.depthUnit} total depth (configured draft
+      plus desired under-keel clearance).
+    </p>
   {/if}
 
   <dl class="stat-grid">
@@ -88,6 +94,18 @@ const change = $derived(
       <dt>Robust depth estimate</dt>
       <dd>
         <span class="num">{details.robustDepth}</span><span class="unit">{details.depthUnit}</span>
+      </dd>
+    {/if}
+    {#if details.officialComparison}
+      <dt>Nearby chart sounding</dt>
+      <dd>
+        <span class="num">{details.officialComparison.depth}</span
+        ><span class="unit">{details.depthUnit}</span>
+      </dd>
+      <dt>Difference (local − official)</dt>
+      <dd>
+        <span class="num">{details.officialComparison.delta}</span
+        ><span class="unit">{details.depthUnit}</span>
       </dd>
     {/if}
     {#if details.observations !== undefined}
@@ -129,6 +147,13 @@ const change = $derived(
     <p class="muted-note muted-note--xs">
       The chart depth is deliberately shallow-biased for safety. It includes uncertainty and may
       retain credible shallower evidence while a deeper seabed estimate is being evaluated.
+    </p>
+  {/if}
+  {#if details.isLocalBathymetry && details.officialComparison}
+    <p class="muted-note muted-note--xs">
+      Compared with {details.officialComparison.count} nearby chart sounding{details.officialComparison.count === 1 ? '' : 's'}.
+      When an official vector chart is visible, these are its measurements. The difference is a
+      consistency check, not a correction or a safety guarantee.
     </p>
   {/if}
   {#if change}

@@ -28,6 +28,10 @@ const selection: ChartFeatureSelection = {
     BATHY_DATUM: 'MLLW',
     BATHY_MODE: 'datum',
     BATHY_CHANGE_STATE: 'stable',
+    BATHY_SAFETY_THRESHOLD_M: 2.25,
+    BATHY_OFFICIAL_DEPTH_M: 6.5,
+    BATHY_OFFICIAL_DELTA_M: 0.3,
+    BATHY_OFFICIAL_COUNT: 4,
   },
 };
 
@@ -44,6 +48,8 @@ describe('chartFeatureDetails', () => {
     expect(details.confidenceReasons).toEqual(['Single Pass', 'Sparse Neighbors']);
     expect(details.observations).toBe(3);
     expect(details.soundings).toBe(27);
+    expect(details.safetyThreshold).toBe('2.3');
+    expect(details.officialComparison).toEqual({ depth: '6.5', delta: '0.3', count: 4 });
   });
 
   it('converts meter-native tile values into the active imperial display unit', () => {

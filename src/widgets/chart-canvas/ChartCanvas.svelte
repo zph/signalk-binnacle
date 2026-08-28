@@ -309,7 +309,48 @@ const markerInteractionsAllowed = (): boolean =>
   !radarPlacementDispatch &&
   !marineRadarLayer?.chartEditing();
 const selectChartFeature = (selection: ChartFeatureSelection): void => {
-  if (markerInteractionsAllowed()) chartFeature = selection;
+  if (!markerInteractionsAllowed()) return;
+  if (selection.properties.BATHYMETRY_PROVIDER === 'signalk-bathymetry' && mapRef) {
+    const point = mapRef.project([selection.longitude, selection.latitude]);
+    const nearby = mapRef.queryRenderedFeatures(
+      [
+        [point.x - 80, point.y - 80],
+        [point.x + 80, point.y + 80],
+      ],
+      { layers: mapRef.getStyle().layers.map((layer) => layer.id) },
+    );
+    const depths = nearby
+      .filter((feature) => feature.sourceLayer === 'SOUNDG')
+      .filter((feature) => feature.properties?.BATHYMETRY_PROVIDER !== 'signalk-bathymetry')
+      .map((feature) => {
+        const value =
+          feature.properties?.VALSOU ?? feature.properties?.DEPTH ?? feature.properties?.DRVAL1;
+        const depth = typeof value === 'number' ? value : Number(value);
+        return Number.isFinite(depth) ? depth : undefined;
+      })
+      .filter((depth): depth is number => depth !== undefined);
+    if (depths.length > 0) {
+      depths.sort((a, b) => a - b);
+      const officialDepthM = depths[Math.floor(depths.length / 2)] ?? depths[0];
+      // Compare the official sounding with the local robust estimate, not the intentionally
+      // shallow-biased display value. The conservative value is shown separately and must not
+      // manufacture an apparent chart disagreement.
+      const localDepth = Number(
+        selection.properties.BATHY_ROBUST_DEPTH_M ?? selection.properties.BATHY_DEPTH_M,
+      );
+      if (Number.isFinite(localDepth)) {
+        selection = {
+          ...selection,
+          officialComparison: {
+            depthM: officialDepthM,
+            deltaM: localDepth - officialDepthM,
+            count: depths.length,
+          },
+        };
+      }
+    }
+  }
+  chartFeature = selection;
 };
 // The registered Measure overlay also owns its generous vertex hit surface and deliberate drag
 // lifecycle. The chart click dispatcher consults it before deciding that a tap adds a new point.

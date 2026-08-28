@@ -38,6 +38,11 @@ export interface ChartFeatureSelection {
   height: number;
   longitude: number;
   latitude: number;
+  officialComparison?: {
+    depthM: number;
+    deltaM: number;
+    count: number;
+  };
 }
 
 // How far past a raster or generic chart's native max zoom its layers keep drawing before they hand
