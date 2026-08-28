@@ -30,6 +30,8 @@ export interface ProfileSettings {
   pinnedActionIds?: string[];
   // Selected instrument tiles in display order; optional for pre-instruments profiles.
   instrumentTiles?: string[];
+  // Total port-to-starboard wind rose no-go sector in radians. Optional for older profiles.
+  windRoseNoGoAngleRad?: number;
   // Selected Data trends instruments in display order. Optional for profiles saved before
   // customizable trends existed; the read edge applies the original four-chart default.
   trendInstrumentIds?: string[];
@@ -60,6 +62,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'chartOrientation',
   'pinnedActionIds',
   'instrumentTiles',
+  'windRoseNoGoAngleRad',
   'trendInstrumentIds',
   'anchorRadiusMeters',
 ] as const satisfies readonly (keyof ProfileSettings)[];

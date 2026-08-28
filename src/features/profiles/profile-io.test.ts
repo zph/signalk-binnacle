@@ -44,6 +44,12 @@ describe('isProfileSettings', () => {
     expect(isProfileSettings(settings({ theme: 'night-red' }))).toBe(true);
   });
 
+  it('accepts a bounded wind rose no-go angle and rejects invalid radians', () => {
+    expect(isProfileSettings(settings({ windRoseNoGoAngleRad: Math.PI / 2 }))).toBe(true);
+    expect(isProfileSettings(settings({ windRoseNoGoAngleRad: Number.NaN }))).toBe(false);
+    expect(isProfileSettings(settings({ windRoseNoGoAngleRad: Math.PI }))).toBe(false);
+  });
+
   it('rejects an unknown theme without defaulting', () => {
     expect(isProfileSettings(settings({ theme: 'midnight' as never }))).toBe(false);
   });

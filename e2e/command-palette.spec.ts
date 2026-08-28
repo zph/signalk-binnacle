@@ -164,6 +164,7 @@ test('adjustable surfaces are direct command palette results', async ({ page }) 
     ['alarm settings', /Alarms/],
     ['track settings', /Tracks/],
     ['instrument settings', /^Instruments /],
+    ['wind rose settings', /Wind rose settings/],
     ['tide station settings', /Tide station settings/],
     ['profile settings', /Profiles/],
   ] as const;

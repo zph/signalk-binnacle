@@ -1,10 +1,12 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { formatSignedAngleOr, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
+import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
 import type { ZoneState } from '$shared/signalk';
 import TileStateBadge from './TileStateBadge.svelte';
 import type { InstrumentMetric, TileReading } from './tile-catalog';
 import { createWindAngleAnimator } from './wind-angle-animator';
+import { windRoseSectorGeometry } from './wind-rose-geometry';
 import { createWindSectorTracker, type WindSectorReference } from './wind-sector-tracker';
 
 interface Props {
@@ -17,6 +19,7 @@ interface Props {
   expanded?: boolean;
   actionLabel?: string;
   onOpen?: () => void;
+  noGoAngleRad?: number;
 }
 
 const {
@@ -29,8 +32,10 @@ const {
   expanded = false,
   actionLabel = 'Expand instrument',
   onOpen,
+  noGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
 }: Props = $props();
 const rose = $derived(reading.windRose);
+const sectorGeometry = $derived(windRoseSectorGeometry(noGoAngleRad));
 const dialTicks = Array.from({ length: 36 }, (_, index) => ({
   angle: index * 10,
   major: index % 3 === 0,
@@ -216,7 +221,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
         {#if rawSectorReference}
           <path
             class="wind-sector-fill"
-            d="M186 186 A444 444 0 0 1 814 186 L500 500 Z"
+            d={sectorGeometry.fillPath}
             transform="rotate({sectorRotation} 500 500)"
           />
         {/if}
@@ -227,8 +232,8 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
             data-reference={sectorReference}
             transform="rotate({sectorRotation} 500 500)"
           >
-            <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
-            <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
+            <path class="port-sector" d={sectorGeometry.portArcPath} />
+            <path class="starboard-sector" d={sectorGeometry.starboardArcPath} />
           </g>
         {/if}
 
@@ -262,8 +267,8 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
 
         {#if rawSectorReference}
           <g class="wind-sector-lines" transform="rotate({sectorRotation} 500 500)">
-            <path class="port-sector-line" d="M186 186 L500 500" />
-            <path class="starboard-sector-line" d="M814 186 L500 500" />
+            <path class="port-sector-line" d={sectorGeometry.portBoundaryPath} />
+            <path class="starboard-sector-line" d={sectorGeometry.starboardBoundaryPath} />
           </g>
         {/if}
 

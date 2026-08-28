@@ -1,5 +1,6 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
 import type { ZoneState } from '$shared/signalk';
 import AttitudeTile from './AttitudeTile.svelte';
 import CompassTile from './CompassTile.svelte';
@@ -9,6 +10,7 @@ import TideTile from './TideTile.svelte';
 import type { TileReading } from './tile-catalog';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
+import { windRoseSectorGeometry } from './wind-rose-geometry';
 
 // SSR-only suite (node environment, no DOM). Assertions are substring checks on the rendered body.
 
@@ -398,6 +400,7 @@ describe('purpose-built instrument faces', () => {
         sensorGloss: 'No wind data',
       },
     }).body;
+    const sectorGeometry = windRoseSectorGeometry(DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD);
     expect(html).toContain('SOG');
     expect(html).toContain('6.4');
     expect(html).toContain('DEPTH');
@@ -424,19 +427,19 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('Heading 057°');
     expect(html).toContain('class="fixed-dial ');
     expect(html).toContain('class="wind-sector-fill ');
-    expect(html).toContain('M186 186 A444 444 0 0 1 814 186 L500 500 Z');
+    expect(html).toContain(sectorGeometry.fillPath);
     expect(html.indexOf('wind-sector-fill')).toBeLessThan(html.indexOf('fixed-dial'));
     expect(html).toContain('class="wind-sectors"');
     expect(html).toContain('data-reference="true"');
     expect(html).toContain('rotate(40.107');
     expect(html).toContain('class="port-sector ');
     expect(html).toContain('class="starboard-sector ');
-    expect(html).toContain('M86 337 A444 444 0 0 1 344 84');
-    expect(html).toContain('M656 84 A444 444 0 0 1 914 337');
+    expect(html).toContain(sectorGeometry.portArcPath);
+    expect(html).toContain(sectorGeometry.starboardArcPath);
     expect(html).toContain('class="port-sector-line ');
     expect(html).toContain('class="starboard-sector-line ');
-    expect(html).toContain('M186 186 L500 500');
-    expect(html).toContain('M814 186 L500 500');
+    expect(html).toContain(sectorGeometry.portBoundaryPath);
+    expect(html).toContain(sectorGeometry.starboardBoundaryPath);
     expect(html).toContain('class="apparent-pointer ');
     expect(html).toContain('class="true-pointer ');
     expect(html).toContain('rotate(-57.295');

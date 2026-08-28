@@ -104,6 +104,7 @@ describe('InstrumentsPanel', () => {
         customizing: false,
         reordering: false,
         onInspect: () => {},
+        onConfigure: () => {},
         onToggleCustomize: () => {},
         onToggleReorder: () => {},
         onClosePanel: () => {},
@@ -113,6 +114,7 @@ describe('InstrumentsPanel', () => {
     expect(body).toContain('aria-label="Speed actions"');
     expect(body).toContain('role="menuitem"');
     expect(body).toContain('Inspect');
+    expect(body).toContain('Configure wind rose');
     expect(body).toContain('Unlock instrument arrangement');
     expect(body).toContain('Customize instruments');
     expect(body).toContain('Close instruments');

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PORTABLE_PROFILE_SETTING_KEYS } from '$entities/profile';
+import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
 import { createProfileBindings, type ProfileBindingDeps } from './profile-bindings';
 
 // Minimal stand-ins: the bindings only read `.value`/`.theme` and call `.set`, so a plain object with
@@ -37,6 +38,7 @@ function makeDeps(): ProfileBindingDeps {
     unitsLocal: pv('metric'),
     pinnedActions: pv<string[]>([]),
     instrumentTiles: pv<string[]>(['depth', 'speed']),
+    windRoseNoGoAngleRad: pv(DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD),
     trendInstruments: pv<string[]>(['depth', 'wind-apparent']),
     anchorRadius: {
       get: () => anchorRadiusMeters,

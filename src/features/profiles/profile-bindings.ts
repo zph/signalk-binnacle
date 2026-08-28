@@ -2,11 +2,12 @@ import { DEFAULT_TREND_INSTRUMENT_IDS } from '$entities/instrument-trend';
 import type { ProfileSettings } from '$entities/profile';
 import type { UnitsMode } from '$shared/lib';
 import type { LayerSettings } from '$shared/map';
-import type {
-  ChartOrientationMode,
-  PersistedValue,
-  Thresholds,
-  TrackSettings,
+import {
+  type ChartOrientationMode,
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+  type PersistedValue,
+  type Thresholds,
+  type TrackSettings,
 } from '$shared/settings';
 import type { ThemeController } from '$shared/ui';
 
@@ -28,6 +29,7 @@ export interface ProfileBindingDeps {
   pinnedActions: PersistedValue<string[]>;
   // The instrument tile selection, in display order.
   instrumentTiles: PersistedValue<string[]>;
+  windRoseNoGoAngleRad: PersistedValue<number>;
   // The Data trends selection, in display order.
   trendInstruments: PersistedValue<string[]>;
   // The next anchor drop's preferred radius. This seam deliberately cannot expose or alter the
@@ -115,6 +117,14 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
         if (Array.isArray(s.instrumentTiles)) deps.instrumentTiles.set(s.instrumentTiles);
       },
       track: () => void deps.instrumentTiles.value,
+    },
+    windRoseNoGoAngleRad: {
+      read: () => ({ windRoseNoGoAngleRad: deps.windRoseNoGoAngleRad.snapshot() }),
+      // A legacy profile gets the original sector rather than inheriting the previously active
+      // profile's setting.
+      write: (s) =>
+        deps.windRoseNoGoAngleRad.set(s.windRoseNoGoAngleRad ?? DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD),
+      track: () => void deps.windRoseNoGoAngleRad.value,
     },
     trendInstrumentIds: {
       read: () => ({ trendInstrumentIds: deps.trendInstruments.snapshot() }),

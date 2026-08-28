@@ -4,6 +4,7 @@ import { type Snippet, untrack } from 'svelte';
 import type { Action } from 'svelte/action';
 import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
+import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
 import type { Theme } from '$shared/ui';
 import { createReorder, dialog, trapFocus } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
@@ -16,6 +17,7 @@ import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { staleAgeText, type TileDeps } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
+import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
   controller: InstrumentsController;
@@ -45,6 +47,10 @@ interface Props {
   // The shell lock remains reachable when this panel covers the normal bottom toolbar.
   lockAction?: Snippet;
   onOpenTideSettings?: () => void;
+  windRoseNoGoAngleRad?: number;
+  onWindRoseNoGoAngleChange?: (angleRad: number) => void;
+  initialWindRoseSettingsRequest?: { sequence: number };
+  onWindRoseSettingsRequestHandled?: () => void;
 }
 
 const {
@@ -70,6 +76,10 @@ const {
   emergencyAction,
   lockAction,
   onOpenTideSettings,
+  windRoseNoGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+  onWindRoseNoGoAngleChange = () => {},
+  initialWindRoseSettingsRequest,
+  onWindRoseSettingsRequestHandled,
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -92,6 +102,7 @@ let customizing = $state(false);
 let reordering = $state(false);
 let detailId = $state<string | undefined>();
 let expandedId = $state<string | undefined>();
+let windRoseSettingsOpen = $state(false);
 let tilesEl = $state<HTMLElement | undefined>();
 let instrumentMenu = $state<{
   id?: string;
@@ -106,9 +117,20 @@ $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
 });
 $effect(() => {
+  if (!initialWindRoseSettingsRequest) return;
+  void initialWindRoseSettingsRequest.sequence;
+  detailId = undefined;
+  expandedId = undefined;
+  customizing = false;
+  reordering = false;
+  windRoseSettingsOpen = true;
+  onWindRoseSettingsRequestHandled?.();
+});
+$effect(() => {
   if (!initialExpandedRequest) return;
   void initialExpandedRequest.sequence;
   detailId = undefined;
+  windRoseSettingsOpen = false;
   customizing = false;
   reordering = false;
   expandedId = initialExpandedRequest.id;
@@ -199,11 +221,22 @@ function inspectInstrument(): void {
   instrumentMenu = undefined;
   expandedId = undefined;
   detailId = id;
+  windRoseSettingsOpen = false;
+}
+
+function configureWindRose(): void {
+  instrumentMenu = undefined;
+  detailId = undefined;
+  expandedId = undefined;
+  customizing = false;
+  reordering = false;
+  windRoseSettingsOpen = true;
 }
 
 function toggleReordering(): void {
   instrumentMenu = undefined;
   detailId = undefined;
+  windRoseSettingsOpen = false;
   customizing = false;
   reordering = !reordering;
 }
@@ -211,6 +244,7 @@ function toggleReordering(): void {
 function toggleCustomizing(): void {
   instrumentMenu = undefined;
   detailId = undefined;
+  windRoseSettingsOpen = false;
   reordering = false;
   customizing = !customizing;
 }
@@ -261,6 +295,7 @@ $effect(() => {
       {customizing}
       {reordering}
       onInspect={instrumentMenu.id ? inspectInstrument : undefined}
+      onConfigure={instrumentMenu.id === 'wind-rose' ? configureWindRose : undefined}
       onToggleCustomize={toggleCustomizing}
       onToggleReorder={toggleReordering}
       onClosePanel={closePanel}
@@ -291,7 +326,13 @@ $effect(() => {
     {/if}
     {@render fixedLockAction()}
   {/if}
-  {#if detailDef}
+  {#if windRoseSettingsOpen}
+    <WindRoseSettings
+      noGoAngleRad={windRoseNoGoAngleRad}
+      onChange={onWindRoseNoGoAngleChange}
+      onBack={() => (windRoseSettingsOpen = false)}
+    />
+  {:else if detailDef}
     {@const reading = detailDef.read(deps)}
     {@const zone = controller.zoneState(detailDef, reading.siValue)}
     <InstrumentDetail
@@ -354,6 +395,7 @@ $effect(() => {
             staleAgeText={staleAge}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
             {aisRadar}
+            {windRoseNoGoAngleRad}
             onActivate={() => (expandedId = def.id)}
             onTideSettings={def.kind === 'tide' ? onOpenTideSettings : undefined}
           />
@@ -404,6 +446,7 @@ $effect(() => {
         staleAgeText={staleAge}
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
         {aisRadar}
+        {windRoseNoGoAngleRad}
         expanded
         onActivate={() => (expandedId = undefined)}
         onTideSettings={expandedDef.kind === 'tide' ? onOpenTideSettings : undefined}

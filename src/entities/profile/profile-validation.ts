@@ -12,6 +12,7 @@ import type { LayerSettings } from '$shared/map';
 import {
   isThresholds,
   isTrackSettings,
+  isWindRoseNoGoAngleRad,
   MAX_PLANNING_SPEED_KN,
   MAX_PLANNING_SPEED_MPS,
   type Thresholds,
@@ -282,6 +283,12 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   if (
     value.instrumentTiles !== undefined &&
     !validStringList(value.instrumentTiles, MAX_INSTRUMENT_TILES)
+  ) {
+    return false;
+  }
+  if (
+    value.windRoseNoGoAngleRad !== undefined &&
+    !isWindRoseNoGoAngleRad(value.windRoseNoGoAngleRad)
   ) {
     return false;
   }

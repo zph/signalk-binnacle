@@ -216,11 +216,14 @@ import {
   createThresholds,
   createTrackSettings,
   DEFAULT_MAP_RENDERING_QUALITY,
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   enumPersistedCodec,
   isMapView,
   MAP_RENDERING_QUALITIES,
+  MAX_WIND_ROSE_NO_GO_ANGLE_RAD,
   type MapRenderingQuality,
   type MapView,
+  MIN_WIND_ROSE_NO_GO_ANGLE_RAD,
   type PersistedCodec,
   PersistedValue,
   preferTrackHistory,
@@ -670,6 +673,7 @@ function finishOpeningInstrumentsPanel(): void {
 
 let instrumentOpenSequence = 0;
 let instrumentExpandedRequest = $state<{ id: string; sequence: number } | undefined>();
+let windRoseSettingsRequest = $state<{ sequence: number } | undefined>();
 let tideInstrumentRequested = $state(false);
 
 function openExpandedInstrument(id: string): void {
@@ -679,6 +683,12 @@ function openExpandedInstrument(id: string): void {
 
 function openAisRadarInstrument(): void {
   openExpandedInstrument('ais-radar');
+}
+
+function openWindRoseSettings(): void {
+  instrumentExpandedRequest = undefined;
+  windRoseSettingsRequest = { sequence: ++instrumentOpenSequence };
+  finishOpeningInstrumentsPanel();
 }
 
 function openTideInstrument(): void {
@@ -837,6 +847,12 @@ const aisRadarRangeNm = new PersistedValue<AisRadarRangeNm>(
   DEFAULT_AIS_RADAR_RANGE_NM,
   undefined,
   createPersistedCodec(isAisRadarRangeNm),
+);
+const windRoseNoGoAngleRad = new PersistedValue<number>(
+  binnacleStorageKey('windRoseNoGoAngleRad'),
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+  undefined,
+  boundedNumberPersistedCodec(MIN_WIND_ROSE_NO_GO_ANGLE_RAD, MAX_WIND_ROSE_NO_GO_ANGLE_RAD),
 );
 // Chart orientation mode, profile-owned; the resolver and bearing effect live beside follow.
 const chartOrientation = new PersistedValue<ChartOrientationMode>(
@@ -1143,6 +1159,7 @@ const profileBindings = createProfileBindings({
   unitsLocal: units.localSetting,
   pinnedActions,
   instrumentTiles,
+  windRoseNoGoAngleRad,
   trendInstruments,
   anchorRadius: {
     get: () => anchor.preferredRadiusMeters,
@@ -2313,6 +2330,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       onSelect: openAisRadarInstrument,
     },
     {
+      id: 'wind-rose-settings',
+      label: 'Wind rose settings',
+      description: `Set the no-go sector, currently ${Math.round((windRoseNoGoAngleRad.value * 180) / Math.PI)}°`,
+      group: 'Instruments',
+      keywords: ['wind', 'rose', 'no-go', 'angle', 'sailing', 'configuration'],
+      icon: Compass,
+      onSelect: openWindRoseSettings,
+    },
+    {
       id: 'tide-station-settings',
       label: 'Tide station settings',
       description: 'Choose tide and tidal-current stations',
@@ -3461,6 +3487,10 @@ const plotterActions = {
           {collision}
           aisRadarRangeNm={aisRadarRangeNm.value}
           onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
+          windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
+          onWindRoseNoGoAngleChange={(angleRad) => windRoseNoGoAngleRad.set(angleRad)}
+          initialWindRoseSettingsRequest={windRoseSettingsRequest}
+          onWindRoseSettingsRequestHandled={() => (windRoseSettingsRequest = undefined)}
           theme={theme.theme}
           {companionBase}
           chartToken={chartsToken}

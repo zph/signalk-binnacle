@@ -48,6 +48,7 @@ describe('WindRoseTile sectors', () => {
           zone: 'normal',
           depthZone: 'normal',
           sensorGloss: 'No wind data',
+          noGoAngleRad: Math.PI / 3,
         },
       });
     });
@@ -60,6 +61,9 @@ describe('WindRoseTile sectors', () => {
     expect(sectors?.getAttribute('data-reference')).toBe('true');
     expect(sectors?.getAttribute('transform')).toContain('rotate(40.107');
     expect(target.querySelectorAll('.wind-sector-lines path')).toHaveLength(2);
+    expect(target.querySelector('.port-sector-line')?.getAttribute('d')).toBe(
+      'M278 115.485 L500 500',
+    );
     expect(target.querySelector('.wind-sector-lines')?.getAttribute('transform')).toContain(
       'rotate(40.107',
     );

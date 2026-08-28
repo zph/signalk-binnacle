@@ -52,3 +52,9 @@ export {
   tripLogEnabled,
   useLocalTrackFallback,
 } from './persisted.svelte';
+export {
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+  isWindRoseNoGoAngleRad,
+  MAX_WIND_ROSE_NO_GO_ANGLE_RAD,
+  MIN_WIND_ROSE_NO_GO_ANGLE_RAD,
+} from './wind-rose';
