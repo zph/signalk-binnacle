@@ -227,8 +227,8 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
             data-reference={sectorReference}
             transform="rotate({sectorRotation} 500 500)"
           >
-            <path class="port-sector" d="M163 367 A362 362 0 0 1 373 161" />
-            <path class="starboard-sector" d="M627 161 A362 362 0 0 1 837 367" />
+            <path class="port-sector" d="M86 337 A444 444 0 0 1 344 84" />
+            <path class="starboard-sector" d="M656 84 A444 444 0 0 1 914 337" />
           </g>
         {/if}
 

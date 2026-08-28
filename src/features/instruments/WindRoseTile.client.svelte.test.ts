@@ -68,6 +68,10 @@ describe('WindRoseTile sectors', () => {
     expect(getComputedStyle(sectorFill as Element).fillOpacity).toBe('0.2');
     const portSector = target.querySelector('.port-sector');
     expect(getComputedStyle(portSector as Element).strokeWidth).toBe('82px');
+    const fixedDial = target.querySelector('.fixed-dial');
+    expect(getComputedStyle(portSector as Element).strokeWidth).toBe(
+      getComputedStyle(fixedDial as Element).strokeWidth,
+    );
 
     const roseTile = target.querySelector('.tile--wind-rose');
     expect(roseTile).not.toBeNull();
