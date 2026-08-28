@@ -161,6 +161,7 @@ function selectQuality(quality: MapRenderingQuality | null): void {
 }
 
 function selectAisVisibility(visible: boolean | null): void {
+  layerManager?.toggle(AIS_OVERLAY_ID, visible ?? mainMapAisVisible);
   onAisVisibilityOverrideChange(visible);
 }
 

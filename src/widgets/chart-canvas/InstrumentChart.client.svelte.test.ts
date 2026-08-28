@@ -178,7 +178,7 @@ describe('map instrument chart', () => {
           mapRenderingQuality: 'performance',
           qualityOverride: null,
           onQualityOverrideChange,
-          mainMapAisVisible: false,
+          mainMapAisVisible: true,
           aisVisibilityOverride: null,
           onAisVisibilityOverrideChange: vi.fn(),
           following: false,
@@ -232,7 +232,7 @@ describe('map instrument chart', () => {
           mapRenderingQuality: 'performance',
           qualityOverride: null,
           onQualityOverrideChange: vi.fn(),
-          mainMapAisVisible: false,
+          mainMapAisVisible: true,
           aisVisibilityOverride: null,
           onAisVisibilityOverrideChange,
           following: false,
@@ -249,16 +249,17 @@ describe('map instrument chart', () => {
     });
     await vi.waitFor(() => expect(target.querySelector('.map-surface.ready')).not.toBeNull());
 
-    expect(mocks.options?.managerOptions?.saved?.ais?.visible).toBe(false);
-    expect(mocks.manager.toggle).toHaveBeenCalledWith('ais', false);
+    expect(mocks.options?.managerOptions?.saved?.ais?.visible).toBe(true);
+    expect(mocks.manager.toggle).toHaveBeenCalledWith('ais', true);
     const aisButton = target.querySelector<HTMLButtonElement>(
-      '[aria-label="AIS: App default (Off)"]',
+      '[aria-label="AIS: App default (On)"]',
     );
     flushSync(() => aisButton?.click());
-    const on = [...target.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(
-      (button) => button.textContent?.trim() === 'On',
+    const off = [...target.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(
+      (button) => button.textContent?.trim() === 'Off',
     );
-    flushSync(() => on?.click());
-    expect(onAisVisibilityOverrideChange).toHaveBeenCalledWith(true);
+    flushSync(() => off?.click());
+    expect(mocks.manager.toggle).toHaveBeenLastCalledWith('ais', false);
+    expect(onAisVisibilityOverrideChange).toHaveBeenCalledWith(false);
   });
 });
