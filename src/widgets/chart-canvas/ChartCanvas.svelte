@@ -18,28 +18,20 @@ import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
 import { boundsToBbox, type WeatherStore } from '$entities/weather';
 import type { AisMotionUpdate, AisVesselKindMode } from '$features/ais-layer';
-import { BOUNDARY_SOURCES, createBoundaryOverlay } from '$features/boundaries-overlay';
 import { fetchCharts } from '$features/charts';
-import {
-  createInfrastructureOverlay,
-  INFRASTRUCTURE_SOURCES,
-} from '$features/infrastructure-overlay';
 import { LayersView } from '$features/layers-panel';
 import { COLLISION_OVERLAY_ID } from '$features/lookout';
 import type { PpiLayer } from '$features/marine-radar';
 import { MEASURE_OVERLAY_ID, type MeasureOverlay } from '$features/measure';
 import { MOB_OVERLAY_ID } from '$features/mob';
-import { createMpaOverlay, MPA_SOURCES } from '$features/mpa-overlays';
 import {
   createNotesOverlay,
   type NotePoint,
   type NoteSelection,
   type PoiViewState,
 } from '$features/notes';
-import { buildOceanSources, createOceanOverlay } from '$features/ocean-conditions';
 import type { RouteEditor } from '$features/route-edit';
 import { createWorkingRouteOverlay, type WorkingRouteOverlay } from '$features/route-layer';
-import { createSeamarkOverlay, SEAMARK_SOURCES } from '$features/seamark-overlay';
 import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
 import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
@@ -55,14 +47,12 @@ import {
   type ChartFeatureSelection,
   CONTEXT_MENU_KEYSHORTCUTS,
   chartSourceId,
-  createBaseMapOverlay,
   createChartOverlay,
   createMapTapRecognizer,
   createThemedMap,
   detectCompanion,
   type LayerSettings,
   type MapTapEvent,
-  proxiedSources,
   type ThemedMapHandle,
 } from '$shared/map';
 import { binnacleStorageKey } from '$shared/persistence';
@@ -78,9 +68,9 @@ import {
 } from '$shared/settings';
 import type { HistoryProviders, SignalKStore } from '$shared/signalk';
 import type { Theme } from '$shared/ui';
-import { buildBathymetryOverlays } from './build-bathymetry-overlays';
 import { buildMapCommands } from './build-commands';
 import { buildDynamicOverlays } from './build-overlays';
+import { buildReferenceOverlays } from './build-reference-overlays';
 import ChartContextMenu from './ChartContextMenu.svelte';
 import type { MapCommands, UserChartRegistrar } from './commands';
 import { CRITICAL_OVERLAY_IDS } from './critical-overlays';
@@ -760,21 +750,7 @@ onMount(async () => {
       const tileBase = companionTiles?.() ?? companionBase;
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local async accumulator
       const serverChartIds = new Set<string>();
-      const providerResults = await mgr.registerBatch([
-        createBaseMapOverlay(map),
-        ...buildBathymetryOverlays({ companionBase: tileBase }),
-        ...buildOceanSources().map((source) => createOceanOverlay(source)),
-        // Within the safety band, registration order is z, so the seamark navigation aids draw over
-        // the reference area fills and boundary lines beneath them.
-        ...proxiedSources(BOUNDARY_SOURCES, tileBase).map((source) =>
-          createBoundaryOverlay(source),
-        ),
-        ...proxiedSources(INFRASTRUCTURE_SOURCES, tileBase).map((source) =>
-          createInfrastructureOverlay(source),
-        ),
-        ...proxiedSources(MPA_SOURCES, tileBase).map((source) => createMpaOverlay(source)),
-        ...proxiedSources(SEAMARK_SOURCES, tileBase).map((source) => createSeamarkOverlay(source)),
-      ]);
+      const providerResults = await mgr.registerBatch(buildReferenceOverlays(map, tileBase));
       if (isDestroyed()) return;
       for (const result of providerResults) {
         if (result.status === 'failed') {

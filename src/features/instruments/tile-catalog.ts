@@ -123,6 +123,7 @@ export interface TileDef {
     | 'heel'
     | 'attitude'
     | 'ais-radar'
+    | 'map'
     | 'tide';
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
   viz?: 'spark' | 'battery' | 'rot';
@@ -759,6 +760,28 @@ const AIS_RADAR_DEF: TileDef = {
   },
 };
 
+const MAP_DEF: TileDef = {
+  id: 'map',
+  label: 'Map',
+  abbr: 'MAP',
+  description: 'Independent chart viewport with its own zoom, pan, and follow-boat state.',
+  sensorGloss: 'No GPS position',
+  paths: [SK_PATHS.position],
+  zonesPath: SK_PATHS.position,
+  useMetaDisplayName: false,
+  category: 'navigation',
+  kind: 'map',
+  read({ vessel, store, clock }) {
+    const state = grade(store.cell(SK_PATHS.position), clock);
+    return {
+      state: vessel.position ? state : state === 'live' ? 'placeholder' : state,
+      value: 'MAP',
+      unit: '',
+      secondary: 'Independent chart view',
+    };
+  },
+};
+
 // The course tile's data is already subscribed by the App master list; no demand paths needed.
 // zonesPath is the calcValues distance leaf for shape consistency but zones are not expected here.
 const COURSE_ZONES_PATH = `${SK_PATHS.courseCalcValues}.distance`;
@@ -1104,6 +1127,7 @@ export const TILE_CATALOG: readonly TileDef[] = [
   WIND_ROSE_DEF,
   PRESSURE_DEF,
   POSITION_DEF,
+  MAP_DEF,
   AIS_RADAR_DEF,
   WAYPOINT_DEF,
   COURSE_VMG_DEF,

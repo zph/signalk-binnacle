@@ -98,6 +98,16 @@ describe('tile catalog structure', () => {
     expect(tileById('no-such-tile')).toBeUndefined();
   });
 
+  it('offers an independent map instrument outside the default dock', () => {
+    expect(tileById('map')).toMatchObject({
+      label: 'Map',
+      kind: 'map',
+      category: 'navigation',
+      paths: [SK_PATHS.position],
+    });
+    expect(DEFAULT_TILES).not.toContain('map');
+  });
+
   it('ALL_CATALOG_PATHS contains every path from every def', () => {
     const all = new Set(ALL_CATALOG_PATHS);
     for (const def of TILE_CATALOG) {

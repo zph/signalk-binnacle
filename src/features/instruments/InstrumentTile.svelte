@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { Snippet } from 'svelte';
 import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
 import type { OwnVessel } from '$entities/vessel';
@@ -34,6 +35,7 @@ interface Props {
     companionBase?: string | null;
     getToken?: () => string | undefined;
   };
+  mapInstrument?: Snippet<[boolean, string, () => void]>;
   onActivate: () => void;
   onTideSettings?: () => void;
   windRoseNoGoAngleRad?: number;
@@ -50,6 +52,7 @@ const {
   sparkPoints,
   expanded = false,
   aisRadar,
+  mapInstrument,
   onActivate,
   onTideSettings,
   windRoseNoGoAngleRad,
@@ -58,7 +61,9 @@ const {
 const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrument');
 </script>
 
-{#if def.kind === 'ais-radar' && aisRadar}
+{#if def.kind === 'map' && mapInstrument}
+  {@render mapInstrument(expanded, actionLabel, onActivate)}
+{:else if def.kind === 'ais-radar' && aisRadar}
   <AisRadarTile
     {label}
     {reading}

@@ -266,7 +266,7 @@ import {
   type Theme,
   trapFocus,
 } from '$shared/ui';
-import type { MapCommands } from '$widgets/chart-canvas';
+import { InstrumentChart, type MapCommands } from '$widgets/chart-canvas';
 import { PlotterView } from '../views';
 import AppInfo from './AppInfo.svelte';
 import { resolveOrientation } from './chart-orientation';
@@ -700,6 +700,10 @@ function openAisRadarInstrument(): void {
   openExpandedInstrument('ais-radar');
 }
 
+function openMapInstrument(): void {
+  openExpandedInstrument('map');
+}
+
 function openWindRoseSettings(): void {
   instrumentExpandedRequest = undefined;
   windRoseSettingsRequest = { sequence: ++instrumentOpenSequence };
@@ -804,6 +808,11 @@ const theme = createThemeController((next) => recolorMap?.(next));
 // Profile state restored across visits: the last map view and the layer settings.
 const mapViewStore = createMapView();
 const savedView = isMapView(mapViewStore.value) ? mapViewStore.value : undefined;
+const instrumentMapViewStore = createMapView(binnacleStorageKey('instrumentMapView'));
+let instrumentMapView = $state<MapView | undefined>(
+  isMapView(instrumentMapViewStore.value) ? instrumentMapViewStore.value : undefined,
+);
+let instrumentMapFollowing = $state(false);
 // The live map view if one has been reported, else the persisted view: the fallback that the tides
 // load and the weather map's initial view share.
 const currentView = $derived(mapView ?? savedView);
@@ -1345,6 +1354,12 @@ function onViewChange(view: MapView): void {
     // Refresh tides for the settled view; the loader skips small moves and dedups in flight.
     if (tidesWanted) void tidesController.load(view);
   }, VIEW_SAVE_DEBOUNCE_MS);
+}
+
+function onInstrumentMapViewChange(view: MapView): void {
+  instrumentMapView = view;
+  // Follow fixes can arrive every second. Persist hand-positioned cameras, not the boat's track.
+  if (!instrumentMapFollowing) instrumentMapViewStore.set(view);
 }
 
 // Load tides for the current view, so opening the Tides panel shows data without a pan first.
@@ -2053,6 +2068,15 @@ const menuItems = $derived<MenuItem[]>([
     toolbarEligible: false,
     pressed: instruments.open,
     onSelect: toggleInstrumentsPanel,
+  },
+  {
+    id: 'map-instrument',
+    label: 'Map instrument',
+    shortLabel: 'Map view',
+    icon: MapPin,
+    group: 'Instruments',
+    toolbarEligible: false,
+    onSelect: openMapInstrument,
   },
   {
     id: 'trends',
@@ -3518,6 +3542,29 @@ const plotterActions = {
   {/snippet}
 
   {#if instruments.open}
+    {#snippet mapInstrument(expanded: boolean, actionLabel: string, onOpen: () => void)}
+      <InstrumentChart
+        {origin}
+        {vessel}
+        {units}
+        {thresholds}
+        {userCharts}
+        theme={theme.theme}
+        {companionBase}
+        companionTiles={() => companionTileBase}
+        {chartsToken}
+        initialView={instrumentMapView}
+        savedLayers={layerSettings.value}
+        savedOrder={layerOrder.value}
+        mapRenderingQuality={mapRenderingQuality.value}
+        following={instrumentMapFollowing}
+        onFollowingChange={(following) => (instrumentMapFollowing = following)}
+        onViewChange={onInstrumentMapViewChange}
+        {expanded}
+        {actionLabel}
+        {onOpen}
+      />
+    {/snippet}
     {#await instrumentsPanelForAttempt()}
       {@render instrumentsState('Loading Instruments controls…')}
     {:then module}
@@ -3538,6 +3585,7 @@ const plotterActions = {
           theme={theme.theme}
           {companionBase}
           chartToken={chartsToken}
+          {mapInstrument}
           initialExpandedRequest={instrumentExpandedRequest}
           onExpandedRequestHandled={() => (instrumentExpandedRequest = undefined)}
           onOpenTideSettings={openTideStationSettings}

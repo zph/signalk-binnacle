@@ -17,6 +17,7 @@ interface StorageKeyDefinition {
 const BINNACLE_STORAGE_KEYS = {
   theme: { key: 'binnacle-custom:theme', scope: 'profile' },
   mapView: { key: 'binnacle-custom:map-view', scope: 'device' },
+  instrumentMapView: { key: 'binnacle-custom:instrument-map-view', scope: 'device' },
   trackSettings: { key: 'binnacle-custom:track-settings', scope: 'profile' },
   lookoutThresholds: { key: 'binnacle-custom:lookout-thresholds', scope: 'profile' },
   alarmLocation: { key: 'binnacle-custom:alarm-location', scope: 'server-resource' },

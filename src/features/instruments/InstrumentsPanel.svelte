@@ -32,6 +32,7 @@ interface Props {
   theme?: Theme;
   companionBase?: string | null;
   chartToken?: string;
+  mapInstrument?: Snippet<[boolean, string, () => void]>;
   initialExpandedRequest?: { id: string; sequence: number };
   onExpandedRequestHandled?: () => void;
   initialDetailId?: string;
@@ -68,6 +69,7 @@ const {
   theme = 'day',
   companionBase,
   chartToken,
+  mapInstrument,
   initialExpandedRequest,
   onExpandedRequestHandled,
   initialDetailId,
@@ -164,6 +166,7 @@ function spansWholeRow(kind: string, state: string): boolean {
   return (
     kind === 'wind-rose' ||
     kind === 'ais-radar' ||
+    kind === 'map' ||
     kind === 'tide' ||
     (state !== 'never' && (kind === 'wind' || kind === 'position'))
   );
@@ -404,6 +407,7 @@ $effect(() => {
             staleAgeText={staleAge}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
             {aisRadar}
+            mapInstrument={expandedId === def.id ? undefined : mapInstrument}
             {windRoseNoGoAngleRad}
             {windRoseArcMarginRad}
             onActivate={() => (expandedId = def.id)}
@@ -456,6 +460,7 @@ $effect(() => {
         staleAgeText={staleAge}
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
         {aisRadar}
+        {mapInstrument}
         {windRoseNoGoAngleRad}
         {windRoseArcMarginRad}
         expanded
