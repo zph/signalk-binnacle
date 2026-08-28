@@ -1,8 +1,25 @@
-import type { Bbox, WeatherStore } from '$entities/weather';
+import { type Bbox, bboxContains, type WeatherStore } from '$entities/weather';
 import type { WeatherSourceId } from '$shared/settings';
 import type { WeatherLoader } from './weather-loader';
 
 const FETCH_DEBOUNCE_MS = 400;
+const VIEWPORT_PADDING = 0.5;
+const MAX_WIND_CELLS = 120;
+const VIEWPORT_REUSE_MS = 45 * 60 * 1000;
+
+// Fetch beyond the visible bounds so ordinary nearby pans remain inside the loaded field and redraw
+// immediately. A large relocation still replaces the grid after moveend, but requests only the two
+// wind variables rather than the full weather payload.
+export function paddedWindBounds(bounds: Bbox): Bbox {
+  const lonPadding = Math.max(0.05, (bounds.east - bounds.west) * VIEWPORT_PADDING);
+  const latPadding = Math.max(0.05, (bounds.north - bounds.south) * VIEWPORT_PADDING);
+  return {
+    west: bounds.west - lonPadding,
+    south: Math.max(-90, bounds.south - latPadding),
+    east: bounds.east + lonPadding,
+    north: Math.min(90, bounds.north + latPadding),
+  };
+}
 
 interface ChartWindControllerDeps {
   store: WeatherStore;
@@ -19,17 +36,48 @@ export function createChartWindController(deps: ChartWindControllerDeps) {
   let fetchTimer: ReturnType<typeof setTimeout> | undefined;
   let requestedSource = deps.getSource();
 
+  function currentGridCovers(bounds: Bbox, source: WeatherSourceId): boolean {
+    const grid = deps.store.grid;
+    const fetchedAt = grid?.fetchedAt;
+    if (
+      !grid ||
+      grid.forecastSource !== source ||
+      fetchedAt === undefined ||
+      Date.now() - fetchedAt >= VIEWPORT_REUSE_MS
+    ) {
+      return false;
+    }
+    const west = grid.lons[0];
+    const east = grid.lons.at(-1);
+    const south = grid.lats[0];
+    const north = grid.lats.at(-1);
+    if ([west, east, south, north].some((value) => !Number.isFinite(value))) return false;
+    return bboxContains(
+      {
+        west: west as number,
+        south: south as number,
+        east: east as number,
+        north: north as number,
+      },
+      bounds,
+    );
+  }
+
   function load(force = false): void {
     if (destroyed || !deps.isVisible()) return;
-    const bounds = deps.getBounds();
+    const currentBounds = deps.getBounds();
+    const source = deps.getSource();
+    if (!force && currentBounds && currentGridCovers(currentBounds, source)) return;
+    const bounds = currentBounds ? paddedWindBounds(currentBounds) : undefined;
     if (!bounds) return;
     void deps.loader.load(
       deps.store,
       bounds,
       {
-        maxCells: 200,
+        maxCells: MAX_WIND_CELLS,
         forecastDays: 5,
-        source: deps.getSource(),
+        source,
+        atmosphericFields: 'wind',
       },
       { waves: false, radar: false },
       force,

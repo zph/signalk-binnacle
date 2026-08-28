@@ -1,11 +1,11 @@
 import type {
   CustomLayerInterface,
-  ExpressionSpecification,
   LineLayerSpecification,
   Map as MapLibreMap,
+  SymbolLayerSpecification,
 } from 'maplibre-gl';
 import type { WeatherStore } from '$entities/weather';
-import { prefersReducedMotion } from '$shared/lib';
+import { prefersReducedMotion, type SpeedUnit } from '$shared/lib';
 import {
   emptyFeatureCollection,
   ensureGeoJsonSource,
@@ -21,9 +21,8 @@ import { type CanvasFactory, createFieldOverlay } from './field-overlay';
 import { WEATHER_LAYER_IDS } from './fills';
 import { gridTimeGate } from './grid-time-gate';
 import { becameVisible } from './overlay-visibility';
-import { windArrowFeatures } from './wind-arrows';
+import { windVectorFeatures } from './wind-arrows';
 import { windColorTexture } from './wind-color-texture';
-import { windColorExpression } from './wind-colormap';
 import { windFieldTexture } from './wind-field-texture';
 import type { GL } from './wind-gl/gl-resources';
 import { supportsWindGl } from './wind-gl/wind-gl-support';
@@ -31,7 +30,10 @@ import { WindParticles } from './wind-gl/wind-particles';
 import { windSpeedFieldRgba } from './wind-speed-field';
 
 const SOURCE_ID = 'binnacle-weather-wind';
+const MARKER_SOURCE_ID = 'binnacle-weather-wind-markers';
+const CASING_LAYER_ID = 'binnacle-weather-wind-line-casing';
 const LAYER_ID = 'binnacle-weather-wind-line';
+const MARKER_LAYER_ID = 'binnacle-weather-wind-marker-label';
 const GL_LAYER_ID = 'binnacle-weather-wind-particles';
 const FIELD_SOURCE_ID = 'binnacle-weather-wind-field';
 const FIELD_LAYER_ID = 'binnacle-weather-wind-field-layer';
@@ -57,7 +59,11 @@ function sameMatrix(a: ArrayLike<number>, b: ArrayLike<number>): boolean {
 // layer when WebGL is unavailable. Rebuilds the wind texture only when the grid or selected time
 // changes; the animation runs in the custom layer's own render loop via triggerRepaint, throttled to
 // ~25 fps and paused while the document is hidden, and recovers from a WebGL context loss.
-export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactory): WindOverlay {
+export function createWindOverlay(
+  store: WeatherStore,
+  makeCanvas?: CanvasFactory,
+  getSpeedUnit: () => SpeedUnit = () => 'kn',
+): WindOverlay {
   const field = createFieldOverlay(
     store,
     {
@@ -73,6 +79,7 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
   let theme: Theme = 'day';
   let opacity = 1;
   let visible = false;
+  let lastSpeedUnit: SpeedUnit | undefined;
   const gate = gridTimeGate(store);
 
   // Particle path.
@@ -88,33 +95,67 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
   let stopParticleLoop = () => {};
   let resumeParticleLoop = () => {};
 
-  // Arrow fallback path. windColorExpression stays free of MapLibre types (see wind-colormap.ts),
-  // so this is the one place that casts its plain array to the paint property's expression type.
-  function colorExpr(t: Theme): ExpressionSpecification {
-    return windColorExpression(t) as unknown as ExpressionSpecification;
-  }
-
   function addArrowLayer(ctx: OverlayContext): void {
     ensureGeoJsonSource(ctx.map, SOURCE_ID);
+    ensureGeoJsonSource(ctx.map, MARKER_SOURCE_ID);
+    if (!ctx.map.getLayer(CASING_LAYER_ID)) {
+      const layer: LineLayerSpecification = {
+        id: CASING_LAYER_ID,
+        type: 'line',
+        source: SOURCE_ID,
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+          visibility: visible ? 'visible' : 'none',
+        },
+        paint: { 'line-color': '#263640', 'line-width': 5, 'line-opacity': opacity * 0.9 },
+      };
+      ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
+    }
     if (!ctx.map.getLayer(LAYER_ID)) {
       const layer: LineLayerSpecification = {
         id: LAYER_ID,
         type: 'line',
         source: SOURCE_ID,
-        layout: { 'line-cap': 'round', visibility: visible ? 'visible' : 'none' },
-        paint: { 'line-color': colorExpr(theme), 'line-width': 1.75, 'line-opacity': opacity },
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+          visibility: visible ? 'visible' : 'none',
+        },
+        paint: { 'line-color': '#ffffff', 'line-width': 2.5, 'line-opacity': opacity },
+      };
+      ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
+    }
+    if (!ctx.map.getLayer(MARKER_LAYER_ID)) {
+      const layer: SymbolLayerSpecification = {
+        id: MARKER_LAYER_ID,
+        type: 'symbol',
+        source: MARKER_SOURCE_ID,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': 12,
+          'text-offset': [0, 1.25],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          visibility: visible ? 'visible' : 'none',
+        },
+        paint: {
+          'text-color': '#263640',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 2.5,
+          'text-opacity': opacity,
+        },
       };
       ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
     }
   }
 
-  function syncArrows(ctx: OverlayContext): void {
+  function syncArrows(ctx: OverlayContext, speedUnit: SpeedUnit): void {
     const grid = store.grid;
-    setSourceData(
-      ctx.map,
-      SOURCE_ID,
-      grid ? windArrowFeatures(grid, store.bracket) : emptyFeatureCollection(),
-    );
+    const vectors = grid ? windVectorFeatures(grid, store.bracket, speedUnit) : undefined;
+    setSourceData(ctx.map, SOURCE_ID, vectors?.arrows ?? emptyFeatureCollection());
+    setSourceData(ctx.map, MARKER_SOURCE_ID, vectors?.markers ?? emptyFeatureCollection());
   }
 
   function pushWind(): void {
@@ -165,7 +206,7 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
         particles?.dispose();
         particles = undefined;
         addArrowLayer(ctx);
-        if (visible) syncArrows(ctx);
+        if (visible) syncArrows(ctx, getSpeedUnit());
       }
       scheduleRepaint(0);
     };
@@ -248,7 +289,7 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
     defaultVisible: false,
     // The color field is the base, particles animate over it when supported, and arrows keep
     // direction visible even when the custom WebGL renderer cannot initialize.
-    layerIds: [FIELD_LAYER_ID, GL_LAYER_ID, LAYER_ID],
+    layerIds: [FIELD_LAYER_ID, GL_LAYER_ID, CASING_LAYER_ID, LAYER_ID, MARKER_LAYER_ID],
     add(ctx) {
       void field.add(ctx);
       addArrowLayer(ctx);
@@ -257,19 +298,27 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
       // The manager calls this on a base-style swap; without it the arrow fallback stays blank when
       // the grid object is unchanged, the same hazard radar-overlay guards against.
       gate.reset();
+      lastSpeedUnit = undefined;
       field.reset?.();
     },
     sync(ctx) {
       if (!visible) return;
       field.sync(ctx);
-      if (!gate.changed()) return;
-      pushWind(); // a no-op without particles
-      syncArrows(ctx);
+      const changed = gate.changed();
+      const speedUnit = getSpeedUnit();
+      if (!changed && speedUnit === lastSpeedUnit) return;
+      if (changed) pushWind(); // a no-op without particles
+      syncArrows(ctx, speedUnit);
+      lastSpeedUnit = speedUnit;
     },
     remove(ctx) {
       visible = false;
       stopParticleLoop();
-      removeLayersAndSources(ctx.map, [GL_LAYER_ID, LAYER_ID], [SOURCE_ID]);
+      removeLayersAndSources(
+        ctx.map,
+        [GL_LAYER_ID, MARKER_LAYER_ID, LAYER_ID, CASING_LAYER_ID],
+        [MARKER_SOURCE_ID, SOURCE_ID],
+      );
       field.remove(ctx);
     },
     setVisible(ctx, value) {
@@ -282,7 +331,7 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
         // change made while the layer was off is honored without a reload.
         if (supportsWindGl() && !prefersReducedMotion()) addParticleLayer(ctx);
       }
-      setLayersVisibility(ctx.map, [LAYER_ID], value);
+      setLayersVisibility(ctx.map, [CASING_LAYER_ID, LAYER_ID, MARKER_LAYER_ID], value);
       if (justBecameVisible) {
         gate.reset();
         this.sync(ctx);
@@ -295,14 +344,27 @@ export function createWindOverlay(store: WeatherStore, makeCanvas?: CanvasFactor
       opacity = value;
       field.setOpacity?.(ctx, value);
       particles?.setOpacity(value);
+      if (ctx.map.getLayer(CASING_LAYER_ID)) {
+        ctx.map.setPaintProperty(CASING_LAYER_ID, 'line-opacity', value * 0.9);
+      }
       if (ctx.map.getLayer(LAYER_ID)) ctx.map.setPaintProperty(LAYER_ID, 'line-opacity', value);
+      if (ctx.map.getLayer(MARKER_LAYER_ID)) {
+        ctx.map.setPaintProperty(MARKER_LAYER_ID, 'text-opacity', value);
+      }
     },
     applyTheme(ctx, paint) {
       theme = paint.theme;
       field.applyTheme?.(ctx, paint);
       particles?.setTheme(windColorTexture(theme));
+      if (ctx.map.getLayer(CASING_LAYER_ID)) {
+        ctx.map.setPaintProperty(CASING_LAYER_ID, 'line-color', paint.label);
+      }
       if (ctx.map.getLayer(LAYER_ID)) {
-        ctx.map.setPaintProperty(LAYER_ID, 'line-color', colorExpr(theme));
+        ctx.map.setPaintProperty(LAYER_ID, 'line-color', paint.markerGlyph);
+      }
+      if (ctx.map.getLayer(MARKER_LAYER_ID)) {
+        ctx.map.setPaintProperty(MARKER_LAYER_ID, 'text-color', paint.label);
+        ctx.map.setPaintProperty(MARKER_LAYER_ID, 'text-halo-color', paint.background);
       }
     },
   };

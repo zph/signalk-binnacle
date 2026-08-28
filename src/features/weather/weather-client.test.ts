@@ -54,6 +54,23 @@ describe('fetchForecast', () => {
     expect(grid?.forecastSource).toBe('noaa');
   });
 
+  it('requests only speed and direction for a chart wind field', async () => {
+    const body = [
+      loc(0, 0, [0, 0], [0, 0]),
+      loc(0, 1, [0, 0], [0, 0]),
+      loc(1, 0, [0, 0], [0, 0]),
+      loc(1, 1, [0, 0], [0, 0]),
+    ];
+    const fetchFn = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => res(body));
+    await fetchForecast(
+      { west: 0, south: 0, east: 1, north: 1 },
+      { maxCells: 4, forecastDays: 1, atmosphericFields: 'wind' },
+      fetchFn as unknown as typeof fetch,
+    );
+    const requestUrl = new URL(String(fetchFn.mock.calls[0][0]));
+    expect(requestUrl.searchParams.get('hourly')).toBe('wind_speed_10m,wind_direction_10m');
+  });
+
   it('parses a 2x2 grid and derives u/v from speed and direction', async () => {
     const body = [
       loc(0, 0, [10, 10], [90, 90]),

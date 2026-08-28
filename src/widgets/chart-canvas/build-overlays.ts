@@ -131,7 +131,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     marineRadarLayer,
   } = deps;
   return [
-    createWindOverlay(weather),
+    createWindOverlay(weather, undefined, () => units.speedUnit),
     interactionsAllowed
       ? createTidesOverlay(tides, units, onTideStationSelect, Date.now, interactionsAllowed)
       : createTidesOverlay(tides, units, onTideStationSelect),

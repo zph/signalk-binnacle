@@ -87,6 +87,12 @@ describe('weatherCacheKey', () => {
     expect(dwd).not.toBe(automatic);
     expect(dwd).not.toBe(noaa);
   });
+
+  it('separates compact wind-only grids from full atmospheric grids', () => {
+    const full = weatherCacheKey(BBOX, { ...OPTS, atmosphericFields: 'all' }, false);
+    const wind = weatherCacheKey(BBOX, { ...OPTS, atmosphericFields: 'wind' }, false);
+    expect(wind).not.toBe(full);
+  });
 });
 
 describe('createWeatherLoader', () => {

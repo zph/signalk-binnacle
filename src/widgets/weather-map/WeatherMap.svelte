@@ -407,7 +407,7 @@ onMount(() => {
         createPrecipOverlay(store),
         createCloudOverlay(store),
         createRadarOverlay(store, undefined, undefined, (t) => (radarFrameTime = t)),
-        createWindOverlay(store),
+        createWindOverlay(store, undefined, () => units.speedUnit),
         createPressureOverlay(store),
         ...(routes ? [createRouteOverlay(routes, { listed: false })] : []),
       ];

@@ -41,7 +41,10 @@ const factories = vi.hoisted(() => {
       marker('vessel'),
     ),
     createWaypointOverlay: vi.fn(() => marker('waypoints')),
-    createWindOverlay: vi.fn(() => marker('weather-wind')),
+    createWindOverlay: vi.fn(
+      (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
+        marker('weather-wind'),
+    ),
   };
 });
 
@@ -92,7 +95,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     routeStore: { name: 'routes' },
     tides: { name: 'tides' },
     weather: { name: 'weather' },
-    units: { name: 'units' },
+    units: { name: 'units', speedUnit: 'kn' },
     waypoints: { name: 'waypoints' },
     symbols: { name: 'symbols' },
     trackSettings: { value: { intervalSeconds: 10 } },
@@ -175,7 +178,15 @@ describe('buildDynamicOverlays', () => {
       deps.units,
       deps.onTideStationSelect,
     );
-    expect(factories.createWindOverlay).toHaveBeenCalledWith(deps.weather);
+    expect(factories.createWindOverlay).toHaveBeenCalledWith(
+      deps.weather,
+      undefined,
+      expect.any(Function),
+    );
+    const windSpeedUnit = factories.createWindOverlay.mock.calls[0]?.[2];
+    expect(windSpeedUnit?.()).toBe('kn');
+    deps.units.speedUnit = 'kmh';
+    expect(windSpeedUnit?.()).toBe('kmh');
     expect(factories.createAnchorOverlay).toHaveBeenCalledWith(
       deps.anchor,
       deps.vessel,

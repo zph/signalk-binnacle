@@ -33,6 +33,9 @@ export interface ForecastOptions {
   maxCells: number;
   forecastDays: number;
   source?: WeatherSourceId;
+  // The primary chart needs only u/v wind. Omitting unrelated pressure, precipitation, cloud, and
+  // gust fields makes viewport-following requests much smaller; the full Forecast view keeps all.
+  atmosphericFields?: 'all' | 'wind';
 }
 
 interface OmLoc {
@@ -228,7 +231,9 @@ export async function fetchForecast(
     source.endpoint,
     // Gusts ride along: gust versus sustained is the reefing decision, so the free grid must carry
     // it for the readouts even when no provider is configured.
-    'wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation,cloud_cover',
+    opts.atmosphericFields === 'wind'
+      ? 'wind_speed_10m,wind_direction_10m'
+      : 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation,cloud_cover',
     { wind_speed_unit: 'ms' },
     bbox,
     opts,

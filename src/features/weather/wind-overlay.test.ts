@@ -43,12 +43,12 @@ describe('wind overlay', () => {
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('weather');
-    expect(map.sources.size).toBe(2);
-    expect(map.layers.size).toBe(2);
+    expect(map.sources.size).toBe(3);
+    expect(map.layers.size).toBe(4);
 
     overlay.setVisible(fakeOverlayContext(map), true);
-    expect(map.sources.size).toBe(2);
-    expect(map.layers.size).toBeGreaterThanOrEqual(2);
+    expect(map.sources.size).toBe(3);
+    expect(map.layers.size).toBeGreaterThanOrEqual(4);
   });
 
   it('syncs the arrow features from the grid', async () => {
@@ -57,13 +57,16 @@ describe('wind overlay', () => {
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     overlay.sync(fakeOverlayContext(map));
-    expect(map.sources.size).toBe(2);
+    expect(map.sources.size).toBe(3);
 
     overlay.setVisible(fakeOverlayContext(map), true);
     const source = map.sources.get('binnacle-weather-wind');
     if (!source) throw new Error('wind arrow source was not added');
     const fc = source.data as GeoJSON.FeatureCollection;
     expect(fc.features).toHaveLength(4);
+    const markers = map.sources.get('binnacle-weather-wind-markers');
+    if (!markers) throw new Error('wind marker source was not added');
+    expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe('19 kn');
     overlay.sync(fakeOverlayContext(map));
     expect(source.data).toBe(fc);
   });
@@ -81,8 +84,17 @@ describe('wind overlay', () => {
     const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
-    expect(() =>
-      overlay.applyTheme?.(fakeOverlayContext(map), mapThemePaint('night-red')),
-    ).not.toThrow();
+    const paint = mapThemePaint('night-red');
+    expect(() => overlay.applyTheme?.(fakeOverlayContext(map), paint)).not.toThrow();
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'binnacle-weather-wind-marker-label',
+      'text-color',
+      paint.label,
+    );
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'binnacle-weather-wind-marker-label',
+      'text-halo-color',
+      paint.background,
+    );
   });
 });
