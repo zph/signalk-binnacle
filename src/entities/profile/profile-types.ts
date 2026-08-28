@@ -1,6 +1,6 @@
 import type { UnitsMode } from '$shared/lib';
 import type { LayerSettings } from '$shared/map';
-import type { Thresholds, TrackSettings } from '$shared/settings';
+import type { Thresholds, TrackSettings, WeatherSourceId } from '$shared/settings';
 import type { Theme } from '$shared/ui';
 
 // The portable preferences a named profile owns. Device chrome, active safety state, credentials,
@@ -10,6 +10,7 @@ export interface ProfileSettings {
   layers: LayerSettings;
   layerOrder: string[];
   weatherLayers: LayerSettings;
+  weatherSource?: WeatherSourceId;
   // AIS target portrayal. Optional so profiles saved before vessel-kind symbols existed remain
   // valid; the read edge applies the original type-specific default.
   aisIconMode?: 'type-specific' | 'generic';
@@ -54,6 +55,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'layers',
   'layerOrder',
   'weatherLayers',
+  'weatherSource',
   'aisIconMode',
   'thresholds',
   'trackSettings',

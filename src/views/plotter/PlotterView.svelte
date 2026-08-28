@@ -145,6 +145,9 @@ interface FlatProps {
   // Additional services and loaders
   trends: import('$features/trends').TrendsController;
   weatherLoader: ReturnType<typeof import('$features/weather').createWeatherLoader>;
+  weatherSource: import('$shared/settings').PersistedValue<
+    import('$shared/settings').WeatherSourceId
+  >;
   pointConditionsLoader: ReturnType<typeof import('$features/weather').createPointConditionsLoader>;
   planningSpeedMps: import('$shared/settings').PersistedValue<number>;
   thresholds: import('$shared/settings').PersistedValue<import('$shared/settings').Thresholds>;
@@ -317,6 +320,7 @@ type ServiceKey =
   | 'theme'
   | 'trends'
   | 'weatherLoader'
+  | 'weatherSource'
   | 'pointConditionsLoader'
   | 'planningSpeedMps'
   | 'thresholds'
@@ -498,6 +502,7 @@ const {
   theme,
   trends,
   weatherLoader,
+  weatherSource,
   pointConditionsLoader,
   planningSpeedMps,
   thresholds,
@@ -1953,6 +1958,7 @@ $effect(() => {
           {origin}
           {units}
           loader={weatherLoader}
+          {weatherSource}
           theme={theme.theme}
           initialView={currentView}
           savedLayers={weatherLayerSettings}

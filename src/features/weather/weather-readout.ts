@@ -1,10 +1,12 @@
 import { bilinearAt, type TimeBracket, timeBracket, type WeatherGrid } from '$entities/weather';
 import {
   formatKnotsOr,
+  formatSpeedOr,
   HOUR_MS,
   lerp,
   lerpAngle,
   precipRateUnit,
+  type SpeedUnit,
   type UnitsMode,
 } from '$shared/lib';
 import { GRID_SOURCE_LABEL } from './fills';
@@ -14,6 +16,10 @@ import type { PointConditions } from './signalk-weather';
 // the forecast rows.
 export function formatWholeKnots(speedMs: number | undefined): string {
   return formatKnotsOr(speedMs, 0);
+}
+
+export function formatWholeSpeed(speedMs: number | undefined, unit: SpeedUnit): string {
+  return formatSpeedOr(speedMs, unit, 0);
 }
 
 // The tooltip on every true-bearing readout (wind and wave direction), defined once so the conditions

@@ -130,11 +130,41 @@ export function formatNmOr(meters: number | null | undefined, digits = 2): strin
 // server's unit preferences (the entities/units store), and every affected readout takes it as an
 // argument so the formatters stay pure.
 export type UnitsMode = 'metric' | 'imperial';
+export type SpeedUnit = 'm/s' | 'kn' | 'km/h' | 'mph';
 
 export const METERS_PER_FOOT = 0.3048;
 const MM_PER_INCH = 25.4;
 const PA_PER_INHG = 3386.389;
 export const METERS_PER_MILE = 1609.344;
+
+export function speedUnitLabel(unit: SpeedUnit): string {
+  return unit;
+}
+
+export function speedValue(
+  metersPerSecond: number | null | undefined,
+  unit: SpeedUnit,
+): number | undefined {
+  if (metersPerSecond == null) return undefined;
+  switch (unit) {
+    case 'kn':
+      return metersPerSecondToKnots(metersPerSecond);
+    case 'km/h':
+      return metersPerSecond * 3.6;
+    case 'mph':
+      return (metersPerSecond / METERS_PER_MILE) * 3600;
+    default:
+      return metersPerSecond;
+  }
+}
+
+export function formatSpeedOr(
+  metersPerSecond: number | null | undefined,
+  unit: SpeedUnit,
+  digits = 0,
+): string {
+  return formatFixed(speedValue(metersPerSecond, unit), digits);
+}
 
 export function metersToFeet(value: number | null | undefined): number | undefined {
   return value == null ? undefined : value / METERS_PER_FOOT;

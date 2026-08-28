@@ -230,6 +230,7 @@ import {
   stringArrayPersistedCodec,
   tripLogEnabled,
   useLocalTrackFallback,
+  type WeatherSourceId,
 } from '$shared/settings';
 import type { ConnectionPhase, HistoryProviders } from '$shared/signalk';
 import {
@@ -542,6 +543,12 @@ const weatherLayerSettings = new PersistedValue<LayerSettings>(
   },
   undefined,
   layerSettingsCodec,
+);
+const weatherSource = new PersistedValue<WeatherSourceId>(
+  binnacleStorageKey('weatherSource'),
+  'automatic',
+  undefined,
+  enumPersistedCodec(['automatic', 'noaa', 'dwd', 'ecmwf']),
 );
 
 let layersView = $state<LayersView | undefined>();
@@ -1152,6 +1159,7 @@ const profileBindings = createProfileBindings({
   layers: layerSettings,
   layerOrder,
   weatherLayers: weatherLayerSettings,
+  weatherSource,
   aisIconMode,
   thresholds,
   trackSettings,
@@ -3148,6 +3156,7 @@ const plotterServices = {
   theme,
   trends,
   weatherLoader,
+  weatherSource,
   pointConditionsLoader,
   planningSpeedMps,
   thresholds,

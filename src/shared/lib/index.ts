@@ -64,6 +64,7 @@ export {
   formatPrecipRateOr,
   formatPressureOr,
   formatSignedAngleOr,
+  formatSpeedOr,
   formatTcpaMin,
   formatTemperatureOr,
   HOUR_MS,
@@ -86,6 +87,9 @@ export {
   pressureValue,
   RAD_TO_DEG,
   radiansToBearing,
+  type SpeedUnit,
+  speedUnitLabel,
+  speedValue,
   temperatureUnit,
   type UnitsMode,
 } from './units';

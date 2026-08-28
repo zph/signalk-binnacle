@@ -1,11 +1,12 @@
 import {
-  formatKnotsOr,
   formatLengthOr,
   formatPercent,
   formatPrecipRateOr,
+  formatSpeedOr,
   knotsToMetersPerSecond,
   lengthUnit,
   precipRateUnit,
+  type SpeedUnit,
   type UnitsMode,
 } from '$shared/lib';
 import type { Theme } from '$shared/ui';
@@ -79,15 +80,16 @@ export function weatherLegend(
   layerId: string,
   theme: Theme,
   mode: UnitsMode,
+  speedUnit: SpeedUnit = 'kn',
 ): WeatherLegend | undefined {
   switch (layerId) {
     case WEATHER_LAYER_IDS.wind:
       return rampLegend(
         layerId,
-        'Wind (kn)',
+        `Wind (${speedUnit})`,
         WIND_STOPS,
         (s) => windColor(s, theme),
-        (s) => formatKnotsOr(s, 0),
+        (s) => formatSpeedOr(s, speedUnit, 0),
       );
     case WEATHER_LAYER_IDS.pressure:
       // Isobars are conventionally hectopascals on every chart, so the isobar legend and the

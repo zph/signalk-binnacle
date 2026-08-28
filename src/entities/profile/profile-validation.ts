@@ -12,6 +12,7 @@ import type { LayerSettings } from '$shared/map';
 import {
   isThresholds,
   isTrackSettings,
+  isWeatherSourceId,
   isWindRoseNoGoAngleRad,
   MAX_PLANNING_SPEED_KN,
   MAX_PLANNING_SPEED_MPS,
@@ -233,6 +234,7 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   if (Object.keys(value).length > MAX_PROFILE_SETTING_KEYS) return false;
   if (!(THEMES as readonly unknown[]).includes(value.theme)) return false;
   if (!validLayerSettings(value.layers) || !validLayerSettings(value.weatherLayers)) return false;
+  if (value.weatherSource !== undefined && !isWeatherSourceId(value.weatherSource)) return false;
   if (
     value.aisIconMode !== undefined &&
     value.aisIconMode !== 'type-specific' &&

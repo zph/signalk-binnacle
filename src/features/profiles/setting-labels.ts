@@ -8,6 +8,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   layers: 'Charts and overlays',
   layerOrder: 'Layer order',
   weatherLayers: 'Weather layers',
+  weatherSource: 'Weather source',
   aisIconMode: 'AIS symbols',
   thresholds: 'Collision thresholds',
   trackSettings: 'Track recording',

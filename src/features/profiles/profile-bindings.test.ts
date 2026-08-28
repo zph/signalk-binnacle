@@ -26,6 +26,7 @@ function makeDeps(): ProfileBindingDeps {
     layers: pv({}),
     layerOrder: pv<string[]>([]),
     weatherLayers: pv({}),
+    weatherSource: pv('automatic'),
     aisIconMode: pv('type-specific'),
     thresholds: pv({
       dangerCpaMeters: 1,

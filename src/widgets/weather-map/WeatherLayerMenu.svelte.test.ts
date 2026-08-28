@@ -1,6 +1,7 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import type { LayerListItem } from '$shared/map';
+import { WEATHER_SOURCE_OPTIONS } from '$shared/settings';
 import WeatherLayerMenu from './WeatherLayerMenu.svelte';
 
 function item(overrides: Partial<LayerListItem> = {}): LayerListItem {
@@ -26,6 +27,9 @@ describe('WeatherLayerMenu', () => {
         fills: [],
         overlays: [item()],
         provenance: undefined,
+        sources: WEATHER_SOURCE_OPTIONS,
+        selectedSource: 'automatic',
+        onSourceChange: () => {},
         onToggle: () => {},
         onClose: () => {},
       },
@@ -34,5 +38,7 @@ describe('WeatherLayerMenu', () => {
     expect(body).toContain('title="Barometric pressure contours across the area."');
     expect(body).toContain('aria-describedby="weather-pressure-weather-description"');
     expect(body).toContain('Barometric pressure contours across the area.');
+    expect(body).toContain('NOAA GFS + HRRR');
+    expect(body).toContain('Global + U.S.');
   });
 });

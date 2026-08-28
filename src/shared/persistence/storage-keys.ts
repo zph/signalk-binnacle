@@ -27,6 +27,7 @@ const BINNACLE_STORAGE_KEYS = {
   // It stays in the inventory so the privacy erasure still clears it from an upgraded device.
   planningSpeedKn: { key: 'binnacle-custom:planning-speed-kn', scope: 'profile' },
   weatherLayers: { key: 'binnacle-custom:weather-layers', scope: 'profile' },
+  weatherSource: { key: 'binnacle-custom:weather-source', scope: 'profile' },
   layers: { key: 'binnacle-custom:layers', scope: 'profile' },
   layerOrder: { key: 'binnacle-custom:layer-order', scope: 'profile' },
   aisIconMode: { key: 'binnacle-custom:ais-icon-mode', scope: 'device' },

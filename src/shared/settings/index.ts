@@ -53,6 +53,13 @@ export {
   useLocalTrackFallback,
 } from './persisted.svelte';
 export {
+  isWeatherSourceId,
+  WEATHER_SOURCE_OPTIONS,
+  type WeatherSourceId,
+  type WeatherSourceOption,
+  weatherSourceOption,
+} from './weather-source';
+export {
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   isWindRoseNoGoAngleRad,
   MAX_WIND_ROSE_NO_GO_ANGLE_RAD,

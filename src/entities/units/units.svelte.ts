@@ -1,4 +1,4 @@
-import { fetchJsonOrUndefined, type UnitsMode } from '$shared/lib';
+import { fetchJsonOrUndefined, type SpeedUnit, type UnitsMode } from '$shared/lib';
 import { binnacleStorageKey } from '$shared/persistence';
 import { enumPersistedCodec, PersistedValue } from '$shared/settings';
 
@@ -14,6 +14,15 @@ interface PresetCategories {
 }
 
 export type DepthUnit = 'm' | 'ft' | 'fm';
+
+export function speedUnitFromPreset(preset: PresetCategories | undefined): SpeedUnit | undefined {
+  const target = preset?.categories?.speed?.targetUnit?.trim().toLowerCase();
+  if (target === 'kn' || target === 'knot' || target === 'knots') return 'kn';
+  if (target === 'm/s' || target === 'mps' || target === 'meter/second') return 'm/s';
+  if (target === 'km/h' || target === 'kmh' || target === 'kph') return 'km/h';
+  if (target === 'mph' || target === 'mi/h') return 'mph';
+  return undefined;
+}
 
 // Depth is its own Signal K preference category. Preserve it separately from the broad metric or
 // imperial mode so custom presets can use feet or fathoms for soundings without changing every
@@ -55,6 +64,7 @@ export class UnitsStore {
   #local: PersistedValue<UnitsMode>;
   #server = $state<UnitsMode | undefined>(undefined);
   #serverDepthUnit = $state<DepthUnit | undefined>(undefined);
+  #serverSpeedUnit = $state<SpeedUnit | undefined>(undefined);
   // The origin the resolved preset belongs to, so a switch to a different server clears it.
   #syncedOrigin: string | undefined;
   // Supersedes older in-flight resolutions, including a retry against the same origin. Without this
@@ -80,6 +90,10 @@ export class UnitsStore {
     return this.#serverDepthUnit ?? (this.mode === 'imperial' ? 'ft' : 'm');
   }
 
+  get speedUnit(): SpeedUnit {
+    return this.#serverSpeedUnit ?? 'kn';
+  }
+
   // Where the active mode came from, so settings UI can say "following the server preference".
   get source(): 'server' | 'local' {
     return this.#server !== undefined ? 'server' : 'local';
@@ -98,9 +112,11 @@ export class UnitsStore {
   #applyServerPreset(preset: PresetCategories | undefined): boolean {
     const mode = modeFromPreset(preset);
     const depthUnit = depthUnitFromPreset(preset);
-    if (!mode && !depthUnit) return false;
+    const speedUnit = speedUnitFromPreset(preset);
+    if (!mode && !depthUnit && !speedUnit) return false;
     if (mode) this.#server = mode;
-    this.#serverDepthUnit = depthUnit ?? (mode === 'imperial' ? 'ft' : 'm');
+    this.#serverDepthUnit = depthUnit ?? (mode ? (mode === 'imperial' ? 'ft' : 'm') : undefined);
+    this.#serverSpeedUnit = speedUnit;
     return true;
   }
 
@@ -115,6 +131,7 @@ export class UnitsStore {
     if (base !== this.#syncedOrigin) {
       this.#server = undefined;
       this.#serverDepthUnit = undefined;
+      this.#serverSpeedUnit = undefined;
       this.#syncedOrigin = base;
     }
     const userPref = await fetchJsonOrUndefined<{ activePreset?: string }>(

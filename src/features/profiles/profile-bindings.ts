@@ -8,6 +8,7 @@ import {
   type PersistedValue,
   type Thresholds,
   type TrackSettings,
+  type WeatherSourceId,
 } from '$shared/settings';
 import type { ThemeController } from '$shared/ui';
 
@@ -19,6 +20,7 @@ export interface ProfileBindingDeps {
   layers: PersistedValue<LayerSettings>;
   layerOrder: PersistedValue<string[]>;
   weatherLayers: PersistedValue<LayerSettings>;
+  weatherSource: PersistedValue<WeatherSourceId>;
   aisIconMode: PersistedValue<NonNullable<ProfileSettings['aisIconMode']>>;
   thresholds: PersistedValue<Thresholds>;
   trackSettings: PersistedValue<TrackSettings>;
@@ -81,6 +83,11 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
       read: () => ({ weatherLayers: deps.weatherLayers.snapshot() }),
       write: (s) => deps.weatherLayers.set(s.weatherLayers),
       track: () => void deps.weatherLayers.value,
+    },
+    weatherSource: {
+      read: () => ({ weatherSource: deps.weatherSource.snapshot() }),
+      write: (s) => deps.weatherSource.set(s.weatherSource ?? 'automatic'),
+      track: () => void deps.weatherSource.value,
     },
     aisIconMode: {
       read: () => ({ aisIconMode: deps.aisIconMode.snapshot() }),

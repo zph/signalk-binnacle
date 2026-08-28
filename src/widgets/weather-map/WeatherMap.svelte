@@ -42,18 +42,25 @@ import {
   formatClockTime,
   formatDayClock,
   formatFixed,
-  formatKnotsOr,
   formatLengthOr,
   formatPrecipRateOr,
   formatPressureOr,
+  formatSpeedOr,
   HOUR_MS,
   lengthUnit,
   MINUTE_MS,
   prefersReducedMotion,
   pressureUnit,
+  speedUnitLabel,
 } from '$shared/lib';
 import { createThemedMap, type LayerSettings, type ThemedMapHandle } from '$shared/map';
-import type { MapView } from '$shared/settings';
+import {
+  type MapView,
+  type PersistedValue,
+  WEATHER_SOURCE_OPTIONS,
+  type WeatherSourceId,
+  weatherSourceOption,
+} from '$shared/settings';
 import { dialog, PANEL_TRANSITION_MS, PanelHeader, type Theme } from '$shared/ui';
 import { createForecastPlayback } from './playback.svelte';
 import WeatherLayerMenu from './WeatherLayerMenu.svelte';
@@ -65,8 +72,9 @@ interface Props {
   origin: string;
   // The shared, cached weather loader (Open-Meteo plus RainViewer), constructed in App.
   loader: WeatherLoader;
+  weatherSource: PersistedValue<WeatherSourceId>;
   theme: Theme;
-  // The imperial-versus-metric display preference; wind stays in knots regardless.
+  // Display preferences, including the Signal K speed-unit category used for wind and current.
   units: UnitsStore;
   // Where the nav chart is looking; the panel always opens there rather than keeping its own view.
   initialView?: MapView;
@@ -101,6 +109,7 @@ const {
   store,
   origin,
   loader,
+  weatherSource,
   theme,
   units,
   initialView,
@@ -202,7 +211,8 @@ const menuProvenance = $derived.by<string | undefined>(() => {
     displacement !== undefined && Number.isFinite(displacement) && displacement >= 1000
       ? ` · marine cells within ${Math.ceil(displacement / 1000)} km`
       : '';
-  return `${GRID_SOURCE_LABEL} · ${resolution}${marineNote} · fetched ${formatClockTime(grid.fetchedAt)}`;
+  const source = weatherSourceOption(grid.forecastSource);
+  return `${source.title} · ${source.coverage} · via ${GRID_SOURCE_LABEL} · ${resolution}${marineNote} · fetched ${formatClockTime(grid.fetchedAt)}`;
 });
 const layerOn = (id: string): boolean => items.some((i) => i.id === id && i.visible);
 const wavesActive = $derived(layerOn(WEATHER_LAYER_IDS.waves));
@@ -259,7 +269,7 @@ const radarNote = $derived.by<string>(() => {
 // time, so the 600 ms frame beat updates one text node instead of rebuilding every legend gradient.
 const legends = $derived<WeatherLegend[]>(
   visibleItems
-    .map((i) => weatherLegend(i.id, theme, units.mode))
+    .map((i) => weatherLegend(i.id, theme, units.mode, units.speedUnit))
     .filter((l): l is WeatherLegend => l !== undefined),
 );
 
@@ -296,14 +306,18 @@ const playback = createForecastPlayback(
 // 200 cells fits one Open-Meteo request (the per-request location cap), so a load is two calls
 // (forecast plus marine) rather than six. The grid is coarse anyway, and fewer, smaller requests
 // keep well under Open-Meteo's free-tier rate limit.
-const FORECAST_OPTS = { maxCells: 200, forecastDays: 5 };
+const forecastOpts = () => ({
+  maxCells: 200,
+  forecastDays: 5,
+  source: weatherSource.value,
+});
 function loadCurrentWeather(currentItems = items, force = false): void {
   if (destroyed || !getBounds || currentItems.every((item) => !item.visible)) return;
   const visible = (id: string) => currentItems.some((item) => item.id === id && item.visible);
   void loader.load(
     store,
     getBounds(),
-    FORECAST_OPTS,
+    forecastOpts(),
     {
       waves: visible(WEATHER_LAYER_IDS.waves),
       radar: visible(WEATHER_LAYER_IDS.radar),
@@ -343,6 +357,14 @@ let radarRequested = false;
 $effect(() => {
   wavesRequested = requestOnRisingEdge(wavesActive, wavesRequested);
   radarRequested = requestOnRisingEdge(radarActive, radarRequested);
+});
+
+let requestedSource = untrack(() => weatherSource.value);
+$effect(() => {
+  const source = weatherSource.value;
+  if (source === requestedSource) return;
+  requestedSource = source;
+  scheduleFetch();
 });
 
 // Fetch on first open if a layer is on but no grid is loaded yet.
@@ -516,6 +538,9 @@ onDestroy(() => {
       {fills}
       overlays={overlayItems}
       provenance={menuProvenance}
+      sources={WEATHER_SOURCE_OPTIONS}
+      selectedSource={weatherSource.value}
+      onSourceChange={(source) => weatherSource.set(source)}
       onToggle={(id, next) => layersView?.toggle(id, next)}
       onClose={closeLayerMenu}
     />
@@ -534,10 +559,13 @@ onDestroy(() => {
       >
         {#if readout}
           <span class="readout-line">
-            Wind <b class="num">{formatKnotsOr(readout.speedMs, 0)}</b> kn from
+            Wind <b class="num">{formatSpeedOr(readout.speedMs, units.speedUnit, 0)}</b>
+            {speedUnitLabel(units.speedUnit)}
+            from
             <b class="num">{formatBearingOr(readout.fromRad)}</b>&deg;T
             {#if readout.gustMs !== undefined}
-              gust <b class="num">{formatKnotsOr(readout.gustMs, 0)}</b> kn
+              gust <b class="num">{formatSpeedOr(readout.gustMs, units.speedUnit, 0)}</b>
+              {speedUnitLabel(units.speedUnit)}
             {/if}
             {#if showField(WEATHER_LAYER_IDS.pressure) && readout.pressurePa !== undefined}
               &middot; <b class="num">{formatPressureOr(readout.pressurePa, units.mode)}</b>

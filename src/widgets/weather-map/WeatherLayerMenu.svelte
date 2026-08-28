@@ -1,6 +1,7 @@
 <script lang="ts">
 import Check from '@lucide/svelte/icons/check';
 import type { LayerListItem } from '$shared/map';
+import type { WeatherSourceId, WeatherSourceOption } from '$shared/settings';
 import { AnchoredMenu, rovingFocus } from '$shared/ui';
 
 interface Props {
@@ -14,11 +15,24 @@ interface Props {
   // The source and fetch-age line, surfaced in the menu too so it is not hidden behind a click;
   // undefined before any grid loads.
   provenance: string | undefined;
+  sources: readonly WeatherSourceOption[];
+  selectedSource: WeatherSourceId;
+  onSourceChange: (source: WeatherSourceId) => void;
   onToggle: (id: string, next: boolean) => void;
   onClose: () => void;
 }
 
-const { open, fills, overlays, provenance, onToggle, onClose }: Props = $props();
+const {
+  open,
+  fills,
+  overlays,
+  provenance,
+  sources,
+  selectedSource,
+  onSourceChange,
+  onToggle,
+  onClose,
+}: Props = $props();
 
 const groups = $derived(
   [
@@ -67,6 +81,25 @@ const groups = $derived(
           >
         {/if}
       {/each}
+    {/each}
+    <p class="caps-label">Forecast source</p>
+    {#each sources as source (source.id)}
+      <button
+        type="button"
+        class="menu-row source-row row-interactive"
+        class:is-on={source.id === selectedSource}
+        aria-pressed={source.id === selectedSource}
+        title={source.description}
+        onclick={() => onSourceChange(source.id)}
+      >
+        <span>
+          <span>{source.title}</span>
+          <small>{source.coverage}</small>
+        </span>
+        {#if source.id === selectedSource}
+          <Check size={16} aria-hidden="true" />
+        {/if}
+      </button>
     {/each}
     {#if provenance}
       <p class="provenance muted-note">{provenance}</p>
@@ -117,6 +150,14 @@ const groups = $derived(
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   text-align: start;
+}
+.source-row > span:first-child {
+  display: flex;
+  flex-direction: column;
+}
+.source-row small {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .provenance {
   margin: var(--space-1) 0 0;

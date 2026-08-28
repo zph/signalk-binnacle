@@ -90,6 +90,12 @@ describe('isProfileSettings', () => {
     expect(isProfileSettings(settings({ aisIconMode: 'silhouettes' as never }))).toBe(false);
   });
 
+  it('accepts known weather sources and rejects unknown ones', () => {
+    expect(isProfileSettings(settings({ weatherSource: 'noaa' }))).toBe(true);
+    expect(isProfileSettings(settings({ weatherSource: 'dwd' }))).toBe(true);
+    expect(isProfileSettings(settings({ weatherSource: 'regional' as never }))).toBe(false);
+  });
+
   it('rejects a non-array layerOrder', () => {
     expect(isProfileSettings(settings({ layerOrder: {} as never }))).toBe(false);
   });

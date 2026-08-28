@@ -204,12 +204,18 @@ source, and surrounding traffic before relying on it.
 ## Weather
 
 - **Forecast** opens a weather mini-map at the navigation chart view. Wind and waves start visible on
-  a fresh install. Cached data is labeled with source and fetch time, stale data remains visible, and
-  a manual Retry bypasses automatic backoff after a failed fetch. Conditions at the boat require a
-  fresh GPS fix. Provider point requests are time-bounded, warning intervals are validated, and
-  missing optional warning labels receive bounded fallbacks. Open-Meteo marine fields are omitted
-  when the provider's sea-snapped coordinate is too far from the requested grid cell. Provider
-  warnings state when warning data is unavailable or cached. The routes shown on the chart draw
+  a fresh install. The weather layer menu selects Automatic, NOAA GFS with U.S. HRRR coverage, DWD
+  ICON with European regional coverage, or global ECMWF IFS. The chosen source belongs to the active
+  profile. Earlier and later controls, the time scrubber, and playback move through the available
+  five-day forecast while keeping the displayed model time explicit. Wind, gust, and current speeds
+  use the Signal K preferred speed unit independently of length and temperature preferences. Parsed
+  U/V wind fields remain in meters per second in source-specific IndexedDB cache entries. Cached data
+  is labeled with source and fetch time, stale data remains visible, and a manual Retry bypasses
+  automatic backoff after a failed fetch. Conditions at the boat require a fresh GPS fix. Provider
+  point requests are time-bounded, warning intervals are validated, and missing optional warning
+  labels receive bounded fallbacks. Open-Meteo marine fields are omitted when the provider's
+  sea-snapped coordinate is too far from the requested grid cell. Provider warnings state when
+  warning data is unavailable or cached. The routes shown on the chart draw
   read-only over the forecast with their named waypoints; they are not offered as a weather layer,
   cannot be edited there, and never imply the forecast was routed along the path.
 - **Tides and currents** independently selects tide-height and tidal-current stations. Automatic mode is the

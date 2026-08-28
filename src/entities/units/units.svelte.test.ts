@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PersistedValue } from '$shared/settings';
 import { createFakeStorage } from '$shared/testing';
-import { depthUnitFromPreset, modeFromPreset, UnitsStore } from './units.svelte';
+import {
+  depthUnitFromPreset,
+  modeFromPreset,
+  speedUnitFromPreset,
+  UnitsStore,
+} from './units.svelte';
 
 const imperialPreset = {
   categories: { length: { targetUnit: 'foot' }, depth: { targetUnit: 'foot' } },
@@ -58,6 +63,15 @@ describe('depthUnitFromPreset', () => {
   });
 });
 
+describe('speedUnitFromPreset', () => {
+  it('reads the Signal K speed category used by boat and wind speeds', () => {
+    expect(speedUnitFromPreset({ categories: { speed: { targetUnit: 'kn' } } })).toBe('kn');
+    expect(speedUnitFromPreset({ categories: { speed: { targetUnit: 'm/s' } } })).toBe('m/s');
+    expect(speedUnitFromPreset({ categories: { speed: { targetUnit: 'km/h' } } })).toBe('km/h');
+    expect(speedUnitFromPreset({ categories: { speed: { targetUnit: 'mph' } } })).toBe('mph');
+  });
+});
+
 describe('UnitsStore', () => {
   it('prefers the per-user preset over the global active one', async () => {
     const units = new UnitsStore(localSetting());
@@ -82,6 +96,20 @@ describe('UnitsStore', () => {
     );
     expect(units.mode).toBe('imperial');
     expect(units.depthUnit).toBe('ft');
+  });
+
+  it('resolves the preferred speed unit independently of metric or imperial mode', async () => {
+    const units = new UnitsStore(localSetting());
+    await units.syncFromServer(
+      'http://pi',
+      fetchStub({
+        '/unitpreferences/active': {
+          categories: { length: { targetUnit: 'm' }, speed: { targetUnit: 'km/h' } },
+        },
+      }),
+    );
+    expect(units.mode).toBe('metric');
+    expect(units.speedUnit).toBe('km/h');
   });
 
   it('uses the depth category even when it differs from the general length mode', async () => {

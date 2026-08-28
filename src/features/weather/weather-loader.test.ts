@@ -77,6 +77,16 @@ describe('weatherCacheKey', () => {
   it('separates marine from atmospheric-only', () => {
     expect(weatherCacheKey(BBOX, OPTS, true)).not.toBe(weatherCacheKey(BBOX, OPTS, false));
   });
+
+  it('separates forecasts from different model sources', () => {
+    const automatic = weatherCacheKey(BBOX, { ...OPTS, source: 'automatic' }, false);
+    const noaa = weatherCacheKey(BBOX, { ...OPTS, source: 'noaa' }, false);
+    const dwd = weatherCacheKey(BBOX, { ...OPTS, source: 'dwd' }, false);
+
+    expect(noaa).not.toBe(automatic);
+    expect(dwd).not.toBe(automatic);
+    expect(dwd).not.toBe(noaa);
+  });
 });
 
 describe('createWeatherLoader', () => {

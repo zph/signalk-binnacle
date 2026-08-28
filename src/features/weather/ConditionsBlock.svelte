@@ -12,12 +12,13 @@ import {
   formatTemperatureOr,
   lengthUnit,
   pressureUnit,
+  speedUnitLabel,
   temperatureUnit,
 } from '$shared/lib';
 import type { PointConditions } from './signalk-weather';
 import {
   DEGREES_TRUE_TITLE,
-  formatWholeKnots,
+  formatWholeSpeed,
   precipUnitLabel,
   RAIN_VISIBLE_MM_H,
 } from './weather-readout';
@@ -78,8 +79,8 @@ function ageLabel(ageMs: number | undefined): string | undefined {
     <div>
       <dt>Wind</dt>
       <dd>
-        <b class="num">{formatWholeKnots(current.windMs)}</b>
-        kn
+        <b class="num">{formatWholeSpeed(current.windMs, units.speedUnit)}</b>
+        {speedUnitLabel(units.speedUnit)}
         {#if current.fromRad !== undefined}
           from <span title={DEGREES_TRUE_TITLE}>{formatBearingOr(current.fromRad)}&deg;T</span>
         {/if}
@@ -89,7 +90,10 @@ function ageLabel(ageMs: number | undefined): string | undefined {
   {#if current.gustMs !== undefined}
     <div>
       <dt>Gust</dt>
-      <dd><b class="num">{formatWholeKnots(current.gustMs)}</b> kn</dd>
+      <dd>
+        <b class="num">{formatWholeSpeed(current.gustMs, units.speedUnit)}</b>
+        {speedUnitLabel(units.speedUnit)}
+      </dd>
     </div>
   {/if}
   {#if current.pressurePa !== undefined}
@@ -181,8 +185,8 @@ function ageLabel(ageMs: number | undefined): string | undefined {
     <div>
       <dt>Current</dt>
       <dd>
-        <b class="num">{formatWholeKnots(current.currentSpeedMs)}</b>
-        kn
+        <b class="num">{formatWholeSpeed(current.currentSpeedMs, units.speedUnit)}</b>
+        {speedUnitLabel(units.speedUnit)}
         {#if current.currentDirectionRad !== undefined}
           toward
           <span title={DEGREES_TRUE_TITLE}

@@ -10,10 +10,10 @@ describe('weatherLegend', () => {
     expect(legend?.highLabel).toBe('50');
   });
 
-  it('keeps the wind legend in knots under imperial: nautical units are unconditional', () => {
-    const legend = weatherLegend('weather-wind', 'day', 'imperial');
-    expect(legend?.title).toBe('Wind (kn)');
-    expect(legend?.highLabel).toBe('50');
+  it('uses the preferred Signal K speed unit independently of metric or imperial mode', () => {
+    const legend = weatherLegend('weather-wind', 'day', 'imperial', 'km/h');
+    expect(legend?.title).toBe('Wind (km/h)');
+    expect(legend?.highLabel).toBe('93');
   });
 
   it('builds a single isobar swatch for pressure', () => {

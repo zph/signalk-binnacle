@@ -1,5 +1,6 @@
 import { type LngLatBoundsLike, lngLatBoundsToBbox4, wrapLongitude } from '$shared/geo';
 import { lerp, nearestBy } from '$shared/lib';
+import type { WeatherSourceId } from '$shared/settings';
 
 export interface Bbox {
   west: number;
@@ -31,6 +32,7 @@ export interface WeatherGrid {
   times: number[]; // epoch ms, ascending
   windU: number[][]; // m/s, eastward
   windV: number[][]; // m/s, northward
+  forecastSource?: WeatherSourceId;
   // When the loader fetched this grid from the network (epoch ms), carried through the caches so
   // the panel can state the forecast's age honestly. Absent on grids persisted before this field.
   fetchedAt?: number;

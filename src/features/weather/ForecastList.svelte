@@ -9,11 +9,12 @@ import {
   formatPressureOr,
   lengthUnit,
   pressureUnit,
+  speedUnitLabel,
 } from '$shared/lib';
 import type { PointConditions } from './signalk-weather';
 import {
   DEGREES_TRUE_TITLE,
-  formatWholeKnots,
+  formatWholeSpeed,
   precipUnitLabel,
   provenanceLabel,
   RAIN_VISIBLE_MM_H,
@@ -55,13 +56,14 @@ function stepLabel(timeMs: number): string {
       <span class="f-details">
         {#if step.windMs !== undefined}
           <span class="f-wind">
-            <b class="num">{formatWholeKnots(step.windMs)}</b>
-            kn
+            <b class="num">{formatWholeSpeed(step.windMs, units.speedUnit)}</b>
+            {speedUnitLabel(units.speedUnit)}
             {#if step.fromRad !== undefined}
               from <span title={DEGREES_TRUE_TITLE}>{formatBearingOr(step.fromRad)}&deg;T</span>
             {/if}
             {#if step.gustMs !== undefined}
-              · gust <b class="num">{formatWholeKnots(step.gustMs)}</b> kn
+              · gust <b class="num">{formatWholeSpeed(step.gustMs, units.speedUnit)}</b>
+              {speedUnitLabel(units.speedUnit)}
             {/if}
           </span>
         {/if}
@@ -75,7 +77,10 @@ function stepLabel(timeMs: number): string {
         {@render waveSpan('Wind waves', step.windWaveHeightM)}
         {@render waveSpan('Swell', step.swellHeightM)}
         {#if step.currentSpeedMs !== undefined}
-          <span>Current <b class="num">{formatWholeKnots(step.currentSpeedMs)}</b> kn</span>
+          <span>
+            Current <b class="num">{formatWholeSpeed(step.currentSpeedMs, units.speedUnit)}</b>
+            {speedUnitLabel(units.speedUnit)}
+          </span>
         {/if}
         {#if step.visibilityM !== undefined}
           <span

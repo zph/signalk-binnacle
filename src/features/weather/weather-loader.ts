@@ -73,7 +73,7 @@ export function weatherCoverageBucket(bbox: Bbox): Bbox {
 // and whether marine was merged are part of the key, since they change the grid's contents.
 export function weatherCacheKey(bbox: Bbox, opts: ForecastOptions, waves: boolean): string {
   const bucket = weatherCoverageBucket(bbox);
-  return [
+  const parts: Array<string | number> = [
     bucket.west,
     bucket.south,
     bucket.east,
@@ -81,7 +81,9 @@ export function weatherCacheKey(bbox: Bbox, opts: ForecastOptions, waves: boolea
     opts.maxCells,
     opts.forecastDays,
     waves ? 'm' : '-',
-  ].join(':');
+  ];
+  if (opts.source && opts.source !== 'automatic') parts.push(opts.source);
+  return parts.join(':');
 }
 
 const realDeps: LoaderDeps = {

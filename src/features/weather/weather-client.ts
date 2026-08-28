@@ -14,8 +14,8 @@ import {
   withTimeout,
 } from '$shared/lib';
 import { haversineMeters, normalizeLonDeltaDeg } from '$shared/nav';
+import { type WeatherSourceId, weatherSourceOption } from '$shared/settings';
 
-const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 // Open-Meteo accepts many locations per request; keep batches well under its cap.
 const MAX_LOCS_PER_REQUEST = 200;
@@ -32,6 +32,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 export interface ForecastOptions {
   maxCells: number;
   forecastDays: number;
+  source?: WeatherSourceId;
 }
 
 interface OmLoc {
@@ -222,8 +223,9 @@ export async function fetchForecast(
   fetchFn: typeof fetch = globalThis.fetch.bind(globalThis),
   signal?: AbortSignal,
 ): Promise<WeatherGrid | undefined> {
+  const source = weatherSourceOption(opts.source);
   const result = await fetchGridLocations<OmLoc>(
-    FORECAST_URL,
+    source.endpoint,
     // Gusts ride along: gust versus sustained is the reefing decision, so the free grid must carry
     // it for the readouts even when no provider is configured.
     'wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation,cloud_cover',
@@ -233,7 +235,8 @@ export async function fetchForecast(
     fetchFn,
     signal,
   );
-  return result ? parse(result.locs, result.lats, result.lons) : undefined;
+  const grid = result ? parse(result.locs, result.lats, result.lons) : undefined;
+  return grid ? { ...grid, forecastSource: source.id } : undefined;
 }
 
 function parse(locs: OmLoc[], lats: number[], lons: number[]): WeatherGrid | undefined {
