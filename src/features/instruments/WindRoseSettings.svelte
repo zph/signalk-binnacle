@@ -19,8 +19,8 @@ const maxDeg = Math.round(MAX_WIND_ROSE_NO_GO_ANGLE_RAD * RAD_TO_DEG);
   <SubViewHeader title="Wind rose settings" backLabel="Back to instruments" {onBack} />
 
   <p class="muted-note">
-    Set the total no-go sector centered on the wind. The shaded cone and the inner ends of the port
-    and starboard arcs move together.
+    Set the total no-go sector centered on the wind. The shaded cone, limit lines, and centered port
+    and starboard margin arcs move together.
   </p>
 
   <section class="panel-section" aria-label="No-go sector">

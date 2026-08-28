@@ -2,7 +2,7 @@ import { DEG_TO_RAD } from '$shared/lib';
 
 const CENTER = 500;
 const RADIUS = 444;
-const OUTER_SECTOR_ANGLE_RAD = 70 * DEG_TO_RAD;
+const SECTOR_ARC_HALF_SPAN_RAD = 25 * DEG_TO_RAD;
 
 function point(angleRad: number): { x: number; y: number } {
   return {
@@ -41,8 +41,14 @@ export function windRoseSectorGeometry(totalNoGoAngleRad: number): WindRoseSecto
   const starboardBoundary = point(halfAngleRad);
   return {
     fillPath: `${arc(-halfAngleRad, halfAngleRad)} L${CENTER} ${CENTER} Z`,
-    portArcPath: arc(-OUTER_SECTOR_ANGLE_RAD, -halfAngleRad),
-    starboardArcPath: arc(halfAngleRad, OUTER_SECTOR_ANGLE_RAD),
+    portArcPath: arc(
+      -halfAngleRad - SECTOR_ARC_HALF_SPAN_RAD,
+      -halfAngleRad + SECTOR_ARC_HALF_SPAN_RAD,
+    ),
+    starboardArcPath: arc(
+      halfAngleRad - SECTOR_ARC_HALF_SPAN_RAD,
+      halfAngleRad + SECTOR_ARC_HALF_SPAN_RAD,
+    ),
     portBoundaryPath: radialLine(portBoundary),
     starboardBoundaryPath: radialLine(starboardBoundary),
   };
