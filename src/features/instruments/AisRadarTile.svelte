@@ -81,7 +81,16 @@ const statusText = $derived(
 const accessibleLabel = $derived(`${label}, ${statusText}. ${actionLabel}`);
 
 const CENTER = 200;
-const PLOT_RADIUS = 176;
+// Leave only enough room for the outer stroke inside the viewBox. The expanded stage itself is the
+// largest square its container can hold, so this radius reaches whichever padded side limits it.
+const PLOT_RADIUS = 198;
+const HEADING_HALF_ANGLE_RAD = 15 / RAD_TO_DEG;
+const headingSectorPath = [
+  `M ${CENTER} ${CENTER}`,
+  `L ${CENTER - Math.sin(HEADING_HALF_ANGLE_RAD) * PLOT_RADIUS} ${CENTER - Math.cos(HEADING_HALF_ANGLE_RAD) * PLOT_RADIUS}`,
+  `A ${PLOT_RADIUS} ${PLOT_RADIUS} 0 0 1 ${CENTER + Math.sin(HEADING_HALF_ANGLE_RAD) * PLOT_RADIUS} ${CENTER - Math.cos(HEADING_HALF_ANGLE_RAD) * PLOT_RADIUS}`,
+  'Z',
+].join(' ');
 const RINGS = [0.25, 0.5, 0.75, 1] as const;
 const labelForRing = (fraction: number): string => `${Number((rangeNm * fraction).toFixed(2))} nm`;
 const coordinate = (normalized: number): number => CENTER + normalized * PLOT_RADIUS;
@@ -112,11 +121,23 @@ function closeTargetDetails(): void {
       <circle class="sector sector--red" cx={CENTER} cy={CENTER} r={PLOT_RADIUS * 0.25} />
       <path
         class="heading-sector"
-        d="M 200 200 L 154.45 30 A 176 176 0 0 1 245.55 30 Z"
+        d={headingSectorPath}
         transform={`rotate(${ownDirectionDeg} ${CENTER} ${CENTER})`}
       />
-      <line class="bearing-line" x1={CENTER} y1={24} x2={CENTER} y2={376} />
-      <line class="bearing-line" x1={24} y1={CENTER} x2={376} y2={CENTER} />
+      <line
+        class="bearing-line"
+        x1={CENTER}
+        y1={CENTER - PLOT_RADIUS}
+        x2={CENTER}
+        y2={CENTER + PLOT_RADIUS}
+      />
+      <line
+        class="bearing-line"
+        x1={CENTER - PLOT_RADIUS}
+        y1={CENTER}
+        x2={CENTER + PLOT_RADIUS}
+        y2={CENTER}
+      />
       <g class="north-compass" transform="translate(42 42)">
         <circle r="17" />
         <path d="M 0 -13 L 4 2 L 0 -1 L -4 2 Z" />
@@ -244,7 +265,6 @@ function closeTargetDetails(): void {
   display: flex;
   min-block-size: 15rem;
   overflow: hidden;
-  padding: var(--space-1);
   background: var(--surface-raised);
   color: var(--text);
 }
@@ -494,11 +514,15 @@ function closeTargetDetails(): void {
   color: var(--surface);
 }
 .face--expanded {
-  padding: calc(var(--touch-target) + var(--space-3)) var(--space-3) var(--space-3);
+  flex: 1 1 auto;
+  min-block-size: 0;
+  container-type: size;
 }
 .face--expanded .radar-stage {
-  inline-size: min(78vmin, 100%);
-  max-inline-size: 70rem;
+  inline-size: min(100cqi, 100cqb);
+  block-size: min(100cqi, 100cqb);
+  max-inline-size: none;
+  max-block-size: none;
 }
 @media (max-width: 600px) {
   .ais-radar {

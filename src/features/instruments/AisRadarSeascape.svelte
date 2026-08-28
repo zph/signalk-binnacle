@@ -65,7 +65,8 @@ $effect(() => {
 <style>
 .seascape {
   position: absolute;
-  inset: 6%;
+  /* Match the 198/400 outer plot radius while keeping its stroke inside the square viewBox. */
+  inset: 0.5%;
   overflow: hidden;
   border-radius: 50%;
   background: var(--surface);
