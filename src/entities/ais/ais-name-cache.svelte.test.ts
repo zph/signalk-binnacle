@@ -51,4 +51,12 @@ describe('AisNameCache', () => {
     expect(cache.lookup('368123456')).toBeUndefined();
     expect(storage.data.has(KEY)).toBe(false);
   });
+
+  it('replaces malformed persisted data with an empty cache', () => {
+    const storage = createFakeStorage({ [KEY]: 'not json' });
+    const cache = new AisNameCache(storage, () => 1_000);
+
+    expect(cache.lookup('368123456')).toBeUndefined();
+    expect(JSON.parse(storage.data.get(KEY) ?? 'null')).toEqual([]);
+  });
 });

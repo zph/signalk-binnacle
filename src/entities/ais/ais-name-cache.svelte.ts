@@ -1,11 +1,6 @@
 import { cleanBoundedText, isFiniteNumber, isRecord } from '$shared/lib';
 import { binnacleStorageKey } from '$shared/persistence';
-import {
-  arrayPersistedCodec,
-  type PersistedCodec,
-  PersistedValue,
-  type StorageLike,
-} from '$shared/settings';
+import { arrayPersistedCodec, type PersistedCodec, type StorageLike } from '$shared/settings';
 
 export const AIS_NAME_CACHE_TTL_MS = 24 * 60 * 60_000;
 const MAX_CACHED_NAMES = 5_000;
@@ -44,27 +39,29 @@ const aisNameCodec: PersistedCodec<PersistedAisName> = {
 };
 
 const aisNamesCodec = arrayPersistedCodec(aisNameCodec, { maxItems: MAX_CACHED_NAMES });
+const STORAGE_KEY = binnacleStorageKey('aisNames');
+
+function resolveStorage(injected?: StorageLike): StorageLike | undefined {
+  if (injected) return injected;
+  return typeof localStorage !== 'undefined' ? localStorage : undefined;
+}
 
 // Names arrive in the slow AIS static report, separately from fast position reports. Keep the last
 // name heard for each MMSI across target pruning and reconnects, but only for one rolling day.
 export class AisNameCache {
-  #persisted: PersistedValue<PersistedAisName[]>;
+  #storage: StorageLike | undefined;
   #entries = new Map<string, PersistedAisName>();
   #now: () => number;
 
   constructor(storage?: StorageLike, now: () => number = Date.now) {
     this.#now = now;
-    this.#persisted = new PersistedValue(
-      binnacleStorageKey('aisNames'),
-      [],
-      storage,
-      aisNamesCodec,
-    );
-    for (const entry of this.#persisted.value) {
+    this.#storage = resolveStorage(storage);
+    const persisted = this.#read();
+    for (const entry of persisted) {
       const previous = this.#entries.get(entry.mmsi);
       if (!previous || previous.seenAt < entry.seenAt) this.#entries.set(entry.mmsi, entry);
     }
-    if (this.#pruneExpired(this.#now()) || this.#entries.size !== this.#persisted.value.length) {
+    if (this.#pruneExpired(this.#now()) || this.#entries.size !== persisted.length) {
       this.#persist();
     }
   }
@@ -125,6 +122,38 @@ export class AisNameCache {
   }
 
   #persist(): void {
-    this.#persisted.set([...this.#entries.values()]);
+    try {
+      this.#storage?.setItem(STORAGE_KEY, JSON.stringify([...this.#entries.values()]));
+    } catch (error) {
+      console.warn(`Could not persist "${STORAGE_KEY}".`, error);
+    }
+  }
+
+  #read(): PersistedAisName[] {
+    let raw: string | null | undefined;
+    try {
+      raw = this.#storage?.getItem(STORAGE_KEY);
+    } catch {
+      return [];
+    }
+    if (raw == null) return [];
+    try {
+      const decoded = aisNamesCodec.decode(JSON.parse(raw) as unknown);
+      if (decoded.state === 'invalid') {
+        this.#persist();
+        return [];
+      }
+      if (decoded.state === 'migrated') {
+        try {
+          this.#storage?.setItem(STORAGE_KEY, JSON.stringify(decoded.value));
+        } catch (error) {
+          console.warn(`Could not persist "${STORAGE_KEY}".`, error);
+        }
+      }
+      return decoded.value;
+    } catch {
+      this.#persist();
+      return [];
+    }
   }
 }
