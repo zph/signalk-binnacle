@@ -7,6 +7,7 @@ const mounted: Array<() => void> = [];
 
 afterEach(() => {
   for (const dispose of mounted.splice(0).reverse()) dispose();
+  delete document.documentElement.dataset.theme;
 });
 
 describe('WindRoseTile sectors', () => {
@@ -62,5 +63,19 @@ describe('WindRoseTile sectors', () => {
     expect(target.querySelector('.wind-sector-lines')?.getAttribute('transform')).toContain(
       'rotate(40.107',
     );
+
+    const roseTile = target.querySelector('.tile--wind-rose');
+    expect(roseTile).not.toBeNull();
+    expect(
+      getComputedStyle(roseTile as Element)
+        .getPropertyValue('--wind-true')
+        .trim(),
+    ).toBe('#ffe135');
+    document.documentElement.dataset.theme = 'dusk';
+    expect(
+      getComputedStyle(roseTile as Element)
+        .getPropertyValue('--wind-true')
+        .trim(),
+    ).toBe('#ffe135');
   });
 });

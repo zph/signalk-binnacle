@@ -333,7 +333,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   --wind-port: #8f0000;
   --wind-starboard: #008700;
   --wind-apparent: #ff9100;
-  --wind-true: #d89a00;
+  --wind-true: #ffe135;
   --wind-pointer-label: #170b00;
   --wind-dial: color-mix(in srgb, var(--text) 12%, var(--surface-raised));
   position: relative;
@@ -344,7 +344,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   --wind-port: #d0523e;
   --wind-starboard: #3fae6a;
   --wind-apparent: #ff9100;
-  --wind-true: #ffcf4d;
+  --wind-true: #ffe135;
   --wind-pointer-label: #0f1a24;
   --wind-dial: color-mix(in srgb, var(--text) 70%, var(--surface-raised));
 }
