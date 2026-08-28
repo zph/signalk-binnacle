@@ -1,8 +1,10 @@
 import type { PersistedValue, TrackSettings } from '$shared/settings';
 import { trackStopDurationMinutes, trackStopSpeedKnots, tripLogEnabled } from '$shared/settings';
 import {
+  columnIndex,
   fetchHistoryValuesAcrossProviders,
   type HistoryProviders,
+  type HistoryValues,
   SK_PATHS,
 } from '$shared/signalk';
 import { buildTripDay, type TripDay } from './trip-log';
@@ -26,6 +28,17 @@ function dateRange(date: string): { from: string; to: string } | undefined {
   const to = new Date(from);
   to.setDate(to.getDate() + 1);
   return { from: from.toISOString(), to: new Date(to.getTime() - 1).toISOString() };
+}
+
+function mergeWindValues(required: HistoryValues, wind: HistoryValues): HistoryValues {
+  const windIndex = columnIndex(wind, SK_PATHS.windAngleApparent);
+  if (windIndex < 0) return required;
+  const windByTimestamp = new Map(wind.rows.map((row) => [row[0], row[windIndex + 1]] as const));
+  return {
+    ...required,
+    columns: [...required.columns, wind.columns[windIndex]],
+    rows: required.rows.map((row) => [...row, windByTimestamp.get(row[0]) ?? null]),
+  };
 }
 
 export type TripLogStatus = 'idle' | 'loading' | 'ready' | 'unavailable' | 'error';
@@ -53,20 +66,30 @@ export function createTripLogController(deps: Deps) {
     const range = dateRange(date);
     const providers = deps.providers();
     if (!range || !providers || providers.ids.length === 0) return undefined;
-    const result = await fetchValues(deps.origin, deps.getToken(), providers, {
-      paths: [SK_PATHS.position, SK_PATHS.speedOverGround, SK_PATHS.windAngleApparent],
+    const query = {
       from: range.from,
       to: range.to,
       resolutionSeconds: DAY_RESOLUTION_SECONDS,
+    };
+    // InfluxDB history can reject a multi-series query when the optional wind series has a
+    // different number of buckets. Position and SOG form the required trip timeline, while wind is
+    // fetched independently and left-joined by the shared bucket timestamp.
+    const required = await fetchValues(deps.origin, deps.getToken(), providers, {
+      ...query,
+      paths: [SK_PATHS.position, SK_PATHS.speedOverGround],
     });
-    return result
-      ? buildTripDay(
-          date,
-          result.values,
-          trackStopSpeedKnots(deps.settings.value),
-          trackStopDurationMinutes(deps.settings.value),
-        )
-      : undefined;
+    if (!required) return undefined;
+    const speed = trackStopSpeedKnots(deps.settings.value);
+    const stopMinutes = trackStopDurationMinutes(deps.settings.value);
+    const withoutWind = buildTripDay(date, required.values, speed, stopMinutes);
+    if (!withoutWind.hasTravel) return withoutWind;
+    const wind = await fetchValues(deps.origin, deps.getToken(), providers, {
+      ...query,
+      paths: [SK_PATHS.windAngleApparent],
+    });
+    return wind
+      ? buildTripDay(date, mergeWindValues(required.values, wind.values), speed, stopMinutes)
+      : withoutWind;
   }
 
   async function selectDate(date: string): Promise<void> {

@@ -33,10 +33,25 @@ function history(
 }
 
 function movingDay(date: string): HistoryValues {
-  return history(date, [
-    [`${date}T12:00:00.000Z`, { latitude: 38, longitude: -122 }, 1, 0.2],
-    [`${date}T12:10:00.000Z`, { latitude: 38.01, longitude: -121.99 }, 2, 0.4],
-  ]);
+  return history(
+    date,
+    [
+      [`${date}T12:00:00.000Z`, { latitude: 38, longitude: -122 }, 1],
+      [`${date}T12:10:00.000Z`, { latitude: 38.01, longitude: -121.99 }, 2],
+    ],
+    [
+      { path: SK_PATHS.position, method: 'first' },
+      { path: SK_PATHS.speedOverGround, method: 'average' },
+    ],
+  );
+}
+
+function windDay(date: string): HistoryValues {
+  return history(
+    date,
+    [[`${date}T12:00:00.000Z`, 0.2]],
+    [{ path: SK_PATHS.windAngleApparent, method: 'average' }],
+  );
 }
 
 function setup(
@@ -74,7 +89,10 @@ afterEach(() => {
 
 describe('createTripLogController', () => {
   it('does not query history until the trip log is enabled', async () => {
-    const fetchValues = vi.fn(async () => ({ values: movingDay(TODAY), provider: 'history' }));
+    const fetchValues = vi.fn(async (_origin, _token, _providers, query: TripQuery) => ({
+      values: query.paths.includes(SK_PATHS.position) ? movingDay(TODAY) : windDay(TODAY),
+      provider: 'history',
+    }));
     const { controller, settings } = setup(fetchValues);
 
     expect(controller.status).toBe('idle');
@@ -84,7 +102,8 @@ describe('createTripLogController', () => {
     await vi.waitFor(() => expect(controller.status).toBe('ready'));
     expect(controller.selectedDate).toBe(TODAY);
     expect(controller.day?.hasTravel).toBe(true);
-    expect(fetchValues).toHaveBeenCalledOnce();
+    expect(controller.day?.portions[0]?.averageWindAngleRad).toBeCloseTo(0.2);
+    expect(fetchValues).toHaveBeenCalledTimes(2);
   });
 
   it('falls back from an idle current day to the latest day with travel', async () => {
@@ -103,7 +122,11 @@ describe('createTripLogController', () => {
       }
       const requestedDate = query.from?.slice(0, 10);
       return {
-        values: requestedDate === EARLIER ? movingDay(EARLIER) : history(TODAY, []),
+        values: query.paths.includes(SK_PATHS.windAngleApparent)
+          ? windDay(requestedDate ?? TODAY)
+          : requestedDate === EARLIER
+            ? movingDay(EARLIER)
+            : history(TODAY, []),
         provider: 'history',
       };
     });
@@ -114,9 +137,9 @@ describe('createTripLogController', () => {
 
     expect(controller.selectedDate).toBe(EARLIER);
     expect(controller.day?.hasTravel).toBe(true);
-    expect(queries).toHaveLength(3);
+    expect(queries).toHaveLength(4);
     expect(queries[0]).toMatchObject({
-      paths: [SK_PATHS.position, SK_PATHS.speedOverGround, SK_PATHS.windAngleApparent],
+      paths: [SK_PATHS.position, SK_PATHS.speedOverGround],
       resolutionSeconds: 60,
     });
     expect(queries[1]).toMatchObject({
@@ -125,5 +148,6 @@ describe('createTripLogController', () => {
       resolutionSeconds: 15 * 60,
     });
     expect(queries[2].from?.slice(0, 10)).toBe(EARLIER);
+    expect(queries[3]).toMatchObject({ paths: [SK_PATHS.windAngleApparent] });
   });
 });
