@@ -1,8 +1,7 @@
-import { DEG_TO_RAD } from '$shared/lib';
+import { DEFAULT_WIND_ROSE_ARC_MARGIN_RAD } from '$shared/settings';
 
 const CENTER = 500;
 const RADIUS = 444;
-const SECTOR_ARC_HALF_SPAN_RAD = 25 * DEG_TO_RAD;
 
 function point(angleRad: number): { x: number; y: number } {
   return {
@@ -35,20 +34,17 @@ export interface WindRoseSectorGeometry {
   starboardBoundaryPath: string;
 }
 
-export function windRoseSectorGeometry(totalNoGoAngleRad: number): WindRoseSectorGeometry {
+export function windRoseSectorGeometry(
+  totalNoGoAngleRad: number,
+  arcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+): WindRoseSectorGeometry {
   const halfAngleRad = totalNoGoAngleRad / 2;
   const portBoundary = point(-halfAngleRad);
   const starboardBoundary = point(halfAngleRad);
   return {
     fillPath: `${arc(-halfAngleRad, halfAngleRad)} L${CENTER} ${CENTER} Z`,
-    portArcPath: arc(
-      -halfAngleRad - SECTOR_ARC_HALF_SPAN_RAD,
-      -halfAngleRad + SECTOR_ARC_HALF_SPAN_RAD,
-    ),
-    starboardArcPath: arc(
-      halfAngleRad - SECTOR_ARC_HALF_SPAN_RAD,
-      halfAngleRad + SECTOR_ARC_HALF_SPAN_RAD,
-    ),
+    portArcPath: arc(-halfAngleRad - arcMarginRad, -halfAngleRad + arcMarginRad),
+    starboardArcPath: arc(halfAngleRad - arcMarginRad, halfAngleRad + arcMarginRad),
     portBoundaryPath: radialLine(portBoundary),
     starboardBoundaryPath: radialLine(starboardBoundary),
   };

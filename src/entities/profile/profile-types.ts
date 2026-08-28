@@ -33,6 +33,8 @@ export interface ProfileSettings {
   instrumentTiles?: string[];
   // Total port-to-starboard wind rose no-go sector in radians. Optional for older profiles.
   windRoseNoGoAngleRad?: number;
+  // Per-side margin around each wind rose limit line in radians. Optional for older profiles.
+  windRoseArcMarginRad?: number;
   // Selected Data trends instruments in display order. Optional for profiles saved before
   // customizable trends existed; the read edge applies the original four-chart default.
   trendInstrumentIds?: string[];
@@ -65,6 +67,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'pinnedActionIds',
   'instrumentTiles',
   'windRoseNoGoAngleRad',
+  'windRoseArcMarginRad',
   'trendInstrumentIds',
   'anchorRadiusMeters',
 ] as const satisfies readonly (keyof ProfileSettings)[];

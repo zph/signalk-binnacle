@@ -60,8 +60,12 @@ export {
   weatherSourceOption,
 } from './weather-source';
 export {
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+  isWindRoseArcMarginRad,
   isWindRoseNoGoAngleRad,
+  MAX_WIND_ROSE_ARC_MARGIN_RAD,
   MAX_WIND_ROSE_NO_GO_ANGLE_RAD,
+  MIN_WIND_ROSE_ARC_MARGIN_RAD,
   MIN_WIND_ROSE_NO_GO_ANGLE_RAD,
 } from './wind-rose';

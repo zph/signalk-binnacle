@@ -4,7 +4,10 @@ import { type Snippet, untrack } from 'svelte';
 import type { Action } from 'svelte/action';
 import type { AisTargets } from '$entities/ais';
 import type { CollisionAssessment } from '$entities/collision';
-import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
+import {
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+} from '$shared/settings';
 import type { Theme } from '$shared/ui';
 import { createReorder, dialog, trapFocus } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
@@ -49,6 +52,8 @@ interface Props {
   onOpenTideSettings?: () => void;
   windRoseNoGoAngleRad?: number;
   onWindRoseNoGoAngleChange?: (angleRad: number) => void;
+  windRoseArcMarginRad?: number;
+  onWindRoseArcMarginChange?: (angleRad: number) => void;
   initialWindRoseSettingsRequest?: { sequence: number };
   onWindRoseSettingsRequestHandled?: () => void;
 }
@@ -78,6 +83,8 @@ const {
   onOpenTideSettings,
   windRoseNoGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   onWindRoseNoGoAngleChange = () => {},
+  windRoseArcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  onWindRoseArcMarginChange = () => {},
   initialWindRoseSettingsRequest,
   onWindRoseSettingsRequestHandled,
 }: Props = $props();
@@ -329,7 +336,9 @@ $effect(() => {
   {#if windRoseSettingsOpen}
     <WindRoseSettings
       noGoAngleRad={windRoseNoGoAngleRad}
+      arcMarginRad={windRoseArcMarginRad}
       onChange={onWindRoseNoGoAngleChange}
+      onArcMarginChange={onWindRoseArcMarginChange}
       onBack={() => (windRoseSettingsOpen = false)}
     />
   {:else if detailDef}
@@ -396,6 +405,7 @@ $effect(() => {
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
             {aisRadar}
             {windRoseNoGoAngleRad}
+            {windRoseArcMarginRad}
             onActivate={() => (expandedId = def.id)}
             onTideSettings={def.kind === 'tide' ? onOpenTideSettings : undefined}
           />
@@ -447,6 +457,7 @@ $effect(() => {
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
         {aisRadar}
         {windRoseNoGoAngleRad}
+        {windRoseArcMarginRad}
         expanded
         onActivate={() => (expandedId = undefined)}
         onTideSettings={expandedDef.kind === 'tide' ? onOpenTideSettings : undefined}

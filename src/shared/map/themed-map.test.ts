@@ -35,6 +35,7 @@ vi.mock('maplibre-gl', () => {
     canvas = new FakeCanvas();
     options: Record<string, unknown>;
     controls: { control: unknown; position?: string }[] = [];
+    pixelRatio: number;
     painter: Record<string, never> | undefined = {};
     keyboard: { disableRotation: ReturnType<typeof vi.fn> } | undefined = {
       disableRotation: vi.fn(),
@@ -55,6 +56,7 @@ vi.mock('maplibre-gl', () => {
       if (FakeMap.throwOnConstruct) throw new Error('WebGL2 unavailable');
       FakeMap.instances.push(this);
       this.options = opts;
+      this.pixelRatio = typeof opts.pixelRatio === 'number' ? opts.pixelRatio : 1;
       if (FakeMap.returnWithoutRenderer) {
         this.painter = undefined;
         this.keyboard = undefined;
@@ -103,6 +105,12 @@ vi.mock('maplibre-gl', () => {
     isMoving(): boolean {
       return false;
     }
+    getPixelRatio(): number {
+      return this.pixelRatio;
+    }
+    setPixelRatio = vi.fn((pixelRatio: number) => {
+      this.pixelRatio = pixelRatio;
+    });
     hasImage(): boolean {
       return false;
     }
@@ -156,6 +164,8 @@ interface FakeMapInstance {
   remove: ReturnType<typeof vi.fn>;
   addedImages: string[];
   missingImageResolver: ((id: string) => void | Promise<void>) | null;
+  getPixelRatio(): number;
+  setPixelRatio: ReturnType<typeof vi.fn>;
   styles: unknown[];
 }
 
@@ -314,6 +324,48 @@ describe('createThemedMap onLoad', () => {
     createThemedMap({ container, pixelRatio: 1.5, onLoad: () => {} });
 
     expect((await lastMap()).options.pixelRatio).toBe(1.5);
+  });
+
+  it('renders a Crisp map at interaction resolution only while the camera is moving', async () => {
+    createThemedMap({ container, pixelRatio: 3, onLoad: () => {} });
+    const map = await lastMap();
+
+    map.fire('movestart');
+    for (let frame = 0; frame < 10_000; frame += 1) map.fire('move');
+    expect(map.setPixelRatio).toHaveBeenCalledTimes(1);
+    expect(map.setPixelRatio).toHaveBeenLastCalledWith(1);
+    expect(map.getPixelRatio()).toBe(1);
+
+    map.fire('moveend');
+    expect(map.setPixelRatio).toHaveBeenCalledTimes(2);
+    expect(map.setPixelRatio).toHaveBeenLastCalledWith(3);
+    expect(map.getPixelRatio()).toBe(3);
+  });
+
+  it('uses interaction resolution for Balanced and restores its capped ratio', async () => {
+    createThemedMap({ container, pixelRatio: 1.5, onLoad: () => {} });
+    const map = await lastMap();
+
+    map.fire('movestart');
+    for (let frame = 0; frame < 10_000; frame += 1) map.fire('move');
+    expect(map.setPixelRatio).toHaveBeenCalledTimes(1);
+    expect(map.setPixelRatio).toHaveBeenLastCalledWith(1);
+    expect(map.getPixelRatio()).toBe(1);
+
+    map.fire('moveend');
+    expect(map.setPixelRatio).toHaveBeenCalledTimes(2);
+    expect(map.setPixelRatio).toHaveBeenLastCalledWith(1.5);
+    expect(map.getPixelRatio()).toBe(1.5);
+  });
+
+  it('keeps Fast at its native interaction ratio without canvas resizes', async () => {
+    createThemedMap({ container, pixelRatio: 1, onLoad: () => {} });
+    const map = await lastMap();
+
+    map.fire('movestart');
+    map.fire('moveend');
+
+    expect(map.setPixelRatio).not.toHaveBeenCalled();
   });
 
   it('preserves MapLibre 5 vector overscaling behavior', async () => {

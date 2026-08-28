@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PORTABLE_PROFILE_SETTING_KEYS } from '$entities/profile';
-import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
+import {
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+} from '$shared/settings';
 import { createProfileBindings, type ProfileBindingDeps } from './profile-bindings';
 
 // Minimal stand-ins: the bindings only read `.value`/`.theme` and call `.set`, so a plain object with
@@ -40,6 +43,7 @@ function makeDeps(): ProfileBindingDeps {
     pinnedActions: pv<string[]>([]),
     instrumentTiles: pv<string[]>(['depth', 'speed']),
     windRoseNoGoAngleRad: pv(DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD),
+    windRoseArcMarginRad: pv(DEFAULT_WIND_ROSE_ARC_MARGIN_RAD),
     trendInstruments: pv<string[]>(['depth', 'wind-apparent']),
     anchorRadius: {
       get: () => anchorRadiusMeters,
@@ -196,6 +200,17 @@ describe('createProfileBindings', () => {
     const deps = makeDeps();
     const bindings = createProfileBindings(deps);
     expect(() => bindings.track()).not.toThrow();
+  });
+
+  it('captures the wind rose arc margin and applies its default for legacy profiles', () => {
+    const deps = makeDeps();
+    const bindings = createProfileBindings(deps);
+    expect(bindings.capture().windRoseArcMarginRad).toBe(DEFAULT_WIND_ROSE_ARC_MARGIN_RAD);
+    deps.windRoseArcMarginRad.set(8 * (Math.PI / 180));
+    const legacy = bindings.capture();
+    legacy.windRoseArcMarginRad = undefined;
+    bindings.apply(legacy);
+    expect(deps.windRoseArcMarginRad.value).toBe(DEFAULT_WIND_ROSE_ARC_MARGIN_RAD);
   });
 
   it('captures chart orientation and resets a legacy profile to north-up', () => {

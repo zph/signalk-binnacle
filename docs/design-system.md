@@ -275,14 +275,15 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   readouts without borders sit below it. Units remain on each readout's title line in parentheses.
   AWA and TWA stay encoded by their pointers instead of consuming a second numeric line. Depth alone
   takes the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
-  The profile-synced no-go angle controls the full gap between the red and green arcs. Its shaded
-  cone and both boundary lines use that same geometry, and the settings surface stores radians while
-  displaying degrees. The face carries no redundant Wind rose caption.
+  The profile-synced no-go angle controls the full gap between the red and green limit lines. Each
+  colored perimeter arc is centered on its line and extends by a separately profile-synced error
+  margin on both sides. The settings surface stores both angles in radians while displaying degrees.
+  The face carries no redundant Wind rose caption.
   Every instrument face is the zoom control: activating a tile expands that one face over the full
   Binnacle surface, and activating the expanded face restores the grid. Right-clicking an instrument
   opens its actions menu, where Inspect leads to source details and recent trends without adding
-  secondary chrome to every tile. The wind rose menu also opens its no-go-angle settings, and the
-  same surface is directly reachable through Command K.
+  secondary chrome to every tile. The wind rose menu also opens its no-go-angle and error-arc
+  settings, and the same surface is directly reachable through Command K.
   The header lock toggles a separate dashboard-reorder mode. In that mode every live tile exposes a
   full-size drag handle, the grid uses `createReorder` with visual row and column targeting, and
   keyboard ArrowUp and ArrowDown moves remain available. A drop commits through the instruments

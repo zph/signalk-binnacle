@@ -37,6 +37,7 @@ interface Props {
   onActivate: () => void;
   onTideSettings?: () => void;
   windRoseNoGoAngleRad?: number;
+  windRoseArcMarginRad?: number;
 }
 
 const {
@@ -52,6 +53,7 @@ const {
   onActivate,
   onTideSettings,
   windRoseNoGoAngleRad,
+  windRoseArcMarginRad,
 }: Props = $props();
 const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrument');
 </script>
@@ -94,6 +96,7 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     {actionLabel}
     onOpen={onActivate}
     noGoAngleRad={windRoseNoGoAngleRad}
+    arcMarginRad={windRoseArcMarginRad}
   />
 {:else if def.kind === 'wind'}
   <WindTile

@@ -99,6 +99,10 @@ export interface ThemedMapHandle {
 
 const DEFAULT_CENTER: [number, number] = [0, 30];
 const DEFAULT_ZOOM = 2;
+// Higher display resolution is valuable once the chart settles, but its quadratic framebuffer cost
+// is wasted while pixels are moving under a pointer. Balanced and Crisp maps temporarily use one
+// device-independent pixel per CSS pixel, then restore their configured ratio at moveend.
+const INTERACTION_PIXEL_RATIO = 1;
 const STYLE_ARRIVAL_TIMEOUT_MS = 8_000;
 const MAP_CONTEXT_ATTRIBUTES = {
   alpha: true,
@@ -276,6 +280,28 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
   map.on('terrain', collapseAttribution);
 
   const mapInstance = map;
+  let restingPixelRatio: number | undefined;
+  let changingPixelRatio = false;
+  const lowerInteractionResolution = () => {
+    if (changingPixelRatio || restingPixelRatio !== undefined) return;
+    const current = mapInstance.getPixelRatio();
+    if (current <= INTERACTION_PIXEL_RATIO) return;
+    restingPixelRatio = current;
+    changingPixelRatio = true;
+    mapInstance.setPixelRatio(INTERACTION_PIXEL_RATIO);
+    changingPixelRatio = false;
+  };
+  const restoreRestingResolution = () => {
+    if (changingPixelRatio || restingPixelRatio === undefined) return;
+    const restore = restingPixelRatio;
+    restingPixelRatio = undefined;
+    changingPixelRatio = true;
+    mapInstance.setPixelRatio(restore);
+    changingPixelRatio = false;
+  };
+  mapInstance.on('movestart', lowerInteractionResolution);
+  mapInstance.on('moveend', restoreRestingResolution);
+
   if (opts.showMapControls !== false) {
     mapInstance.addControl(
       new maplibregl.NavigationControl({
@@ -479,6 +505,8 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       cancelLongPress();
       removeCanvasListeners();
       stopTick();
+      mapInstance.off('movestart', lowerInteractionResolution);
+      mapInstance.off('moveend', restoreRestingResolution);
       resizeObserver.disconnect();
       manager?.dispose();
       mapInstance.remove();

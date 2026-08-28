@@ -50,6 +50,12 @@ describe('isProfileSettings', () => {
     expect(isProfileSettings(settings({ windRoseNoGoAngleRad: Math.PI }))).toBe(false);
   });
 
+  it('accepts a bounded wind rose arc margin and rejects invalid radians', () => {
+    expect(isProfileSettings(settings({ windRoseArcMarginRad: Math.PI / 12 }))).toBe(true);
+    expect(isProfileSettings(settings({ windRoseArcMarginRad: Number.NaN }))).toBe(false);
+    expect(isProfileSettings(settings({ windRoseArcMarginRad: Math.PI / 2 }))).toBe(false);
+  });
+
   it('rejects an unknown theme without defaulting', () => {
     expect(isProfileSettings(settings({ theme: 'midnight' as never }))).toBe(false);
   });

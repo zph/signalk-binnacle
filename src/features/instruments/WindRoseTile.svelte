@@ -1,7 +1,10 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { formatSignedAngleOr, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
-import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
+import {
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+} from '$shared/settings';
 import type { ZoneState } from '$shared/signalk';
 import TileStateBadge from './TileStateBadge.svelte';
 import type { InstrumentMetric, TileReading } from './tile-catalog';
@@ -20,6 +23,7 @@ interface Props {
   actionLabel?: string;
   onOpen?: () => void;
   noGoAngleRad?: number;
+  arcMarginRad?: number;
 }
 
 const {
@@ -33,9 +37,10 @@ const {
   actionLabel = 'Expand instrument',
   onOpen,
   noGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+  arcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
 }: Props = $props();
 const rose = $derived(reading.windRose);
-const sectorGeometry = $derived(windRoseSectorGeometry(noGoAngleRad));
+const sectorGeometry = $derived(windRoseSectorGeometry(noGoAngleRad, arcMarginRad));
 const dialTicks = Array.from({ length: 36 }, (_, index) => ({
   angle: index * 10,
   major: index % 3 === 0,

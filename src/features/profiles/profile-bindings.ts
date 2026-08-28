@@ -4,6 +4,7 @@ import type { UnitsMode } from '$shared/lib';
 import type { LayerSettings } from '$shared/map';
 import {
   type ChartOrientationMode,
+  DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   type PersistedValue,
   type Thresholds,
@@ -32,6 +33,7 @@ export interface ProfileBindingDeps {
   // The instrument tile selection, in display order.
   instrumentTiles: PersistedValue<string[]>;
   windRoseNoGoAngleRad: PersistedValue<number>;
+  windRoseArcMarginRad: PersistedValue<number>;
   // The Data trends selection, in display order.
   trendInstruments: PersistedValue<string[]>;
   // The next anchor drop's preferred radius. This seam deliberately cannot expose or alter the
@@ -132,6 +134,12 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
       write: (s) =>
         deps.windRoseNoGoAngleRad.set(s.windRoseNoGoAngleRad ?? DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD),
       track: () => void deps.windRoseNoGoAngleRad.value,
+    },
+    windRoseArcMarginRad: {
+      read: () => ({ windRoseArcMarginRad: deps.windRoseArcMarginRad.snapshot() }),
+      write: (s) =>
+        deps.windRoseArcMarginRad.set(s.windRoseArcMarginRad ?? DEFAULT_WIND_ROSE_ARC_MARGIN_RAD),
+      track: () => void deps.windRoseArcMarginRad.value,
     },
     trendInstrumentIds: {
       read: () => ({ trendInstrumentIds: deps.trendInstruments.snapshot() }),

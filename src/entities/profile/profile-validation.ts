@@ -13,6 +13,7 @@ import {
   isThresholds,
   isTrackSettings,
   isWeatherSourceId,
+  isWindRoseArcMarginRad,
   isWindRoseNoGoAngleRad,
   MAX_PLANNING_SPEED_KN,
   MAX_PLANNING_SPEED_MPS,
@@ -291,6 +292,12 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   if (
     value.windRoseNoGoAngleRad !== undefined &&
     !isWindRoseNoGoAngleRad(value.windRoseNoGoAngleRad)
+  ) {
+    return false;
+  }
+  if (
+    value.windRoseArcMarginRad !== undefined &&
+    !isWindRoseArcMarginRad(value.windRoseArcMarginRad)
   ) {
     return false;
   }

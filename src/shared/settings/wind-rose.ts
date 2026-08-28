@@ -5,6 +5,9 @@ import { DEG_TO_RAD } from '$shared/lib';
 export const MIN_WIND_ROSE_NO_GO_ANGLE_RAD = 20 * DEG_TO_RAD;
 export const MAX_WIND_ROSE_NO_GO_ANGLE_RAD = 120 * DEG_TO_RAD;
 export const DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD = 40 * DEG_TO_RAD;
+export const MIN_WIND_ROSE_ARC_MARGIN_RAD = 1 * DEG_TO_RAD;
+export const MAX_WIND_ROSE_ARC_MARGIN_RAD = 45 * DEG_TO_RAD;
+export const DEFAULT_WIND_ROSE_ARC_MARGIN_RAD = 15 * DEG_TO_RAD;
 
 export function isWindRoseNoGoAngleRad(value: unknown): value is number {
   return (
@@ -12,5 +15,14 @@ export function isWindRoseNoGoAngleRad(value: unknown): value is number {
     Number.isFinite(value) &&
     value >= MIN_WIND_ROSE_NO_GO_ANGLE_RAD &&
     value <= MAX_WIND_ROSE_NO_GO_ANGLE_RAD
+  );
+}
+
+export function isWindRoseArcMarginRad(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_WIND_ROSE_ARC_MARGIN_RAD &&
+    value <= MAX_WIND_ROSE_ARC_MARGIN_RAD
   );
 }

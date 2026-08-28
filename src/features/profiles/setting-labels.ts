@@ -18,6 +18,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   pinnedActionIds: 'Toolbar actions',
   instrumentTiles: 'Instrument dock',
   windRoseNoGoAngleRad: 'Wind rose no-go angle',
+  windRoseArcMarginRad: 'Wind rose arc margin',
   trendInstrumentIds: 'Data trends',
   anchorRadiusMeters: 'Anchor radius',
 };
