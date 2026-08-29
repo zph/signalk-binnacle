@@ -25,6 +25,7 @@ const selection: ChartFeatureSelection = {
     BATHY_SOURCE_COUNT: 2,
     BATHY_CELL_METERS: 10,
     BATHY_NEWEST_AT_MS: 1_700_000_000_000,
+    BATHY_COVERAGE: 0.25,
     BATHY_DATUM: 'MLLW',
     BATHY_MODE: 'datum',
     BATHY_CHANGE_STATE: 'stable',
@@ -47,6 +48,7 @@ describe('chartFeatureDetails', () => {
     expect(details.robustDepth).toBe('6.8');
     expect(details.confidenceReasons).toEqual(['Single Pass', 'Sparse Neighbors']);
     expect(details.observations).toBe(3);
+    expect(details.coverage).toBe('25%');
     expect(details.soundings).toBe(27);
     expect(details.safetyThreshold).toBe('2.3');
     expect(details.bathymetryComparison).toEqual({

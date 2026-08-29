@@ -124,6 +124,10 @@ const change = $derived(
       <dt>Depth sources</dt>
       <dd><span class="num">{details.sources}</span><span class="unit"></span></dd>
     {/if}
+    {#if details.coverage}
+      <dt>Cell coverage</dt>
+      <dd><span class="num text-value">{details.coverage}</span><span class="unit"></span></dd>
+    {/if}
     {#if details.cellSize}
       <dt>Cell resolution</dt>
       <dd>

@@ -19,6 +19,7 @@ export interface ChartFeatureDetails {
   cellSize?: string;
   cellSizeUnit: 'm' | 'ft';
   newestAtMs?: number;
+  coverage?: string;
   datum?: string;
   mode?: 'datum' | 'water';
   changeState?: string;
@@ -65,6 +66,10 @@ export function chartFeatureDetails(
   const cellMeters = numberProperty(properties, 'BATHY_CELL_METERS');
   if (cellMeters !== undefined) result.cellSize = formatLengthOr(cellMeters, mode, 0);
   result.newestAtMs = numberProperty(properties, 'BATHY_NEWEST_AT_MS');
+  const coverage = numberProperty(properties, 'BATHY_COVERAGE');
+  if (coverage !== undefined) {
+    result.coverage = `${Math.round(clamp01(coverage) * 100)}%`;
+  }
   result.datum = stringProperty(properties, 'BATHY_DATUM');
   const bathyMode = stringProperty(properties, 'BATHY_MODE');
   if (bathyMode === 'datum' || bathyMode === 'water') result.mode = bathyMode;
