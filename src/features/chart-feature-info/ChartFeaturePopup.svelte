@@ -69,7 +69,9 @@ const change = $derived(
   </header>
 
   {#if details.depth}
-    <p class="depth-label">Conservative depth below chart datum</p>
+    <p class="depth-label">
+      {details.depthKind === 'predicted' ? 'Predicted depth below chart datum' : 'Conservative depth below chart datum'}
+    </p>
     <p class="depth"><span class="num">{details.depth}</span> {details.depthUnit}</p>
   {/if}
   {#if details.safetyThreshold}

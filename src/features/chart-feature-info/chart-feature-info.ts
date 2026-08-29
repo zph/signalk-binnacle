@@ -23,6 +23,8 @@ export interface ChartFeatureDetails {
   datum?: string;
   mode?: 'datum' | 'water';
   changeState?: string;
+  /** Which estimate the plugin published as its primary depth (defaults to conservative). */
+  depthKind?: 'conservative' | 'predicted';
   bathymetryComparison?: { depth: string; delta: string; count: number; source: string };
   safetyThreshold?: string;
 }
@@ -74,6 +76,8 @@ export function chartFeatureDetails(
   const bathyMode = stringProperty(properties, 'BATHY_MODE');
   if (bathyMode === 'datum' || bathyMode === 'water') result.mode = bathyMode;
   result.changeState = stringProperty(properties, 'BATHY_CHANGE_STATE');
+  const depthKind = stringProperty(properties, 'BATHY_DISPLAY_KIND');
+  if (depthKind === 'conservative' || depthKind === 'predicted') result.depthKind = depthKind;
   const officialDepthM = numberProperty(properties, 'BATHY_OFFICIAL_DEPTH_M');
   const officialDeltaM = numberProperty(properties, 'BATHY_OFFICIAL_DELTA_M');
   const officialCount = integerProperty(properties, 'BATHY_OFFICIAL_COUNT');

@@ -29,6 +29,7 @@ const selection: ChartFeatureSelection = {
     BATHY_DATUM: 'MLLW',
     BATHY_MODE: 'datum',
     BATHY_CHANGE_STATE: 'stable',
+    BATHY_DISPLAY_KIND: 'predicted',
     BATHY_SAFETY_THRESHOLD_M: 2.25,
     BATHY_OFFICIAL_DEPTH_M: 6.5,
     BATHY_OFFICIAL_DELTA_M: 0.3,
@@ -51,6 +52,7 @@ describe('chartFeatureDetails', () => {
     expect(details.coverage).toBe('25%');
     expect(details.soundings).toBe(27);
     expect(details.safetyThreshold).toBe('2.3');
+    expect(details.depthKind).toBe('predicted');
     expect(details.bathymetryComparison).toEqual({
       depth: '6.5',
       delta: '0.3',
