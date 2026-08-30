@@ -2602,8 +2602,8 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
     menuAction('customize-instruments'),
     {
       id: 'browser-fullscreen',
-      label: browserFullScreen ? 'Exit full screen' : 'Enter full screen',
-      shortLabel: browserFullScreen ? 'Exit full' : 'Full screen',
+      label: browserFullScreen ? 'Unmaximize Binnacle' : 'Maximize Binnacle',
+      shortLabel: browserFullScreen ? 'Unmaximize' : 'Maximize',
       icon: browserFullScreen ? Minimize2 : Maximize2,
       group: 'Display',
       disabled:
