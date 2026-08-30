@@ -77,6 +77,35 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
     .toBe(true);
 });
 
+test('screen edit mode accepts a dock tile dropped on the chart', async ({ page }) => {
+  await page.goto('/');
+  await openMenuItem(page, 'Instrument dock');
+  await runScreenEditCommand(page);
+
+  const layer = page.locator('.instrument-screen-layer');
+  const dockTile = page.locator('[data-tile-row="sog"]');
+  const [source, destination] = await Promise.all([dockTile.boundingBox(), layer.boundingBox()]);
+  if (!source || !destination)
+    throw new Error('Instrument drag source or chart drop target missing.');
+
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    destination.x + destination.width * 0.45,
+    destination.y + destination.height * 0.55,
+    {
+      steps: 12,
+    },
+  );
+  await page.mouse.up();
+
+  const frame = page.locator(FLOATING_FRAME);
+  await expect(frame).toHaveAttribute('data-instrument-id', 'sog');
+  const frameBox = await frame.boundingBox();
+  expect(frameBox).not.toBeNull();
+  expect(frameBox?.x).toBeLessThan(destination.x + destination.width * 0.6);
+});
+
 test('the locked screen layout persists across a reload and can be removed again', async ({
   page,
 }) => {

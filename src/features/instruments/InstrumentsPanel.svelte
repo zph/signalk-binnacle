@@ -25,6 +25,15 @@ import WindRoseSettings from './WindRoseSettings.svelte';
 // The screen layer reads this MIME from the drop event, so a dock tile can be dragged onto the
 // chart while screen edit mode is active.
 const TILE_DRAG_MIME = 'text/x-binnacle-instrument';
+const TOUCH_DRAG_THRESHOLD_PX = 10;
+
+interface TouchDrag {
+  id: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
+}
 
 interface Props {
   controller: InstrumentsController;
@@ -125,6 +134,7 @@ let detailId = $state<string | undefined>();
 let expandedId = $state<string | undefined>();
 let windRoseSettingsOpen = $state(false);
 let tilesEl = $state<HTMLElement | undefined>();
+let touchDrag = $state<TouchDrag | undefined>();
 let instrumentMenu = $state<{
   id?: string;
   label?: string;
@@ -297,6 +307,46 @@ function handleTileDragStart(id: string, event: DragEvent): void {
   event.dataTransfer.dropEffect = 'copy';
 }
 
+// Native HTML drag-and-drop remains the mouse path, but touch browsers do not consistently emit
+// it. A moved touch is sent to the chart layer; a tap remains a normal tile activation.
+function handleTilePointerDown(id: string, event: PointerEvent): void {
+  if (!screenEditing || event.pointerType !== 'touch') return;
+  touchDrag = {
+    id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    moved: false,
+  };
+  if (event.currentTarget instanceof Element)
+    event.currentTarget.setPointerCapture(event.pointerId);
+}
+
+function handleTilePointerMove(event: PointerEvent): void {
+  if (!touchDrag || event.pointerId !== touchDrag.pointerId) return;
+  if (
+    !touchDrag.moved &&
+    Math.hypot(event.clientX - touchDrag.startX, event.clientY - touchDrag.startY) >=
+      TOUCH_DRAG_THRESHOLD_PX
+  ) {
+    touchDrag = { ...touchDrag, moved: true };
+  }
+  if (touchDrag.moved) event.preventDefault();
+}
+
+function finishTileTouchDrag(event: PointerEvent): void {
+  if (!touchDrag || event.pointerId !== touchDrag.pointerId) return;
+  const drag = touchDrag;
+  touchDrag = undefined;
+  if (!drag.moved) return;
+  event.preventDefault();
+  window.dispatchEvent(
+    new CustomEvent('binnacle:instrument-touch-drop', {
+      detail: { id: drag.id, clientX: event.clientX, clientY: event.clientY },
+    }),
+  );
+}
+
 function placeInstrumentOnChart(): void {
   const id = instrumentMenu?.id;
   if (!id) return;
@@ -444,6 +494,10 @@ $effect(() => {
           class:drop-after={reordering && indicator.after}
           draggable={screenEditing && !reordering && !customizing}
           ondragstart={(event) => handleTileDragStart(def.id, event)}
+          onpointerdown={(event) => handleTilePointerDown(def.id, event)}
+          onpointermove={handleTilePointerMove}
+          onpointerup={finishTileTouchDrag}
+          onpointercancel={finishTileTouchDrag}
         >
           <InstrumentTile
             {def}

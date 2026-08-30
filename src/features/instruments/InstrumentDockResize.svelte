@@ -85,9 +85,9 @@ function handleKeydown(event: KeyboardEvent): void {
   position: absolute;
   z-index: var(--z-overlay);
   inset-block: 0;
-  /* Keep the full touch target on the chart side of the divider. Centering it on the border made
-     its invisible half cover the first control in every customization row. */
-  inset-inline-start: calc(-1 * var(--control-size));
+  /* Keep the touch target inside the dock. The chart-side position placed an invisible 44 px-wide
+     layer over MapLibre's zoom controls at the chart edge. */
+  inset-inline-start: 0;
   inline-size: var(--control-size);
   cursor: ew-resize;
   touch-action: none;
@@ -96,7 +96,7 @@ function handleKeydown(event: KeyboardEvent): void {
   content: "";
   position: absolute;
   inset-block: var(--space-2);
-  inset-inline-end: 0;
+  inset-inline-start: 0;
   inline-size: 3px;
   border-radius: var(--radius-pill);
   background: var(--border);

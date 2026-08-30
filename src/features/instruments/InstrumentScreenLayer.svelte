@@ -225,7 +225,11 @@ function handleDrop(event: DragEvent): void {
   event.preventDefault();
   const id = event.dataTransfer?.getData(DRAG_MIME);
   if (!id) return;
-  const point = normalizedPoint(event.clientX, event.clientY);
+  placeAt(id, event.clientX, event.clientY);
+}
+
+function placeAt(id: string, clientX: number, clientY: number): void {
+  const point = normalizedPoint(clientX, clientY);
   if (!point) return;
   // Dropping an already-placed instrument moves it (keeping its saved size) to the drop point;
   // dropping a dock tile places a default box centered on the drop point.
@@ -249,6 +253,35 @@ function handleDrop(event: DragEvent): void {
     id,
   );
 }
+
+// Touch browsers do not reliably produce native drag events. The dock sends its completed touch
+// drag here, where the chart bounds remain the sole authority for accepting a drop.
+$effect(() => {
+  if (!editing) return;
+  const handleTouchDrop = (event: Event): void => {
+    const drop = (event as CustomEvent<{ id?: string; clientX?: number; clientY?: number }>).detail;
+    if (
+      !drop?.id ||
+      typeof drop.clientX !== 'number' ||
+      typeof drop.clientY !== 'number' ||
+      !layerEl
+    ) {
+      return;
+    }
+    const bounds = layerEl.getBoundingClientRect();
+    if (
+      drop.clientX < bounds.left ||
+      drop.clientX > bounds.right ||
+      drop.clientY < bounds.top ||
+      drop.clientY > bounds.bottom
+    ) {
+      return;
+    }
+    placeAt(drop.id, drop.clientX, drop.clientY);
+  };
+  window.addEventListener('binnacle:instrument-touch-drop', handleTouchDrop);
+  return () => window.removeEventListener('binnacle:instrument-touch-drop', handleTouchDrop);
+});
 
 function finishEditing(): void {
   addMenuOpen = false;

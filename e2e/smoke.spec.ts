@@ -1113,9 +1113,17 @@ test('instrument dock resizes horizontally and restores its device-local width',
   let dock = page.getByRole('complementary', { name: 'Instruments' });
   const handle = dock.getByRole('slider', { name: 'Resize instruments dock' });
   await expect(handle).toBeVisible();
+  const zoomIn = page.getByRole('button', { name: 'Zoom in', exact: true });
+  await expect(zoomIn).toBeVisible();
   const initial = await dock.boundingBox();
   const handleBox = await handle.boundingBox();
-  if (!initial || !handleBox) throw new Error('Instrument dock resize control did not lay out.');
+  const zoomBox = await zoomIn.boundingBox();
+  if (!initial || !handleBox || !zoomBox)
+    throw new Error('Instrument dock resize control did not lay out.');
+  // The resize target must stay inside its dock, leaving the complete MapLibre zoom target in
+  // the chart cell. The old chart-side target overlapped the zoom control by 30 px.
+  expect(handleBox.x).toBeGreaterThanOrEqual(initial.x);
+  expect(zoomBox.x + zoomBox.width).toBeLessThanOrEqual(initial.x);
 
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
   await page.mouse.down();
