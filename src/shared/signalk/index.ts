@@ -70,7 +70,7 @@ export {
   writeRefusedMessage,
 } from './resource';
 export { recentSourceRefs, sourceCue } from './source-trace';
-export { predatesReconnect, SignalKStore } from './store.svelte';
+export { PathCell, predatesReconnect, SignalKStore } from './store.svelte';
 export type { SkSymbol } from './symbols-client';
 export { fetchSymbols } from './symbols-client';
 export type {
