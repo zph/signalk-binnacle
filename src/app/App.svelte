@@ -3496,6 +3496,7 @@ const plotterActions = {
             onOpenTideSettings={openTideStationSettings}
             windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
             windRoseArcMarginRad={windRoseArcMarginRad.value}
+            topBannerPresent={showHelpWelcome || showEncPrompt || arrivalBanner !== undefined}
             onDone={exitScreenInstrumentEditing}
           />
 

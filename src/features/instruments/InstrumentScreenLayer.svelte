@@ -38,6 +38,9 @@ interface Props {
   windRoseNoGoAngleRad?: number;
   windRoseArcMarginRad?: number;
   onOpenTideSettings?: () => void;
+  // The chart's centered welcome, arrival, or chart-setup banner is visible. Keep the editing
+  // toolbar below it so the first-run path never hides the only way to finish the layout.
+  topBannerPresent?: boolean;
   // Called when the helm presses Done, so the shell can clear any edit-mode side effects.
   onDone?: () => void;
 }
@@ -56,6 +59,7 @@ const {
   windRoseNoGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   windRoseArcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   onOpenTideSettings,
+  topBannerPresent = false,
   onDone = () => {},
 }: Props = $props();
 
@@ -264,7 +268,7 @@ function finishEditing(): void {
   role={editing ? 'group' : undefined}
 >
   {#if editing}
-    <div class="screen-edit-chrome">
+    <div class="screen-edit-chrome" class:screen-edit-chrome--below-banner={topBannerPresent}>
       <p id="screen-edit-note" class="muted-note screen-edit-note" role="status">
         Drag tiles from the instruments bar, or use Add instrument. Drag or resize each tile, then
         select Done to lock the layout.
@@ -430,6 +434,11 @@ function finishEditing(): void {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
+}
+/* The chart's action banners are centered at the top. On a first run they can be two lines tall,
+   so reserve their full compact height instead of letting them cover the edit-mode Done action. */
+.screen-edit-chrome--below-banner {
+  inset-block-start: calc(var(--space-3) + 6rem);
 }
 .screen-edit-note {
   margin: 0;

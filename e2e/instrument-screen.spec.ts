@@ -36,6 +36,19 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
   await expect(layer).toHaveAttribute('aria-label', 'Instrument screen layout editing');
   await expect(layer.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
 
+  // On the initial run, the chart welcome banner must not cover the layout toolbar or its Done
+  // action. The banner is conditional, so only compare boxes when this fresh-device prompt shows.
+  const welcome = page.getByText(
+    'First time with Binnacle? Read the short safety orientation, or set up charts.',
+  );
+  if (await welcome.isVisible()) {
+    const welcomeBox = await welcome.boundingBox();
+    const toolbarBox = await layer.locator('.screen-edit-chrome').boundingBox();
+    expect(welcomeBox).not.toBeNull();
+    expect(toolbarBox).not.toBeNull();
+    expect(toolbarBox?.y).toBeGreaterThanOrEqual((welcomeBox?.y ?? 0) + (welcomeBox?.height ?? 0));
+  }
+
   await layer.getByRole('button', { name: 'Add instrument', exact: true }).click();
   const addMenu = page.getByRole('menu', { name: 'Add instrument to chart' });
   await addMenu.getByRole('menuitem', { name: 'Speed', exact: true }).click();
