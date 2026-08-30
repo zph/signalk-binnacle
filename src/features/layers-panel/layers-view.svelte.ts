@@ -1,4 +1,4 @@
-import type { LayerListItem, LayerManager } from '$shared/map';
+import type { CellPortrayalMode, DepthDisplayMode, LayerListItem, LayerManager } from '$shared/map';
 import { clampReorderSlot, layerCategory } from './layer-category';
 
 export class LayersView {
@@ -63,6 +63,18 @@ export class LayersView {
         minimum + Math.round((clamped - minimum) / step) * step,
       );
     }
+  }
+
+  setDisplayDepth(id: string, mode: DepthDisplayMode): void {
+    this.#manager.setDisplayDepth(id, mode);
+    const item = this.items.find((candidate) => candidate.id === id);
+    if (item?.depthDisplayControl) item.displayDepth = mode;
+  }
+
+  setCellPortrayal(id: string, mode: CellPortrayalMode): void {
+    this.#manager.setCellPortrayal(id, mode);
+    const item = this.items.find((candidate) => candidate.id === id);
+    if (item?.depthDisplayControl) item.cellPortrayal = mode;
   }
 
   // Move a layer to a new index in the top-to-bottom display order, then rebuild the list in

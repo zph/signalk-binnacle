@@ -99,12 +99,12 @@ describe('chart overlay', () => {
     await overlay.add(ctx);
 
     expect(map.declaredSources.get('chart-bathymetry')?.tiles).toEqual([
-      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=2',
+      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=2&displayDepth=conservative',
     ]);
 
     overlay.setCellSizeScale?.(ctx, 0.75);
     expect(map.sources.get('chart-bathymetry')?.setTiles).toHaveBeenLastCalledWith([
-      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=0.75',
+      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=0.75&displayDepth=conservative',
     ]);
 
     expect(overlay.labelSizeControl).toEqual({
@@ -144,6 +144,95 @@ describe('chart overlay', () => {
 
     expect(overlay.facets).toEqual([]);
     expect(overlay.layerIds).toHaveLength(3);
+  });
+
+  it('declares the depth-display control only for interactive bathymetry cells', () => {
+    const plain = createChartOverlay(s57Chart(), 'http://pi.local');
+    expect(plain.depthDisplayControl).toBeUndefined();
+
+    const cells = createChartOverlay(
+      { ...s57Chart(), featureInfo: 'bathymetry-cell' as const },
+      'http://pi.local',
+    );
+    expect(cells.depthDisplayControl).toBe(true);
+  });
+
+  it('threads the depth-display choice into bathymetry tile requests', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'bathymetry',
+        name: 'Bathymetry cells',
+        type: 'S-57',
+        format: 'pbf',
+        featureInfo: 'bathymetry-cell',
+        tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+        layers: ['DEPARE', 'SOUNDG'],
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    const declaredTiles = (): string | undefined => {
+      const tiles = map.declaredSources.get('chart-bathymetry')?.tiles as string[] | undefined;
+      return tiles?.[0];
+    };
+    const lastSetTiles = (): string[] | undefined => {
+      const setTiles = map.sources.get('chart-bathymetry')?.setTiles as unknown as
+        | { mock?: { lastCall?: [unknown[]] } }
+        | undefined;
+      return setTiles?.mock?.lastCall?.[0] as string[] | undefined;
+    };
+
+    expect(declaredTiles()).toContain('displayDepth=conservative');
+
+    overlay.setDisplayDepth?.(ctx, 'predicted');
+    expect(lastSetTiles()?.[0]).toContain('displayDepth=predicted');
+
+    overlay.setDisplayDepth?.(ctx, 'conservative');
+    expect(lastSetTiles()?.[0]).toContain('displayDepth=conservative');
+  });
+
+  it('paints text-only portrayal by zeroing fill, outline, and halo, and restores shading', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'bathymetry',
+        name: 'Bathymetry cells',
+        type: 'S-57',
+        format: 'pbf',
+        featureInfo: 'bathymetry-cell',
+        tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+        layers: ['DEPARE', 'SOUNDG'],
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    const lastPaint = (id: string, property: string): unknown =>
+      map.setPaintProperty.mock.calls.findLast(
+        ([layerId, paintProperty]) => layerId === id && paintProperty === property,
+      )?.[2];
+
+    overlay.setCellPortrayal?.(ctx, 'text');
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBe(0);
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-outline', 'line-opacity')).toBe(0);
+    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-halo-width')).toBe(0);
+    // The label text itself stays at full strength and keeps the theme color.
+    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-opacity')).toBe(1);
+
+    // A parent opacity change must not resurrect the fill while text mode holds.
+    overlay.setOpacity?.(ctx, 0.5);
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBe(0);
+    // The label opacity still follows the parent.
+    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-opacity')).toBeCloseTo(0.5);
+
+    overlay.setCellPortrayal?.(ctx, 'shaded');
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBeCloseTo(0.39);
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-outline', 'line-opacity')).toBeCloseTo(
+      0.45,
+    );
+    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-halo-width')).toBe(2.25);
   });
 
   it('exposes chart metadata for the layer list', () => {

@@ -402,6 +402,66 @@ function changeSharing(share: boolean): void {
       </div>
     {/if}
 
+    {#if item.depthDisplayControl && item.displayDepth !== undefined}
+      <div class="cell-size-field">
+        <h4 class="caps-label" id={`${item.id}-depth-display-label`}>Depth display</h4>
+        <div class="segmented" role="group" aria-labelledby={`${item.id}-depth-display-label`}>
+          <button
+            type="button"
+            class="btn"
+            class:is-on={item.displayDepth === 'conservative'}
+            aria-pressed={item.displayDepth === 'conservative'}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setDisplayDepth(item.id, 'conservative')}
+          >
+            Conservative
+          </button>
+          <button
+            type="button"
+            class="btn"
+            class:is-on={item.displayDepth === 'predicted'}
+            aria-pressed={item.displayDepth === 'predicted'}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setDisplayDepth(item.id, 'predicted')}
+          >
+            Predicted
+          </button>
+        </div>
+      </div>
+    {/if}
+
+    {#if item.depthDisplayControl && item.cellPortrayal !== undefined}
+      <div class="cell-size-field">
+        <h4 class="caps-label" id={`${item.id}-cell-portrayal-label`}>Cell style</h4>
+        <div class="segmented" role="group" aria-labelledby={`${item.id}-cell-portrayal-label`}>
+          <button
+            type="button"
+            class="btn"
+            class:is-on={item.cellPortrayal === 'shaded'}
+            aria-pressed={item.cellPortrayal === 'shaded'}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setCellPortrayal(item.id, 'shaded')}
+          >
+            Depth shading
+          </button>
+          <button
+            type="button"
+            class="btn"
+            class:is-on={item.cellPortrayal === 'text'}
+            aria-pressed={item.cellPortrayal === 'text'}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setCellPortrayal(item.id, 'text')}
+          >
+            Black text only
+          </button>
+        </div>
+        <p class="muted-note muted-note--xs">
+          Depth shading shows at-a-glance depth colors with a safety bias. Text only keeps bare
+          depth numbers and lets the chart show through around them.
+        </p>
+      </div>
+    {/if}
+
     {#if subLayers.length > 0}
       <div class="chart-layer-list" role="group" aria-label={`${item.title} chart layers`}>
         <h4 class="caps-label">Chart layers</h4>

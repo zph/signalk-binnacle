@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
-import { LayerManager, type LayerManagerOptions } from './layer-manager';
+import { LayerManager, type LayerManagerOptions, type OverlayState } from './layer-manager';
 import type { OverlayContext, OverlayModule, ZBand } from './types';
 
 const fakeCtx = (): OverlayContext => fakeOverlayContext(createFakeMap());
@@ -186,6 +186,122 @@ describe('LayerManager', () => {
     expect(onChange).toHaveBeenCalledOnce();
     expect(onChange).toHaveBeenCalledWith({
       cells: { visible: true, opacity: 0.8, labelSizeScale: 1.8 },
+    });
+  });
+
+  it('defaults, restores, and persists the bathymetry depth-display choices', async () => {
+    const onChange = vi.fn();
+    const overlay = {
+      ...fakeOverlay('cells', 'bathymetry'),
+      depthDisplayControl: true,
+      setDisplayDepth: vi.fn(),
+      setCellPortrayal: vi.fn(),
+    };
+    // No saved settings: the safe defaults hydrate the module and the panel row.
+    const fresh = new LayerManager(fakeCtx(), { onChange });
+    await fresh.register(overlay);
+    expect(overlay.setDisplayDepth).toHaveBeenCalledWith(expect.anything(), 'conservative');
+    expect(overlay.setCellPortrayal).toHaveBeenCalledWith(expect.anything(), 'shaded');
+    expect(fresh.layers().find((layer) => layer.id === 'cells')).toMatchObject({
+      depthDisplayControl: true,
+      displayDepth: 'conservative',
+      cellPortrayal: 'shaded',
+    });
+
+    // Saved settings restore both choices, persisted entries stay coherent, and the setters
+    // forward to the module and persist through the regular settings callback.
+    const saved = new LayerManager(fakeCtx(), {
+      saved: {
+        cells: { visible: true, opacity: 0.8, displayDepth: 'predicted', cellPortrayal: 'text' },
+      },
+      onChange,
+    });
+    await saved.register(overlay);
+    expect(overlay.setDisplayDepth).toHaveBeenLastCalledWith(expect.anything(), 'predicted');
+    expect(overlay.setCellPortrayal).toHaveBeenLastCalledWith(expect.anything(), 'text');
+
+    onChange.mockClear();
+    saved.setDisplayDepth('cells', 'conservative', false);
+    saved.setDisplayDepth('cells', 'conservative');
+    saved.setCellPortrayal('cells', 'shaded', false);
+    saved.setCellPortrayal('cells', 'shaded');
+    expect(overlay.setDisplayDepth).toHaveBeenLastCalledWith(expect.anything(), 'conservative');
+    expect(overlay.setCellPortrayal).toHaveBeenLastCalledWith(expect.anything(), 'shaded');
+    expect(onChange).toHaveBeenLastCalledWith({
+      cells: {
+        visible: true,
+        opacity: 0.8,
+        displayDepth: 'conservative',
+        cellPortrayal: 'shaded',
+      },
+    });
+  });
+
+  it('coerces corrupted or legacy depth-display settings back to the safe defaults', async () => {
+    const overlay = {
+      ...fakeOverlay('cells', 'bathymetry'),
+      depthDisplayControl: true,
+      setDisplayDepth: vi.fn(),
+      setCellPortrayal: vi.fn(),
+    };
+    const manager = new LayerManager(fakeCtx(), {
+      saved: {
+        // An older build saved nothing for these fields; a corrupted write saved nonsense.
+        cells: {
+          visible: true,
+          opacity: 1,
+          displayDepth: 'robust',
+          cellPortrayal: 7,
+        } as unknown as OverlayState,
+      },
+    });
+    await manager.register(overlay);
+
+    expect(overlay.setDisplayDepth).toHaveBeenCalledWith(expect.anything(), 'conservative');
+    expect(overlay.setCellPortrayal).toHaveBeenCalledWith(expect.anything(), 'shaded');
+    expect(manager.layers().find((layer) => layer.id === 'cells')).toMatchObject({
+      displayDepth: 'conservative',
+      cellPortrayal: 'shaded',
+    });
+  });
+
+  it('ignores the depth-display setters on overlays that do not declare the control', async () => {
+    const overlay = {
+      ...fakeOverlay('ais'),
+      setDisplayDepth: vi.fn(),
+      setCellPortrayal: vi.fn(),
+    };
+    const manager = new LayerManager(fakeCtx());
+    await manager.register(overlay);
+
+    manager.setDisplayDepth('ais', 'predicted');
+    manager.setCellPortrayal('ais', 'text');
+
+    expect(overlay.setDisplayDepth).not.toHaveBeenCalled();
+    expect(overlay.setCellPortrayal).not.toHaveBeenCalled();
+    expect(manager.layers().find((layer) => layer.id === 'ais')?.displayDepth).toBeUndefined();
+  });
+
+  it('re-applies the depth-display choices when a profile snapshot lands', async () => {
+    const overlay = {
+      ...fakeOverlay('cells', 'bathymetry'),
+      depthDisplayControl: true,
+      setDisplayDepth: vi.fn(),
+      setCellPortrayal: vi.fn(),
+    };
+    const manager = new LayerManager(fakeCtx());
+    await manager.register(overlay);
+
+    manager.applySnapshot(
+      { cells: { visible: true, opacity: 1, displayDepth: 'predicted', cellPortrayal: 'text' } },
+      [],
+    );
+
+    expect(overlay.setDisplayDepth).toHaveBeenLastCalledWith(expect.anything(), 'predicted');
+    expect(overlay.setCellPortrayal).toHaveBeenLastCalledWith(expect.anything(), 'text');
+    expect(manager.layers().find((layer) => layer.id === 'cells')).toMatchObject({
+      displayDepth: 'predicted',
+      cellPortrayal: 'text',
     });
   });
 

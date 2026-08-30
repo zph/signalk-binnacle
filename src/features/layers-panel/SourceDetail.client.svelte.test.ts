@@ -180,4 +180,84 @@ describe('SourceDetail delete gating', () => {
     expect(setLabelSizeScale).toHaveBeenNthCalledWith(1, labelItem.id, 1.7, false);
     expect(setLabelSizeScale).toHaveBeenNthCalledWith(2, labelItem.id, 1.7);
   });
+
+  it('commits the bathymetry depth-display choice on tap', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+    const setDisplayDepth = vi.fn();
+    const depthItem: LayerListItem = {
+      ...item,
+      depthDisplayControl: true,
+      displayDepth: 'conservative',
+      cellPortrayal: 'shaded',
+    };
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(SourceDetail, {
+        target,
+        props: {
+          item: depthItem,
+          view: {
+            toggle: vi.fn(),
+            setOpacity: vi.fn(),
+            setDisplayDepth,
+          } as unknown as LayersView,
+          onBack: () => {},
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+
+    const predicted = [...target.querySelectorAll<HTMLButtonElement>('button')].find(
+      (candidate) => candidate.textContent?.trim() === 'Predicted',
+    );
+    expect(predicted).toBeDefined();
+    predicted?.click();
+    flushSync();
+
+    expect(setDisplayDepth).toHaveBeenCalledWith(depthItem.id, 'predicted');
+  });
+
+  it('commits the bathymetry cell-portrayal choice on tap', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+    const setCellPortrayal = vi.fn();
+    const depthItem: LayerListItem = {
+      ...item,
+      depthDisplayControl: true,
+      displayDepth: 'conservative',
+      cellPortrayal: 'shaded',
+    };
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(SourceDetail, {
+        target,
+        props: {
+          item: depthItem,
+          view: {
+            toggle: vi.fn(),
+            setOpacity: vi.fn(),
+            setCellPortrayal,
+          } as unknown as LayersView,
+          onBack: () => {},
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+
+    const textOnly = [...target.querySelectorAll<HTMLButtonElement>('button')].find(
+      (candidate) => candidate.textContent?.trim() === 'Black text only',
+    );
+    expect(textOnly).toBeDefined();
+    textOnly?.click();
+    flushSync();
+
+    expect(setCellPortrayal).toHaveBeenCalledWith(depthItem.id, 'text');
+  });
 });

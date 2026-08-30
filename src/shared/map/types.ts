@@ -4,6 +4,13 @@ import type { Bbox4 } from '$shared/geo';
 import type { ChartCellSizeControl, ChartScaleControl } from './chart-types';
 import type { MapThemePaint } from './map-theme';
 
+// Which depth estimate the bathymetry tiles publish as their primary depth: the shallow-biased
+// conservative bound, or the best (predicted) estimate without the safety margin.
+export type DepthDisplayMode = 'conservative' | 'predicted';
+// How bathymetry cells are portrayed: shaded depth colors with outlines, or bare depth text with
+// no fill, no outline, and no halo, so the chart shows through around unobtrusive numbers.
+export type CellPortrayalMode = 'shaded' | 'text';
+
 export type ZBand =
   | 'basemap'
   | 'bathymetry'
@@ -118,6 +125,10 @@ export interface OverlayModule {
   // Optional provider-defined control for changing the rendered world-space cell size relative to
   // zoom without changing the underlying measurement grid.
   readonly cellSizeControl?: ChartCellSizeControl;
+  // Declares the overlay supports the depth-display and cell-portrayal controls (which estimate the
+  // tiles publish and whether cells render shaded or as bare depth text). Set only by the
+  // bathymetry-cell overlay; other overlays never show these controls.
+  readonly depthDisplayControl?: boolean;
   // Binnacle-owned label scaling for interactive vector layers. Unlike a provider configuration,
   // this follows the chart and profile on every display that runs Binnacle.
   readonly labelSizeControl?: ChartScaleControl;
@@ -136,6 +147,12 @@ export interface OverlayModule {
   setOpacity?(ctx: OverlayContext, opacity: number): void;
   setCellSizeScale?(ctx: OverlayContext, scale: number): void;
   setLabelSizeScale?(ctx: OverlayContext, scale: number): void;
+  // Choose which depth estimate the bathymetry tiles publish as their primary depth. Only called
+  // on a module that declares depthDisplayControl.
+  setDisplayDepth?(ctx: OverlayContext, mode: DepthDisplayMode): void;
+  // Choose how bathymetry cells are portrayed: shaded fills with outlines, or bare depth text.
+  // Only called on a module that declares depthDisplayControl.
+  setCellPortrayal?(ctx: OverlayContext, mode: CellPortrayalMode): void;
   reattach?(ctx: OverlayContext): void | Promise<void>;
   // Invalidate the overlay's change-detection cache so its next sync repopulates from scratch. The
   // manager calls this on a base-style swap, which recreates the overlay's sources empty: an overlay

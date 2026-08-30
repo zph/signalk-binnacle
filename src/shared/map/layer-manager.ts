@@ -4,8 +4,10 @@ import type { MapThemePaint } from './map-theme';
 import { installSentinels, sentinelId } from './sentinels';
 import type { OverlayFacetPreset } from './types';
 import {
+  type CellPortrayalMode,
   type ChartCoverageInfo,
   type ChartLayerInfo,
+  type DepthDisplayMode,
   type OverlayContext,
   type OverlayModule,
   Z_ORDER,
@@ -21,6 +23,8 @@ export interface OverlayState {
   opacity: number;
   cellSizeScale?: number;
   labelSizeScale?: number;
+  displayDepth?: DepthDisplayMode;
+  cellPortrayal?: CellPortrayalMode;
 }
 
 // The visible, fully opaque state an overlay defaults to. Shared as a read-only reference; spread
@@ -68,6 +72,11 @@ export interface LayerListItem {
   cellSizeScale?: number;
   labelSizeControl?: OverlayModule['labelSizeControl'];
   labelSizeScale?: number;
+  // Present when the overlay declares depthDisplayControl: the depth-display and portrayal
+  // choices persisted for the row, so the panel can offer the controls again after a reload.
+  depthDisplayControl?: boolean;
+  displayDepth?: DepthDisplayMode;
+  cellPortrayal?: CellPortrayalMode;
   // Present when this row is a navigation chart the ambient chart badge counts. See
   // OverlayModule.chartCoverage.
   chartCoverage?: ChartCoverageInfo;
@@ -320,12 +329,24 @@ export class LayerManager {
                 labelSizeScale: this.#coerceScale(module.labelSizeControl, restored.labelSizeScale),
               }
             : {}),
+          ...(module.depthDisplayControl
+            ? {
+                displayDepth: this.#coerceDepthDisplay(restored.displayDepth),
+                cellPortrayal: this.#coerceCellPortrayal(restored.cellPortrayal),
+              }
+            : {}),
         }
       : {
           visible: module.defaultVisible ?? true,
           opacity: module.defaultOpacity ?? 1,
           ...(module.cellSizeControl ? { cellSizeScale: module.cellSizeControl.default } : {}),
           ...(module.labelSizeControl ? { labelSizeScale: module.labelSizeControl.default } : {}),
+          ...(module.depthDisplayControl
+            ? {
+                displayDepth: 'conservative' as DepthDisplayMode,
+                cellPortrayal: 'shaded' as CellPortrayalMode,
+              }
+            : {}),
         };
     // Enforce exclusion on restore too: a saved or legacy state with two members of an exclusive
     // group both visible would otherwise bypass the toggle-time rule. Keep the first registered.
@@ -359,6 +380,10 @@ export class LayerManager {
       }
       if (module.labelSizeControl && state.labelSizeScale !== undefined) {
         module.setLabelSizeScale?.(this.#ctx, state.labelSizeScale);
+      }
+      if (module.depthDisplayControl) {
+        if (state.displayDepth) module.setDisplayDepth?.(this.#ctx, state.displayDepth);
+        if (state.cellPortrayal) module.setCellPortrayal?.(this.#ctx, state.cellPortrayal);
       }
       await module.add(this.#ctx);
       // An async add can finish after the owning map has been torn down or the id was unregistered.
@@ -600,6 +625,30 @@ export class LayerManager {
     if (persist) this.#persist();
   }
 
+  setDisplayDepth(id: string, mode: DepthDisplayMode, persist = true): void {
+    const module = this.#modules.get(id);
+    const state = this.#state.get(id);
+    if (!module || !state || !module.depthDisplayControl) return;
+    const next = this.#coerceDepthDisplay(mode);
+    if (state.displayDepth !== next) {
+      state.displayDepth = next;
+      module.setDisplayDepth?.(this.#ctx, next);
+    }
+    if (persist) this.#persist();
+  }
+
+  setCellPortrayal(id: string, mode: CellPortrayalMode, persist = true): void {
+    const module = this.#modules.get(id);
+    const state = this.#state.get(id);
+    if (!module || !state || !module.depthDisplayControl) return;
+    const next = this.#coerceCellPortrayal(mode);
+    if (state.cellPortrayal !== next) {
+      state.cellPortrayal = next;
+      module.setCellPortrayal?.(this.#ctx, next);
+    }
+    if (persist) this.#persist();
+  }
+
   // Move a non-pinned overlay to a new index in the non-pinned, top-to-bottom display order
   // (index 0 is the top of the map). Pinned layers are never moved or displaced.
   reorder(id: string, toIndex: number): void {
@@ -688,6 +737,18 @@ export class LayerManager {
           module.setLabelSizeScale?.(this.#ctx, labelSizeScale);
         }
       }
+      if (module.depthDisplayControl) {
+        const displayDepth = this.#coerceDepthDisplay(next.displayDepth);
+        if (displayDepth !== state.displayDepth) {
+          state.displayDepth = displayDepth;
+          module.setDisplayDepth?.(this.#ctx, displayDepth);
+        }
+        const cellPortrayal = this.#coerceCellPortrayal(next.cellPortrayal);
+        if (cellPortrayal !== state.cellPortrayal) {
+          state.cellPortrayal = cellPortrayal;
+          module.setCellPortrayal?.(this.#ctx, cellPortrayal);
+        }
+      }
     }
     // The snapshot is the authoritative desired state, so an earlier parent-off memory must not
     // reinstate a facet the profile deliberately left off.
@@ -716,6 +777,12 @@ export class LayerManager {
           : {}),
         ...(this.#modules.get(id)?.labelSizeControl && state.labelSizeScale !== undefined
           ? { labelSizeScale: state.labelSizeScale }
+          : {}),
+        ...(this.#modules.get(id)?.depthDisplayControl && state.displayDepth !== undefined
+          ? { displayDepth: state.displayDepth }
+          : {}),
+        ...(this.#modules.get(id)?.depthDisplayControl && state.cellPortrayal !== undefined
+          ? { cellPortrayal: state.cellPortrayal }
           : {}),
       };
     }
@@ -750,6 +817,16 @@ export class LayerManager {
     const clamped = Math.max(control.minimum, Math.min(control.maximum, value as number));
     const steps = Math.round((clamped - control.minimum) / control.step);
     return Math.min(control.maximum, control.minimum + steps * control.step);
+  }
+
+  // A missing or unrecognized depth-display or portrayal value falls back to the safe default, so
+  // settings saved by an older build (or a corrupted write) still restore a coherent portrayal.
+  #coerceDepthDisplay(value: unknown): DepthDisplayMode {
+    return value === 'predicted' ? 'predicted' : 'conservative';
+  }
+
+  #coerceCellPortrayal(value: unknown): CellPortrayalMode {
+    return value === 'text' ? 'text' : 'shaded';
   }
 
   // The pinned safety floor: no door lowers a pinned overlay's visibility. Not the panel toggle,
@@ -957,6 +1034,9 @@ export class LayerManager {
             cellSizeScale: state.cellSizeScale,
             labelSizeControl: module.labelSizeControl,
             labelSizeScale: state.labelSizeScale,
+            depthDisplayControl: module.depthDisplayControl,
+            displayDepth: state.displayDepth,
+            cellPortrayal: state.cellPortrayal,
             chartCoverage: module.chartCoverage,
             facetPresets: module.facetPresets,
           },

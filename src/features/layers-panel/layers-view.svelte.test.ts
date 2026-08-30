@@ -22,6 +22,22 @@ function fakeOverlay(id: string): OverlayModule {
   };
 }
 
+function itemWithDepthDisplayControl(): LayerListItem {
+  return {
+    id: 'cells',
+    title: 'Cells',
+    visible: true,
+    opacity: 1,
+    supportsOpacity: true,
+    pinned: false,
+    band: 'bathymetry',
+    available: true,
+    depthDisplayControl: true,
+    displayDepth: 'conservative',
+    cellPortrayal: 'shaded',
+  };
+}
+
 describe('LayersView', () => {
   it('reflects the manager snapshot', async () => {
     const manager = new LayerManager(fakeCtx());
@@ -109,6 +125,30 @@ describe('LayersView', () => {
 
     expect(setLabelSizeScale).toHaveBeenCalledWith('cells', 1.76, false);
     expect(view.items[0].labelSizeScale).toBeCloseTo(1.8);
+  });
+
+  it('sets the bathymetry depth-display choice in place', () => {
+    const setDisplayDepth = vi.fn();
+    const manager = { setDisplayDepth } as unknown as LayerManager;
+    const view = new LayersView(manager);
+    view.items = [itemWithDepthDisplayControl()];
+
+    view.setDisplayDepth('cells', 'predicted');
+
+    expect(setDisplayDepth).toHaveBeenCalledWith('cells', 'predicted');
+    expect(view.items[0].displayDepth).toBe('predicted');
+  });
+
+  it('sets the bathymetry cell portrayal in place', () => {
+    const setCellPortrayal = vi.fn();
+    const manager = { setCellPortrayal } as unknown as LayerManager;
+    const view = new LayersView(manager);
+    view.items = [itemWithDepthDisplayControl()];
+
+    view.setCellPortrayal('cells', 'text');
+
+    expect(setCellPortrayal).toHaveBeenCalledWith('cells', 'text');
+    expect(view.items[0].cellPortrayal).toBe('text');
   });
 
   it('passes only the filtered chart order to the manager', () => {

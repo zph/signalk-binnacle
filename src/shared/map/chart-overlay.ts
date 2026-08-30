@@ -25,7 +25,14 @@ import {
   s57ThemeColor,
 } from './s57-chart-style';
 import { registerS57Symbols } from './s57-symbols';
-import type { ChartLayerInfo, OverlayFacet, OverlayModule, ZBand } from './types';
+import type {
+  CellPortrayalMode,
+  ChartLayerInfo,
+  DepthDisplayMode,
+  OverlayFacet,
+  OverlayModule,
+  ZBand,
+} from './types';
 
 export interface ChartFeatureSelection {
   chartIdentifier: string;
@@ -81,16 +88,34 @@ function withQueryParameter(template: string, name: string, value: number): stri
   return `${path}?${params.toString()}${hash}`;
 }
 
+function withQueryStringParameter(template: string, name: string, value: string): string {
+  const hashIndex = template.indexOf('#');
+  const beforeHash = hashIndex >= 0 ? template.slice(0, hashIndex) : template;
+  const hash = hashIndex >= 0 ? template.slice(hashIndex) : '';
+  const queryIndex = beforeHash.indexOf('?');
+  const path = queryIndex >= 0 ? beforeHash.slice(0, queryIndex) : beforeHash;
+  const params = new URLSearchParams(queryIndex >= 0 ? beforeHash.slice(queryIndex + 1) : '');
+  params.set(name, value);
+  return `${path}?${params.toString()}${hash}`;
+}
+
 function scaledSource(
   source: SourceSpecification,
   chart: SignalKChart,
   scale: number,
+  displayDepth?: DepthDisplayMode,
 ): SourceSpecification {
+  if (!('tiles' in source) || !Array.isArray(source.tiles)) return source;
   const control = chart.cellSizeControl;
-  if (!control || !('tiles' in source) || !Array.isArray(source.tiles)) return source;
+  const displayDepthControl = chart.featureInfo === 'bathymetry-cell' && displayDepth;
+  if (!control && !displayDepthControl) return source;
   return {
     ...source,
-    tiles: source.tiles.map((url) => withQueryParameter(url, control.queryParameter, scale)),
+    tiles: source.tiles.map((url) => {
+      let next = control ? withQueryParameter(url, control.queryParameter, scale) : url;
+      if (displayDepthControl) next = withQueryStringParameter(next, 'displayDepth', displayDepth);
+      return next;
+    }),
   };
 }
 
@@ -232,6 +257,13 @@ export function createChartOverlay(
   const isS57 = chart.type === 'S-57';
   let cellSizeScale = chart.cellSizeControl?.default ?? 1;
   let labelSizeScale: number = labelSizeControl?.default ?? 1;
+  // Portrayal choices for interactive bathymetry cells; only meaningful when the chart carries
+  // bathymetry-cell feature info. displayDepth rides the tile URL; cellPortrayal repaints.
+  const depthDisplayControl = chart.featureInfo === 'bathymetry-cell';
+  let displayDepth: DepthDisplayMode = 'conservative';
+  let cellPortrayal: CellPortrayalMode = 'shaded';
+  // The halo width a shaded portrayal shows; text mode hides the halo entirely.
+  const BATHYMETRY_LABEL_HALO_WIDTH = 2.25;
   let parentVisible = true;
   let parentOpacity = 1;
   const visibilityByFacet = new Map<string, boolean>();
@@ -246,6 +278,32 @@ export function createChartOverlay(
     const facetVisible = facetId ? (visibilityByFacet.get(facetId) ?? true) : true;
     setLayersVisibility(ctx.map, [layerId], parentVisible && facetVisible);
   };
+  // In text mode the depth fill and cell outline drop out entirely so the chart shows through
+  // around the bare labels. Folding the multiplier into applyLayerOpacity keeps later opacity or
+  // theme repaints from restoring the fill, since every opacity write flows through here.
+  const portrayalOpacityMultiplier = (layer: (typeof layers)[number], property: string): number => {
+    if (cellPortrayal !== 'text') return 1;
+    if (layer.bathymetryThemePaint?.['fill-color'] === 'depth' && property === 'fill-opacity') {
+      return 0;
+    }
+    if (layer.bathymetryThemePaint?.['line-color'] === 'outline' && property === 'line-opacity') {
+      return 0;
+    }
+    return 1;
+  };
+  // Apply the label halo width the current portrayal calls for. Kept separate from the opacity
+  // pass because text-halo-width is a width, not an opacity, and because applyTheme's bathymetry
+  // repaint must not resurrect the halo in text mode.
+  const applyLabelHalo = (ctx: Parameters<OverlayModule['setVisible']>[0], layerId: string) => {
+    const layer = layerById.get(layerId);
+    if (!layer?.bathymetryLabel || !ctx.map.getLayer(layerId)) return;
+    setPaintProp(
+      ctx.map,
+      layerId,
+      'text-halo-width',
+      cellPortrayal === 'text' ? 0 : BATHYMETRY_LABEL_HALO_WIDTH,
+    );
+  };
   const applyLayerOpacity = (ctx: Parameters<OverlayModule['setVisible']>[0], layerId: string) => {
     const layer = layerById.get(layerId);
     if (!layer || !ctx.map.getLayer(layer.id)) return;
@@ -256,7 +314,10 @@ export function createChartOverlay(
         ctx.map,
         layer.id,
         property.property,
-        property.base * parentOpacity * facetOpacity,
+        property.base *
+          parentOpacity *
+          facetOpacity *
+          portrayalOpacityMultiplier(layer, property.property),
       );
     }
   };
@@ -346,6 +407,7 @@ export function createChartOverlay(
     defaultVisible: chart.defaultVisible,
     supportsOpacity: true,
     cellSizeControl: chart.cellSizeControl,
+    ...(depthDisplayControl ? { depthDisplayControl: true as const } : {}),
     labelSizeControl,
     layerIds,
     facets,
@@ -374,7 +436,10 @@ export function createChartOverlay(
       }
       for (const sourceId of sourceIds) {
         if (!ctx.map.getSource(sourceId)) {
-          ctx.map.addSource(sourceId, scaledSource(specs.sources[sourceId], chart, cellSizeScale));
+          ctx.map.addSource(
+            sourceId,
+            scaledSource(specs.sources[sourceId], chart, cellSizeScale, displayDepth),
+          );
         }
       }
       for (const layer of specs.layers) {
@@ -385,6 +450,7 @@ export function createChartOverlay(
       for (const layer of layers) {
         if (layer.bathymetryLabel && ctx.map.getLayer(layer.id)) {
           ctx.map.setLayoutProperty(layer.id, 'text-size', bathymetryLabelTextSize(labelSizeScale));
+          applyLabelHalo(ctx, layer.id);
         }
       }
       hitHandlers?.attach(ctx);
@@ -442,7 +508,7 @@ export function createChartOverlay(
       if (!chart.cellSizeControl) return;
       for (const sourceId of sourceIds) {
         const baseSource = specs.sources[sourceId];
-        const nextSource = scaledSource(baseSource, chart, scale);
+        const nextSource = scaledSource(baseSource, chart, scale, displayDepth);
         if (!('tiles' in nextSource) || !Array.isArray(nextSource.tiles)) continue;
         const source = ctx.map.getSource(sourceId) as
           | { setTiles?: (tiles: string[]) => void }
@@ -458,6 +524,27 @@ export function createChartOverlay(
           ctx.map.setLayoutProperty(layer.id, 'text-size', bathymetryLabelTextSize(labelSizeScale));
         }
       }
+    },
+    setDisplayDepth(ctx, mode) {
+      displayDepth = mode;
+      if (!depthDisplayControl) return;
+      // The estimate rides the tile URL, so the source must re-request its tiles.
+      for (const sourceId of sourceIds) {
+        const baseSource = specs.sources[sourceId];
+        const nextSource = scaledSource(baseSource, chart, cellSizeScale, displayDepth);
+        if (!('tiles' in nextSource) || !Array.isArray(nextSource.tiles)) continue;
+        const source = ctx.map.getSource(sourceId) as
+          | { setTiles?: (tiles: string[]) => void }
+          | undefined;
+        source?.setTiles?.([...nextSource.tiles]);
+      }
+    },
+    setCellPortrayal(ctx, mode) {
+      cellPortrayal = mode;
+      if (!depthDisplayControl) return;
+      // The fill and outline drop out via the opacity multiplier; the halo drops via width 0.
+      for (const layer of layers) applyLayerOpacity(ctx, layer.id);
+      for (const layer of layers) applyLabelHalo(ctx, layer.id);
     },
     applyTheme(ctx, paint) {
       if (isS57) {
@@ -495,6 +582,8 @@ export function createChartOverlay(
               bathymetryThemePaint(paint.theme, role, options.s57Style?.safetyDepth),
             );
           }
+          // A theme repaint must not resurrect the shaded halo a text portrayal removed.
+          applyLabelHalo(ctx, layer.id);
         }
       }
     },
