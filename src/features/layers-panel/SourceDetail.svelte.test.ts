@@ -122,18 +122,18 @@ describe('SourceDetail', () => {
     expect(html).toContain('Predicted');
     expect(html).toMatch(/aria-pressed="true"[^>]*>\s*Predicted/);
     expect(html).toMatch(/aria-pressed="false"[^>]*>\s*Conservative/);
-    expect(html).toContain('Cell style');
+    expect(html).toContain('White halo');
+    expect(html).toContain('Black text');
     expect(html).toContain('Depth shading');
-    expect(html).toContain('Black text only');
-    expect(html).toContain('at-a-glance depth colors with a safety bias');
-    expect(html).toContain('lets the chart show through');
+    expect(html).toContain('outlines stay in both styles.');
+    expect(html).not.toContain('lets the chart show through');
   });
 
   it('omits the bathymetry portrayal choices for overlays without the control', () => {
     const html = body(false);
 
     expect(html).not.toContain('Depth display');
-    expect(html).not.toContain('Cell style');
+    expect(html).not.toContain('Depth label style');
   });
 
   it('shows an unsupported style chart reason and keeps its query values redacted', () => {

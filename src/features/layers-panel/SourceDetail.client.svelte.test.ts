@@ -252,7 +252,7 @@ describe('SourceDetail delete gating', () => {
     });
 
     const textOnly = [...target.querySelectorAll<HTMLButtonElement>('button')].find(
-      (candidate) => candidate.textContent?.trim() === 'Black text only',
+      (candidate) => candidate.textContent?.trim() === 'Black text',
     );
     expect(textOnly).toBeDefined();
     textOnly?.click();

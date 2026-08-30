@@ -432,7 +432,7 @@ function changeSharing(share: boolean): void {
 
     {#if item.depthDisplayControl && item.cellPortrayal !== undefined}
       <div class="cell-size-field">
-        <h4 class="caps-label" id={`${item.id}-cell-portrayal-label`}>Cell style</h4>
+        <h4 class="caps-label" id={`${item.id}-cell-portrayal-label`}>Depth label style</h4>
         <div class="segmented" role="group" aria-labelledby={`${item.id}-cell-portrayal-label`}>
           <button
             type="button"
@@ -442,7 +442,7 @@ function changeSharing(share: boolean): void {
             disabled={!item.visible || !item.available}
             onclick={() => view.setCellPortrayal(item.id, 'shaded')}
           >
-            Depth shading
+            White halo
           </button>
           <button
             type="button"
@@ -452,12 +452,13 @@ function changeSharing(share: boolean): void {
             disabled={!item.visible || !item.available}
             onclick={() => view.setCellPortrayal(item.id, 'text')}
           >
-            Black text only
+            Black text
           </button>
         </div>
         <p class="muted-note muted-note--xs">
-          Depth shading shows at-a-glance depth colors with a safety bias. Text only keeps bare
-          depth numbers and lets the chart show through around them.
+          White halo puts a bright backdrop behind the depth numbers for contrast over busy charts.
+          Black text drops the halo so the numbers blend into the chart. Depth shading and cell
+          outlines stay in both styles.
         </p>
       </div>
     {/if}

@@ -261,8 +261,11 @@ export function createChartOverlay(
   // bathymetry-cell feature info. displayDepth rides the tile URL; cellPortrayal repaints.
   const depthDisplayControl = chart.featureInfo === 'bathymetry-cell';
   let displayDepth: DepthDisplayMode = 'conservative';
+  // Both portrayals keep the depth-shaded fill and the cell outline; the choice is about the
+  // depth labels: 'shaded' keeps the bright halo for contrast, 'text' drops it so the numbers
+  // render as plain theme text (near-black in day, red in night-red) over the shading.
   let cellPortrayal: CellPortrayalMode = 'shaded';
-  // The halo width a shaded portrayal shows; text mode hides the halo entirely.
+  // The halo width the shaded portrayal shows; the text portrayal hides it entirely.
   const BATHYMETRY_LABEL_HALO_WIDTH = 2.25;
   let parentVisible = true;
   let parentOpacity = 1;
@@ -278,22 +281,9 @@ export function createChartOverlay(
     const facetVisible = facetId ? (visibilityByFacet.get(facetId) ?? true) : true;
     setLayersVisibility(ctx.map, [layerId], parentVisible && facetVisible);
   };
-  // In text mode the depth fill and cell outline drop out entirely so the chart shows through
-  // around the bare labels. Folding the multiplier into applyLayerOpacity keeps later opacity or
-  // theme repaints from restoring the fill, since every opacity write flows through here.
-  const portrayalOpacityMultiplier = (layer: (typeof layers)[number], property: string): number => {
-    if (cellPortrayal !== 'text') return 1;
-    if (layer.bathymetryThemePaint?.['fill-color'] === 'depth' && property === 'fill-opacity') {
-      return 0;
-    }
-    if (layer.bathymetryThemePaint?.['line-color'] === 'outline' && property === 'line-opacity') {
-      return 0;
-    }
-    return 1;
-  };
   // Apply the label halo width the current portrayal calls for. Kept separate from the opacity
   // pass because text-halo-width is a width, not an opacity, and because applyTheme's bathymetry
-  // repaint must not resurrect the halo in text mode.
+  // repaint must not resurrect the halo a plain-text portrayal removed.
   const applyLabelHalo = (ctx: Parameters<OverlayModule['setVisible']>[0], layerId: string) => {
     const layer = layerById.get(layerId);
     if (!layer?.bathymetryLabel || !ctx.map.getLayer(layerId)) return;
@@ -314,10 +304,7 @@ export function createChartOverlay(
         ctx.map,
         layer.id,
         property.property,
-        property.base *
-          parentOpacity *
-          facetOpacity *
-          portrayalOpacityMultiplier(layer, property.property),
+        property.base * parentOpacity * facetOpacity,
       );
     }
   };
@@ -542,8 +529,7 @@ export function createChartOverlay(
     setCellPortrayal(ctx, mode) {
       cellPortrayal = mode;
       if (!depthDisplayControl) return;
-      // The fill and outline drop out via the opacity multiplier; the halo drops via width 0.
-      for (const layer of layers) applyLayerOpacity(ctx, layer.id);
+      // Shading and outline are identical in both portrayals; only the label halo flips.
       for (const layer of layers) applyLabelHalo(ctx, layer.id);
     },
     applyTheme(ctx, paint) {
@@ -582,7 +568,7 @@ export function createChartOverlay(
               bathymetryThemePaint(paint.theme, role, options.s57Style?.safetyDepth),
             );
           }
-          // A theme repaint must not resurrect the shaded halo a text portrayal removed.
+          // A theme repaint must not resurrect the halo a plain-text portrayal removed.
           applyLabelHalo(ctx, layer.id);
         }
       }

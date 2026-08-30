@@ -193,7 +193,7 @@ describe('chart overlay', () => {
     expect(lastSetTiles()?.[0]).toContain('displayDepth=conservative');
   });
 
-  it('paints text-only portrayal by zeroing fill, outline, and halo, and restores shading', async () => {
+  it('text portrayal hides the label halo and keeps the depth shading and outline', async () => {
     const overlay = createChartOverlay(
       {
         identifier: 'bathymetry',
@@ -215,23 +215,21 @@ describe('chart overlay', () => {
       )?.[2];
 
     overlay.setCellPortrayal?.(ctx, 'text');
-    expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBe(0);
-    expect(lastPaint('chart-bathymetry-depare-bathymetry-outline', 'line-opacity')).toBe(0);
+    // Only the halo drops; the depth-shaded fill and the outline stay.
     expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-halo-width')).toBe(0);
-    // The label text itself stays at full strength and keeps the theme color.
-    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-opacity')).toBe(1);
-
-    // A parent opacity change must not resurrect the fill while text mode holds.
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBe(undefined);
+    expect(lastPaint('chart-bathymetry-depare-bathymetry-outline', 'line-opacity')).toBe(undefined);
+    // A parent opacity change fades shading, outline, and label together.
     overlay.setOpacity?.(ctx, 0.5);
-    expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBe(0);
-    // The label opacity still follows the parent.
-    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-opacity')).toBeCloseTo(0.5);
-
-    overlay.setCellPortrayal?.(ctx, 'shaded');
     expect(lastPaint('chart-bathymetry-depare-bathymetry-fill', 'fill-opacity')).toBeCloseTo(0.39);
     expect(lastPaint('chart-bathymetry-depare-bathymetry-outline', 'line-opacity')).toBeCloseTo(
       0.45,
     );
+    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-opacity')).toBeCloseTo(0.5);
+    // The halo must not come back through the opacity pass while text mode holds.
+    expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-halo-width')).toBe(0);
+
+    overlay.setCellPortrayal?.(ctx, 'shaded');
     expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-halo-width')).toBe(2.25);
   });
 
