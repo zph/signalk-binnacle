@@ -1,9 +1,15 @@
 <script lang="ts">
 import {
   clampInstrumentDockWidth,
-  MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
+  maxInstrumentDockWidthForViewport,
 } from './dock-width';
+
+const viewportMax = $derived(
+  typeof window === 'undefined'
+    ? maxInstrumentDockWidthForViewport(1280)
+    : maxInstrumentDockWidthForViewport(window.innerWidth),
+);
 
 interface Props {
   width: number;
@@ -48,7 +54,7 @@ function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'ArrowLeft') next = width + 16;
   if (event.key === 'ArrowRight') next = width - 16;
   if (event.key === 'Home') next = MIN_INSTRUMENT_DOCK_WIDTH_PX;
-  if (event.key === 'End') next = MAX_INSTRUMENT_DOCK_WIDTH_PX;
+  if (event.key === 'End') next = viewportMax;
   if (next === undefined) return;
   event.preventDefault();
   const value = bounded(next);
@@ -63,7 +69,7 @@ function handleKeydown(event: KeyboardEvent): void {
   aria-label="Resize instruments dock"
   aria-orientation="vertical"
   aria-valuemin={MIN_INSTRUMENT_DOCK_WIDTH_PX}
-  aria-valuemax={MAX_INSTRUMENT_DOCK_WIDTH_PX}
+  aria-valuemax={viewportMax}
   aria-valuenow={Math.round(width)}
   aria-valuetext={`${Math.round(width)} pixels wide`}
   tabindex="0"

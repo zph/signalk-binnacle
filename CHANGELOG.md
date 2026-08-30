@@ -15,6 +15,9 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Changed
 
+- Dragging the instrument dock's resize handle now opens the dock across the full page instead of
+  stopping halfway, leaving a slim chart edge so the handle stays reachable.
+
 - MapLibre GL moves to 6.6.0 and the toolchain to its current releases across the board.
 - The offline service worker is now built with Serwist instead of Workbox. Caching behavior,
   cache names, and the prompt-before-reload update flow are unchanged, cached charts and tiles

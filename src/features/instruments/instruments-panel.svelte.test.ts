@@ -7,9 +7,9 @@ import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentsPanel from './InstrumentsPanel.svelte';
 import INSTRUMENTS_PANEL_SOURCE from './InstrumentsPanel.svelte?raw';
 import type { InstrumentsController } from './instruments-controller.svelte';
-import { webviewTileDef } from './webview-sources';
 import type { TileDeps, TileReading } from './tile-catalog';
 import { TILE_CATALOG, tileById } from './tile-catalog';
+import { webviewTileDef } from './webview-sources';
 
 // SSR-only suite (node environment, no DOM). Assertions are substring checks on the rendered body.
 
