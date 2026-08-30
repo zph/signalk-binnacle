@@ -16,6 +16,15 @@ body {
 
 #app {
   block-size: calc(100 * var(--dvh));
+  /* A chartplotter is an interaction surface, not a reading view. Suppress the iPad text-selection
+     loupe during map pans, dial drags, and control presses, but retain normal selection in fields. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app :is(input, textarea, [contenteditable="true"], [contenteditable="plaintext-only"]) {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* A bare list with no markers, margin, or padding. Compose on any <ul> or <ol> that is a layout

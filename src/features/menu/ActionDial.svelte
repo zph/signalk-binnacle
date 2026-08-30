@@ -106,8 +106,10 @@ function end(event: PointerEvent): void {
 .action-dial {
   position: absolute;
   z-index: var(--z-menu);
-  inset-inline-end: max(var(--space-3), env(safe-area-inset-right, 0px));
-  inset-block-end: max(var(--space-3), env(safe-area-inset-bottom, 0px));
+  /* The ring grows upward, inward, down, and outward from this hub. Keep a full wedge width plus
+     its gap inside the chart cell, so a target never lands beneath an iPad edge or browser chrome. */
+  inset-inline-end: max(8.5rem, calc(env(safe-area-inset-right, 0px) + 8rem));
+  inset-block-end: max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem));
   inline-size: 4rem;
   block-size: 4rem;
   pointer-events: auto;
