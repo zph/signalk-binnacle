@@ -7,6 +7,7 @@ import type {
 } from 'maplibre-gl';
 import type { Theme } from '$shared/ui';
 import type { S57StyleOptions } from './s57-chart-style';
+import type { BathymetryColorScheme } from './types';
 
 export const BATHYMETRY_THEME_PAINT_KEY = 'binnacle:bathymetryThemePaint';
 
@@ -44,6 +45,15 @@ const DEPTH_COLORS: Record<Theme, readonly string[]> = {
   ],
 };
 
+// NOAA's traditional chart convention gives the shallowest navigable water the strongest blue,
+// then lightens each fixed depth band until deep water is almost white. Tile attributes stay in SI
+// even when a navigator chooses feet or fathoms for labels.
+const NOAA_DEPTH_STOPS: readonly number[] = [-1, 0, 1.8, 3.7, 5.5, 9.1, 18.3, 30.5];
+const NOAA_DEPTH_COLORS: Record<Exclude<Theme, 'night-red'>, readonly string[]> = {
+  day: ['#005b9f', '#0070b8', '#198ec8', '#5eb5dc', '#9bd3e9', '#c9e7f2', '#e7f4f8', '#f7fbfc'],
+  dusk: ['#123d5c', '#164d6d', '#216482', '#3d8199', '#5b9aaa', '#78aeba', '#9ac1c9', '#c4d6da'],
+};
+
 const SOLID_COLORS: Record<Theme, Record<Exclude<BathymetryThemePaintRole, 'depth'>, string>> = {
   day: { outline: '#183846', label: '#101820', labelHalo: '#ffffff' },
   dusk: { outline: '#bdd2dc', label: '#f1f4f5', labelHalo: '#081014' },
@@ -54,7 +64,7 @@ function safeDepth(value: number | undefined): number {
   return Number.isFinite(value) && (value ?? 0) > 0 ? (value ?? 3) : 3;
 }
 
-function depthStops(theme: Theme, safetyDepth: number | undefined): DepthStop[] {
+function safetyDepthStops(theme: Theme, safetyDepth: number | undefined): DepthStop[] {
   const safe = safeDepth(safetyDepth);
   const colors = DEPTH_COLORS[theme];
   return [
@@ -69,12 +79,24 @@ function depthStops(theme: Theme, safetyDepth: number | undefined): DepthStop[] 
   ];
 }
 
-function depthExpression(theme: Theme, safetyDepth: number | undefined): ExpressionSpecification {
+function noaaChartDepthStops(theme: Theme): DepthStop[] {
+  // Night-red remains strictly red-only, even when the day palette preference is NOAA chart.
+  if (theme === 'night-red') return safetyDepthStops(theme, undefined);
+  return NOAA_DEPTH_STOPS.map((depth, index) => [depth, NOAA_DEPTH_COLORS[theme][index] as string]);
+}
+
+function depthExpression(
+  theme: Theme,
+  safetyDepth: number | undefined,
+  scheme: BathymetryColorScheme,
+): ExpressionSpecification {
+  const stops =
+    scheme === 'noaa-chart' ? noaaChartDepthStops(theme) : safetyDepthStops(theme, safetyDepth);
   return [
     'interpolate',
     ['linear'],
     ['to-number', ['coalesce', ['get', 'BATHY_DEPTH_M'], ['get', 'DRVAL1']], -1],
-    ...depthStops(theme, safetyDepth).flat(),
+    ...stops.flat(),
   ] as ExpressionSpecification;
 }
 
@@ -82,8 +104,9 @@ export function bathymetryThemePaint(
   theme: Theme,
   role: BathymetryThemePaintRole,
   safetyDepth?: number,
+  scheme: BathymetryColorScheme = 'safety',
 ): string | ExpressionSpecification {
-  return role === 'depth' ? depthExpression(theme, safetyDepth) : SOLID_COLORS[theme][role];
+  return role === 'depth' ? depthExpression(theme, safetyDepth, scheme) : SOLID_COLORS[theme][role];
 }
 
 function metadata(paint: BathymetryThemePaintMap): Record<string, BathymetryThemePaintMap> {

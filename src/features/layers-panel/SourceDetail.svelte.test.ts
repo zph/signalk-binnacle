@@ -111,6 +111,7 @@ describe('SourceDetail', () => {
           depthDisplayControl: true,
           displayDepth: 'predicted',
           cellPortrayal: 'shaded',
+          bathymetryColorScheme: 'noaa-chart',
         },
         view,
         onBack: noop,
@@ -127,6 +128,9 @@ describe('SourceDetail', () => {
     expect(html).toContain('Depth shading');
     expect(html).toContain('outlines stay in both styles.');
     expect(html).not.toContain('lets the chart show through');
+    expect(html).toContain('Depth colors');
+    expect(html).toContain('NOAA chart');
+    expect(html).toContain('fixed shallow-to-deep blue bands');
   });
 
   it('omits the bathymetry portrayal choices for overlays without the control', () => {

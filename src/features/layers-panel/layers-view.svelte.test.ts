@@ -35,6 +35,7 @@ function itemWithDepthDisplayControl(): LayerListItem {
     depthDisplayControl: true,
     displayDepth: 'conservative',
     cellPortrayal: 'shaded',
+    bathymetryColorScheme: 'safety',
   };
 }
 
@@ -149,6 +150,18 @@ describe('LayersView', () => {
 
     expect(setCellPortrayal).toHaveBeenCalledWith('cells', 'text');
     expect(view.items[0].cellPortrayal).toBe('text');
+  });
+
+  it('sets the bathymetry color scheme in place', () => {
+    const setBathymetryColorScheme = vi.fn();
+    const manager = { setBathymetryColorScheme } as unknown as LayerManager;
+    const view = new LayersView(manager);
+    view.items = [itemWithDepthDisplayControl()];
+
+    view.setBathymetryColorScheme('cells', 'noaa-chart');
+
+    expect(setBathymetryColorScheme).toHaveBeenCalledWith('cells', 'noaa-chart');
+    expect(view.items[0].bathymetryColorScheme).toBe('noaa-chart');
   });
 
   it('passes only the filtered chart order to the manager', () => {

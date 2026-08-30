@@ -1,4 +1,10 @@
-import type { CellPortrayalMode, DepthDisplayMode, LayerListItem, LayerManager } from '$shared/map';
+import type {
+  BathymetryColorScheme,
+  CellPortrayalMode,
+  DepthDisplayMode,
+  LayerListItem,
+  LayerManager,
+} from '$shared/map';
 import { clampReorderSlot, layerCategory } from './layer-category';
 
 export class LayersView {
@@ -75,6 +81,12 @@ export class LayersView {
     this.#manager.setCellPortrayal(id, mode);
     const item = this.items.find((candidate) => candidate.id === id);
     if (item?.depthDisplayControl) item.cellPortrayal = mode;
+  }
+
+  setBathymetryColorScheme(id: string, scheme: BathymetryColorScheme): void {
+    this.#manager.setBathymetryColorScheme(id, scheme);
+    const item = this.items.find((candidate) => candidate.id === id);
+    if (item?.depthDisplayControl) item.bathymetryColorScheme = scheme;
   }
 
   // Move a layer to a new index in the top-to-bottom display order, then rebuild the list in

@@ -1,4 +1,5 @@
 import type { Map as MapLibreMap, MapSourceDataEvent, SourceSpecification } from 'maplibre-gl';
+import type { Theme } from '$shared/ui';
 import {
   BATHYMETRY_THEME_PAINT_KEY,
   type BathymetryThemePaintMap,
@@ -26,6 +27,7 @@ import {
 } from './s57-chart-style';
 import { registerS57Symbols } from './s57-symbols';
 import type {
+  BathymetryColorScheme,
   CellPortrayalMode,
   ChartLayerInfo,
   DepthDisplayMode,
@@ -265,6 +267,8 @@ export function createChartOverlay(
   // depth labels: 'shaded' keeps the bright halo for contrast, 'text' drops it so the numbers
   // render as plain theme text (near-black in day, red in night-red) over the shading.
   let cellPortrayal: CellPortrayalMode = 'shaded';
+  let bathymetryColorScheme: BathymetryColorScheme = 'safety';
+  let theme: Theme = 'day';
   // The halo width the shaded portrayal shows; the text portrayal hides it entirely.
   const BATHYMETRY_LABEL_HALO_WIDTH = 2.25;
   let parentVisible = true;
@@ -293,6 +297,20 @@ export function createChartOverlay(
       'text-halo-width',
       cellPortrayal === 'text' ? 0 : BATHYMETRY_LABEL_HALO_WIDTH,
     );
+  };
+  const applyBathymetryColors = (ctx: Parameters<OverlayModule['setVisible']>[0]) => {
+    for (const layer of layers) {
+      if (!layer.bathymetryThemePaint || !ctx.map.getLayer(layer.id)) continue;
+      for (const [property, role] of Object.entries(layer.bathymetryThemePaint)) {
+        setPaintProp(
+          ctx.map,
+          layer.id,
+          property,
+          bathymetryThemePaint(theme, role, options.s57Style?.safetyDepth, bathymetryColorScheme),
+        );
+      }
+      applyLabelHalo(ctx, layer.id);
+    }
   };
   const applyLayerOpacity = (ctx: Parameters<OverlayModule['setVisible']>[0], layerId: string) => {
     const layer = layerById.get(layerId);
@@ -440,6 +458,7 @@ export function createChartOverlay(
           applyLabelHalo(ctx, layer.id);
         }
       }
+      applyBathymetryColors(ctx);
       hitHandlers?.attach(ctx);
       // A malformed or future source-free chart has nothing to cap, so skip the listener instead
       // of waiting forever on an undefined source id.
@@ -532,7 +551,13 @@ export function createChartOverlay(
       // Shading and outline are identical in both portrayals; only the label halo flips.
       for (const layer of layers) applyLabelHalo(ctx, layer.id);
     },
+    setBathymetryColorScheme(ctx, scheme) {
+      bathymetryColorScheme = scheme;
+      if (!depthDisplayControl) return;
+      applyBathymetryColors(ctx);
+    },
     applyTheme(ctx, paint) {
+      theme = paint.theme;
       if (isS57) {
         const generation = ++symbolGeneration;
         registerS57Symbols(ctx.map, paint, () => generation === symbolGeneration).catch((error) =>
@@ -565,7 +590,12 @@ export function createChartOverlay(
               ctx.map,
               layer.id,
               property,
-              bathymetryThemePaint(paint.theme, role, options.s57Style?.safetyDepth),
+              bathymetryThemePaint(
+                paint.theme,
+                role,
+                options.s57Style?.safetyDepth,
+                bathymetryColorScheme,
+              ),
             );
           }
           // A theme repaint must not resurrect the halo a plain-text portrayal removed.

@@ -190,6 +190,7 @@ describe('SourceDetail delete gating', () => {
       depthDisplayControl: true,
       displayDepth: 'conservative',
       cellPortrayal: 'shaded',
+      bathymetryColorScheme: 'safety',
     };
     let component!: ReturnType<typeof mount>;
     flushSync(() => {
@@ -259,5 +260,46 @@ describe('SourceDetail delete gating', () => {
     flushSync();
 
     expect(setCellPortrayal).toHaveBeenCalledWith(depthItem.id, 'text');
+  });
+
+  it('commits the NOAA chart color choice on tap', () => {
+    const target = document.createElement('div');
+    document.body.append(target);
+    const setBathymetryColorScheme = vi.fn();
+    const depthItem: LayerListItem = {
+      ...item,
+      depthDisplayControl: true,
+      displayDepth: 'conservative',
+      cellPortrayal: 'shaded',
+      bathymetryColorScheme: 'safety',
+    };
+    let component!: ReturnType<typeof mount>;
+    flushSync(() => {
+      component = mount(SourceDetail, {
+        target,
+        props: {
+          item: depthItem,
+          view: {
+            toggle: vi.fn(),
+            setOpacity: vi.fn(),
+            setBathymetryColorScheme,
+          } as unknown as LayersView,
+          onBack: () => {},
+        },
+      });
+    });
+    mounted.push(() => {
+      void unmount(component);
+      target.remove();
+    });
+
+    const noaa = [...target.querySelectorAll<HTMLButtonElement>('button')].find(
+      (candidate) => candidate.textContent?.trim() === 'NOAA chart',
+    );
+    expect(noaa).toBeDefined();
+    noaa?.click();
+    flushSync();
+
+    expect(setBathymetryColorScheme).toHaveBeenCalledWith(depthItem.id, 'noaa-chart');
   });
 });

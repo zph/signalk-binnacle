@@ -80,6 +80,24 @@ describe('bathymetry cell style', () => {
     expect(bathymetryThemePaint('night-red', 'labelHalo')).toMatch(/00$/);
   });
 
+  it('uses fixed NOAA chart depth bands, independently of the safety depth', () => {
+    const shallowSafety = bathymetryThemePaint('day', 'depth', 2, 'noaa-chart');
+    const deepSafety = bathymetryThemePaint('day', 'depth', 20, 'noaa-chart');
+
+    expect(shallowSafety).toEqual(deepSafety);
+    expect(shallowSafety).toEqual(
+      expect.arrayContaining([-1, '#005b9f', 1.8, '#198ec8', 30.5, '#f7fbfc']),
+    );
+  });
+
+  it('keeps the NOAA selection red-only in night mode', () => {
+    const expression = bathymetryThemePaint('night-red', 'depth', 3, 'noaa-chart');
+    const colors = JSON.stringify(expression).match(/#[0-9a-f]{6}/gi) ?? [];
+
+    expect(colors).not.toHaveLength(0);
+    expect(colors.every((color) => color.endsWith('00'))).toBe(true);
+  });
+
   it('stamps every themed paint for live recoloring', () => {
     for (const candidate of bathymetryCellLayers(SOURCE_ID, ['DEPARE', 'SOUNDG'])) {
       const metadata = candidate.metadata as Record<string, BathymetryThemePaintMap>;

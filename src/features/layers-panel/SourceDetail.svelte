@@ -463,6 +463,37 @@ function changeSharing(share: boolean): void {
       </div>
     {/if}
 
+    {#if item.depthDisplayControl && item.bathymetryColorScheme !== undefined}
+      <div class="cell-size-field">
+        <h4 class="caps-label" id={`${item.id}-bathymetry-color-label`}>Depth colors</h4>
+        <div class="segmented" role="group" aria-labelledby={`${item.id}-bathymetry-color-label`}>
+          <button
+            type="button"
+            class="btn"
+            class:is-on={item.bathymetryColorScheme === 'safety'}
+            aria-pressed={item.bathymetryColorScheme === 'safety'}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setBathymetryColorScheme(item.id, 'safety')}
+          >
+            Safety
+          </button>
+          <button
+            type="button"
+            class="btn"
+            class:is-on={item.bathymetryColorScheme === 'noaa-chart'}
+            aria-pressed={item.bathymetryColorScheme === 'noaa-chart'}
+            disabled={!item.visible || !item.available}
+            onclick={() => view.setBathymetryColorScheme(item.id, 'noaa-chart')}
+          >
+            NOAA chart
+          </button>
+        </div>
+        <p class="muted-note muted-note--xs">
+          Safety colors follow your safety depth. NOAA chart uses fixed shallow-to-deep blue bands.
+        </p>
+      </div>
+    {/if}
+
     {#if subLayers.length > 0}
       <div class="chart-layer-list" role="group" aria-label={`${item.title} chart layers`}>
         <h4 class="caps-label">Chart layers</h4>

@@ -10,6 +10,9 @@ export type DepthDisplayMode = 'conservative' | 'predicted';
 // How bathymetry cells are portrayed: shaded depth colors with outlines, or bare depth text with
 // no fill, no outline, and no halo, so the chart shows through around unobtrusive numbers.
 export type CellPortrayalMode = 'shaded' | 'text';
+// "Safety" emphasizes the configured safety depth. "NOAA chart" uses fixed shallow-to-deep blue
+// bands familiar from NOAA paper charts.
+export type BathymetryColorScheme = 'safety' | 'noaa-chart';
 
 export type ZBand =
   | 'basemap'
@@ -153,6 +156,9 @@ export interface OverlayModule {
   // Choose how bathymetry cells are portrayed: shaded fills with outlines, or bare depth text.
   // Only called on a module that declares depthDisplayControl.
   setCellPortrayal?(ctx: OverlayContext, mode: CellPortrayalMode): void;
+  // Choose the color ramp for local bathymetry cells. Only called on a module that declares
+  // depthDisplayControl.
+  setBathymetryColorScheme?(ctx: OverlayContext, scheme: BathymetryColorScheme): void;
   reattach?(ctx: OverlayContext): void | Promise<void>;
   // Invalidate the overlay's change-detection cache so its next sync repopulates from scratch. The
   // manager calls this on a base-style swap, which recreates the overlay's sources empty: an overlay

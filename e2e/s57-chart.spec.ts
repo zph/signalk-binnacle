@@ -263,6 +263,15 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await row.getByRole('button', { name: 'Open Fixture NOAA ENC chart details' }).click();
     await expect(page.getByRole('slider', { name: 'Opacity' })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Fixture NOAA ENC chart layers' })).toBeVisible();
+    await expect(page.getByText('Depth colors', { exact: true })).toBeVisible();
+    const noaaColors = page.getByRole('button', { name: 'NOAA chart', exact: true });
+    await expect(noaaColors).toHaveAttribute('aria-pressed', 'false');
+    await noaaColors.click();
+    await expect(noaaColors).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Safety', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
     await page.getByRole('button', { name: 'Back to layers' }).click();
     const baseRow = page.locator('#layers-panel [data-layer-row="basemap"]');
     await expect(baseRow).toBeVisible();

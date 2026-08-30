@@ -66,4 +66,10 @@ export {
   createThemedMap,
   type ThemedMapHandle,
 } from './themed-map';
-export type { CellPortrayalMode, DepthDisplayMode, OverlayContext, OverlayModule } from './types';
+export type {
+  BathymetryColorScheme,
+  CellPortrayalMode,
+  DepthDisplayMode,
+  OverlayContext,
+  OverlayModule,
+} from './types';

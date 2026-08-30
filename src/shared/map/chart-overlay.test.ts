@@ -233,6 +233,59 @@ describe('chart overlay', () => {
     expect(lastPaint('chart-bathymetry-soundg-bathymetry-label', 'text-halo-width')).toBe(2.25);
   });
 
+  it('repaints bathymetry cells with fixed NOAA chart colors', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'bathymetry',
+        name: 'Bathymetry cells',
+        type: 'S-57',
+        format: 'pbf',
+        featureInfo: 'bathymetry-cell',
+        tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+        layers: ['DEPARE', 'SOUNDG'],
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    overlay.setBathymetryColorScheme?.(ctx, 'noaa-chart');
+
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-bathymetry-depare-bathymetry-fill',
+      'fill-color',
+      expect.arrayContaining([1.8, '#198ec8', 30.5, '#f7fbfc']),
+    );
+  });
+
+  it('applies a restored NOAA chart selection after its layers mount', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'bathymetry',
+        name: 'Bathymetry cells',
+        type: 'S-57',
+        format: 'pbf',
+        featureInfo: 'bathymetry-cell',
+        tilemapUrl: '/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum',
+        layers: ['DEPARE', 'SOUNDG'],
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+
+    // LayerManager restores controls before add(), when there are no MapLibre layers to repaint.
+    overlay.setBathymetryColorScheme?.(ctx, 'noaa-chart');
+    await overlay.add(ctx);
+
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'chart-bathymetry-depare-bathymetry-fill',
+      'fill-color',
+      expect.arrayContaining([1.8, '#198ec8', 30.5, '#f7fbfc']),
+    );
+  });
+
   it('exposes chart metadata for the layer list', () => {
     const overlay = createChartOverlay(
       {

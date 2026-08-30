@@ -4,6 +4,7 @@ import type { MapThemePaint } from './map-theme';
 import { installSentinels, sentinelId } from './sentinels';
 import type { OverlayFacetPreset } from './types';
 import {
+  type BathymetryColorScheme,
   type CellPortrayalMode,
   type ChartCoverageInfo,
   type ChartLayerInfo,
@@ -25,6 +26,7 @@ export interface OverlayState {
   labelSizeScale?: number;
   displayDepth?: DepthDisplayMode;
   cellPortrayal?: CellPortrayalMode;
+  bathymetryColorScheme?: BathymetryColorScheme;
 }
 
 // The visible, fully opaque state an overlay defaults to. Shared as a read-only reference; spread
@@ -77,6 +79,7 @@ export interface LayerListItem {
   depthDisplayControl?: boolean;
   displayDepth?: DepthDisplayMode;
   cellPortrayal?: CellPortrayalMode;
+  bathymetryColorScheme?: BathymetryColorScheme;
   // Present when this row is a navigation chart the ambient chart badge counts. See
   // OverlayModule.chartCoverage.
   chartCoverage?: ChartCoverageInfo;
@@ -333,6 +336,9 @@ export class LayerManager {
             ? {
                 displayDepth: this.#coerceDepthDisplay(restored.displayDepth),
                 cellPortrayal: this.#coerceCellPortrayal(restored.cellPortrayal),
+                bathymetryColorScheme: this.#coerceBathymetryColorScheme(
+                  restored.bathymetryColorScheme,
+                ),
               }
             : {}),
         }
@@ -345,6 +351,7 @@ export class LayerManager {
             ? {
                 displayDepth: 'conservative' as DepthDisplayMode,
                 cellPortrayal: 'shaded' as CellPortrayalMode,
+                bathymetryColorScheme: 'safety' as BathymetryColorScheme,
               }
             : {}),
         };
@@ -384,6 +391,9 @@ export class LayerManager {
       if (module.depthDisplayControl) {
         if (state.displayDepth) module.setDisplayDepth?.(this.#ctx, state.displayDepth);
         if (state.cellPortrayal) module.setCellPortrayal?.(this.#ctx, state.cellPortrayal);
+        if (state.bathymetryColorScheme) {
+          module.setBathymetryColorScheme?.(this.#ctx, state.bathymetryColorScheme);
+        }
       }
       await module.add(this.#ctx);
       // An async add can finish after the owning map has been torn down or the id was unregistered.
@@ -649,6 +659,18 @@ export class LayerManager {
     if (persist) this.#persist();
   }
 
+  setBathymetryColorScheme(id: string, scheme: BathymetryColorScheme, persist = true): void {
+    const module = this.#modules.get(id);
+    const state = this.#state.get(id);
+    if (!module || !state || !module.depthDisplayControl) return;
+    const next = this.#coerceBathymetryColorScheme(scheme);
+    if (state.bathymetryColorScheme !== next) {
+      state.bathymetryColorScheme = next;
+      module.setBathymetryColorScheme?.(this.#ctx, next);
+    }
+    if (persist) this.#persist();
+  }
+
   // Move a non-pinned overlay to a new index in the non-pinned, top-to-bottom display order
   // (index 0 is the top of the map). Pinned layers are never moved or displaced.
   reorder(id: string, toIndex: number): void {
@@ -748,6 +770,11 @@ export class LayerManager {
           state.cellPortrayal = cellPortrayal;
           module.setCellPortrayal?.(this.#ctx, cellPortrayal);
         }
+        const bathymetryColorScheme = this.#coerceBathymetryColorScheme(next.bathymetryColorScheme);
+        if (bathymetryColorScheme !== state.bathymetryColorScheme) {
+          state.bathymetryColorScheme = bathymetryColorScheme;
+          module.setBathymetryColorScheme?.(this.#ctx, bathymetryColorScheme);
+        }
       }
     }
     // The snapshot is the authoritative desired state, so an earlier parent-off memory must not
@@ -783,6 +810,9 @@ export class LayerManager {
           : {}),
         ...(this.#modules.get(id)?.depthDisplayControl && state.cellPortrayal !== undefined
           ? { cellPortrayal: state.cellPortrayal }
+          : {}),
+        ...(this.#modules.get(id)?.depthDisplayControl && state.bathymetryColorScheme !== undefined
+          ? { bathymetryColorScheme: state.bathymetryColorScheme }
           : {}),
       };
     }
@@ -827,6 +857,10 @@ export class LayerManager {
 
   #coerceCellPortrayal(value: unknown): CellPortrayalMode {
     return value === 'text' ? 'text' : 'shaded';
+  }
+
+  #coerceBathymetryColorScheme(value: unknown): BathymetryColorScheme {
+    return value === 'noaa-chart' ? 'noaa-chart' : 'safety';
   }
 
   // The pinned safety floor: no door lowers a pinned overlay's visibility. Not the panel toggle,
@@ -1037,6 +1071,7 @@ export class LayerManager {
             depthDisplayControl: module.depthDisplayControl,
             displayDepth: state.displayDepth,
             cellPortrayal: state.cellPortrayal,
+            bathymetryColorScheme: state.bathymetryColorScheme,
             chartCoverage: module.chartCoverage,
             facetPresets: module.facetPresets,
           },
