@@ -46,6 +46,7 @@ let {
   onResetOrientation = undefined,
   pinnedActions,
   showActionLabels = true,
+  showReadouts = false,
   editing = false,
   clock,
   onReconnect,
@@ -86,6 +87,9 @@ let {
   onResetOrientation?: () => void;
   pinnedActions: MenuItem[];
   showActionLabels?: boolean;
+  // The lower metrics and location row is optional on a focused helm display. Actions remain
+  // visible regardless, so hiding readouts never hides a reachable control.
+  showReadouts?: boolean;
   editing?: boolean;
   clock: ReactiveClock;
   onReconnect: () => void;
@@ -190,204 +194,206 @@ const depthWatchPaused = $derived(
       {@render fixedActions()}
     {/if}
   </div>
-  <div class="strip-start">
-    <button
-      type="button"
-      class="conn chip-btn"
-      class:conn--down={connectionDown || dataStalled}
-      title={connTitle}
-      onclick={() => chipNote.show(connTitle)}
-    >
-      <span class="conn-live" role="status" aria-live="polite">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span class="visually-hidden">{connectionLabel}</span>
-      </span>
-    </button>
-    {#if streamError}
-      <!-- Not a live region: the always-mounted conn dot above announces every connection phase
+  {#if showReadouts}
+    <div class="strip-start">
+      <button
+        type="button"
+        class="conn chip-btn"
+        class:conn--down={connectionDown || dataStalled}
+        title={connTitle}
+        onclick={() => chipNote.show(connTitle)}
+      >
+        <span class="conn-live" role="status" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="visually-hidden">{connectionLabel}</span>
+        </span>
+      </button>
+      {#if streamError}
+        <!-- Not a live region: the always-mounted conn dot above announces every connection phase
            politely (matching the down branch below), and the one assertive channel is App's
            annunciator, which a data-link note must not talk over. -->
-      <span class="readout fix-lost action-note">
-        Data link failed
-        <button type="button" class="btn btn-compact" onclick={onReconnect}>Retry</button>
-      </span>
-    {:else if connectionDown || dataStalled}
-      <!-- A down socket, or one that is open but silent (a stop the per-tile staleness dashes
+        <span class="readout fix-lost action-note">
+          Data link failed
+          <button type="button" class="btn btn-compact" onclick={onReconnect}>Retry</button>
+        </span>
+      {:else if connectionDown || dataStalled}
+        <!-- A down socket, or one that is open but silent (a stop the per-tile staleness dashes
            never name; connectionLabel already says which). Not a live region: the always-mounted
            conn dot above announces every phase, and a second region carrying the same label
            announced the drop twice. This is the sighted half. -->
-      <span class="readout fix-lost action-note" title="Readouts pause until data returns">
-        {connectionLabel}
-        <button type="button" class="btn btn-compact" onclick={onReconnect}>Reconnect</button>
-      </span>
-    {/if}
-    {#if !online}
-      <span class="readout offline" role="status" aria-live="polite">Offline</span>
-    {/if}
-    {#if fixStale}
-      <span class="readout fix-lost" class:subordinate={linkDown} role="status" aria-live="polite"
-        >No GPS fix</span
-      >
-    {:else if gpsNeverReceived}
-      <!-- Connected, but no position has ever arrived: without this the strip looks healthy while
+        <span class="readout fix-lost action-note" title="Readouts pause until data returns">
+          {connectionLabel}
+          <button type="button" class="btn btn-compact" onclick={onReconnect}>Reconnect</button>
+        </span>
+      {/if}
+      {#if !online}
+        <span class="readout offline" role="status" aria-live="polite">Offline</span>
+      {/if}
+      {#if fixStale}
+        <span class="readout fix-lost" class:subordinate={linkDown} role="status" aria-live="polite"
+          >No GPS fix</span
+        >
+      {:else if gpsNeverReceived}
+        <!-- Connected, but no position has ever arrived: without this the strip looks healthy while
            every position-dependent feature silently waits. -->
-      <span
-        class="readout fix-lost action-note"
-        role="status"
-        aria-live="polite"
-        title="Connected, but the server has not published a GPS position. Check the GPS source in the Signal K server's Data Browser, or open Help."
-      >
-        Waiting for GPS
-        {#if onOpenHelp}
-          <button type="button" class="btn btn-compact" onclick={onOpenHelp}>Help</button>
-        {/if}
-      </span>
-    {/if}
-    {#if orientation}
-      <!-- The sound-off idiom: the chip states the live orientation (including its fallback), and
+        <span
+          class="readout fix-lost action-note"
+          role="status"
+          aria-live="polite"
+          title="Connected, but the server has not published a GPS position. Check the GPS source in the Signal K server's Data Browser, or open Help."
+        >
+          Waiting for GPS
+          {#if onOpenHelp}
+            <button type="button" class="btn btn-compact" onclick={onOpenHelp}>Help</button>
+          {/if}
+        </span>
+      {/if}
+      {#if orientation}
+        <!-- The sound-off idiom: the chip states the live orientation (including its fallback), and
            the compact action is the one-tap return to north up. -->
-      <span
-        class="readout orientation-chip action-note"
-        class:sev-warning={!orientation.active}
-        role="status"
-        title="Chart orientation and its reference; N up returns to north up"
-      >
-        {orientation.label}
-        <button type="button" class="btn btn-compact" onclick={onResetOrientation}>N up</button>
-      </span>
-    {/if}
-    {#if showLookout}
-      <button
-        type="button"
-        class="readout lookout chip-btn"
-        title={aisTitle}
-        onclick={() => chipNote.show(aisTitle)}
-      >
-        AIS <b class="num">{aisCount}</b>
-        {#if aisUnassessed > 0}
-          <span class="sev-warning">{aisUnassessed} unassessed</span>
-        {/if}
-      </button>
-    {/if}
-    {#if anchor.watching}
-      <!-- Named by its content, never a masking label: the alarm cue ("Anchor no GPS", distance
+        <span
+          class="readout orientation-chip action-note"
+          class:sev-warning={!orientation.active}
+          role="status"
+          title="Chart orientation and its reference; N up returns to north up"
+        >
+          {orientation.label}
+          <button type="button" class="btn btn-compact" onclick={onResetOrientation}>N up</button>
+        </span>
+      {/if}
+      {#if showLookout}
+        <button
+          type="button"
+          class="readout lookout chip-btn"
+          title={aisTitle}
+          onclick={() => chipNote.show(aisTitle)}
+        >
+          AIS <b class="num">{aisCount}</b>
+          {#if aisUnassessed > 0}
+            <span class="sev-warning">{aisUnassessed} unassessed</span>
+          {/if}
+        </button>
+      {/if}
+      {#if anchor.watching}
+        <!-- Named by its content, never a masking label: the alarm cue ("Anchor no GPS", distance
            over radius) must reach assistive tech; the open-panel action lives in the title. -->
-      <button
-        type="button"
-        class="readout anchor-chip chip-btn"
-        class:anchor-chip--alarm={anchor.dragging || anchor.fixLost}
-        title={anchor.fixLost
+        <button
+          type="button"
+          class="readout anchor-chip chip-btn"
+          class:anchor-chip--alarm={anchor.dragging || anchor.fixLost}
+          title={anchor.fixLost
           ? 'Anchor watch: no GPS fix, drag detection degraded. Opens Anchor watch.'
           : 'Anchor watch: distance from the anchor over the watch radius. Opens Anchor watch.'}
-        onclick={onOpenAnchor}
+          onclick={onOpenAnchor}
+        >
+          {#if anchor.fixLost}
+            Anchor <b>no GPS</b>
+          {:else}
+            Anchor <b class="num">{formatLengthOr(anchor.distanceMeters, units.mode, 0)}</b>/<b
+              class="num"
+              >{formatLengthOr(anchor.radiusMeters, units.mode, 0)}</b
+            >
+            {lengthUnit(units.mode)}
+          {/if}
+        </button>
+      {/if}
+      <span
+        class="readout sog-readout"
+        class:fix-lost={fixStale || vessel.sogStale}
+        class:subordinate={linkDown}
+        title="Speed over ground"
+        >SOG
+        <b class="num">{formatKnotsOr(fixStale || vessel.sogStale ? undefined : vessel.sogMps)}</b>
+        kn</span
       >
-        {#if anchor.fixLost}
-          Anchor <b>no GPS</b>
-        {:else}
-          Anchor <b class="num">{formatLengthOr(anchor.distanceMeters, units.mode, 0)}</b>/<b
-            class="num"
-            >{formatLengthOr(anchor.radiusMeters, units.mode, 0)}</b
-          >
-          {lengthUnit(units.mode)}
-        {/if}
-      </button>
-    {/if}
-    <span
-      class="readout sog-readout"
-      class:fix-lost={fixStale || vessel.sogStale}
-      class:subordinate={linkDown}
-      title="Speed over ground"
-      >SOG
-      <b class="num">{formatKnotsOr(fixStale || vessel.sogStale ? undefined : vessel.sogMps)}</b>
-      kn</span
-    >
-    {#if showCog}
-      <span class="readout cog-readout" class:subordinate={linkDown} title="Course over ground"
-        >COG
-        <b class="num"
-          >{formatBearingOr(
+      {#if showCog}
+        <span class="readout cog-readout" class:subordinate={linkDown} title="Course over ground"
+          >COG
+          <b class="num"
+            >{formatBearingOr(
             fixStale || vessel.cogStale || (vessel.sogMps ?? 0) < COG_MIN_SOG_MPS
               ? undefined
               : vessel.cogRad,
           )}</b
-        >&deg;T</span
-      >
-    {/if}
-    {#if showHdg}
-      <span
-        class="readout hdg-readout"
-        class:fix-lost={vessel.headingStale}
-        class:subordinate={linkDown}
-        title="Heading, true"
-        >HDG
-        <b class="num">{formatBearingOr(vessel.headingStale ? undefined : vessel.headingRad)}</b
-        >&deg;T</span
-      >
-    {/if}
-    <button
-      type="button"
-      class="readout depth-readout chip-btn"
-      class:depth-alarm={shallowAlarming}
-      class:fix-lost={depth.stale || shallowState !== 'monitoring'}
-      class:subordinate={linkDown && !shallowAlarming}
-      title={depthTitle(depth, shallowAlarming)}
-      onclick={() => chipNote.show(depthTitle(depth, shallowAlarming))}
-    >
-      {depthLabel}
-      {#if !depthWatchPaused}
-        <b class="num">{formatLengthOr(depth.stale ? undefined : depth.meters, units.mode)}</b>
-        {lengthUnit(units.mode)}
-        {#if depth.source}
-          <span class="datum">{DEPTH_SOURCE_LABELS[depth.source]}</span>
-        {/if}
+          >&deg;T</span
+        >
       {/if}
-    </button>
-    {#if radarHealth.state !== 'quiet'}
-      <!-- Radar trouble stays visible with Radar Controls closed: the picture the helm relies on
-           has quietly stopped, which the panel alone cannot say. role=status announces once. -->
+      {#if showHdg}
+        <span
+          class="readout hdg-readout"
+          class:fix-lost={vessel.headingStale}
+          class:subordinate={linkDown}
+          title="Heading, true"
+          >HDG
+          <b class="num">{formatBearingOr(vessel.headingStale ? undefined : vessel.headingRad)}</b
+          >&deg;T</span
+        >
+      {/if}
       <button
         type="button"
-        class="readout chip-btn"
-        class:sev-danger={radarHealth.state === 'failed'}
-        class:sev-warning={radarHealth.state === 'stale'}
-        title={radarTitle}
-        onclick={() => chipNote.show(radarTitle)}
+        class="readout depth-readout chip-btn"
+        class:depth-alarm={shallowAlarming}
+        class:fix-lost={depth.stale || shallowState !== 'monitoring'}
+        class:subordinate={linkDown && !shallowAlarming}
+        title={depthTitle(depth, shallowAlarming)}
+        onclick={() => chipNote.show(depthTitle(depth, shallowAlarming))}
       >
-        <span role="status" aria-live="polite">
-          {radarHealth.state === 'stale'
+        {depthLabel}
+        {#if !depthWatchPaused}
+          <b class="num">{formatLengthOr(depth.stale ? undefined : depth.meters, units.mode)}</b>
+          {lengthUnit(units.mode)}
+          {#if depth.source}
+            <span class="datum">{DEPTH_SOURCE_LABELS[depth.source]}</span>
+          {/if}
+        {/if}
+      </button>
+      {#if radarHealth.state !== 'quiet'}
+        <!-- Radar trouble stays visible with Radar Controls closed: the picture the helm relies on
+           has quietly stopped, which the panel alone cannot say. role=status announces once. -->
+        <button
+          type="button"
+          class="readout chip-btn"
+          class:sev-danger={radarHealth.state === 'failed'}
+          class:sev-warning={radarHealth.state === 'stale'}
+          title={radarTitle}
+          onclick={() => chipNote.show(radarTitle)}
+        >
+          <span role="status" aria-live="polite">
+            {radarHealth.state === 'stale'
             ? 'Radar stale'
             : radarHealth.reason === 'renderer'
               ? 'Radar display failed'
               : 'Radar stream failed'}
-        </span>
-      </button>
-    {/if}
-  </div>
-  <TransientNote message={chipNote.message} noteClass="chip-note" />
-  <div class="center-cluster">
-    {#if retainedFix}
-      <!-- A stale fix never wears current-position styling: the label says what the coordinates
+          </span>
+        </button>
+      {/if}
+    </div>
+    <TransientNote message={chipNote.message} noteClass="chip-note" />
+    <div class="center-cluster">
+      {#if retainedFix}
+        <!-- A stale fix never wears current-position styling: the label says what the coordinates
            are (the last fix and its age), in the same caution treatment as the dashed readouts. -->
-      <span class="readout fix-lost" title="Last known position; the GPS fix is stale"
-        >Last fix
-        <b class="num">{formatLatitude(vessel.position?.latitude)}</b>
-        <b class="num">{formatLongitude(vessel.position?.longitude)}</b>
-        <span class="datum">{fixAgeText}</span></span
+        <span class="readout fix-lost" title="Last known position; the GPS fix is stale"
+          >Last fix
+          <b class="num">{formatLatitude(vessel.position?.latitude)}</b>
+          <b class="num">{formatLongitude(vessel.position?.longitude)}</b>
+          <span class="datum">{fixAgeText}</span></span
+        >
+      {:else}
+        <span class="readout" title="Vessel position"
+          >Vessel
+          <b class="num">{formatLatitude(fixStale ? undefined : vessel.position?.latitude)}</b>
+          <b class="num"
+            >{formatLongitude(fixStale ? undefined : vessel.position?.longitude)}</b
+          ></span
+        >
+      {/if}
+      <span class="readout time-readout" title="Local time"
+        >Time
+        <b class="num">{formatClockTime(clock.now)}</b></span
       >
-    {:else}
-      <span class="readout" title="Vessel position"
-        >Vessel
-        <b class="num">{formatLatitude(fixStale ? undefined : vessel.position?.latitude)}</b>
-        <b class="num"
-          >{formatLongitude(fixStale ? undefined : vessel.position?.longitude)}</b
-        ></span
-      >
-    {/if}
-    <span class="readout time-readout" title="Local time"
-      >Time
-      <b class="num">{formatClockTime(clock.now)}</b></span
-    >
-  </div>
+    </div>
+  {/if}
 </footer>
 
 <style>

@@ -862,6 +862,12 @@ const bottomToolbarLabels = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
+const bottomStatusReadouts = new PersistedValue<boolean>(
+  binnacleStorageKey('bottomStatusReadouts'),
+  false,
+  undefined,
+  booleanPersistedCodec,
+);
 // The helm display is normally the active chart. Keep it awake by default, while retaining a
 // device-local opt-out for a portable iPad that needs to conserve its battery.
 const screenWakeLockEnabled = new PersistedValue<boolean>(
@@ -2176,6 +2182,20 @@ const menuItems = $derived<MenuItem[]>([
     toolbarEligible: false,
     pressed: screenWakeLockEnabled.value,
     onSelect: () => screenWakeLockEnabled.set(!screenWakeLockEnabled.value),
+  },
+  {
+    id: 'bottom-status-readouts',
+    label: bottomStatusReadouts.value
+      ? 'Hide bottom status readouts'
+      : 'Show bottom status readouts',
+    sublabel: bottomStatusReadouts.value
+      ? 'Hide metrics, vessel position, and local time below the toolbar'
+      : 'Show metrics, vessel position, and local time below the toolbar',
+    icon: Gauge,
+    group: 'Settings',
+    toolbarEligible: false,
+    pressed: bottomStatusReadouts.value,
+    onSelect: () => bottomStatusReadouts.set(!bottomStatusReadouts.value),
   },
   {
     id: 'help',
@@ -3931,6 +3951,7 @@ const plotterActions = {
           onResetOrientation={() => chartOrientation.set('north')}
           pinnedActions={resolvedPinned}
           showActionLabels={bottomToolbarLabels.value}
+          showReadouts={bottomStatusReadouts.value}
           fixedActions={statusStripFixedActions}
           editing={menuEditing}
           {clock}
