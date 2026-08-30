@@ -14,8 +14,10 @@ const serwistMock = vi.hoisted(() => {
       listener: (event: { isUpdate?: boolean; isExternal?: boolean }) => void,
     ) => void;
     register: () => Promise<undefined>;
+    update: () => Promise<void>;
     messageSkipWaiting: () => void;
     skipWaitingCalls: number;
+    updateCalls: number;
   }
   const state = {
     supported: true,
@@ -35,6 +37,7 @@ const serwistMock = vi.hoisted(() => {
       >();
       const fake: FakeSerwist = {
         skipWaitingCalls: 0,
+        updateCalls: 0,
         addEventListener(type, listener) {
           listeners.set(type, [...(listeners.get(type) ?? []), listener]);
         },
@@ -43,6 +46,9 @@ const serwistMock = vi.hoisted(() => {
         },
         register: () =>
           state.registerError ? Promise.reject(state.registerError) : Promise.resolve(undefined),
+        update: async () => {
+          fake.updateCalls += 1;
+        },
         messageSkipWaiting() {
           fake.skipWaitingCalls += 1;
         },
@@ -250,6 +256,14 @@ describe('registerPwa status', () => {
     // The activation defers behind the registration promise.
     await settle();
     expect(lastInstance().skipWaitingCalls).toBe(1);
+  });
+
+  it('checks for a new worker without activating a waiting update', async () => {
+    const controller = registerPwa(undefined, spyCoordinator());
+    controller.checkForUpdate();
+    await settle();
+    expect(lastInstance().updateCalls).toBe(1);
+    expect(lastInstance().skipWaitingCalls).toBe(0);
   });
 
   it('does not reload when the first-ever install takes control', async () => {

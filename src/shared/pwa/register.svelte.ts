@@ -13,6 +13,8 @@ export type PwaStatus =
   | 'failed';
 
 export interface PwaController {
+  /** Checks the registered worker for a new build. It never activates a waiting update. */
+  checkForUpdate: () => void;
   update: () => void;
   readonly status: PwaStatus;
 }
@@ -209,6 +211,14 @@ export function registerPwa(
           }
         })();
   return {
+    // update() only asks the browser to fetch the worker script and detect a waiting worker. The
+    // waiting listener above owns the prompt, and activation remains exclusively in update().
+    checkForUpdate: () =>
+      void ready
+        .then(() => serwist?.update())
+        .catch((error: unknown) => {
+          console.warn('[pwa] service-worker update check failed', error);
+        }),
     // A click that lands before registration settles defers behind the ready promise instead of
     // being dropped; messageSkipWaiting() then no-ops if nothing is waiting, and the
     // coordinator's suppressed path still covers the reload-directly case.

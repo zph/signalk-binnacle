@@ -801,6 +801,7 @@ const poiInView = $derived.by<Poi[]>(() => {
 let hoveredPoi = $state<Poi | undefined>();
 let updateReady = $state(false);
 const pwa = registerPwa(() => (updateReady = true));
+const PWA_UPDATE_CHECK_MS = 60_000;
 
 const theme = createThemeController((next) => recolorMap?.(next));
 
@@ -3134,6 +3135,11 @@ $effect(() => {
 const PROFILE_LOCAL_STARTUP_FALLBACK_MS = 8_000;
 
 onMount(() => {
+  // A chartplotter can remain open on deck all day. Poll for a newer service worker so the Update
+  // action appears promptly, but never activate it here: applying a build remains an explicit helm
+  // decision through the visible Update button.
+  pwa.checkForUpdate();
+  const pwaUpdateCheck = window.setInterval(() => pwa.checkForUpdate(), PWA_UPDATE_CHECK_MS);
   refreshCompanionProbe();
   companionStatus.start();
   window.addEventListener('pointerdown', primeAudio);
@@ -3230,6 +3236,7 @@ onMount(() => {
     };
   }
   return () => {
+    clearInterval(pwaUpdateCheck);
     instrumentsFullScreenQuery.removeEventListener('change', syncInstrumentsFullScreen);
     window.removeEventListener('focus', refreshProfiles);
     document.removeEventListener('visibilitychange', refreshProfiles);

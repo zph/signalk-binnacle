@@ -3,13 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { registerPwa } from './register.svelte';
 
 const { instances } = vi.hoisted(() => ({
-  instances: [] as { register: () => Promise<undefined> }[],
+  instances: [] as { register: () => Promise<undefined>; update: () => Promise<void> }[],
 }));
 vi.mock('virtual:serwist', () => ({
   getSerwist: async () => {
     const fake = {
       addEventListener: () => undefined,
       register: () => Promise.resolve(undefined),
+      update: () => Promise.resolve(),
       messageSkipWaiting: () => undefined,
     };
     instances.push(fake);
