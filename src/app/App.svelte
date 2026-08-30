@@ -2166,6 +2166,18 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: openCommandPalette,
   },
   {
+    id: 'screen-wake-lock',
+    label: screenWakeLockEnabled.value ? 'Allow screen sleep' : 'Keep screen awake',
+    sublabel: screenWakeLockEnabled.value
+      ? 'Screen stays on while Binnacle is visible'
+      : 'Allow this display to sleep normally',
+    icon: Sun,
+    group: 'Settings',
+    toolbarEligible: false,
+    pressed: screenWakeLockEnabled.value,
+    onSelect: () => screenWakeLockEnabled.set(!screenWakeLockEnabled.value),
+  },
+  {
     id: 'help',
     label: 'Help',
     icon: CircleHelp,
@@ -2279,17 +2291,6 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         (!browserFullScreenNow && typeof document.documentElement.requestFullscreen !== 'function'),
       disabledReason: 'This browser does not offer full-screen mode.',
       onSelect: () => void toggleBrowserFullScreen(),
-    },
-    {
-      id: 'screen-wake-lock',
-      label: screenWakeLockEnabled.value ? 'Allow screen sleep' : 'Keep screen awake',
-      description: screenWakeLockEnabled.value
-        ? 'Binnacle keeps this visible display awake'
-        : 'Allow this display to sleep normally',
-      group: 'Display',
-      keywords: ['screen', 'awake', 'sleep', 'display', 'battery'],
-      icon: Sun,
-      onSelect: () => screenWakeLockEnabled.set(!screenWakeLockEnabled.value),
     },
     {
       id: 'go-to',
