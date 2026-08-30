@@ -54,12 +54,13 @@ test('a launcher app becomes a web view instrument tile, expandable full screen'
 
   // Exit customize mode through the pane actions menu, then the dock grid shows the framed app.
   const pane = page.locator('aside.instruments');
-  await chooseInstrumentPaneAction(page, pane, 'Customize instruments');
+  await chooseInstrumentPaneAction(page, pane, 'Finish customizing');
   const frame = page.locator('iframe[title="Fixture app"]');
   await expect(frame).toBeVisible();
   await expect(frame.contentFrame().getByText(APP_MARKER)).toBeVisible();
 
-  await pane.getByRole('button', { name: 'Expand instrument' }).click();
+  const webviewTile = pane.getByRole('region', { name: `${APP_TITLE}, web view` });
+  await webviewTile.getByRole('button', { name: 'Expand instrument' }).click();
   const dialog = page.getByRole('dialog', { name: 'Fixture app full-screen instrument' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('iframe[title="Fixture app"]')).toBeVisible();
