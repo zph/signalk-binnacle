@@ -17,6 +17,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   chartOrientation: 'Chart orientation',
   pinnedActionIds: 'Toolbar actions',
   instrumentTiles: 'Instrument dock',
+  instrumentTileLayouts: 'Instrument tile layout',
   windRoseNoGoAngleRad: 'Wind rose no-go angle',
   windRoseArcMarginRad: 'Wind rose arc margin',
   trendInstrumentIds: 'Data trends',

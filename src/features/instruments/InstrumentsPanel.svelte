@@ -1,4 +1,5 @@
 <script lang="ts">
+import Grip from '@lucide/svelte/icons/grip';
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import { type Snippet, untrack } from 'svelte';
 import type { Action } from 'svelte/action';
@@ -20,12 +21,15 @@ import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { staleAgeText, type TileDeps } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
+import {
+  type InstrumentTileLayouts,
+  instrumentTileSizeFor,
+  resizeInstrumentTile,
+} from './tile-layout';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
-// The screen layer reads this MIME from the drop event, so a dock tile can be dragged onto the
-// chart while screen edit mode is active.
-const TILE_DRAG_MIME = 'text/x-binnacle-instrument';
 const TOUCH_DRAG_THRESHOLD_PX = 10;
+const TILE_RESIZE_THRESHOLD_PX = 12;
 
 interface TouchDrag {
   id: string;
@@ -56,6 +60,8 @@ interface Props {
   dockWidth?: number;
   onDockResize?: (width: number) => void;
   onDockResizeCommit?: (width: number) => void;
+  tileLayouts?: InstrumentTileLayouts;
+  onTileLayoutsChange?: (layouts: InstrumentTileLayouts) => void;
   // The emergency action the shell injects (the MOB trigger): while the panel is a full-screen
   // modal, aria-modal removes the topbar from the accessibility tree, so the trigger must live
   // inside the dialog subtree. Injected rather than imported so instruments never reaches into
@@ -98,6 +104,8 @@ const {
   dockWidth = DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   onDockResize = () => {},
   onDockResizeCommit = () => {},
+  tileLayouts = {},
+  onTileLayoutsChange = () => {},
   emergencyAction,
   lockAction,
   onOpenTideSettings,
@@ -135,6 +143,16 @@ let expandedId = $state<string | undefined>();
 let windRoseSettingsOpen = $state(false);
 let tilesEl = $state<HTMLElement | undefined>();
 let touchDrag = $state<TouchDrag | undefined>();
+let tileResize = $state<
+  | {
+      id: string;
+      pointerId: number;
+      startX: number;
+      startY: number;
+      size: ReturnType<typeof instrumentTileSizeFor>;
+    }
+  | undefined
+>();
 let instrumentMenu = $state<{
   id?: string;
   label?: string;
@@ -203,6 +221,48 @@ function spansWholeRow(kind: string, state: string): boolean {
     kind === 'tide' ||
     (state !== 'never' && (kind === 'wind' || kind === 'position' || kind === 'battery'))
   );
+}
+
+function tileSize(
+  id: string,
+  kind: string,
+  state: string,
+): ReturnType<typeof instrumentTileSizeFor> {
+  return spansWholeRow(kind, state) ? 'wide' : instrumentTileSizeFor(tileLayouts, id);
+}
+
+function beginTileResize(id: string, kind: string, state: string, event: PointerEvent): void {
+  if (!reordering || event.button !== 0 || spansWholeRow(kind, state)) return;
+  tileResize = {
+    id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    size: instrumentTileSizeFor(tileLayouts, id),
+  };
+  if (event.currentTarget instanceof Element)
+    event.currentTarget.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function finishTileResize(event: PointerEvent): void {
+  if (!tileResize || event.pointerId !== tileResize.pointerId) return;
+  const resize = tileResize;
+  tileResize = undefined;
+  const next = resizeInstrumentTile(
+    resize.size,
+    Math.abs(event.clientX - resize.startX) >= TILE_RESIZE_THRESHOLD_PX
+      ? event.clientX - resize.startX
+      : 0,
+    Math.abs(event.clientY - resize.startY) >= TILE_RESIZE_THRESHOLD_PX
+      ? event.clientY - resize.startY
+      : 0,
+  );
+  if (next === resize.size) return;
+  const layouts = { ...tileLayouts };
+  if (next === 'normal') delete layouts[resize.id];
+  else layouts[resize.id] = next;
+  onTileLayoutsChange(layouts);
 }
 
 const instrumentContextMenu: Action<HTMLElement> = (node) => {
@@ -297,20 +357,10 @@ function closePanel(): void {
   controller.setOpen(false);
 }
 
-// Screen edit mode: the wrapper div (never the tile button itself, which Safari does not drag
-// reliably) is the drag source. The screen layer reads the MIME on drop and places or moves the
-// instrument at the drop point.
-function handleTileDragStart(id: string, event: DragEvent): void {
-  if (!screenEditing || !event.dataTransfer) return;
-  event.dataTransfer.setData(TILE_DRAG_MIME, id);
-  event.dataTransfer.effectAllowed = 'copy';
-  event.dataTransfer.dropEffect = 'copy';
-}
-
-// Native HTML drag-and-drop remains the mouse path, but touch browsers do not consistently emit
-// it. A moved touch is sent to the chart layer; a tap remains a normal tile activation.
+// Pointer capture keeps a dock-to-chart drag intact when the pointer leaves the dock. A tap stays
+// a normal tile activation; a moved pointer is sent to the chart layer for its live drop preview.
 function handleTilePointerDown(id: string, event: PointerEvent): void {
-  if (!screenEditing || event.pointerType !== 'touch') return;
+  if (!screenEditing) return;
   touchDrag = {
     id,
     pointerId: event.pointerId,
@@ -331,7 +381,14 @@ function handleTilePointerMove(event: PointerEvent): void {
   ) {
     touchDrag = { ...touchDrag, moved: true };
   }
-  if (touchDrag.moved) event.preventDefault();
+  if (touchDrag.moved) {
+    event.preventDefault();
+    window.dispatchEvent(
+      new CustomEvent('binnacle:instrument-dock-drag', {
+        detail: { id: touchDrag.id, clientX: event.clientX, clientY: event.clientY, phase: 'move' },
+      }),
+    );
+  }
 }
 
 function finishTileTouchDrag(event: PointerEvent): void {
@@ -341,8 +398,8 @@ function finishTileTouchDrag(event: PointerEvent): void {
   if (!drag.moved) return;
   event.preventDefault();
   window.dispatchEvent(
-    new CustomEvent('binnacle:instrument-touch-drop', {
-      detail: { id: drag.id, clientX: event.clientX, clientY: event.clientY },
+    new CustomEvent('binnacle:instrument-dock-drag', {
+      detail: { id: drag.id, clientX: event.clientX, clientY: event.clientY, phase: 'drop' },
     }),
   );
 }
@@ -480,20 +537,20 @@ $effect(() => {
             ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
             : 'normal'}
         {@const resolvedLabel = controller.resolvedLabel(def)}
+        {@const size = tileSize(def.id, def.kind, reading.state)}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <!-- biome-ignore lint/a11y/noStaticElementInteractions: the wrapper is the HTML5 drag source during screen edit mode; Safari does not fire dragstart reliably from the tile button inside it. -->
         <div
           data-tile-row={def.id}
           data-instrument-id={def.id}
           data-instrument-label={resolvedLabel}
           class="tile-shell"
-          class:tile-shell--wide={spansWholeRow(def.kind, reading.state)}
+          class:tile-shell--wide={size === 'wide'}
+          class:tile-shell--tall={size === 'tall'}
+          class:tile-shell--large={size === 'large'}
           class:reorder-row={reordering}
           class:dragging={reordering && reorder.dragId === def.id}
           class:drop-before={reordering && indicator.before}
           class:drop-after={reordering && indicator.after}
-          draggable={screenEditing && !reordering && !customizing}
-          ondragstart={(event) => handleTileDragStart(def.id, event)}
           onpointerdown={(event) => handleTilePointerDown(def.id, event)}
           onpointermove={handleTilePointerMove}
           onpointerup={finishTileTouchDrag}
@@ -526,6 +583,19 @@ $effect(() => {
             >
               <GripVertical size={18} aria-hidden="true" />
             </button>
+            {#if !spansWholeRow(def.kind, reading.state)}
+              <button
+                type="button"
+                class="icon-btn handle tile-resize-handle"
+                aria-label={`Resize ${resolvedLabel} in dock`}
+                aria-describedby="instrument-reorder-instruction"
+                onpointerdown={(event) => beginTileResize(def.id, def.kind, reading.state, event)}
+                onpointerup={finishTileResize}
+                onpointercancel={() => (tileResize = undefined)}
+              >
+                <Grip size={16} aria-hidden="true" />
+              </button>
+            {/if}
           {/if}
         </div>
       {/each}
@@ -607,6 +677,13 @@ $effect(() => {
 .tile-shell--wide {
   grid-column: 1 / -1;
 }
+.tile-shell--tall {
+  grid-row: span 2;
+}
+.tile-shell--large {
+  grid-column: 1 / -1;
+  grid-row: span 2;
+}
 .tile-shell :global(.tile) {
   flex: 1;
   inline-size: 100%;
@@ -628,6 +705,21 @@ $effect(() => {
   background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
   color: var(--accent);
   opacity: 0.9;
+}
+.tile-shell .tile-resize-handle {
+  position: absolute;
+  inset-block-end: var(--space-1);
+  inset-inline-end: var(--space-1);
+  z-index: 1;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  color: var(--accent);
+  cursor: nwse-resize;
+  opacity: 0.9;
+  touch-action: none;
+}
+.tile-shell .tile-resize-handle:hover,
+.tile-shell .tile-resize-handle:focus-visible {
+  opacity: 1;
 }
 .tile-shell .tile-reorder-handle:hover,
 .tile-shell .tile-reorder-handle:focus-visible {

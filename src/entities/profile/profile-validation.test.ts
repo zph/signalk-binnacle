@@ -22,6 +22,14 @@ const settings = (overrides: Partial<ProfileSettings> = {}): ProfileSettings => 
 });
 
 describe('isProfileSettings layer settings', () => {
+  it('accepts valid instrument tile layouts and rejects invalid sizes', () => {
+    expect(
+      isProfileSettings(settings({ instrumentTileLayouts: { sog: 'wide', depth: 'tall' } })),
+    ).toBe(true);
+    expect(isProfileSettings(settings({ instrumentTileLayouts: { sog: 'huge' as never } }))).toBe(
+      false,
+    );
+  });
   it('accepts layer entries carrying displayDepth and cellPortrayal', () => {
     const layers: LayerSettings = {
       cells: {

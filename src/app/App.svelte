@@ -89,7 +89,9 @@ import {
   type FloatingInstrumentBox,
   floatingInstrumentBoxesCodec,
   type InstrumentDockLayout,
+  type InstrumentTileLayouts,
   instrumentDockWidthForLayout,
+  instrumentTileLayoutsCodec,
   isAisRadarRangeNm,
   loadInstrumentScreenLayer,
   loadInstrumentsPanel,
@@ -866,6 +868,12 @@ const instrumentTiles = new PersistedValue<string[]>(
   undefined,
   stringArrayPersistedCodec({ maxItems: 100, maxLength: 256 }),
 );
+const instrumentTileLayouts = new PersistedValue<InstrumentTileLayouts>(
+  binnacleStorageKey('instrumentTileLayouts'),
+  {},
+  undefined,
+  instrumentTileLayoutsCodec,
+);
 const aisRadarRangeNm = new PersistedValue<AisRadarRangeNm>(
   binnacleStorageKey('aisRadarRangeNm'),
   DEFAULT_AIS_RADAR_RANGE_NM,
@@ -1212,6 +1220,7 @@ const profileBindings = createProfileBindings({
   unitsLocal: units.localSetting,
   pinnedActions,
   instrumentTiles,
+  instrumentTileLayouts,
   windRoseNoGoAngleRad,
   windRoseArcMarginRad,
   trendInstruments,
@@ -3705,6 +3714,8 @@ const plotterActions = {
           dockWidth={instrumentDockWidth}
           onDockResize={resizeInstrumentDock}
           onDockResizeCommit={commitInstrumentDockWidth}
+          tileLayouts={instrumentTileLayouts.value}
+          onTileLayoutsChange={(layouts) => instrumentTileLayouts.set(layouts)}
           emergencyAction={instrumentsMobAction}
           lockAction={interfaceLockAction}
           initialDetailId={trendReturnInstrumentId}

@@ -42,6 +42,7 @@ function makeDeps(): ProfileBindingDeps {
     unitsLocal: pv('metric'),
     pinnedActions: pv<string[]>([]),
     instrumentTiles: pv<string[]>(['depth', 'speed']),
+    instrumentTileLayouts: pv({}),
     windRoseNoGoAngleRad: pv(DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD),
     windRoseArcMarginRad: pv(DEFAULT_WIND_ROSE_ARC_MARGIN_RAD),
     trendInstruments: pv<string[]>(['depth', 'wind-apparent']),
@@ -184,6 +185,18 @@ describe('createProfileBindings', () => {
     const bindings = createProfileBindings(deps);
     bindings.apply({ ...bindings.capture(), instrumentTiles: ['sog', 'cog', 'depth'] });
     expect(deps.instrumentTiles.value).toEqual(['sog', 'cog', 'depth']);
+  });
+
+  it('captures and restores the instrument tile layout', () => {
+    const deps = makeDeps();
+    deps.instrumentTileLayouts.set({ depth: 'tall' });
+    const bindings = createProfileBindings(deps);
+    const captured = bindings.capture();
+    expect(captured.instrumentTileLayouts).toEqual({ depth: 'tall' });
+
+    deps.instrumentTileLayouts.set({});
+    bindings.apply(captured);
+    expect(deps.instrumentTileLayouts.value).toEqual({ depth: 'tall' });
   });
 
   it('ignores a non-array instrumentTiles and leaves the prior value', () => {

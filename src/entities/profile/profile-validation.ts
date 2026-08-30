@@ -78,6 +78,15 @@ function validStringList(value: unknown, maxEntries: number): value is string[] 
   );
 }
 
+function validInstrumentTileLayouts(value: unknown): boolean {
+  if (!isRecord(value) || Object.keys(value).length > MAX_INSTRUMENT_TILES) return false;
+  return Object.entries(value).every(
+    ([id, size]) =>
+      validRecordKey(id) &&
+      (size === 'normal' || size === 'wide' || size === 'tall' || size === 'large'),
+  );
+}
+
 function validLayerSettings(value: unknown): value is LayerSettings {
   if (!isRecord(value) || Object.keys(value).length > MAX_LAYER_ENTRIES) return false;
   return Object.entries(value).every(([id, setting]) => {
@@ -302,6 +311,11 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   ) {
     return false;
   }
+  if (
+    value.instrumentTileLayouts !== undefined &&
+    !validInstrumentTileLayouts(value.instrumentTileLayouts)
+  )
+    return false;
   if (
     value.windRoseNoGoAngleRad !== undefined &&
     !isWindRoseNoGoAngleRad(value.windRoseNoGoAngleRad)

@@ -89,6 +89,7 @@ let addMenuTrigger = $state<HTMLElement | undefined>();
 // In-flight move or resize, so a drag renders its live box without writing storage per pointer
 // event; the persisted box only changes when the pointer is released.
 let dragBox = $state<FloatingInstrumentBox | undefined>();
+let dropPreview = $state<FloatingInstrumentBox | undefined>();
 
 const floatingTiles = $derived(controller.floatingTiles);
 const editing = $derived(controller.screenEditing);
@@ -254,18 +255,41 @@ function placeAt(id: string, clientX: number, clientY: number): void {
   );
 }
 
-// Touch browsers do not reliably produce native drag events. The dock sends its completed touch
-// drag here, where the chart bounds remain the sole authority for accepting a drop.
+function previewAt(id: string, clientX: number, clientY: number): void {
+  const point = normalizedPoint(clientX, clientY);
+  if (!point) return;
+  const current = controller.floating.find((box) => box.id === id);
+  const width = current?.width ?? DEFAULT_FLOATING_WIDTH;
+  const height = current?.height ?? DEFAULT_FLOATING_HEIGHT;
+  dropPreview = clampFloatingBox({
+    id,
+    width,
+    height,
+    x: point.x - width / 2,
+    y: point.y - height / 2,
+  });
+}
+
+// The dock emits pointer drag updates for every input type. This is more reliable than native HTML
+// drag-and-drop across Safari and touch browsers, and lets the chart show the exact drop footprint.
 $effect(() => {
   if (!editing) return;
-  const handleTouchDrop = (event: Event): void => {
-    const drop = (event as CustomEvent<{ id?: string; clientX?: number; clientY?: number }>).detail;
+  const handleDockDrag = (event: Event): void => {
+    const drop = (
+      event as CustomEvent<{
+        id?: string;
+        clientX?: number;
+        clientY?: number;
+        phase?: 'move' | 'drop';
+      }>
+    ).detail;
     if (
       !drop?.id ||
       typeof drop.clientX !== 'number' ||
       typeof drop.clientY !== 'number' ||
       !layerEl
     ) {
+      dropPreview = undefined;
       return;
     }
     const bounds = layerEl.getBoundingClientRect();
@@ -275,12 +299,17 @@ $effect(() => {
       drop.clientY < bounds.top ||
       drop.clientY > bounds.bottom
     ) {
+      dropPreview = undefined;
       return;
     }
-    placeAt(drop.id, drop.clientX, drop.clientY);
+    if (drop.phase === 'move') previewAt(drop.id, drop.clientX, drop.clientY);
+    else {
+      placeAt(drop.id, drop.clientX, drop.clientY);
+      dropPreview = undefined;
+    }
   };
-  window.addEventListener('binnacle:instrument-touch-drop', handleTouchDrop);
-  return () => window.removeEventListener('binnacle:instrument-touch-drop', handleTouchDrop);
+  window.addEventListener('binnacle:instrument-dock-drag', handleDockDrag);
+  return () => window.removeEventListener('binnacle:instrument-dock-drag', handleDockDrag);
 });
 
 function finishEditing(): void {
@@ -442,6 +471,16 @@ function finishEditing(): void {
       {/if}
     </div>
   {/each}
+  {#if editing && dropPreview}
+    <div
+      class="floating-drop-preview"
+      style:left={`${dropPreview.x * 100}%`}
+      style:top={`${dropPreview.y * 100}%`}
+      style:width={`${dropPreview.width * 100}%`}
+      style:height={`${dropPreview.height * 100}%`}
+      aria-hidden="true"
+    ></div>
+  {/if}
 </div>
 
 <style>
@@ -496,6 +535,14 @@ function finishEditing(): void {
 .floating-frame--dragging :global(.tile) {
   outline: 2px solid var(--accent);
   opacity: 0.85;
+}
+.floating-drop-preview {
+  position: absolute;
+  z-index: 1;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  pointer-events: none;
 }
 .frame-handle {
   position: absolute;

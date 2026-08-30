@@ -45,6 +45,7 @@ const BINNACLE_STORAGE_KEYS = {
   pinnedActions: { key: 'binnacle-custom:pinned-actions', scope: 'profile' },
   bottomToolbarLabels: { key: 'binnacle-custom:bottom-toolbar-labels', scope: 'device' },
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },
+  instrumentTileLayouts: { key: 'binnacle-custom:instrument-tile-layouts', scope: 'profile' },
   windRoseNoGoAngleRad: { key: 'binnacle-custom:wind-rose-no-go-angle-rad', scope: 'profile' },
   windRoseArcMarginRad: { key: 'binnacle-custom:wind-rose-arc-margin-rad', scope: 'profile' },
   trendInstruments: { key: 'binnacle-custom:trend-instruments', scope: 'profile' },

@@ -31,6 +31,9 @@ export interface ProfileSettings {
   pinnedActionIds?: string[];
   // Selected instrument tiles in display order; optional for pre-instruments profiles.
   instrumentTiles?: string[];
+  // Per-tile footprint in the two-column dock grid. Optional for profiles saved before tiles
+  // could be resized; absent entries use the normal one-cell footprint.
+  instrumentTileLayouts?: Record<string, 'normal' | 'wide' | 'tall' | 'large'>;
   // Total port-to-starboard wind rose no-go sector in radians. Optional for older profiles.
   windRoseNoGoAngleRad?: number;
   // Per-side margin around each wind rose limit line in radians. Optional for older profiles.
@@ -66,6 +69,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'chartOrientation',
   'pinnedActionIds',
   'instrumentTiles',
+  'instrumentTileLayouts',
   'windRoseNoGoAngleRad',
   'windRoseArcMarginRad',
   'trendInstrumentIds',

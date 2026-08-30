@@ -32,6 +32,7 @@ export interface ProfileBindingDeps {
   pinnedActions: PersistedValue<string[]>;
   // The instrument tile selection, in display order.
   instrumentTiles: PersistedValue<string[]>;
+  instrumentTileLayouts: PersistedValue<NonNullable<ProfileSettings['instrumentTileLayouts']>>;
   windRoseNoGoAngleRad: PersistedValue<number>;
   windRoseArcMarginRad: PersistedValue<number>;
   // The Data trends selection, in display order.
@@ -126,6 +127,15 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
         if (Array.isArray(s.instrumentTiles)) deps.instrumentTiles.set(s.instrumentTiles);
       },
       track: () => void deps.instrumentTiles.value,
+    },
+    instrumentTileLayouts: {
+      read: () => ({ instrumentTileLayouts: deps.instrumentTileLayouts.snapshot() }),
+      write: (s) => {
+        if (s.instrumentTileLayouts && typeof s.instrumentTileLayouts === 'object')
+          deps.instrumentTileLayouts.set(s.instrumentTileLayouts);
+        else deps.instrumentTileLayouts.set({});
+      },
+      track: () => void deps.instrumentTileLayouts.value,
     },
     windRoseNoGoAngleRad: {
       read: () => ({ windRoseNoGoAngleRad: deps.windRoseNoGoAngleRad.snapshot() }),

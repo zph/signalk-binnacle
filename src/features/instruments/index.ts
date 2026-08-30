@@ -32,6 +32,11 @@ export {
 export type { InstrumentsController } from './instruments-controller.svelte';
 export { createInstrumentsController } from './instruments-controller.svelte';
 export { DEFAULT_TILES } from './tile-catalog';
+export {
+  type InstrumentTileLayouts,
+  type InstrumentTileSize,
+  instrumentTileLayoutsCodec,
+} from './tile-layout';
 
 const instrumentsPanelLoader = createRetryableLazyUiLoader(
   () => import('./InstrumentsPanel.svelte'),

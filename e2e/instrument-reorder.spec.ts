@@ -48,3 +48,35 @@ test('unlocked instrument tiles drag into the persisted Customize order', async 
   await dock.click({ button: 'right', position: { x: 12, y: 12 } });
   await expect(page.getByRole('menuitem', { name: 'Unlock instrument arrangement' })).toBeVisible();
 });
+
+test('unlocked instrument tiles resize from their bottom-corner grip and restore the profile layout', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+  });
+  await stubVesselsSelf(page);
+  await page.goto('/');
+  await openMenuItem(page, 'Instrument dock');
+
+  const dock = page.getByRole('complementary', { name: 'Instruments' });
+  await chooseInstrumentPaneAction(page, dock, 'Unlock instrument arrangement');
+  const grip = dock.getByRole('button', { name: 'Resize Speed in dock' });
+  const gripBox = await grip.boundingBox();
+  if (!gripBox) throw new Error('Instrument resize grip did not lay out.');
+
+  await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(gripBox.x + gripBox.width + 40, gripBox.y + gripBox.height / 2, {
+    steps: 4,
+  });
+  await page.mouse.up();
+
+  const speed = dock.locator('[data-tile-row="sog"]');
+  await expect(speed).toHaveClass(/tile-shell--wide/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem('binnacle-custom:instrument-tile-layouts')),
+    )
+    .toContain('"sog":"wide"');
+});

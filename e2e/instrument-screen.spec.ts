@@ -108,6 +108,7 @@ test('screen edit mode accepts a dock tile dropped on the chart', async ({ page 
       steps: 12,
     },
   );
+  await expect(layer.locator('.floating-drop-preview')).toBeVisible();
   await page.mouse.up();
 
   const frame = page.locator(FLOATING_FRAME);
@@ -115,6 +116,7 @@ test('screen edit mode accepts a dock tile dropped on the chart', async ({ page 
   const frameBox = await frame.boundingBox();
   expect(frameBox).not.toBeNull();
   expect(frameBox?.x).toBeLessThan(destination.x + destination.width * 0.6);
+  await expect(layer.locator('.floating-drop-preview')).toHaveCount(0);
 });
 
 test('the locked screen layout persists across a reload and can be removed again', async ({
