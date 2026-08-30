@@ -187,7 +187,9 @@ describe('formatDayClock', () => {
 describe('formatMonthDay', () => {
   it('reads a short month and day, and is blank for NaN', () => {
     const at = Date.UTC(2026, 5, 11, 14, 32, 5);
-    expect(formatMonthDay(at)).toMatch(/^[A-Za-z]+ \d+$/);
+    // The formatter follows the user's locale, so accept month-first ("Jun 11") and day-first
+    // ("11 Jun") renderings; only the pairing of a short month name with a day number matters.
+    expect(formatMonthDay(at)).toMatch(/^([A-Za-z]+ \d+|\d+ [A-Za-z]+)$/);
     expect(formatMonthDay(Number.NaN)).toBe('');
   });
 });
