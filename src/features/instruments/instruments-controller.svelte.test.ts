@@ -3,6 +3,11 @@ import { PersistedValue } from '$shared/settings';
 import { RETRY_DELAY_MS, SignalKStore, type SKFrame } from '$shared/signalk';
 import { jsonResponse } from '$shared/testing';
 import { flushPromises, makeDeps, mustTile } from './controller-test-helpers';
+import {
+  type FloatingInstrumentBox,
+  floatingInstrumentBoxesCodec,
+  MAX_FLOATING_INSTRUMENTS,
+} from './floating-layout';
 import { createInstrumentsController } from './instruments-controller.svelte';
 import { ALL_CATALOG_PATHS, DEFAULT_TILES, minPeriodFor } from './tile-catalog';
 
@@ -313,6 +318,12 @@ describe('createInstrumentsController', () => {
       getItem: () => null,
       setItem: () => {},
     });
+    const floatingStore = new PersistedValue<FloatingInstrumentBox[]>(
+      'binnacle-custom:instrument-screen-layout',
+      [],
+      { getItem: () => null, setItem: () => {} },
+      floatingInstrumentBoxesCodec,
+    );
 
     const ctrl = createInstrumentsController({
       store: new SignalKStore(),
@@ -324,6 +335,7 @@ describe('createInstrumentsController', () => {
       unsubscribe: vi.fn(),
       tilesStore,
       openStore,
+      floatingStore,
       registry: makeDeps().registry,
     });
 
@@ -890,5 +902,195 @@ describe('createInstrumentsController', () => {
       expect(atCap.resolvedLabel(depthDef)).toBe('D'.repeat(80));
       atCap.dispose();
     });
+  });
+});
+
+describe('createInstrumentsController screen layout', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubSilentDiscovery(): void {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(404, {})),
+    );
+  }
+
+  function subscribedPaths(deps: ReturnType<typeof makeDeps>): string[] {
+    // Replay the subscribe/unsubscribe deltas to mirror the controller's live subscribed set.
+    const live = new Set<string>();
+    const subCalls = deps.subscribe.mock.calls.flatMap(
+      (call) => call[0] as Array<{ path: string }>,
+    );
+    const unsubCalls = deps.unsubscribe.mock.calls.flatMap((call) => call[0] as string[]);
+    for (const entry of subCalls) live.add(entry.path);
+    for (const path of unsubCalls) live.delete(path);
+    return [...live].sort();
+  }
+
+  it('addFloating persists a clamped default box and subscribes its paths', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.addFloating('sog', { x: 0.9, y: 0.9 });
+
+    expect(ctrl.isFloating('sog')).toBe(true);
+    const added = ctrl.floating.find((box) => box.id === 'sog');
+    expect(added).toEqual({ id: 'sog', x: 0.74, y: 0.8, width: 0.26, height: 0.2 });
+    expect(deps.floatingStore.value).toEqual([added]);
+    expect(subscribedPaths(deps)).toEqual(expect.arrayContaining([...mustTile('sog').paths]));
+    const entries = deps.subscribe.mock.calls.at(-1)?.[0] as Array<{
+      path: string;
+      policy: string;
+      minPeriod: number;
+    }>;
+    expect(entries.every((e) => e.policy === 'instant')).toBe(true);
+    expect(entries.every((e) => e.minPeriod === minPeriodFor(e.path))).toBe(true);
+
+    ctrl.dispose();
+  });
+
+  it('addFloating is idempotent for a duplicate id', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.addFloating('sog', { x: 0.2, y: 0.2 });
+    const subscribeCount = deps.subscribe.mock.calls.length;
+    ctrl.addFloating('sog', { x: 0.6, y: 0.6 });
+
+    expect(ctrl.floating).toHaveLength(1);
+    expect(ctrl.floating[0].x).toBe(0.2);
+    expect(deps.subscribe.mock.calls.length).toBe(subscribeCount);
+
+    ctrl.dispose();
+  });
+
+  it('addFloating refuses placements beyond the cap and unknown ids', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps({
+      floating: Array.from({ length: MAX_FLOATING_INSTRUMENTS }, (_, i) => ({
+        id: `tile-${i}`,
+        x: 0,
+        y: 0,
+        width: 0.26,
+        height: 0.2,
+      })),
+    });
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.addFloating('sog');
+    expect(ctrl.isFloating('sog')).toBe(false);
+    expect(deps.floatingStore.value).toHaveLength(MAX_FLOATING_INSTRUMENTS);
+
+    const other = makeDeps();
+    const emptyCtrl = createInstrumentsController(other);
+    emptyCtrl.addFloating('no-such-tile');
+    expect(emptyCtrl.floating).toHaveLength(0);
+    emptyCtrl.dispose();
+
+    ctrl.dispose();
+  });
+
+  it('removeFloating unsubscribes paths that no dock tile shares', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+    ctrl.setScreenEditing(true);
+    ctrl.addFloating('sog');
+    ctrl.addFloating('depth');
+
+    ctrl.removeFloating('depth');
+
+    expect(ctrl.isFloating('depth')).toBe(false);
+    const removed = (deps.unsubscribe.mock.calls.at(-1)?.[0] ?? []) as string[];
+    for (const path of mustTile('depth').paths) {
+      expect(removed).toContain(path);
+      expect(subscribedPaths(deps)).not.toContain(path);
+    }
+
+    ctrl.dispose();
+  });
+
+  it('setFloatingBox clamps through the codec and ignores unknown ids', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+    ctrl.addFloating('sog');
+
+    ctrl.setFloatingBox('sog', { id: 'sog', x: 0.95, y: 0.9, width: 0.26, height: 0.2 });
+    expect(ctrl.floating[0]).toEqual({ id: 'sog', x: 0.74, y: 0.8, width: 0.26, height: 0.2 });
+
+    ctrl.setFloatingBox('no-such-tile', {
+      id: 'no-such-tile',
+      x: 0,
+      y: 0,
+      width: 0.26,
+      height: 0.2,
+    });
+    expect(ctrl.floating).toHaveLength(1);
+
+    ctrl.dispose();
+  });
+
+  it('setScreenEditing(true) subscribes floating demand and runs discovery with the dock closed', async () => {
+    stubSilentDiscovery();
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+    expect(deps.openStore.value).toBe(false);
+
+    ctrl.setScreenEditing(true);
+
+    expect(ctrl.screenEditing).toBe(true);
+    expect(subscribedPaths(deps)).toEqual([]);
+    ctrl.addFloating('sog');
+    expect(subscribedPaths(deps)).toEqual(expect.arrayContaining([...mustTile('sog').paths]));
+    await flushPromises();
+    // Discovery ran despite the dock never opening: history status leaves 'idle' (the provider
+    // probe answers 'absent', so the scan settles at 'unavailable').
+    expect(ctrl.historyStatus).toBe('unavailable');
+
+    ctrl.dispose();
+  });
+
+  it('construction with a saved floating layout restores subscriptions with the dock closed', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps({ floating: [{ id: 'sog', x: 0.1, y: 0.1, width: 0.26, height: 0.2 }] });
+    const ctrl = createInstrumentsController(deps);
+
+    expect(deps.openStore.value).toBe(false);
+    expect(subscribedPaths(deps)).toEqual([...mustTile('sog').paths].sort());
+    expect(ctrl.floatingTiles.map(({ def }) => def.id)).toEqual(['sog']);
+
+    ctrl.dispose();
+  });
+
+  it('construction drops unknown floating ids without subscribing them', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps({
+      floating: [
+        { id: 'gone-tile', x: 0.1, y: 0.1, width: 0.26, height: 0.2 },
+        { id: 'depth', x: 0.2, y: 0.2, width: 0.26, height: 0.2 },
+      ],
+    });
+    const ctrl = createInstrumentsController(deps);
+
+    expect(ctrl.floating.map((box) => box.id)).toEqual(['depth']);
+    const paths = subscribedPaths(deps);
+    for (const path of mustTile('depth').paths) {
+      expect(paths).toContain(path);
+    }
+
+    ctrl.dispose();
+  });
+
+  it('a closed dock with no floating layout subscribes nothing at construction', () => {
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+
+    expect(deps.openStore.value).toBe(false);
+    expect(deps.subscribe).not.toHaveBeenCalled();
+
+    ctrl.dispose();
   });
 });

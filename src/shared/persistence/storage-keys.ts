@@ -51,6 +51,12 @@ const BINNACLE_STORAGE_KEYS = {
   instrumentsOpen: { key: 'binnacle-custom:instruments-open', scope: 'device' },
   interfaceLocked: { key: 'binnacle-custom:interface-locked', scope: 'device' },
   instrumentDockWidth: { key: 'binnacle-custom:instrument-dock-width', scope: 'device' },
+  // Instruments placed freely over the chart in screen edit mode. Device scope like the dock's
+  // open state and width: helm chrome and layout, never carried in a profile.
+  instrumentScreenLayout: {
+    key: 'binnacle-custom:instrument-screen-layout',
+    scope: 'device',
+  },
   aisRadarRangeNm: { key: 'binnacle-custom:ais-radar-range-nm', scope: 'device' },
   layerCategories: { key: 'binnacle-custom:layer-categories', scope: 'device' },
   mapRenderingQuality: { key: 'binnacle-custom:map-rendering-quality', scope: 'device' },

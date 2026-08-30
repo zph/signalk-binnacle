@@ -12,6 +12,12 @@ import {
   zoneStateFor,
 } from '$shared/signalk';
 import {
+  clampFloatingBox,
+  defaultFloatingBox,
+  type FloatingInstrumentBox,
+  MAX_FLOATING_INSTRUMENTS,
+} from './floating-layout';
+import {
   discoverHistoricalInstrumentInstances,
   discoverInstrumentInstances,
   type InstrumentInstances,
@@ -64,7 +70,13 @@ export interface InstrumentsDeps {
   unsubscribe: (paths: string[]) => void;
   tilesStore: PersistedValue<string[]>;
   openStore: PersistedValue<boolean>;
+  floatingStore: PersistedValue<FloatingInstrumentBox[]>;
   registry: InstrumentRegistry;
+}
+
+export interface FloatingInstrumentEntry {
+  def: TileDef;
+  box: FloatingInstrumentBox;
 }
 
 export interface InstrumentsController {
@@ -73,6 +85,10 @@ export interface InstrumentsController {
   readonly selectedIds: readonly string[];
   // The full catalog available in Customize mode: static tiles plus discovered Signal K instances.
   readonly catalog: TileDef[];
+  // Screen edit mode: instruments placed freely over the chart, draggable until locked.
+  readonly screenEditing: boolean;
+  readonly floating: FloatingInstrumentBox[];
+  readonly floatingTiles: FloatingInstrumentEntry[];
   readonly discovering: boolean;
   readonly historyStatus: InstrumentHistoryStatus;
   readonly pluginStatus: InstrumentPluginLoadState | 'idle';
@@ -87,6 +103,11 @@ export interface InstrumentsController {
   setOpen(open: boolean): void;
   toggleTile(id: string): void;
   reorderTile(id: string, slot: number): void;
+  setScreenEditing(editing: boolean): void;
+  isFloating(id: string): boolean;
+  addFloating(id: string, at?: { x?: number; y?: number }): void;
+  removeFloating(id: string): void;
+  setFloatingBox(id: string, box: FloatingInstrumentBox): void;
   refreshCatalog(): void;
   refreshLiveCatalog(): void;
   resolve(id: string): TileDef | undefined;
@@ -174,13 +195,39 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     }),
   );
 
+  // Screen edit mode: instruments dragged onto the chart from the dock, or added from the edit
+  // menu, and locked into place when editing ends. Stored positions are fractions of the chart
+  // area, so a saved layout restores proportionally on any display size.
+  let screenEditing = $state(false);
+  const floating = $derived.by<FloatingInstrumentBox[]>(() => {
+    const raw = deps.floatingStore.value;
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((box) => {
+      if (typeof box?.id !== 'string' || deps.registry.resolve(box.id) === undefined) return [];
+      return [clampFloatingBox(box)];
+    });
+  });
+  const floatingTiles = $derived.by<FloatingInstrumentEntry[]>(() =>
+    floating.flatMap((box) => {
+      const def = deps.registry.resolve(box.id);
+      return def ? [{ def, box }] : [];
+    }),
+  );
+
   // Shared paths (two tiles using the same path) are deduplicated naturally: the desired set is a
   // union, and removal only drops paths absent from the new union.
+  function desiredTileDefs(): TileDef[] {
+    const dockTiles = deps.openStore.value === true ? resolveTiles() : [];
+    if (floating.length === 0) return dockTiles;
+    const dockIds = new Set(dockTiles.map((def) => def.id));
+    return [
+      ...dockTiles,
+      ...floatingTiles.filter(({ def }) => !dockIds.has(def.id)).map(({ def }) => def),
+    ];
+  }
+
   function syncSubscriptions(): void {
-    const desired =
-      deps.openStore.value === true
-        ? new Set(resolveTiles().flatMap((def) => def.paths))
-        : new Set<string>();
+    const desired = new Set(desiredTileDefs().flatMap((def) => def.paths));
 
     const toAdd = [...desired].filter((p) => !subscribedPaths.has(p));
     const toRemove = [...subscribedPaths].filter((p) => !desired.has(p));
@@ -198,7 +245,9 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   }
 
   function fetchMetaForSelected(): void {
-    for (const def of resolveTiles()) {
+    for (const def of desiredTileDefs()) {
+      // A pathless tile (a web view) has no zones to fetch; loading '' would issue a bogus request.
+      if (def.zonesPath === '') continue;
       metaCache.load(def.zonesPath);
       for (const path of def.additionalZonePaths ?? []) metaCache.load(path);
     }
@@ -451,6 +500,53 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     deps.tilesStore.set(next);
   }
 
+  function setScreenEditing(editing: boolean): void {
+    screenEditing = editing;
+    if (editing) {
+      // A live layout needs subscriptions, zones, and dynamic discovery even if the dock was
+      // never opened on this session; the edit menu lists the same discovered catalog.
+      discover();
+    }
+    syncSubscriptions();
+    fetchMetaForSelected();
+  }
+
+  function ensureFloatingCells(def: TileDef): void {
+    deps.store.ensureCells(def.paths);
+    deps.store.traceSources(def.paths);
+  }
+
+  function isFloating(id: string): boolean {
+    return floating.some((box) => box.id === id);
+  }
+
+  function addFloating(id: string, at?: { x?: number; y?: number }): void {
+    const def = deps.registry.resolve(id);
+    if (!def) return;
+    const current = deps.floatingStore.value;
+    if (!Array.isArray(current) || current.length >= MAX_FLOATING_INSTRUMENTS) return;
+    if (current.some((box) => box?.id === id)) return;
+    ensureFloatingCells(def);
+    deps.floatingStore.set([...current, defaultFloatingBox(at, id)]);
+    syncSubscriptions();
+    fetchMetaForSelected();
+  }
+
+  function removeFloating(id: string): void {
+    const current = deps.floatingStore.value;
+    if (!Array.isArray(current)) return;
+    deps.floatingStore.set(current.filter((box) => box?.id !== id));
+    syncSubscriptions();
+  }
+
+  function setFloatingBox(id: string, box: FloatingInstrumentBox): void {
+    const current = deps.floatingStore.value;
+    if (!Array.isArray(current) || !current.some((entry) => entry?.id === id)) return;
+    deps.floatingStore.set(
+      current.map((entry) => (entry?.id === id ? clampFloatingBox(box) : entry)),
+    );
+  }
+
   // A boat that renamed a path on the server should see that name on the tile. The value is
   // provider-controlled, so it is trimmed, rejected when blank or carrying control characters, and
   // capped: a long name would push the numeric readout out of the tile.
@@ -546,9 +642,22 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   deps.store.ensureCells(selectedPaths);
   deps.store.traceSources(selectedPaths);
 
-  // Restore subscriptions, meta, and discovery if the dock was persisted open before construction.
+  // Restore subscriptions, meta, and discovery if the dock was persisted open, or if a saved
+  // screen layout keeps instruments live on the chart with the dock closed.
+  const floatingIds = new Set(
+    (Array.isArray(deps.floatingStore.value) ? deps.floatingStore.value : [])
+      .map((box) => box?.id)
+      .filter(
+        (id): id is string => typeof id === 'string' && deps.registry.resolve(id) !== undefined,
+      ),
+  );
+  for (const id of floatingIds) {
+    const def = deps.registry.resolve(id);
+    if (def) ensureFloatingCells(def);
+  }
+  const restoreDemand = deps.openStore.value === true || floatingIds.size > 0;
   syncSubscriptions();
-  if (deps.openStore.value === true) {
+  if (restoreDemand) {
     fetchMetaForSelected();
     discover();
   }
@@ -575,6 +684,15 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     },
     get selectedIds() {
       return selectedIds;
+    },
+    get screenEditing() {
+      return screenEditing;
+    },
+    get floating() {
+      return floating;
+    },
+    get floatingTiles() {
+      return floatingTiles;
     },
     get catalog(): TileDef[] {
       return catalog;
@@ -609,6 +727,11 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     setOpen,
     toggleTile,
     reorderTile,
+    setScreenEditing,
+    isFloating,
+    addFloating,
+    removeFloating,
+    setFloatingBox,
     refreshCatalog,
     refreshLiveCatalog,
     resolve: (id) => deps.registry.resolve(id),

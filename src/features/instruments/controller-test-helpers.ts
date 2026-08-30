@@ -4,6 +4,7 @@ import { PersistedValue } from '$shared/settings';
 import { SignalKStore } from '$shared/signalk';
 import { createFakeStorage } from '$shared/testing';
 import { BINNACLE_INSTRUMENT_PLUGIN } from './builtin-instrument-plugin';
+import { type FloatingInstrumentBox, floatingInstrumentBoxesCodec } from './floating-layout';
 import { createInstrumentRegistry } from './instrument-registry.svelte';
 import { DEFAULT_TILES, tileById } from './tile-catalog';
 
@@ -16,7 +17,7 @@ export function mustTile(id: string) {
   return def;
 }
 
-export function makeDeps(opts: { tiles?: string[] } = {}) {
+export function makeDeps(opts: { tiles?: string[]; floating?: FloatingInstrumentBox[] } = {}) {
   const registry = createInstrumentRegistry();
   registry.register(BINNACLE_INSTRUMENT_PLUGIN);
   return {
@@ -36,6 +37,12 @@ export function makeDeps(opts: { tiles?: string[] } = {}) {
       binnacleStorageKey('instrumentsOpen'),
       false,
       createFakeStorage(),
+    ),
+    floatingStore: new PersistedValue<FloatingInstrumentBox[]>(
+      binnacleStorageKey('instrumentScreenLayout'),
+      opts.floating ?? [],
+      createFakeStorage(),
+      floatingInstrumentBoxesCodec,
     ),
     registry,
   };

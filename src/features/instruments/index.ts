@@ -14,6 +14,8 @@ export {
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
 } from './dock-width';
+export type { FloatingInstrumentBox } from './floating-layout';
+export { floatingInstrumentBoxesCodec } from './floating-layout';
 export {
   parseInstrumentPluginManifest,
   SIGNALK_INSTRUMENT_PLUGINS_PATH,
@@ -37,4 +39,14 @@ const instrumentsPanelLoader = createRetryableLazyUiLoader(
 
 export function loadInstrumentsPanel(): Promise<typeof import('./InstrumentsPanel.svelte')> {
   return instrumentsPanelLoader();
+}
+
+const instrumentsScreenLayerLoader = createRetryableLazyUiLoader(
+  () => import('./InstrumentScreenLayer.svelte'),
+);
+
+export function loadInstrumentScreenLayer(): Promise<
+  typeof import('./InstrumentScreenLayer.svelte')
+> {
+  return instrumentsScreenLayerLoader();
 }

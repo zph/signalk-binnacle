@@ -12,6 +12,12 @@ All notable changes to Binnacle are documented here. The format follows
   links appear in the dock's Customize list under an Apps category, can be framed and reloaded on
   the tile, and open with the standard full-screen instrument view. The Command K "Customize
   instruments" command opens Customize directly.
+- Screen edit mode places instruments freely over the chart. Enter it from Command K (Edit screen
+  instruments), drag tiles from the dock onto the chart or add them from the Add instrument menu,
+  then move, resize, and remove each floating tile and lock the layout with Done. Locked
+  instruments render at their saved fractional positions over the chart, stay live, and leave chart
+  gestures working beside them. The layout is per-device, bounded at twelve instruments, and the
+  dock's actions menu offers Place on chart while editing.
 
 ### Changed
 

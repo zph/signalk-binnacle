@@ -5,17 +5,12 @@ async function openFullScreenWindRose(page: Page): Promise<void> {
   await page.goto('/');
   await openMenuItem(page, 'Instrument dock');
 
-  await chooseInstrumentPaneAction(
-    page,
-    page.getByRole('complementary', { name: 'Instruments' }),
-    'Customize instruments',
-  );
+  // The pane locator uses the stable id: at viewports at or below the 900px instruments
+  // breakpoint the dock renders as a full-screen dialog, not a complementary pane.
+  const pane = page.locator('#instrument-dock');
+  await chooseInstrumentPaneAction(page, pane, 'Customize instruments');
   await page.getByRole('checkbox', { name: 'Wind rose', exact: true }).check();
-  await chooseInstrumentPaneAction(
-    page,
-    page.getByRole('complementary', { name: 'Instruments' }),
-    'Finish customizing',
-  );
+  await chooseInstrumentPaneAction(page, pane, 'Finish customizing');
   await page.getByRole('button', { name: /^Wind rose\./ }).click();
 }
 

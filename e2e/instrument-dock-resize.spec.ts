@@ -3,14 +3,21 @@ import { openMenuItem, stubVesselsSelf } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await stubVesselsSelf(page);
-  await page.addInitScript(() => localStorage.clear());
+  // Clear once before the first load only: an unconditional init script would also wipe the
+  // persisted width on the reload step this spec uses to prove persistence.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('binnacle-e2e-cleared') === null) {
+      sessionStorage.setItem('binnacle-e2e-cleared', '1');
+      localStorage.clear();
+    }
+  });
 });
 
 test('the resize handle drags the dock across the full page and its keys cover the same range', async ({
   page,
 }) => {
   await page.goto('/');
-  await openMenuItem(page, 'Instruments');
+  await openMenuItem(page, 'Instrument dock');
   const pane = page.locator('#instrument-dock');
   await expect(pane).toBeVisible();
 
@@ -31,12 +38,13 @@ test('the resize handle drags the dock across the full page and its keys cover t
     .poll(() => pane.evaluate((element) => element.getBoundingClientRect().width))
     .toBeGreaterThan(viewport / 2);
 
-  // Drag back right to narrow the dock again.
+  // Drag back right to narrow the dock again. Grab below the menu-launcher pills, which overlap
+  // the handle's left-edge position once the dock is nearly full page.
   const narrowBox = await handle.boundingBox();
   if (!narrowBox) throw new Error('Handle has no bounding box');
-  await page.mouse.move(narrow.x + narrow.width / 2, narrow.y + 200);
+  await page.mouse.move(narrowBox.x + narrowBox.width / 2, narrowBox.y + 500);
   await page.mouse.down();
-  await page.mouse.move(viewport - 60, narrow.y, { steps: 8 });
+  await page.mouse.move(viewport - 60, narrowBox.y, { steps: 8 });
   await page.mouse.up();
   await expect
     .poll(() => pane.evaluate((element) => element.getBoundingClientRect().width))

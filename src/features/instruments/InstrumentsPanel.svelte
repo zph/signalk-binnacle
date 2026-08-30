@@ -22,6 +22,10 @@ import { staleAgeText, type TileDeps } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
+// The screen layer reads this MIME from the drop event, so a dock tile can be dragged onto the
+// chart while screen edit mode is active.
+const TILE_DRAG_MIME = 'text/x-binnacle-instrument';
+
 interface Props {
   controller: InstrumentsController;
   deps: TileDeps;
@@ -59,6 +63,9 @@ interface Props {
   onWindRoseSettingsRequestHandled?: () => void;
   initialCustomizeRequest?: { sequence: number };
   onCustomizeRequestHandled?: () => void;
+  // True while the screen edit mode is active over the chart, so each tile becomes a drag source
+  // for placement on the chart.
+  screenEditing?: boolean;
 }
 
 const {
@@ -93,6 +100,7 @@ const {
   onWindRoseSettingsRequestHandled,
   initialCustomizeRequest,
   onCustomizeRequestHandled,
+  screenEditing = false,
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -279,6 +287,23 @@ function closePanel(): void {
   controller.setOpen(false);
 }
 
+// Screen edit mode: the wrapper div (never the tile button itself, which Safari does not drag
+// reliably) is the drag source. The screen layer reads the MIME on drop and places or moves the
+// instrument at the drop point.
+function handleTileDragStart(id: string, event: DragEvent): void {
+  if (!screenEditing || !event.dataTransfer) return;
+  event.dataTransfer.setData(TILE_DRAG_MIME, id);
+  event.dataTransfer.effectAllowed = 'copy';
+  event.dataTransfer.dropEffect = 'copy';
+}
+
+function placeInstrumentOnChart(): void {
+  const id = instrumentMenu?.id;
+  if (!id) return;
+  instrumentMenu = undefined;
+  controller.addFloating(id);
+}
+
 // Session-only sparkline history: sampled here on the shared reactive clock so the buffers only
 // accumulate while the dock is mounted, matching the subscription lifecycle. The reads are
 // untracked so the effect re-runs on the 1 Hz clock and selection changes, not on every delta
@@ -323,6 +348,7 @@ $effect(() => {
           ? inspectInstrument
           : undefined}
       onConfigure={instrumentMenu.id === 'wind-rose' ? configureWindRose : undefined}
+      onPlaceOnChart={screenEditing && instrumentMenu.id ? placeInstrumentOnChart : undefined}
       onToggleCustomize={toggleCustomizing}
       onToggleReorder={toggleReordering}
       onClosePanel={closePanel}
@@ -404,6 +430,8 @@ $effect(() => {
             ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
             : 'normal'}
         {@const resolvedLabel = controller.resolvedLabel(def)}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- biome-ignore lint/a11y/noStaticElementInteractions: the wrapper is the HTML5 drag source during screen edit mode; Safari does not fire dragstart reliably from the tile button inside it. -->
         <div
           data-tile-row={def.id}
           data-instrument-id={def.id}
@@ -414,6 +442,8 @@ $effect(() => {
           class:dragging={reordering && reorder.dragId === def.id}
           class:drop-before={reordering && indicator.before}
           class:drop-after={reordering && indicator.after}
+          draggable={screenEditing && !reordering && !customizing}
+          ondragstart={(event) => handleTileDragStart(def.id, event)}
         >
           <InstrumentTile
             {def}

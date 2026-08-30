@@ -1,6 +1,7 @@
 <script lang="ts">
 import Lock from '@lucide/svelte/icons/lock';
 import LockOpen from '@lucide/svelte/icons/lock-open';
+import Move from '@lucide/svelte/icons/move';
 import Pencil from '@lucide/svelte/icons/pencil';
 import ScanSearch from '@lucide/svelte/icons/scan-search';
 import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
@@ -17,6 +18,8 @@ interface Props {
   reordering: boolean;
   onInspect?: () => void;
   onConfigure?: () => void;
+  // Screen edit mode: place this instrument on the chart at a default position.
+  onPlaceOnChart?: () => void;
   onToggleCustomize: () => void;
   onToggleReorder: () => void;
   onClosePanel: () => void;
@@ -33,6 +36,7 @@ const {
   reordering,
   onInspect,
   onConfigure,
+  onPlaceOnChart,
   onToggleCustomize,
   onToggleReorder,
   onClosePanel,
@@ -42,7 +46,9 @@ const {
 // These pixel values mirror the fixed menu width, one --control-size row, two --space-1 padding
 // edges, and the --space-2 viewport clearance used by the chart context menu.
 const MENU_WIDTH = 224;
-const MENU_HEIGHT = $derived((3 + (onInspect ? 1 : 0) + (onConfigure ? 1 : 0)) * 44 + 8);
+const MENU_HEIGHT = $derived(
+  (3 + (onInspect ? 1 : 0) + (onConfigure ? 1 : 0) + (onPlaceOnChart ? 1 : 0)) * 44 + 8,
+);
 const EDGE = 8;
 const left = $derived(
   Math.min(Math.max(x, EDGE), Math.max(EDGE, viewportWidth - MENU_WIDTH - EDGE)),
@@ -74,6 +80,12 @@ const top = $derived(
       <button type="button" role="menuitem" class="menu-item item" onclick={onConfigure}>
         <SlidersHorizontal size={16} aria-hidden="true" />
         Configure wind rose
+      </button>
+    {/if}
+    {#if onPlaceOnChart}
+      <button type="button" role="menuitem" class="menu-item item" onclick={onPlaceOnChart}>
+        <Move size={16} aria-hidden="true" />
+        Place on chart
       </button>
     {/if}
     <button type="button" role="menuitem" class="menu-item item" onclick={onToggleReorder}>

@@ -1,0 +1,136 @@
+import { describe, expect, it } from 'vitest';
+import {
+  clampFloatingBox,
+  defaultFloatingBox,
+  type FloatingInstrumentBox,
+  floatingInstrumentBoxesCodec,
+  MAX_FLOATING_INSTRUMENTS,
+  MIN_FLOATING_HEIGHT,
+  MIN_FLOATING_WIDTH,
+  sanitizeFloatingInstrumentBox,
+} from './floating-layout';
+
+function box(overrides: Partial<FloatingInstrumentBox> = {}): FloatingInstrumentBox {
+  return { id: 'sog', x: 0.1, y: 0.1, width: 0.26, height: 0.2, ...overrides };
+}
+
+describe('sanitizeFloatingInstrumentBox', () => {
+  it('passes a valid box through unchanged', () => {
+    const valid = box();
+    expect(sanitizeFloatingInstrumentBox(valid)).toEqual(valid);
+  });
+
+  it('clamps position against size into the chart area', () => {
+    const result = sanitizeFloatingInstrumentBox(box({ x: 0.95, y: 0.95 }));
+    expect(result).toEqual({ id: 'sog', x: 0.74, y: 0.8, width: 0.26, height: 0.2 });
+  });
+
+  it('clamps position at zero for negative coordinates', () => {
+    const result = sanitizeFloatingInstrumentBox(box({ x: -0.5, y: -0.5 }));
+    expect(result?.x).toBe(0);
+    expect(result?.y).toBe(0);
+  });
+
+  it('enforces the minimum readable size', () => {
+    const result = sanitizeFloatingInstrumentBox(box({ width: 0.01, height: 0.01 }));
+    expect(result?.width).toBe(MIN_FLOATING_WIDTH);
+    expect(result?.height).toBe(MIN_FLOATING_HEIGHT);
+  });
+
+  it('caps size at the full chart area', () => {
+    const result = sanitizeFloatingInstrumentBox(box({ width: 4, height: 4 }));
+    expect(result?.width).toBe(1);
+    expect(result?.height).toBe(1);
+  });
+
+  it('rejects non-box shapes', () => {
+    expect(sanitizeFloatingInstrumentBox(null)).toBeNull();
+    expect(sanitizeFloatingInstrumentBox('sog')).toBeNull();
+    expect(sanitizeFloatingInstrumentBox({ x: 0.1 })).toBeNull();
+    expect(
+      sanitizeFloatingInstrumentBox({ id: '', x: 0, y: 0, width: 0.26, height: 0.2 }),
+    ).toBeNull();
+    expect(
+      sanitizeFloatingInstrumentBox({
+        id: 'sog',
+        x: Number.NaN,
+        y: 0,
+        width: 0.26,
+        height: 0.2,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('clampFloatingBox', () => {
+  it('round-trips already-valid input unchanged', () => {
+    const valid = box();
+    expect(clampFloatingBox(valid)).toEqual(valid);
+  });
+
+  it('clamps an out-of-bounds box back into the chart area', () => {
+    expect(clampFloatingBox(box({ x: 2, y: -1, width: 3 }))).toEqual(
+      sanitizeFloatingInstrumentBox(box({ x: 2, y: -1, width: 3 })),
+    );
+  });
+});
+
+describe('defaultFloatingBox', () => {
+  it('places at the supplied point when it fits', () => {
+    expect(defaultFloatingBox({ x: 0.4, y: 0.3 }, 'depth')).toEqual({
+      id: 'depth',
+      x: 0.4,
+      y: 0.3,
+      width: 0.26,
+      height: 0.2,
+    });
+  });
+
+  it('clamps a supplied point back inside the chart area', () => {
+    expect(defaultFloatingBox({ x: 1.5, y: -0.5 }, 'depth')).toEqual({
+      id: 'depth',
+      x: 0.74,
+      y: 0,
+      width: 0.26,
+      height: 0.2,
+    });
+  });
+
+  it('falls back to its default position without a point', () => {
+    expect(defaultFloatingBox(undefined, 'depth').x).toBeGreaterThan(0);
+    expect(defaultFloatingBox(undefined, 'depth').y).toBeGreaterThan(0);
+  });
+});
+
+describe('floatingInstrumentBoxesCodec', () => {
+  it('decodes a valid array as valid', () => {
+    const result = floatingInstrumentBoxesCodec.decode([box()]);
+    expect(result.state).toBe('valid');
+    if (result.state !== 'invalid') expect(result.value).toEqual([box()]);
+  });
+
+  it('migrates an out-of-bounds box to its clamped copy', () => {
+    const drifted = box({ x: 0.95 });
+    const result = floatingInstrumentBoxesCodec.decode([drifted]);
+    expect(result.state).toBe('migrated');
+    if (result.state !== 'invalid') {
+      expect(result.value).toEqual([{ ...drifted, x: 0.74 }]);
+    }
+  });
+
+  it('rejects the whole array when any item is structurally invalid', () => {
+    expect(floatingInstrumentBoxesCodec.decode([box(), { id: 'sog' }]).state).toBe('invalid');
+    expect(floatingInstrumentBoxesCodec.decode([{ id: 'sog' }]).state).toBe('invalid');
+  });
+
+  it('rejects an array longer than MAX_FLOATING_INSTRUMENTS', () => {
+    const oversized = Array.from({ length: MAX_FLOATING_INSTRUMENTS + 1 }, (_, i) =>
+      box({ id: `tile-${i}` }),
+    );
+    expect(floatingInstrumentBoxesCodec.decode(oversized).state).toBe('invalid');
+  });
+
+  it('decodes an empty array as valid', () => {
+    expect(floatingInstrumentBoxesCodec.decode([]).state).toBe('valid');
+  });
+});

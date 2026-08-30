@@ -41,10 +41,18 @@ function makeController(overrides: Partial<InstrumentsController> = {}): Instrum
     webviewStatus: 'absent',
     externalPluginCount: 0,
     trendCatalog: [],
+    screenEditing: false,
+    floating: [],
+    floatingTiles: [],
     toggleOpen: () => {},
     setOpen: () => {},
     toggleTile: () => {},
     reorderTile: () => {},
+    setScreenEditing: () => {},
+    isFloating: () => false,
+    addFloating: () => {},
+    removeFloating: () => {},
+    setFloatingBox: () => {},
     refreshCatalog: () => {},
     refreshLiveCatalog: () => {},
     resolve: tileById,
@@ -120,6 +128,29 @@ describe('InstrumentsPanel', () => {
     expect(body).toContain('Unlock instrument arrangement');
     expect(body).toContain('Customize instruments');
     expect(body).toContain('Close instruments');
+  });
+
+  it('offers Place on chart only while screen editing', () => {
+    const base = {
+      label: 'Speed',
+      x: 200,
+      y: 120,
+      viewportWidth: 320,
+      viewportHeight: 240,
+      customizing: false,
+      reordering: false,
+      onToggleCustomize: () => {},
+      onToggleReorder: () => {},
+      onClosePanel: () => {},
+      onClose: () => {},
+    };
+    const withPlacing = render(InstrumentContextMenu, {
+      props: { ...base, onPlaceOnChart: () => {} },
+    }).body;
+    expect(withPlacing).toContain('Place on chart');
+
+    const withoutPlacing = render(InstrumentContextMenu, { props: base }).body;
+    expect(withoutPlacing).not.toContain('Place on chart');
   });
 
   it('uses a headerless instrument pane', () => {

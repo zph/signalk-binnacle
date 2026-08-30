@@ -286,6 +286,20 @@ source, and surrounding traffic before relying on it.
   shown value never marks the path. A path's explicitly declared meta.timeout also replaces the
   ten-second client staleness window on its tile, so a legitimately slow sensor is not flashed
   stale, and a declared timeout of zero means never stale.
+- **Screen edit mode** places instruments freely over the chart. Command K offers Edit screen
+  instruments (the label flips to Lock screen instruments while editing), and the dock's right-click
+  actions menu adds a Place on chart item while the mode is active. While editing, every dock tile
+  is a drag source, the Add instrument menu lists the full catalog minus placed instruments, each
+  floating tile carries move, resize, and remove handles with pointer drags plus arrow-key nudge
+  and grow, and Done locks the layout. Locked tiles render at their saved fractional positions over
+  the chart, stay live, read as ordinary text to screen readers, and never take focus or pointer
+  input, so chart gestures keep working beside them. Positions and sizes are fractions of the
+  chart area, so a layout saved on one display restores proportionally on another. The layout is
+  per-device browser state like the dock's open state and width, never carried in a profile, and
+  the device privacy erase clears it. Entry through Edit screen instruments keeps the dock open as a
+  drag source on wide displays; on a phone the dock covers the chart, so the Add instrument menu is
+  the placement path there. Up to twelve instruments may float, the Add menu explains and disables
+  at the cap, and Escape peels the Add menu before exiting the mode.
 - **Data trends** shows zero to eight profile-owned instrument trends in saved order.
   Customize groups the available readings by category, supports touch and keyboard reordering, keeps
   unavailable saved selections removable, and disables a ninth addition without hiding it. Opening

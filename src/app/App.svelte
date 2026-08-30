@@ -7,6 +7,7 @@ import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 import CloudSun from '@lucide/svelte/icons/cloud-sun';
 import Compass from '@lucide/svelte/icons/compass';
 import DownloadCloud from '@lucide/svelte/icons/download-cloud';
+import Expand from '@lucide/svelte/icons/expand';
 import Gauge from '@lucide/svelte/icons/gauge';
 import History from '@lucide/svelte/icons/history';
 import Home from '@lucide/svelte/icons/home';
@@ -85,9 +86,12 @@ import {
   DEFAULT_AIS_RADAR_RANGE_NM,
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
+  type FloatingInstrumentBox,
+  floatingInstrumentBoxesCodec,
   type InstrumentDockLayout,
   instrumentDockWidthForLayout,
   isAisRadarRangeNm,
+  loadInstrumentScreenLayer,
   loadInstrumentsPanel,
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
@@ -528,6 +532,7 @@ let tidesOpenedFrom = $state<'menu' | 'chart'>('menu');
 let profilesPanelAttempt = $state(0);
 let personalNoteDialogAttempt = $state(0);
 let instrumentsPanelAttempt = $state(0);
+let instrumentScreenLayerAttempt = $state(0);
 // A fresh object per request, not a bare string: the Layers panel adopts the requested tab on
 // each request's new identity, so repeating the same tab still re-targets it, while the
 // navigator's own tab clicks stay untouched between requests.
@@ -583,6 +588,10 @@ function personalNoteDialogForAttempt() {
 function instrumentsPanelForAttempt() {
   void instrumentsPanelAttempt;
   return loadInstrumentsPanel();
+}
+function instrumentScreenLayerForAttempt() {
+  void instrumentScreenLayerAttempt;
+  return loadInstrumentScreenLayer();
 }
 const openInstalledCharts = (): void => openPanel('charts-management');
 const backToOfflineCharts = (): void => openPanel('regions');
@@ -708,11 +717,31 @@ function toggleInstrumentsPanel(): void {
 }
 
 function openInstrumentsLayout(layout: 'full' | InstrumentDockLayout): void {
+  // Requesting the full-screen dock exits the chart-editing mode: a forced full-screen dock would
+  // cover the chart being edited.
+  if (layout === 'full' && instruments.screenEditing) exitScreenInstrumentEditing();
   instrumentsFullScreenForced = layout === 'full';
   if (layout !== 'full') {
     commitInstrumentDockWidth(instrumentDockWidthForLayout(layout, window.innerWidth));
   }
   finishOpeningInstrumentsPanel();
+}
+
+// Screen edit mode over the chart. The dock stays open as a drag source on wide displays; on a
+// phone (below the 900px instruments breakpoint) it would cover the whole chart, so the Add
+// instrument menu is the placement path there.
+let dockOpenBeforeScreenEditing = false;
+function startScreenInstrumentEditing(): void {
+  if (instruments.screenEditing) return;
+  dockOpenBeforeScreenEditing = instruments.open;
+  // A forced full-screen dock would cover the chart being edited.
+  instrumentsFullScreenForced = false;
+  if (!instrumentsViewportFullScreen) instruments.setOpen(true);
+  instruments.setScreenEditing(true);
+}
+function exitScreenInstrumentEditing(): void {
+  instruments.setScreenEditing(false);
+  instruments.setOpen(dockOpenBeforeScreenEditing);
 }
 
 async function requestMobFromPalette(): Promise<void> {
@@ -887,6 +916,14 @@ const instrumentDockWidthStore = new PersistedValue<number>(
   undefined,
   boundedNumberPersistedCodec(MIN_INSTRUMENT_DOCK_WIDTH_PX, MAX_INSTRUMENT_DOCK_WIDTH_PX),
 );
+// Instruments placed freely over the chart in screen edit mode. Device scope, like the dock's
+// own open state and width: the layout belongs to the helm, never to a profile.
+const instrumentScreenLayout = new PersistedValue<FloatingInstrumentBox[]>(
+  binnacleStorageKey('instrumentScreenLayout'),
+  [],
+  undefined,
+  floatingInstrumentBoxesCodec,
+);
 let instrumentDockWidth = $state(untrack(() => instrumentDockWidthStore.value));
 
 function resizeInstrumentDock(width: number): void {
@@ -909,6 +946,7 @@ const instruments = createInstrumentsController({
   unsubscribe: (paths) => void client.raw.unsubscribe(paths),
   tilesStore: instrumentTiles,
   openStore: instrumentsOpen,
+  floatingStore: instrumentScreenLayout,
   registry: instrumentRegistry,
 });
 const trends = createTrendsController({
@@ -2337,6 +2375,19 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       onSelect: openInstrumentCustomize,
     },
     {
+      // A root entry, not a child of instruments-layout: placing instruments on the chart is its
+      // own surface. The label deliberately does not begin with "Instruments", so the "adjustable
+      // surfaces" palette case still matches exactly one /^Instruments / option.
+      id: 'instrument-screen-edit',
+      label: instruments.screenEditing ? 'Lock screen instruments' : 'Edit screen instruments',
+      description: 'Place instruments anywhere on the chart',
+      group: 'Instruments',
+      keywords: ['settings', 'configuration', 'layout', 'place', 'drag', 'floating', 'overlay'],
+      icon: Expand,
+      onSelect: () =>
+        instruments.screenEditing ? exitScreenInstrumentEditing() : startScreenInstrumentEditing(),
+    },
+    {
       id: 'wind-forecast-overlay',
       label: layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
         ? 'Hide wind forecast overlay'
@@ -3415,6 +3466,51 @@ const plotterActions = {
     }}
   />
 
+  {#snippet screenLayerLoadError(retry: () => void)}
+    <div class="screen-layer-error">
+      <div class="popover-card panel-load-error" role="alert">
+        <span>Instrument screen layout could not load.</span>
+        <button type="button" class="btn btn-ghost" onclick={retry}>Retry</button>
+      </div>
+    </div>
+  {/snippet}
+
+  <!-- Instruments placed freely over the chart, rendered by the screen edit mode. The slot sits
+       exactly over the chart cell and never intercepts itself; the layer root inside owns its
+       pointer events per mode. Rendered after PlotterView so it stacks above the chart. -->
+  {#if instruments.screenEditing || instruments.floating.length > 0}
+    <div class="instrument-screen-slot">
+      {#await instrumentScreenLayerForAttempt() then module}
+        <ErrorBoundary>
+          <module.default
+            controller={instruments}
+            deps={{ vessel, store, units, clock, course: courseGuidance, tides: tidesStore }}
+            {aisTargets}
+            {collision}
+            aisRadarRangeNm={aisRadarRangeNm.value}
+            onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
+            theme={theme.theme}
+            {companionBase}
+            chartToken={chartsToken}
+            {mapInstrument}
+            onOpenTideSettings={openTideStationSettings}
+            windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
+            windRoseArcMarginRad={windRoseArcMarginRad.value}
+            onDone={exitScreenInstrumentEditing}
+          />
+
+          {#snippet fallback(_error, reset)}
+            {@render screenLayerLoadError(reset)}
+          {/snippet}
+        </ErrorBoundary>
+      {:catch}
+        {@render screenLayerLoadError(() => {
+          instrumentScreenLayerAttempt += 1;
+        })}
+      {/await}
+    </div>
+  {/if}
+
   {#if activePanel === 'profiles'}
     <div class="panel-slot" id="profiles-panel">
       {#await profilesPanelForAttempt()}
@@ -3534,49 +3630,50 @@ const plotterActions = {
     </button>
   {/snippet}
 
+  {#snippet mapInstrument(expanded: boolean, actionLabel: string, onOpen: () => void)}
+    {#await instrumentChartForAttempt()}
+      <div class="tile tile--empty"><p class="muted-note">Loading map…</p></div>
+    {:then module}
+      <module.default
+        {origin}
+        {vessel}
+        {aisTargets}
+        aisAssessment={() => collision.assessment}
+        aisKindMode={aisIconMode.value}
+        {units}
+        {thresholds}
+        {userCharts}
+        theme={theme.theme}
+        {companionBase}
+        companionTiles={() => companionTileBase}
+        {chartsToken}
+        initialView={instrumentMapView}
+        savedLayers={layerSettings.value}
+        savedOrder={layerOrder.value}
+        mapRenderingQuality={mapRenderingQuality.value}
+        qualityOverride={instrumentMapRenderingQuality.value}
+        onQualityOverrideChange={(quality) => instrumentMapRenderingQuality.set(quality)}
+        {mainMapAisVisible}
+        aisVisibilityOverride={instrumentMapAisVisibility.value}
+        onAisVisibilityOverrideChange={(visible) => instrumentMapAisVisibility.set(visible)}
+        following={instrumentMapFollowing}
+        onFollowingChange={(following) => (instrumentMapFollowing = following)}
+        onViewChange={onInstrumentMapViewChange}
+        {expanded}
+        {actionLabel}
+        {onOpen}
+      />
+    {:catch}
+      <div class="tile tile--empty">
+        <p class="alert-note">Map failed to load.</p>
+        <button type="button" class="btn" onclick={() => (instrumentChartLoadAttempt += 1)}>
+          Retry
+        </button>
+      </div>
+    {/await}
+  {/snippet}
+
   {#if instruments.open}
-    {#snippet mapInstrument(expanded: boolean, actionLabel: string, onOpen: () => void)}
-      {#await instrumentChartForAttempt()}
-        <div class="tile tile--empty"><p class="muted-note">Loading map…</p></div>
-      {:then module}
-        <module.default
-          {origin}
-          {vessel}
-          {aisTargets}
-          aisAssessment={() => collision.assessment}
-          aisKindMode={aisIconMode.value}
-          {units}
-          {thresholds}
-          {userCharts}
-          theme={theme.theme}
-          {companionBase}
-          companionTiles={() => companionTileBase}
-          {chartsToken}
-          initialView={instrumentMapView}
-          savedLayers={layerSettings.value}
-          savedOrder={layerOrder.value}
-          mapRenderingQuality={mapRenderingQuality.value}
-          qualityOverride={instrumentMapRenderingQuality.value}
-          onQualityOverrideChange={(quality) => instrumentMapRenderingQuality.set(quality)}
-          {mainMapAisVisible}
-          aisVisibilityOverride={instrumentMapAisVisibility.value}
-          onAisVisibilityOverrideChange={(visible) => instrumentMapAisVisibility.set(visible)}
-          following={instrumentMapFollowing}
-          onFollowingChange={(following) => (instrumentMapFollowing = following)}
-          onViewChange={onInstrumentMapViewChange}
-          {expanded}
-          {actionLabel}
-          {onOpen}
-        />
-      {:catch}
-        <div class="tile tile--empty">
-          <p class="alert-note">Map failed to load.</p>
-          <button type="button" class="btn" onclick={() => (instrumentChartLoadAttempt += 1)}>
-            Retry
-          </button>
-        </div>
-      {/await}
-    {/snippet}
     {#await instrumentsPanelForAttempt()}
       {@render instrumentsState('Loading Instruments controls…')}
     {:then module}
@@ -3613,6 +3710,7 @@ const plotterActions = {
           restoreTrendFocusId={trendReturnInstrumentId}
           onViewTrend={openFocusedTrend}
           onTrendFocusRestored={() => (trendReturnInstrumentId = undefined)}
+          screenEditing={instruments.screenEditing}
         />
 
         {#snippet fallback(_error, reset)}
@@ -3896,6 +3994,30 @@ const plotterActions = {
   inset: 0;
   z-index: var(--z-panel);
   inline-size: auto;
+  background: var(--surface);
+}
+/* The screen edit layer occupies exactly the chart cell. The slot never intercepts; the layer
+   root inside manages its own pointer events per mode (none when locked, auto while editing). */
+.instrument-screen-slot {
+  grid-row: 1;
+  grid-column: 2;
+  position: relative;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+.screen-layer-error {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-start: var(--space-2);
+  z-index: var(--z-overlay);
+  pointer-events: auto;
+}
+.screen-layer-error .panel-load-error {
+  flex-direction: row;
+  min-block-size: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface);
 }
 @media (max-width: 900px) {
