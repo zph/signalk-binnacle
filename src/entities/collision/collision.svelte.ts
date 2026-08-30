@@ -1,9 +1,25 @@
-import type { AisTargets, AisTargetView } from '$entities/ais';
+import type { AisTargets } from '$entities/ais';
 import type { OwnVessel } from '$entities/vessel';
 import type { LatLon } from '$shared/geo';
 import { isFiniteNumber, knotsToMetersPerSecond } from '$shared/lib';
 import { computeCpa } from '$shared/nav';
 import type { PersistedValue, Thresholds } from '$shared/settings';
+
+// The contact fields the assessment reads. AisTargetView satisfies it structurally, and a secondary
+// source (radar ARPA targets) supplies exactly this shape without the assessment depending on the
+// AIS entity's view type. A secondary source must namespace its ids (the radar one prefixes
+// 'radar:') so they can never collide with an AIS context id, and should set name to what displays
+// render, since the danger strip prefers a contact's name over its id.
+export interface CollisionContact {
+  id: string;
+  name?: string;
+  position: LatLon;
+  sogMps?: number;
+  cogRad?: number;
+  cpaMeters?: number;
+  tcpaSeconds?: number;
+  navigationState?: string;
+}
 
 export type Severity = 'danger' | 'warning' | 'clear';
 // A contact only enters the danger list once it is past 'clear', so its severity is always one of
@@ -45,6 +61,9 @@ interface OwnFix {
 }
 
 const SEVERITY_RANK: Record<Severity, number> = { danger: 0, warning: 1, clear: 2 };
+
+// The default secondary source: identity-stable so the no-radar default never dirties the derived.
+const NO_SECONDARY_CONTACTS: readonly CollisionContact[] = [];
 
 // A hard inner ring. A danger contact closer than this, and closing within this time, is an
 // emergency that overrides both mute and acknowledge so the alarm sounds regardless. These are fixed
@@ -139,7 +158,7 @@ function classify(
 
 export function assessContacts(
   own: OwnFix | undefined,
-  targets: AisTargetView[],
+  targets: readonly CollisionContact[],
   thresholds: Thresholds,
   previous?: ReadonlyMap<string, Severity>,
   anchored = false,
@@ -246,6 +265,13 @@ export class CollisionAssessment {
   // keeps this entity from importing a sibling and lets the composition root wire the dependency.
   #anchored: () => boolean;
 
+  // A secondary contact source (radar ARPA targets), merged into the same pass so its contacts
+  // grade through the identical thresholds, hysteresis, receding hold, and acknowledge lifecycle
+  // as AIS traffic. A getter read inside the derived recompute, so a reactive source re-runs the
+  // assessment and a value captured at construction cannot go stale.
+  #radarContacts: () => readonly CollisionContact[];
+  #radarRevision: (id: string) => number | undefined;
+
   // The worst-contact signature (id and severity) that was acknowledged. The alert is
   // suppressed only while the current worst contact still matches it, so a new or more
   // severe contact re-arms the alert automatically. Held as fields rather than a joined
@@ -288,7 +314,13 @@ export class CollisionAssessment {
       !this.#vessel.cogStale
         ? { position, sogMps, cogRad }
         : undefined;
-    const targets = this.#targets.list();
+    // Radar contacts ride along only when present, so the everyday no-radar pass hands the AIS
+    // list through without an allocation.
+    const radarContacts = this.#radarContacts();
+    const targets =
+      radarContacts.length === 0
+        ? this.#targets.list()
+        : [...this.#targets.list(), ...radarContacts];
     const previous = new Map<string, Severity>();
     for (const [id, state] of this.#stability) {
       if (state.stable) previous.set(id, state.stable.severity);
@@ -313,15 +345,19 @@ export class CollisionAssessment {
     thresholds: PersistedValue<Thresholds>,
     anchored: () => boolean = () => false,
     now: () => number = Date.now,
+    radarContacts: () => readonly CollisionContact[] = () => NO_SECONDARY_CONTACTS,
+    radarRevision: (id: string) => number | undefined = () => undefined,
   ) {
     this.#vessel = vessel;
     this.#targets = targets;
     this.#thresholds = thresholds;
     this.#anchored = anchored;
     this.#now = now;
+    this.#radarContacts = radarContacts;
+    this.#radarRevision = radarRevision;
   }
 
-  #stabilize(immediate: Assessment, targets: AisTargetView[], now: number): Assessment {
+  #stabilize(immediate: Assessment, targets: readonly CollisionContact[], now: number): Assessment {
     const immediateById = new Map(immediate.contacts.map((contact) => [contact.id, contact]));
     const targetById = new Map(targets.map((target) => [target.id, target]));
     const ids = new Set([...this.#stability.keys(), ...immediateById.keys()]);
@@ -389,7 +425,9 @@ export class CollisionAssessment {
       }
 
       if (severity === 'warning' && contact) {
-        const revision = targetById.has(id) ? this.#targets.revision(id) : undefined;
+        const revision = targetById.has(id)
+          ? (this.#targets.revision(id) ?? this.#radarRevision(id))
+          : undefined;
         if (revision !== undefined && revision !== state.lastWarningRevision) {
           state.lastWarningRevision = revision;
           state.warningUpdates += 1;
