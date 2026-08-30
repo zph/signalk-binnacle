@@ -10,7 +10,7 @@ import {
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
 } from '$shared/settings';
 import type { Theme } from '$shared/ui';
-import { createReorder, dialog, trapFocus } from '$shared/ui';
+import { CustomizeToggle, createReorder, dialog, trapFocus } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
 import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
 import InstrumentContextMenu from './InstrumentContextMenu.svelte';
@@ -518,6 +518,10 @@ $effect(() => {
     </div>
     <InstrumentsCustomize {controller} {deps} />
   {:else}
+    <div class="instrument-dock-toolbar">
+      <CustomizeToggle object="instruments" editing={false} onToggle={toggleCustomizing} />
+      <span class="muted-note">Choose instruments, then drag, resize, or arrange them.</span>
+    </div>
     {#if reordering}
       <p id="instrument-reorder-instruction" class="reorder-instruction muted-note" role="status">
         Drag an instrument by its handle to move it. Select the open lock when done.
@@ -649,6 +653,17 @@ $effect(() => {
 </aside>
 
 <style>
+.instrument-dock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-block-end: 1px solid var(--border);
+}
+.instrument-dock-toolbar .muted-note {
+  text-align: end;
+}
 .tiles {
   display: grid;
   /* The 40% arm caps the full-screen phone layout at two readable columns (and one column on a

@@ -20,6 +20,13 @@
 .slide-over--dock-right {
   border-inline-start: 1px solid var(--border);
 }
+/* A chartplotter tablet has the physical room for full labels and a comfortable thumb sweep.
+   Widen the dock before it becomes a phone sheet, while preserving the shared 44 px controls. */
+@media (pointer: coarse) and (min-width: 601px) {
+  .slide-over {
+    inline-size: min(26rem, 88vw);
+  }
+}
 @media (max-width: 600px) {
   .slide-over {
     inline-size: 100%;

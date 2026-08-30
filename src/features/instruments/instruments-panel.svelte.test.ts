@@ -161,7 +161,7 @@ describe('InstrumentsPanel', () => {
     expect(body).not.toContain('Close instruments dock');
   });
 
-  it('keeps pane actions out of persistent chrome', () => {
+  it('keeps rearrangement contextual while exposing instrument customization', () => {
     const { body } = render(InstrumentsPanel, {
       props: {
         controller: makeController({ selectedIds: SELECTED_IDS }),
@@ -169,7 +169,7 @@ describe('InstrumentsPanel', () => {
       },
     });
     expect(body).not.toContain('Unlock instrument arrangement');
-    expect(body).not.toContain('Customize instruments');
+    expect(body).toContain('Customize instruments');
   });
 
   it('uses the tile to expand without rendering a separate information control', () => {

@@ -1,3 +1,4 @@
+export { default as ActionDial } from './ActionDial.svelte';
 export { default as AppMenu } from './AppMenu.svelte';
 export type { MenuItem } from './menu-item';
 export { blockedReason, itemBlocked } from './menu-item';

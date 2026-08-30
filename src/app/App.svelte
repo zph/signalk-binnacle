@@ -119,6 +119,7 @@ import {
 } from '$features/marine-radar';
 import { MEASURE_OVERLAY_ID } from '$features/measure';
 import {
+  ActionDial,
   AppMenu,
   blockedReason,
   DEFAULT_PINNED,
@@ -547,6 +548,7 @@ let layersOpenRequest = $state<{
 let menuOpen = $state(false);
 let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
+let actionDialOpen = $state(false);
 
 function openCommandPalette(): void {
   commandPaletteOpen = true;
@@ -2101,6 +2103,15 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: toggleInstrumentsPanel,
   },
   {
+    id: 'customize-instruments',
+    label: 'Customize instruments',
+    shortLabel: 'Edit instruments',
+    icon: Settings,
+    group: 'Instruments',
+    toolbarEligible: false,
+    onSelect: openInstrumentCustomize,
+  },
+  {
     id: 'map-instrument',
     label: 'Map instrument',
     shortLabel: 'Map view',
@@ -2551,6 +2562,19 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
 // The pinned actions in canonical order, resolved from the persisted id list against the live
 // registry, for the bottom bar to render.
 const resolvedPinned = $derived(resolvePinned(menuItems, pinnedActions.value));
+const actionDialActions = $derived<MenuItem[]>([
+  ...menuItems.filter((item) =>
+    ['instruments', 'customize-instruments', 'layers'].includes(item.id),
+  ),
+  {
+    id: 'open-menu',
+    label: 'Open menu',
+    shortLabel: 'Menu',
+    icon: MenuIcon,
+    group: 'Chart',
+    onSelect: () => (menuOpen = true),
+  },
+]);
 
 // AIS staleness pruning, tied to the app lifecycle; the entity owns the TTL and cadence policy.
 $effect(() => aisTargets.startPruning());
@@ -3474,6 +3498,11 @@ const plotterActions = {
       serverZonesActive: shallowController.serverZonesActive,
     }}
   />
+  <ActionDial
+    actions={actionDialActions}
+    open={actionDialOpen}
+    onOpenChange={(next) => (actionDialOpen = next)}
+  />
 
   {#snippet screenLayerLoadError(retry: () => void)}
     <div class="screen-layer-error">
@@ -3983,6 +4012,10 @@ const plotterActions = {
 /* PlotterView's root is the chart host; place it explicitly like every other shell child, so
    auto-placement can never drift it into the dock column. */
 .binnacle-shell > :global(.chart-host) {
+  grid-row: 1;
+  grid-column: 2;
+}
+.binnacle-shell > :global(.action-dial) {
   grid-row: 1;
   grid-column: 2;
 }
