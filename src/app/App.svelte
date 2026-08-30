@@ -209,7 +209,7 @@ import {
   PrivacyActivityCoordinator,
   type PrivacyReport,
 } from '$shared/privacy';
-import { OnlineStatus, registerPwa } from '$shared/pwa';
+import { createScreenWakeLockController, OnlineStatus, registerPwa } from '$shared/pwa';
 import {
   booleanPersistedCodec,
   booleanRecordPersistedCodec,
@@ -549,6 +549,7 @@ let menuOpen = $state(false);
 let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
 let actionDialOpen = $state(false);
+let browserFullScreen = $state(false);
 
 function openCommandPalette(): void {
   commandPaletteOpen = true;
@@ -861,6 +862,17 @@ const bottomToolbarLabels = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
+// The helm display is normally the active chart. Keep it awake by default, while retaining a
+// device-local opt-out for a portable iPad that needs to conserve its battery.
+const screenWakeLockEnabled = new PersistedValue<boolean>(
+  binnacleStorageKey('screenWakeLockEnabled'),
+  true,
+  undefined,
+  booleanPersistedCodec,
+);
+const screenWakeLock = createScreenWakeLockController({
+  isEnabled: () => screenWakeLockEnabled.value,
+});
 
 // The instrument dock: tile selection rides profiles through this PersistedValue (the bindings
 // entry reads and writes it), while the open flag stays local so a casual dock toggle never
@@ -2221,6 +2233,11 @@ async function toggleBrowserFullScreen(): Promise<void> {
   else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
 }
 
+$effect(() => {
+  void screenWakeLockEnabled.value;
+  screenWakeLock.refresh();
+});
+
 const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   // Opening the palette invalidates this derived list. Read the browser directly at that point,
   // because embedded Chromium can update fullscreenElement after both its event and API promise.
@@ -2262,6 +2279,17 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         (!browserFullScreenNow && typeof document.documentElement.requestFullscreen !== 'function'),
       disabledReason: 'This browser does not offer full-screen mode.',
       onSelect: () => void toggleBrowserFullScreen(),
+    },
+    {
+      id: 'screen-wake-lock',
+      label: screenWakeLockEnabled.value ? 'Allow screen sleep' : 'Keep screen awake',
+      description: screenWakeLockEnabled.value
+        ? 'Binnacle keeps this visible display awake'
+        : 'Allow this display to sleep normally',
+      group: 'Display',
+      keywords: ['screen', 'awake', 'sleep', 'display', 'battery'],
+      icon: Sun,
+      onSelect: () => screenWakeLockEnabled.set(!screenWakeLockEnabled.value),
     },
     {
       id: 'go-to',
@@ -2563,19 +2591,37 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
 // The pinned actions in canonical order, resolved from the persisted id list against the live
 // registry, for the bottom bar to render.
 const resolvedPinned = $derived(resolvePinned(menuItems, pinnedActions.value));
-const actionDialActions = $derived<MenuItem[]>([
-  ...menuItems.filter((item) =>
-    ['instruments', 'customize-instruments', 'layers'].includes(item.id),
-  ),
-  {
-    id: 'open-menu',
-    label: 'Open menu',
-    shortLabel: 'Menu',
-    icon: MenuIcon,
-    group: 'Chart',
-    onSelect: () => (menuOpen = true),
-  },
-]);
+const actionDialActions = $derived.by<MenuItem[]>(() => {
+  const menuAction = (id: string): MenuItem | undefined => menuItems.find((item) => item.id === id);
+  return [
+    menuAction('center'),
+    menuAction('follow'),
+    menuAction('layers'),
+    menuAction('instruments'),
+    menuAction('customize-instruments'),
+    {
+      id: 'browser-fullscreen',
+      label: browserFullScreen ? 'Exit full screen' : 'Enter full screen',
+      shortLabel: browserFullScreen ? 'Exit full' : 'Full screen',
+      icon: browserFullScreen ? Minimize2 : Maximize2,
+      group: 'Display',
+      disabled:
+        typeof document === 'undefined' ||
+        (!browserFullScreen && typeof document.documentElement.requestFullscreen !== 'function'),
+      disabledLabel: 'This browser does not offer full-screen mode.',
+      onSelect: () => void toggleBrowserFullScreen(),
+    },
+    menuAction('measure'),
+    {
+      id: 'open-menu',
+      label: 'Open menu',
+      shortLabel: 'Menu',
+      icon: MenuIcon,
+      group: 'Chart',
+      onSelect: () => (menuOpen = true),
+    },
+  ].filter((item): item is MenuItem => item !== undefined);
+});
 
 // AIS staleness pruning, tied to the app lifecycle; the entity owns the TTL and cadence policy.
 $effect(() => aisTargets.startPruning());
@@ -3139,6 +3185,12 @@ onMount(() => {
   // action appears promptly, but never activate it here: applying a build remains an explicit helm
   // decision through the visible Update button.
   pwa.checkForUpdate();
+  screenWakeLock.start();
+  const syncBrowserFullScreen = (): void => {
+    browserFullScreen = document.fullscreenElement !== null;
+  };
+  syncBrowserFullScreen();
+  document.addEventListener('fullscreenchange', syncBrowserFullScreen);
   const pwaUpdateCheck = window.setInterval(() => pwa.checkForUpdate(), PWA_UPDATE_CHECK_MS);
   refreshCompanionProbe();
   companionStatus.start();
@@ -3237,6 +3289,7 @@ onMount(() => {
   }
   return () => {
     clearInterval(pwaUpdateCheck);
+    document.removeEventListener('fullscreenchange', syncBrowserFullScreen);
     instrumentsFullScreenQuery.removeEventListener('change', syncInstrumentsFullScreen);
     window.removeEventListener('focus', refreshProfiles);
     document.removeEventListener('visibilitychange', refreshProfiles);
@@ -3244,6 +3297,7 @@ onMount(() => {
     privacyChannel?.close();
     clearTimeout(profileStartupFallback);
     window.removeEventListener('keydown', onCommandPaletteShortcut);
+    screenWakeLock.dispose();
   };
 });
 
@@ -3773,6 +3827,18 @@ const plotterActions = {
   {/if}
 
   {#snippet statusStripFixedActions()}
+    <button
+      type="button"
+      class="btn btn-pill fixed-toolbar-action"
+      class:is-on={screenWakeLockEnabled.value}
+      aria-pressed={screenWakeLockEnabled.value}
+      aria-label={screenWakeLockEnabled.value ? 'Screen stays awake' : 'Allow screen sleep'}
+      title={screenWakeLockEnabled.value ? 'Screen stays awake' : 'Allow screen sleep'}
+      onclick={() => screenWakeLockEnabled.set(!screenWakeLockEnabled.value)}
+    >
+      <Sun size={16} aria-hidden="true" />
+      <span class="fixed-action-label">Awake</span>
+    </button>
     <button
       type="button"
       class="btn btn-pill fixed-toolbar-action"

@@ -43,7 +43,7 @@ function selectFromDrag(event: PointerEvent): void {
     return;
   }
   const angle = (Math.atan2(dy, dx) + Math.PI * 2.5) % (Math.PI * 2);
-  const action = actions[Math.floor(angle / (Math.PI / 2))];
+  const action = actions[Math.floor(angle / ((Math.PI * 2) / actions.length))];
   if (action) run(action);
 }
 
@@ -61,7 +61,7 @@ function end(event: PointerEvent): void {
 <div class="action-dial" class:action-dial--open={open}>
   {#if open}
     <div class="action-dial-ring" role="menu" aria-label="Quick actions">
-      {#each actions as action (action.id)}
+      {#each actions as action, index (action.id)}
         {@const Icon = action.icon}
         <button
           type="button"
@@ -70,6 +70,7 @@ function end(event: PointerEvent): void {
           class:action-dial-wedge--blocked={itemBlocked(action)}
           aria-label={action.label}
           disabled={itemBlocked(action)}
+          style:transform={`translate(-50%, -50%) rotate(${index * (360 / actions.length)}deg) translateY(-7rem) rotate(${-index * (360 / actions.length)}deg)`}
           onclick={() => run(action)}
         >
           {#if Icon}
@@ -106,10 +107,10 @@ function end(event: PointerEvent): void {
 .action-dial {
   position: absolute;
   z-index: var(--z-menu);
-  /* The ring grows upward, inward, down, and outward from this hub. Keep a full wedge width plus
-     its gap inside the chart cell, so a target never lands beneath an iPad edge or browser chrome. */
-  inset-inline-end: max(8.5rem, calc(env(safe-area-inset-right, 0px) + 8rem));
-  inset-block-end: max(8.5rem, calc(env(safe-area-inset-bottom, 0px) + 8rem));
+  /* The ring grows evenly around this hub. Keep its full radius inside the chart cell, clear of
+     iPad edges, browser chrome, and the bottom action row. */
+  inset-inline-end: max(10.5rem, calc(env(safe-area-inset-right, 0px) + 10rem));
+  inset-block-end: max(10.5rem, calc(env(safe-area-inset-bottom, 0px) + 10rem));
   inline-size: 4rem;
   block-size: 4rem;
   pointer-events: auto;
@@ -141,36 +142,25 @@ function end(event: PointerEvent): void {
 }
 .action-dial-wedge {
   position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
-  min-block-size: var(--control-size);
-  min-inline-size: 7.5rem;
-  padding: var(--space-2) var(--space-3);
+  inline-size: 4.5rem;
+  block-size: 4.5rem;
+  padding: var(--space-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--surface-overlay);
   box-shadow: var(--shadow-overlay);
   color: var(--text);
   font: inherit;
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.action-dial-wedge:nth-child(1) {
-  inset-block-end: calc(100% + var(--space-2));
-  inset-inline-end: 0;
-}
-.action-dial-wedge:nth-child(2) {
-  inset-block-start: 0;
-  inset-inline-start: calc(100% + var(--space-2));
-}
-.action-dial-wedge:nth-child(3) {
-  inset-block-start: calc(100% + var(--space-2));
-  inset-inline-end: 0;
-}
-.action-dial-wedge:nth-child(4) {
-  inset-block-start: 0;
-  inset-inline-end: calc(100% + var(--space-2));
+  font-size: var(--text-xs);
+  line-height: 1.1;
+  text-align: center;
 }
 .action-dial-wedge:active:not(:disabled) {
   border-color: var(--accent);
