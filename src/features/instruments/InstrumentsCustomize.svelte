@@ -31,6 +31,7 @@ const categoryTitles = {
   propulsion: 'Engines',
   tanks: 'Tanks',
   cabin: 'Cabin',
+  apps: 'Apps',
 } as const;
 const availableGroups = $derived.by(() =>
   Object.entries(categoryTitles).flatMap(([id, title]) => {
@@ -88,6 +89,15 @@ const pluginStatusMessage = $derived.by(() => {
   }
   if (controller.pluginStatus === 'ready' && controller.externalPluginCount > 0) {
     return `${controller.externalPluginCount} external instrument plugins loaded.`;
+  }
+  return '';
+});
+const webviewStatusMessage = $derived.by(() => {
+  if (controller.webviewStatus === 'absent') {
+    return 'Web view instruments need the App Launcher plugin on the server. Other instruments remain available.';
+  }
+  if (controller.webviewStatus === 'failed') {
+    return 'Web view instruments could not be checked. Other instruments remain available.';
   }
   return '';
 });
@@ -159,6 +169,9 @@ const pluginStatusMessage = $derived.by(() => {
   {/if}
   {#if pluginStatusMessage}
     <p class="muted-note scan-status plugin-status" role="status">{pluginStatusMessage}</p>
+  {/if}
+  {#if webviewStatusMessage}
+    <p class="muted-note scan-status webview-status" role="status">{webviewStatusMessage}</p>
   {/if}
   {#if availableGroups.length > 0}
     {#each availableGroups as group (group.id)}

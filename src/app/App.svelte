@@ -690,6 +690,7 @@ function finishOpeningInstrumentsPanel(): void {
 let instrumentOpenSequence = 0;
 let instrumentExpandedRequest = $state<{ id: string; sequence: number } | undefined>();
 let windRoseSettingsRequest = $state<{ sequence: number } | undefined>();
+let instrumentCustomizeRequest = $state<{ sequence: number } | undefined>();
 let tideInstrumentRequested = $state(false);
 
 function openExpandedInstrument(id: string): void {
@@ -708,6 +709,13 @@ function openMapInstrument(): void {
 function openWindRoseSettings(): void {
   instrumentExpandedRequest = undefined;
   windRoseSettingsRequest = { sequence: ++instrumentOpenSequence };
+  finishOpeningInstrumentsPanel();
+}
+
+function openInstrumentCustomize(): void {
+  instrumentExpandedRequest = undefined;
+  windRoseSettingsRequest = undefined;
+  instrumentCustomizeRequest = { sequence: ++instrumentOpenSequence };
   finishOpeningInstrumentsPanel();
 }
 
@@ -2363,6 +2371,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       ],
     },
     {
+      id: 'instruments-customize',
+      label: 'Customize instruments',
+      description: 'Choose which instruments the dock shows',
+      group: 'Instruments',
+      keywords: ['instruments', 'web view', 'webview', 'configure', 'layout'],
+      icon: Gauge,
+      onSelect: openInstrumentCustomize,
+    },
+    {
       id: 'wind-forecast-overlay',
       label: layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
         ? 'Hide wind forecast overlay'
@@ -3620,6 +3637,8 @@ const plotterActions = {
           onWindRoseArcMarginChange={(angleRad) => windRoseArcMarginRad.set(angleRad)}
           initialWindRoseSettingsRequest={windRoseSettingsRequest}
           onWindRoseSettingsRequestHandled={() => (windRoseSettingsRequest = undefined)}
+          initialCustomizeRequest={instrumentCustomizeRequest}
+          onCustomizeRequestHandled={() => (instrumentCustomizeRequest = undefined)}
           theme={theme.theme}
           {companionBase}
           chartToken={chartsToken}

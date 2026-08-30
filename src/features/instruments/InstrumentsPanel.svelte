@@ -57,6 +57,8 @@ interface Props {
   onWindRoseArcMarginChange?: (angleRad: number) => void;
   initialWindRoseSettingsRequest?: { sequence: number };
   onWindRoseSettingsRequestHandled?: () => void;
+  initialCustomizeRequest?: { sequence: number };
+  onCustomizeRequestHandled?: () => void;
 }
 
 const {
@@ -89,6 +91,8 @@ const {
   onWindRoseArcMarginChange = () => {},
   initialWindRoseSettingsRequest,
   onWindRoseSettingsRequestHandled,
+  initialCustomizeRequest,
+  onCustomizeRequestHandled,
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -136,6 +140,16 @@ $effect(() => {
   onWindRoseSettingsRequestHandled?.();
 });
 $effect(() => {
+  if (!initialCustomizeRequest) return;
+  void initialCustomizeRequest.sequence;
+  detailId = undefined;
+  expandedId = undefined;
+  windRoseSettingsOpen = false;
+  reordering = false;
+  customizing = true;
+  onCustomizeRequestHandled?.();
+});
+$effect(() => {
   if (!initialExpandedRequest) return;
   void initialExpandedRequest.sequence;
   detailId = undefined;
@@ -167,6 +181,7 @@ function spansWholeRow(kind: string, state: string): boolean {
     kind === 'wind-rose' ||
     kind === 'ais-radar' ||
     kind === 'map' ||
+    kind === 'webview' ||
     kind === 'tide' ||
     (state !== 'never' && (kind === 'wind' || kind === 'position' || kind === 'battery'))
   );
@@ -304,7 +319,9 @@ $effect(() => {
       viewportHeight={instrumentMenu.viewportHeight}
       {customizing}
       {reordering}
-      onInspect={instrumentMenu.id ? inspectInstrument : undefined}
+      onInspect={instrumentMenu.id && controller.resolve(instrumentMenu.id)?.kind !== 'webview'
+          ? inspectInstrument
+          : undefined}
       onConfigure={instrumentMenu.id === 'wind-rose' ? configureWindRose : undefined}
       onToggleCustomize={toggleCustomizing}
       onToggleReorder={toggleReordering}

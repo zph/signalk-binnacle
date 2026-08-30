@@ -29,7 +29,8 @@ export type InstrumentTrendCategory =
   | 'electrical'
   | 'propulsion'
   | 'tanks'
-  | 'cabin';
+  | 'cabin'
+  | 'apps';
 
 export interface InstrumentTrendCandidate {
   path: string;

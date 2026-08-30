@@ -109,7 +109,8 @@ export type TileCategory =
   | 'electrical'
   | 'propulsion'
   | 'tanks'
-  | 'cabin';
+  | 'cabin'
+  | 'apps';
 
 export interface TileDef {
   id: string;
@@ -133,7 +134,12 @@ export interface TileDef {
     | 'ais-radar'
     | 'battery'
     | 'map'
-    | 'tide';
+    | 'tide'
+    | 'webview';
+  // Only kind: 'webview' tiles carry this: the iframe source resolved at discovery time from the
+  // optional App Launcher plugin. 'app' is a same-origin Signal K webapp mount; 'link' is an
+  // admin-curated http/https page.
+  webview?: { url: string; kind: 'app' | 'link' };
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
   viz?: 'spark' | 'battery' | 'rot';
   trend?: {

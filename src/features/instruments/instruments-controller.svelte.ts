@@ -25,6 +25,8 @@ import {
   type InstrumentRegistry,
   SIGNALK_INSTRUMENT_PLUGIN_SCOPE,
 } from './instrument-registry.svelte';
+import type { WebviewSourceState } from './webview-sources';
+import { discoverWebviewInstruments } from './webview-sources';
 
 type InstrumentHistoryStatus =
   | 'idle'
@@ -34,6 +36,10 @@ type InstrumentHistoryStatus =
   | 'partial'
   | 'unavailable'
   | 'failed';
+
+// The registry scope that carries the App Launcher's web view tiles, so dispose can clear them
+// exactly like the other dynamic scopes.
+const WEBVIEW_INSTRUMENT_SCOPE = 'binnacle-webview-instruments';
 
 import {
   batteryDefsFor,
@@ -70,6 +76,7 @@ export interface InstrumentsController {
   readonly discovering: boolean;
   readonly historyStatus: InstrumentHistoryStatus;
   readonly pluginStatus: InstrumentPluginLoadState | 'idle';
+  readonly webviewStatus: WebviewSourceState | 'idle';
   readonly externalPluginCount: number;
   readonly trendCatalog: readonly InstrumentTrendDescriptor[];
   isHistoricalOnly(id: string): boolean;
@@ -113,13 +120,16 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   let liveDiscoveredIds = $state.raw<Set<string>>(new Set());
   let historyStatus = $state<InstrumentHistoryStatus>('idle');
   let pluginStatus = $state<InstrumentPluginLoadState | 'idle'>('idle');
+  let webviewStatus = $state<WebviewSourceState | 'idle'>('idle');
   let discoveryDone = false;
   let liveDiscovering = $state(false);
   let historyDiscovering = $state(false);
   let pluginDiscovering = $state(false);
+  let webviewDiscovering = $state(false);
   let liveDiscoveryGeneration = 0;
   let historyDiscoveryGeneration = 0;
   let pluginDiscoveryGeneration = 0;
+  let webviewDiscoveryGeneration = 0;
   let historyDiscoveryAbort: AbortController | undefined;
   // A history scan asked for while the provider probe was still in flight. Plain, not $state: the
   // probe watcher below reads it untracked, so it must not enlarge that effect's dependency set.
@@ -266,6 +276,30 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
       });
   }
 
+  function discoverWebviews(): void {
+    const generation = ++webviewDiscoveryGeneration;
+    webviewDiscovering = true;
+    void discoverWebviewInstruments(deps.origin, deps.getToken())
+      .then((result) => {
+        if (disposed || generation !== webviewDiscoveryGeneration) return;
+        webviewStatus = result.state;
+        // Keep the last accepted set on a transient failure. An answered absent provider (404s,
+        // or an empty answer after validation) is authoritative and removes stale tiles.
+        if (result.state === 'failed') return;
+        deps.registry.replaceScope(WEBVIEW_INSTRUMENT_SCOPE, [
+          {
+            apiVersion: INSTRUMENT_PLUGIN_API_VERSION,
+            id: 'binnacle.webview',
+            name: 'App Launcher web views',
+            instruments: result.tiles,
+          },
+        ]);
+      })
+      .finally(() => {
+        if (!disposed && generation === webviewDiscoveryGeneration) webviewDiscovering = false;
+      });
+  }
+
   function familyForDef(def: TileDef): keyof Omit<InstrumentInstances, 'paths'> | undefined {
     if (def.id.startsWith('battery')) return 'batteries';
     if (def.id.startsWith('prop-')) return 'propulsion';
@@ -299,6 +333,8 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
       });
 
     discoverPlugins();
+
+    discoverWebviews();
 
     if (includeHistory) scanHistory();
   }
@@ -490,6 +526,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     historyDiscoveryAbort = undefined;
     deps.registry.replaceScope('binnacle-discovered-instruments', []);
     deps.registry.replaceScope(SIGNALK_INSTRUMENT_PLUGIN_SCOPE, []);
+    deps.registry.replaceScope(WEBVIEW_INSTRUMENT_SCOPE, []);
     if (subscribedPaths.size > 0) {
       deps.unsubscribe([...subscribedPaths]);
       subscribedPaths.clear();
@@ -543,13 +580,16 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
       return catalog;
     },
     get discovering() {
-      return liveDiscovering || historyDiscovering || pluginDiscovering;
+      return liveDiscovering || historyDiscovering || pluginDiscovering || webviewDiscovering;
     },
     get historyStatus() {
       return historyStatus;
     },
     get pluginStatus() {
       return pluginStatus;
+    },
+    get webviewStatus() {
+      return webviewStatus;
     },
     get externalPluginCount() {
       return deps.registry.plugins.filter((plugin) => plugin.external).length;

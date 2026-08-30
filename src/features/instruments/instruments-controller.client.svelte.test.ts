@@ -159,3 +159,131 @@ describe('createInstrumentsController history provider probe', () => {
     disposeRoot();
   });
 });
+
+describe('createInstrumentsController webview discovery', () => {
+  function stubLauncher(options: { fail?: boolean } = {}) {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        if (url.includes('/api/apps')) {
+          return options.fail
+            ? jsonResponse(500, {})
+            : jsonResponse(200, {
+                apps: [{ name: 'signalk-tides', title: 'Tides', url: '/signalk-tides/' }],
+              });
+        }
+        if (url.includes('/api/config')) {
+          return options.fail
+            ? jsonResponse(500, {})
+            : jsonResponse(200, { pinned: [], links: [] });
+        }
+        return jsonResponse(404, {});
+      }),
+    );
+    return calls;
+  }
+
+  async function mountedController(deps = makeDeps({ tiles: [] })) {
+    let controller!: ReturnType<typeof createInstrumentsController>;
+    const disposeRoot = $effect.root(() => {
+      controller = createInstrumentsController(deps);
+    });
+    return { controller, disposeRoot };
+  }
+
+  it('answers a missing launcher with an absent status and no web view tiles', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(404, {})),
+    );
+    const { controller, disposeRoot } = await mountedController();
+    controller.setOpen(true);
+    await flushPromises();
+    expect(controller.webviewStatus).toBe('absent');
+    expect(controller.catalog.some((def) => def.kind === 'webview')).toBe(false);
+    controller.dispose();
+    disposeRoot();
+  });
+
+  it('adds launcher tiles to the catalog and persists a chosen web view id', async () => {
+    stubLauncher();
+    const deps = makeDeps({ tiles: [] });
+    const { controller, disposeRoot } = await mountedController(deps);
+
+    controller.setOpen(true);
+    await flushPromises();
+    const def = controller.catalog.find((tile) => tile.kind === 'webview');
+    expect(def?.id).toBe('webview:app:signalk-tides');
+    controller.toggleTile('webview:app:signalk-tides');
+    expect(deps.tilesStore.value).toContain('webview:app:signalk-tides');
+
+    controller.dispose();
+    disposeRoot();
+  });
+
+  it('issues no meta fetch for a webview tile with an empty zonesPath', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        if (url.includes('/api/apps')) {
+          return jsonResponse(200, {
+            apps: [{ name: 'signalk-tides', title: 'Tides', url: '/signalk-tides/' }],
+          });
+        }
+        if (url.includes('/api/config')) return jsonResponse(200, { pinned: [], links: [] });
+        return jsonResponse(404, {});
+      }),
+    );
+    const deps = makeDeps({ tiles: ['webview:app:signalk-tides'] });
+    let controller!: ReturnType<typeof createInstrumentsController>;
+    const disposeRoot = $effect.root(() => {
+      controller = createInstrumentsController(deps);
+    });
+    controller.setOpen(true);
+    await flushPromises();
+    // The web view tile has zonesPath '' and no paths, so its selection must never ask the server
+    // for meta on an empty path, nor subscribe anything.
+    for (const url of calls) {
+      expect(url).not.toContain('vessels/self//meta');
+    }
+    controller.dispose();
+    disposeRoot();
+  });
+
+  it('retains previously accepted tiles when the launcher check fails on rescan', async () => {
+    stubLauncher();
+    const { controller, disposeRoot } = await mountedController();
+    controller.setOpen(true);
+    await flushPromises();
+    expect(controller.webviewStatus).toBe('ready');
+
+    stubLauncher({ fail: true });
+    controller.refreshCatalog();
+    await flushPromises();
+    expect(controller.webviewStatus).toBe('failed');
+    expect(controller.catalog.some((def) => def.id === 'webview:app:signalk-tides')).toBe(true);
+
+    controller.dispose();
+    disposeRoot();
+  });
+
+  it('refetches the launcher endpoints on Rescan', async () => {
+    const calls = stubLauncher();
+    const { controller, disposeRoot } = await mountedController();
+    controller.setOpen(true);
+    await flushPromises();
+    const before = calls.filter((url) => url.includes('/api/')).length;
+    expect(before).toBeGreaterThan(0);
+
+    controller.refreshCatalog();
+    await flushPromises();
+    expect(calls.filter((url) => url.includes('/api/')).length).toBeGreaterThan(before);
+
+    controller.dispose();
+    disposeRoot();
+  });
+});

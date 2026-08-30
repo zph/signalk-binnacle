@@ -7,6 +7,7 @@ import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentsPanel from './InstrumentsPanel.svelte';
 import INSTRUMENTS_PANEL_SOURCE from './InstrumentsPanel.svelte?raw';
 import type { InstrumentsController } from './instruments-controller.svelte';
+import { webviewTileDef } from './webview-sources';
 import type { TileDeps, TileReading } from './tile-catalog';
 import { TILE_CATALOG, tileById } from './tile-catalog';
 
@@ -37,6 +38,7 @@ function makeController(overrides: Partial<InstrumentsController> = {}): Instrum
     discovering: false,
     historyStatus: 'unavailable',
     pluginStatus: 'absent',
+    webviewStatus: 'absent',
     externalPluginCount: 0,
     trendCatalog: [],
     toggleOpen: () => {},
@@ -474,6 +476,60 @@ describe('InstrumentsPanel', () => {
       props: { controller, deps },
     });
     expect(body).toContain('role="status"');
+  });
+
+  it('renders a web view tile full width with its expand control and no Inspect entry', () => {
+    const webviewDef = webviewTileDef({
+      id: 'signalk-tides',
+      title: 'Tides and currents',
+      url: '/signalk-tides/',
+      kind: 'app',
+    });
+    const controller = makeController({
+      selectedIds: ['webview:app:signalk-tides'],
+      tiles: [webviewDef],
+      catalog: [webviewDef, tileById('sog')].filter((d): d is NonNullable<typeof d> => !!d),
+    });
+    const deps = makeDeps();
+    const { body } = render(InstrumentsPanel, { props: { controller, deps } });
+
+    expect(body).toContain('aria-label="Tides and currents, web view"');
+    expect(body).toContain('Expand instrument');
+    expect(body).toContain('tile-shell--wide');
+  });
+
+  it('keeps Inspect for numeric tiles and omits it for a web view tile', () => {
+    const source = INSTRUMENTS_PANEL_SOURCE;
+    expect(source).toContain("controller.resolve(instrumentMenu.id)?.kind !== 'webview'");
+  });
+
+  it('drives customize mode from a shell request', () => {
+    // SSR render runs no effects, so the request-to-mode wiring is guarded on the source, the same
+    // shape the grid-order source checks use.
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('if (!initialCustomizeRequest) return;');
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('customizing = true;');
+    expect(INSTRUMENTS_PANEL_SOURCE).toContain('onCustomizeRequestHandled?.();');
+  });
+
+  it('explains a missing or failed App Launcher in Customize', () => {
+    const absent = render(InstrumentsCustomize, {
+      props: { controller: makeController({ webviewStatus: 'absent' }), deps: makeDeps() },
+    }).body;
+    expect(absent).toContain(
+      'Web view instruments need the App Launcher plugin on the server. Other instruments remain available.',
+    );
+
+    const failed = render(InstrumentsCustomize, {
+      props: { controller: makeController({ webviewStatus: 'failed' }), deps: makeDeps() },
+    }).body;
+    expect(failed).toContain(
+      'Web view instruments could not be checked. Other instruments remain available.',
+    );
+
+    const ready = render(InstrumentsCustomize, {
+      props: { controller: makeController({ webviewStatus: 'ready' }), deps: makeDeps() },
+    }).body;
+    expect(ready).not.toContain('App Launcher plugin');
   });
 
   it('shows customize teach line in customize mode', () => {

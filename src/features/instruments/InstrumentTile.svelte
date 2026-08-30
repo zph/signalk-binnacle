@@ -14,6 +14,7 @@ import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
 import TideTile from './TideTile.svelte';
 import type { TileDef, TileReading } from './tile-catalog';
+import WebViewTile from './WebViewTile.svelte';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
 
@@ -128,6 +129,8 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     {actionLabel}
     onOpen={onActivate}
   />
+{:else if def.kind === 'webview' && def.webview}
+  <WebViewTile {def} {label} {reading} {expanded} {actionLabel} onOpen={onActivate} />
 {:else if def.kind === 'compass'}
   <CompassTile
     {label}

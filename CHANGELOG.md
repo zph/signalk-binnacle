@@ -6,6 +6,13 @@ All notable changes to Binnacle are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Web view instrument tiles sourced from the App Launcher plugin. Installed apps and admin-curated
+  links appear in the dock's Customize list under an Apps category, can be framed and reloaded on
+  the tile, and open with the standard full-screen instrument view. The Command K "Customize
+  instruments" command opens Customize directly.
+
 ### Changed
 
 - MapLibre GL moves to 6.6.0 and the toolchain to its current releases across the board.
