@@ -82,7 +82,14 @@ function validLayerSettings(value: unknown): value is LayerSettings {
   if (!isRecord(value) || Object.keys(value).length > MAX_LAYER_ENTRIES) return false;
   return Object.entries(value).every(([id, setting]) => {
     const cleanedId = cleanBoundedText(id, MAX_PROFILE_ID_LENGTH);
-    const allowedKeys = ['visible', 'opacity', 'cellSizeScale', 'labelSizeScale'];
+    const allowedKeys = [
+      'visible',
+      'opacity',
+      'cellSizeScale',
+      'labelSizeScale',
+      'displayDepth',
+      'cellPortrayal',
+    ];
     return (
       cleanedId === id &&
       validRecordKey(id) &&
@@ -101,7 +108,13 @@ function validLayerSettings(value: unknown): value is LayerSettings {
       (setting.labelSizeScale === undefined ||
         (isFiniteNumber(setting.labelSizeScale) &&
           setting.labelSizeScale >= 0.5 &&
-          setting.labelSizeScale <= 2))
+          setting.labelSizeScale <= 2)) &&
+      (setting.displayDepth === undefined ||
+        setting.displayDepth === 'conservative' ||
+        setting.displayDepth === 'predicted') &&
+      (setting.cellPortrayal === undefined ||
+        setting.cellPortrayal === 'shaded' ||
+        setting.cellPortrayal === 'text')
     );
   });
 }

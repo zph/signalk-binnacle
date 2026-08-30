@@ -186,7 +186,6 @@ import {
   createMediaQuery,
   formatClockTime,
   HeldFlag,
-  hasControlCharacters,
   isRecord,
   prefersReducedMotion,
   Toast,
@@ -274,6 +273,7 @@ import { resolveOrientation } from './chart-orientation';
 import { createFollowController } from './follow-controller.svelte';
 import { collectHandoffFacts } from './handoff-facts';
 import LiveRegions from './LiveRegions.svelte';
+import { layerSettingsCodec } from './layer-settings-codec';
 import { createNotificationsController } from './notifications-controller.svelte';
 import ShellBarTabs from './ShellBarTabs.svelte';
 import StatusStrip from './StatusStrip.svelte';
@@ -501,49 +501,6 @@ let weatherProvider = $state<WeatherProvider | undefined>();
 // The panel's own weather-layer visibility, separate from the nav chart. Default wind and
 // waves on so the first open shows something without hunting through toggles. The panel carries no
 // persisted view of its own: it always opens where the nav chart is looking.
-const layerSettingsCodec: PersistedCodec<LayerSettings> = {
-  decode(value) {
-    if (!isRecord(value)) return { state: 'invalid' };
-    const entries = Object.entries(value);
-    if (entries.length > 512) return { state: 'invalid' };
-    const cleaned = Object.create(null) as LayerSettings;
-    let migrated = Object.getPrototypeOf(value) !== Object.prototype;
-    for (const [id, state] of entries) {
-      if (
-        id.length === 0 ||
-        id.length > 256 ||
-        id === '__proto__' ||
-        id === 'prototype' ||
-        id === 'constructor' ||
-        hasControlCharacters(id) ||
-        !isRecord(state) ||
-        typeof state.visible !== 'boolean' ||
-        typeof state.opacity !== 'number' ||
-        !Number.isFinite(state.opacity) ||
-        state.opacity < 0 ||
-        state.opacity > 1 ||
-        (state.cellSizeScale !== undefined &&
-          (typeof state.cellSizeScale !== 'number' ||
-            !Number.isFinite(state.cellSizeScale) ||
-            state.cellSizeScale <= 0 ||
-            state.cellSizeScale > 16))
-      ) {
-        return { state: 'invalid' };
-      }
-      cleaned[id] = {
-        visible: state.visible,
-        opacity: state.opacity,
-        ...(typeof state.cellSizeScale === 'number' ? { cellSizeScale: state.cellSizeScale } : {}),
-      };
-      migrated ||=
-        Object.keys(state).length !== (state.cellSizeScale === undefined ? 2 : 3) ||
-        !Object.hasOwn(state, 'visible') ||
-        !Object.hasOwn(state, 'opacity') ||
-        (state.cellSizeScale !== undefined && !Object.hasOwn(state, 'cellSizeScale'));
-    }
-    return { state: migrated ? 'migrated' : 'valid', value: cleaned };
-  },
-};
 const weatherLayerSettings = new PersistedValue<LayerSettings>(
   binnacleStorageKey('weatherLayers'),
   {
