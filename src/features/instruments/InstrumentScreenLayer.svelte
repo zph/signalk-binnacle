@@ -456,7 +456,10 @@ function finishEditing(): void {
 .screen-edit-chrome {
   position: absolute;
   inset-block-start: var(--space-2);
-  inset-inline: var(--space-2);
+  inset-inline-start: var(--space-2);
+  /* MapLibre owns the chart's top-end corner for the 44 px zoom target plus its shared edge
+     gutter. Keep the editing actions entirely out of that hit area at every dock width. */
+  inset-inline-end: calc(var(--control-size) + 2 * var(--space-3));
   z-index: 2;
   display: flex;
   align-items: center;

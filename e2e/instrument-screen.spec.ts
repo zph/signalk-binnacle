@@ -34,7 +34,18 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
   const layer = page.locator('.instrument-screen-layer');
   await expect(layer).toBeVisible();
   await expect(layer).toHaveAttribute('aria-label', 'Instrument screen layout editing');
-  await expect(layer.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+  const done = layer.getByRole('button', { name: 'Done', exact: true });
+  await expect(done).toBeVisible();
+
+  // MapLibre owns the chart's top-end corner for zoom. Screen-edit actions must reserve that
+  // target, including when a narrow chart cell is left after opening the instrument dock.
+  const [doneBox, zoomBox] = await Promise.all([
+    done.boundingBox(),
+    page.getByRole('button', { name: 'Zoom in', exact: true }).boundingBox(),
+  ]);
+  expect(doneBox).not.toBeNull();
+  expect(zoomBox).not.toBeNull();
+  expect((doneBox?.x ?? 0) + (doneBox?.width ?? 0)).toBeLessThanOrEqual(zoomBox?.x ?? 0);
 
   // On the initial run, the chart welcome banner must not cover the layout toolbar or its Done
   // action. The banner is conditional, so only compare boxes when this fresh-device prompt shows.
@@ -57,7 +68,7 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
   await expect(frame).toBeVisible();
   await expect(frame).toHaveAttribute('data-instrument-id', 'sog');
 
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await done.click();
   await expect(layer.getByRole('button', { name: 'Done', exact: true })).toHaveCount(0);
   await expect(frame).toBeVisible();
   await expect(frame).toHaveAttribute('inert', '');
