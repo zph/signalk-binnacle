@@ -36,6 +36,11 @@ Dependency-cruiser enforces the rule.
 - Night-red must remain true night-readable: no blue, no bright stray pixels, and alarms still distinct.
 - Give every new configuration feature, adjustable panel, or panel that may be offscreen or hidden on
   another display a root-level Command K entry that opens it directly.
+- Treat desktop, iPad, and phone as first-class operating modes. Every feature must be designed,
+  implemented, and verified for all three, including their respective viewport sizes, orientation,
+  input method, safe-area insets, and reachable controls. Do not ship a desktop-only feature with a
+  mobile fallback as an afterthought, or a touch-only interaction without an equally supported
+  desktop path.
 
 ## Implementation Rules
 

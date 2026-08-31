@@ -481,7 +481,7 @@ function finishEditing(): void {
         : 'normal'}
     <div
       class="floating-frame"
-      class:floating-frame--dragging={dragBox !== undefined}
+      class:floating-frame--dragging={dragBox?.id === entry.def.id}
       class:floating-frame--expanded={expanded}
       style:left={expanded ? '0' : `${box.x * 100}%`}
       style:top={expanded ? '0' : `${box.y * 100}%`}
@@ -490,8 +490,10 @@ function finishEditing(): void {
       style:opacity={overlayOpacity}
       data-instrument-id={entry.def.id}
       data-instrument-label={controller.resolvedLabel(entry.def)}
-      role={editing ? 'group' : undefined}
-      aria-label={editing ? `Arrange ${controller.resolvedLabel(entry.def)}` : undefined}
+      role="group"
+      aria-label={editing
+        ? `Arrange ${controller.resolvedLabel(entry.def)}`
+        : controller.resolvedLabel(entry.def)}
       onpointerdown={(event) => editing && beginBodyDrag(entry.def.id, box, event)}
     >
       <InstrumentTile
