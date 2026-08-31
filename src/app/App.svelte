@@ -2595,7 +2595,6 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
     menuAction('follow'),
     menuAction('layers'),
     menuAction('instruments'),
-    menuAction('customize-instruments'),
     {
       id: 'browser-fullscreen',
       label: browserFullScreen ? 'Unmaximize Binnacle' : 'Maximize Binnacle',
