@@ -67,6 +67,8 @@ const {
 
 const DRAG_MIME = 'text/x-binnacle-instrument';
 const NUDGE_STEP = 0.02;
+const DRAG_THRESHOLD_PX = 6;
+const ALIGNMENT_TOLERANCE = 0.015;
 
 const depthDef = $derived(controller.resolve('depth'));
 const aisRadar = $derived(
@@ -97,6 +99,34 @@ let dropPreview = $state<FloatingInstrumentBox | undefined>();
 const floatingTiles = $derived(controller.floatingTiles);
 const editing = $derived(controller.screenEditing);
 const atFloatingCap = $derived(floatingTiles.length >= MAX_FLOATING_INSTRUMENTS);
+
+type AlignmentGuide = { axis: 'x' | 'y'; value: number };
+const alignmentGuides = $derived.by<AlignmentGuide[]>(() => {
+  if (!dragBox) return [];
+  const guides: AlignmentGuide[] = [];
+  const candidates = floatingTiles
+    .filter(({ def }) => def.id !== dragBox?.id)
+    .map(({ box }) => box);
+  const horizontal = [dragBox.x, dragBox.x + dragBox.width / 2, dragBox.x + dragBox.width];
+  const vertical = [dragBox.y, dragBox.y + dragBox.height / 2, dragBox.y + dragBox.height];
+  for (const other of candidates) {
+    const otherHorizontal = [other.x, other.x + other.width / 2, other.x + other.width];
+    const otherVertical = [other.y, other.y + other.height / 2, other.y + other.height];
+    for (const value of horizontal) {
+      if (otherHorizontal.some((candidate) => Math.abs(candidate - value) <= ALIGNMENT_TOLERANCE)) {
+        guides.push({ axis: 'x', value });
+      }
+    }
+    for (const value of vertical) {
+      if (otherVertical.some((candidate) => Math.abs(candidate - value) <= ALIGNMENT_TOLERANCE)) {
+        guides.push({ axis: 'y', value });
+      }
+    }
+  }
+  return [
+    ...new Map(guides.map((guide) => [`${guide.axis}:${guide.value.toFixed(3)}`, guide])).values(),
+  ];
+});
 
 const optionLabels = $derived(instrumentOptionLabels(controller.catalog));
 const addable = $derived.by(() => {
@@ -193,6 +223,52 @@ function beginDrag(
   window.addEventListener('pointerup', commit);
   window.addEventListener('pointercancel', discard);
   event.preventDefault();
+}
+
+// A drag starts only after a small movement threshold. A simple tap still reaches the instrument,
+// while the entire tile body becomes a comfortable grab area in layout editing.
+function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEvent): void {
+  if (event.button !== 0 || expandedId === id) return;
+  const bounds = layerEl?.getBoundingClientRect();
+  if (!bounds) return;
+  const pointerId = event.pointerId;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const startBox = { ...box };
+  let dragging = false;
+  const target = event.currentTarget;
+  if (target instanceof Element) target.setPointerCapture(pointerId);
+  const move = (moveEvent: PointerEvent): void => {
+    if (moveEvent.pointerId !== pointerId) return;
+    const dxPx = moveEvent.clientX - startX;
+    const dyPx = moveEvent.clientY - startY;
+    if (!dragging && Math.hypot(dxPx, dyPx) < DRAG_THRESHOLD_PX) return;
+    dragging = true;
+    dragBox = clampFloatingBox({
+      ...startBox,
+      x: startBox.x + dxPx / bounds.width,
+      y: startBox.y + dyPx / bounds.height,
+    });
+    moveEvent.preventDefault();
+  };
+  const finish = (): void => {
+    teardown();
+    const next = dragBox;
+    dragBox = undefined;
+    if (dragging && next) controller.setFloatingBox(id, next);
+  };
+  const cancel = (): void => {
+    teardown();
+    dragBox = undefined;
+  };
+  function teardown(): void {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', finish);
+    window.removeEventListener('pointercancel', cancel);
+  }
+  window.addEventListener('pointermove', move, { passive: false });
+  window.addEventListener('pointerup', finish);
+  window.addEventListener('pointercancel', cancel);
 }
 
 function nudge(id: string, box: FloatingInstrumentBox, dx: number, dy: number): void {
@@ -335,8 +411,8 @@ function finishEditing(): void {
   {#if editing}
     <div class="screen-edit-chrome" class:screen-edit-chrome--below-banner={topBannerPresent}>
       <p id="screen-edit-note" class="muted-note screen-edit-note" role="status">
-        Drag tiles from the instruments bar, or use Add instrument. Drag or resize each tile, then
-        select Done to lock the layout.
+        Drag any instrument to place it. Use the corner handle to resize, then select Done to lock
+        the layout.
       </p>
       <div class="screen-edit-actions">
         <button
@@ -414,6 +490,9 @@ function finishEditing(): void {
       style:opacity={overlayOpacity}
       data-instrument-id={entry.def.id}
       data-instrument-label={controller.resolvedLabel(entry.def)}
+      role={editing ? 'group' : undefined}
+      aria-label={editing ? `Arrange ${controller.resolvedLabel(entry.def)}` : undefined}
+      onpointerdown={(event) => editing && beginBodyDrag(entry.def.id, box, event)}
     >
       <InstrumentTile
         def={entry.def}
@@ -437,7 +516,10 @@ function finishEditing(): void {
           class="icon-btn frame-handle frame-handle--move"
           aria-label={`Move ${controller.resolvedLabel(entry.def)} on chart`}
           aria-describedby="screen-edit-note"
-          onpointerdown={(event) => beginDrag('move', entry.def.id, box, event)}
+          onpointerdown={(event) => {
+            event.stopPropagation();
+            beginDrag('move', entry.def.id, box, event);
+          }}
           onkeydown={(event) => {
             if (event.key === 'ArrowLeft') nudge(entry.def.id, box, -NUDGE_STEP, 0);
             else if (event.key === 'ArrowRight') nudge(entry.def.id, box, NUDGE_STEP, 0);
@@ -454,7 +536,10 @@ function finishEditing(): void {
           class="icon-btn frame-handle frame-handle--resize"
           aria-label={`Resize ${controller.resolvedLabel(entry.def)}`}
           aria-describedby="screen-edit-note"
-          onpointerdown={(event) => beginDrag('resize', entry.def.id, box, event)}
+          onpointerdown={(event) => {
+            event.stopPropagation();
+            beginDrag('resize', entry.def.id, box, event);
+          }}
           onkeydown={(event) => {
             if (event.key === 'ArrowLeft') grow(entry.def.id, box, -NUDGE_STEP, 0);
             else if (event.key === 'ArrowRight') grow(entry.def.id, box, NUDGE_STEP, 0);
@@ -468,6 +553,18 @@ function finishEditing(): void {
         </button>
         <button
           type="button"
+          class="icon-btn frame-handle frame-handle--expand"
+          aria-label={`${expanded ? 'Restore' : 'Expand'} ${controller.resolvedLabel(entry.def)}`}
+          onclick={(event) => {
+            event.stopPropagation();
+            expandedId = expanded ? undefined : entry.def.id;
+          }}
+          onpointerdown={(event) => event.stopPropagation()}
+        >
+          <Expand size={16} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
           class="icon-btn frame-handle frame-handle--remove"
           aria-label={`Remove ${controller.resolvedLabel(entry.def)} from chart`}
           onclick={() => removeInstrument(entry.def.id)}
@@ -476,6 +573,16 @@ function finishEditing(): void {
         </button>
       {/if}
     </div>
+  {/each}
+  {#each alignmentGuides as guide (`${guide.axis}:${guide.value}`)}
+    <div
+      class:alignment-guide--vertical={guide.axis === 'x'}
+      class:alignment-guide--horizontal={guide.axis === 'y'}
+      class="alignment-guide"
+      style:inset-inline-start={guide.axis === 'x' ? `${guide.value * 100}%` : undefined}
+      style:inset-block-start={guide.axis === 'y' ? `${guide.value * 100}%` : undefined}
+      aria-hidden="true"
+    ></div>
   {/each}
   {#if editing && dropPreview}
     <div
@@ -500,7 +607,7 @@ function finishEditing(): void {
 }
 .screen-edit-chrome {
   position: absolute;
-  inset-block-start: var(--space-2);
+  inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   inset-inline-start: var(--space-2);
   /* MapLibre owns the chart's top-end corner for the 44 px zoom target plus its shared edge
      gutter. Keep the editing actions entirely out of that hit area at every dock width. */
@@ -515,11 +622,6 @@ function finishEditing(): void {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
-}
-/* The chart's action banners are centered at the top. On a first run they can be two lines tall,
-   so reserve their full compact height instead of letting them cover the edit-mode Done action. */
-.screen-edit-chrome--below-banner {
-  inset-block-start: calc(var(--space-3) + 6rem);
 }
 .screen-edit-note {
   margin: 0;
@@ -582,6 +684,25 @@ function finishEditing(): void {
 .frame-handle--remove {
   inset-block-start: var(--space-1);
   inset-inline-end: var(--space-1);
+}
+.frame-handle--expand {
+  inset-block-end: var(--space-1);
+  inset-inline-start: var(--space-1);
+}
+.alignment-guide {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--ok);
+  box-shadow: 0 0 0.25rem color-mix(in srgb, var(--ok) 80%, transparent);
+}
+.alignment-guide--vertical {
+  inset-block: 0;
+  inline-size: 2px;
+}
+.alignment-guide--horizontal {
+  inset-inline: 0;
+  block-size: 2px;
 }
 :global(.screen-add-backdrop) {
   z-index: var(--z-menu);
