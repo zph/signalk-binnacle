@@ -3804,6 +3804,39 @@ const plotterActions = {
     onLocate={flyToPosition}
     writeBlocked={auth.writeBlocked}
   />
+  <div class="desktop-helm-actions" aria-label="Helm actions">
+    <MobButton
+      {mob}
+      onTrigger={mobController.onTrigger}
+      onLocate={flyToPosition}
+      writeBlocked={auth.writeBlocked}
+    />
+    <button type="button" class="btn btn-pill" onclick={toggleInstrumentsPanel}>
+      <Gauge size={16} aria-hidden="true" />
+      <span>Instruments</span>
+    </button>
+    <button type="button" class="btn btn-pill" onclick={() => void toggleBrowserFullScreen()}>
+      {#if browserFullScreen}<Minimize2 size={16} aria-hidden="true" />{:else}<Maximize2 size={16} aria-hidden="true" />{/if}
+      <span>{browserFullScreen ? 'Unmaximize' : 'Maximize'}</span>
+    </button>
+    <button type="button" class="btn btn-pill" onclick={interfaceLock.lock}>
+      <Lock size={16} aria-hidden="true" />
+      <span>Lock</span>
+    </button>
+    <button type="button" class="btn btn-pill" onclick={() => {
+      layersOpenRequest = { mode: 'charts' };
+      togglePanel('layers');
+    }}>
+      <Layers size={16} aria-hidden="true" />
+      <span>Charts</span>
+    </button>
+    {#if updateReady}
+      <button type="button" class="btn btn-primary btn-pill" onclick={() => { updateReady = false; pwa.update(); }}>
+        <DownloadCloud size={16} aria-hidden="true" />
+        <span>Update</span>
+      </button>
+    {/if}
+  </div>
 </main>
 
 {#if commandPaletteOpen}
@@ -3988,7 +4021,19 @@ const plotterActions = {
   border-radius: var(--radius-md);
   background: var(--surface);
 }
+.desktop-helm-actions {
+  display: flex;
+  position: fixed;
+  z-index: var(--z-menu);
+  inset-inline: 0;
+  inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  justify-content: center;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.desktop-helm-actions :global(button) { pointer-events: auto; }
 @media (max-width: 900px) {
+  .desktop-helm-actions { display: none; }
   .binnacle-shell > :global(.instruments) {
     position: fixed;
     inset: 0;

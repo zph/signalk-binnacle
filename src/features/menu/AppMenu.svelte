@@ -1,6 +1,4 @@
 <script lang="ts">
-import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
-import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import { onDestroy } from 'svelte';
 import { Toast } from '$shared/lib';
 import {
@@ -46,7 +44,6 @@ const {
 
 const pinnedSet = $derived(new Set<string>());
 
-let trigger = $state<HTMLButtonElement>();
 let card = $state<HTMLElement>();
 let swipeStartX = 0;
 
@@ -70,13 +67,12 @@ const groups = $derived.by(() => {
   return out;
 });
 
-function closeMenu(restoreFocus = false): void {
+function closeMenu(): void {
   if (editing) onEditingChange?.(false);
   onOpenChange(false);
   blockedNote.clear();
   // Return focus to the trigger when the menu closes by keyboard or selection, so a keyboard
   // user lands back on the control that opened it rather than at the top of the document.
-  if (restoreFocus) trigger?.focus();
 }
 
 function select(item: MenuItem): void {
@@ -103,7 +99,7 @@ function select(item: MenuItem): void {
   // brightness-press CSS feedback can be hard to see; a no-op where the device lacks vibration.
   if ('vibrate' in navigator) navigator.vibrate(10);
   item.onSelect();
-  closeMenu(true);
+  closeMenu();
 }
 
 // On open, move focus to the first actionable tile via a $effect (not inside the transition) so a
@@ -129,7 +125,7 @@ function onCardKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     event.preventDefault();
     event.stopPropagation();
-    closeMenu(true);
+    closeMenu();
     return;
   }
   const key = MENU_ROVING_KEYS[event.key];
@@ -144,9 +140,8 @@ function onCardKeydown(event: KeyboardEvent): void {
 }
 
 function onWindowPointerDown(event: PointerEvent): void {
-  if (!open || card?.contains(event.target as Node) || trigger?.contains(event.target as Node))
-    return;
-  closeMenu(false);
+  if (!open || card?.contains(event.target as Node)) return;
+  closeMenu();
 }
 </script>
 
@@ -163,7 +158,7 @@ function onWindowPointerDown(event: PointerEvent): void {
       use:onKeydownAction={onCardKeydown}
       onpointerdown={(event) => (swipeStartX = event.clientX)}
       onpointerup={(event) => {
-        if (event.clientX - swipeStartX > 72) closeMenu(false);
+        if (event.clientX - swipeStartX > 72) closeMenu();
       }}
     >
       {#if items.length === 0}
@@ -215,25 +210,6 @@ function onWindowPointerDown(event: PointerEvent): void {
       {/if}
     </section>
   {/if}
-  <nav class="app-menu-tabs" aria-label="App menu visibility">
-    <button
-      type="button"
-      class="app-menu-tab"
-      class:menu-visible={open}
-      bind:this={trigger}
-      aria-expanded={open}
-      aria-controls="app-menu-launcher"
-      aria-label={label}
-      title={open ? 'Hide menu' : 'Show menu'}
-      onclick={() => (open ? closeMenu(false) : onOpenChange(true))}
-    >
-      {#if open}
-        <PanelLeftClose size={18} aria-hidden="true" />
-      {:else}
-        <PanelLeftOpen size={18} aria-hidden="true" />
-      {/if}
-    </button>
-  </nav>
 </aside>
 
 <style>
@@ -297,44 +273,6 @@ function onWindowPointerDown(event: PointerEvent): void {
     100% 12px;
   background-attachment: local, local, scroll, scroll;
 }
-.app-menu-tabs {
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline-start: 100%;
-  z-index: var(--z-menu);
-  display: flex;
-  transform: translateY(-50%);
-}
-.app-menu-dock:not(.is-open) .app-menu-tabs {
-  inset-inline-start: 0;
-  pointer-events: auto;
-}
-.app-menu-dock.panel-open:not(.is-open) .app-menu-tabs {
-  inset-inline-start: calc(100% + var(--panel-width));
-}
-.app-menu-tab {
-  display: grid;
-  place-items: center;
-  inline-size: var(--control-size);
-  block-size: var(--control-size);
-  padding: 0;
-  border: 1px solid var(--border);
-  border-inline-start: 0;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-  box-shadow: var(--shadow-overlay);
-  background: var(--surface-overlay);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.app-menu-tab.menu-visible {
-  background: var(--surface);
-}
-.app-menu-tab:hover {
-  color: var(--text);
-}
-.app-menu-tab:active {
-  filter: brightness(var(--brightness-press));
-}
 @media (max-width: 600px) {
   .app-menu-dock {
     position: fixed;
@@ -343,11 +281,6 @@ function onWindowPointerDown(event: PointerEvent): void {
   }
   .launcher {
     padding-inline-start: calc(var(--space-3) + env(safe-area-inset-left, 0px));
-  }
-  .app-menu-dock.panel-open:not(.is-open) .app-menu-tabs {
-    inset-block-start: var(--space-2);
-    inset-inline-start: 0;
-    transform: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
