@@ -71,7 +71,6 @@ import type { Theme } from '$shared/ui';
 import { buildMapCommands } from './build-commands';
 import { buildDynamicOverlays } from './build-overlays';
 import { buildReferenceOverlays } from './build-reference-overlays';
-import ChartContextMenu from './ChartContextMenu.svelte';
 import type { MapCommands, UserChartRegistrar } from './commands';
 import { CRITICAL_OVERLAY_IDS } from './critical-overlays';
 import VesselOffScreenIndicator from './VesselOffScreenIndicator.svelte';
@@ -167,17 +166,6 @@ interface Props {
   onUserPan?: () => void;
   // Set a single "go to here" destination at a chart point the user long-pressed or right-clicked.
   onGoToHere?: (position: LatLon) => void;
-  // Open the routes panel and start a new route in drawing mode, from the chart context menu.
-  onStartRoute?: (position: LatLon) => void;
-  // Drop a standard waypoint at a long-pressed chart position; a refused save surfaces in the
-  // Waypoints panel (write access is unknowable client-side).
-  onDropWaypoint?: (position: LatLon) => void;
-  // Open the personal-note editor at a long-pressed chart position.
-  onAddNote?: (position: LatLon) => void;
-  // Arm the measure tool seeded with the long-pressed chart position as its first point.
-  onMeasureFrom?: (position: LatLon) => void;
-  // Freeze all app-shell interaction from the chart context menu.
-  onLockInterface?: () => void;
   // The radial action menu replaces the rectangular context menu when the shell provides it.
   onQuickActions?: (position: {
     x: number;
@@ -262,11 +250,6 @@ const {
   onPoiStatus,
   onUserPan,
   onGoToHere,
-  onStartRoute,
-  onDropWaypoint,
-  onAddNote,
-  onMeasureFrom,
-  onLockInterface,
   onQuickActions,
   onRouteEditorError,
   aisTrailsAvailable,
@@ -386,20 +369,6 @@ $effect(() => {
   if (map.getPixelRatio() !== pixelRatio) map.setPixelRatio(pixelRatio);
 });
 
-function enterFullScreen(): void {
-  chartMenu = undefined;
-  const request = (
-    container as HTMLDivElement & {
-      requestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-    }
-  ).requestFullscreen;
-  if (!request || document.fullscreenElement === container) return;
-  void request.call(container, { navigationUI: 'hide' }).catch(() => {
-    // Fullscreen can be refused by browser or device policy. The chart stays in its normal layout,
-    // so there is no partial UI state to unwind.
-  });
-}
-
 function resizeAfterFullScreenChange(): void {
   requestAnimationFrame(() => mapRef?.resize());
 }
@@ -409,11 +378,6 @@ let cursorMapRef = $state<MapLibreMap | undefined>();
 // Captured from onLoad alongside mapRef, so the off-screen vessel indicator can reuse the exact
 // same centerOnVessel behavior as the menu's Center action, rather than duplicating its fly-to math.
 let commandsRef = $state<MapCommands | undefined>();
-// The open "go to here" menu, anchored at the press point in chart pixels with the chart size
-// captured for edge clamping, or undefined when closed.
-let chartMenu = $state<
-  { x: number; y: number; lat: number; lon: number; width: number; height: number } | undefined
->();
 let chartFeature = $state<ChartFeatureSelection | undefined>();
 const CONTEXT_HINT_KEY = binnacleStorageKey('chartActionsHint');
 let showContextHint = $state(false);
@@ -472,19 +436,6 @@ $effect(() => {
   };
 });
 
-// Activating a menu item from the keyboard unmounts the focused row, which strands focus on the
-// body. Hand it back to the chart canvas so the next keystroke still reaches the map. The body
-// check is what keeps a pointer dismissal from moving focus at all.
-let menuOpen = false;
-$effect(() => {
-  const open = chartMenu !== undefined;
-  const justClosed = menuOpen && !open;
-  menuOpen = open;
-  if (!justClosed || document.activeElement !== document.body) return;
-  // The handle has no map when the WebGL2 probe refused to start one, the cannot-start path.
-  const map = mapHandle?.map;
-  if (map) map.getCanvas().focus({ preventScroll: true });
-});
 
 onMount(async () => {
   document.addEventListener('fullscreenchange', resizeAfterFullScreenChange);
@@ -533,22 +484,11 @@ onMount(async () => {
       // No context menu at all while drawing or editing a route, or while the measure tool is armed
       // (this suppresses every item, not just "Go to here"): Terra Draw and the measure tool own the
       // chart taps then.
-      if (!onGoToHere || routeStore.working || measure.active || marineRadarLayer?.chartEditing()) {
+      if (routeStore.working || measure.active || marineRadarLayer?.chartEditing()) {
         return;
       }
       dismissContextHint();
-      if (onQuickActions) {
-        onQuickActions({ x: point.x, y: point.y, latitude: point.lat, longitude: point.lng });
-        return;
-      }
-      chartMenu = {
-        x: point.x,
-        y: point.y,
-        lat: point.lat,
-        lon: point.lng,
-        width: container.clientWidth,
-        height: container.clientHeight,
-      };
+      onQuickActions?.({ x: point.x, y: point.y, latitude: point.lat, longitude: point.lng });
     },
     onLoad: async ({ map, ctx, manager: mgr, recolor, isDestroyed, runTick }) => {
       // Chart tools can be opened while optional overlays are still registering. Expose the loaded
@@ -565,7 +505,6 @@ onMount(async () => {
       // follow mode recenters on every fix, which would otherwise close the menu within one fix.
       map.on('movestart', (e) => {
         if (e.originalEvent) {
-          chartMenu = undefined;
           chartFeature = undefined;
         }
       });
@@ -1036,51 +975,6 @@ onDestroy(() => {
       position={vessel.position}
       positionStale={vessel.positionStale}
       onCenter={() => commandsRef?.centerOnVessel()}
-    />
-  {/if}
-  {#if chartMenu}
-    {@const menu = chartMenu}
-    <ChartContextMenu
-      x={menu.x}
-      y={menu.y}
-      width={menu.width}
-      height={menu.height}
-      onGoToHere={() => {
-        onGoToHere?.({ latitude: menu.lat, longitude: menu.lon });
-        chartMenu = undefined;
-      }}
-      onStartRoute={() => {
-        onStartRoute?.({ latitude: menu.lat, longitude: menu.lon });
-        chartMenu = undefined;
-      }}
-      onDropWaypoint={onDropWaypoint
-        ? () => {
-            onDropWaypoint({ latitude: menu.lat, longitude: menu.lon });
-            chartMenu = undefined;
-          }
-        : undefined}
-      onAddNote={onAddNote
-        ? () => {
-            onAddNote({ latitude: menu.lat, longitude: menu.lon });
-            chartMenu = undefined;
-          }
-        : undefined}
-      onMeasureFrom={onMeasureFrom
-        ? () => {
-            onMeasureFrom({ latitude: menu.lat, longitude: menu.lon });
-            chartMenu = undefined;
-          }
-        : undefined}
-      onFullScreen={enterFullScreen}
-      onLockInterface={onLockInterface
-        ? () => {
-            onLockInterface();
-            chartMenu = undefined;
-          }
-        : undefined}
-      onClose={() => {
-        chartMenu = undefined;
-      }}
     />
   {/if}
   {#if chartFeature}

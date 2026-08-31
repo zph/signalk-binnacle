@@ -580,7 +580,6 @@ const {
   setLayerVisible,
   onRetryHistoryProviders,
   onRetryChartLocker,
-  armMeasure,
   moveSelectedMeasureToCenter,
   toggleCollisionMute,
   onSilenceNotification,
@@ -607,13 +606,11 @@ const {
   backFromTracksPanel,
   closeWaypointsPanel,
   backFromWaypointsPanel,
-  onStartRouteHere,
   closeNote,
   closePoiSearch,
   backFromPoiSearch,
   onSetRadarPower,
   openInstrumentsPanel,
-  lockInterface,
 } = $derived(actions);
 
 let mapCommands = $state<MapCommands | undefined>();
@@ -838,8 +835,6 @@ $effect(() => {
     waypoints={waypointsStore}
     personalNotes={personalNotesStore}
     symbols={symbolsStore}
-    onDropWaypoint={waypointsController.onDropWaypoint}
-    onAddNote={personalNotesController.openAdd}
     aisTrailsAvailable={() => serverFeatures?.plugins.has('tracks') ?? false}
     isOnline={() => net.online}
     historyProviders={() => historyProviders}
@@ -896,11 +891,6 @@ $effect(() => {
     {onPoiStatus}
     {onUserPan}
     onGoToHere={(position) => void routeController.onGoToHere(position)}
-    onStartRoute={onStartRouteHere}
-    onMeasureFrom={(position) => {
-      if (armMeasure(true)) measure.add(position);
-    }}
-    onLockInterface={lockInterface}
     {onQuickActions}
     onRouteEditorError={() => routeController.flagEditorLoadFailed()}
     onAnchorMoved={(position) => void anchorController.onAnchorMoved(position)}
