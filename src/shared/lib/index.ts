@@ -28,6 +28,7 @@ export {
 export { createMediaQuery, type ReactiveMediaQuery } from './media.svelte';
 export { prefersReducedMotion } from './motion';
 export { evictOldestKey, isRecord, sameJsonValue } from './object';
+export { PLATFORM_BREAKPOINTS, PLATFORM_VIEWPORTS } from './platform';
 export { withPromiseTimeout } from './promise-timeout';
 export {
   createRetryableLazyLoader,

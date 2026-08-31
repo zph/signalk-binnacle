@@ -182,7 +182,14 @@ import {
   padBbox,
   quantizeViewCellKey,
 } from '$shared/geo';
-import { Clock, createMediaQuery, formatClockTime, isRecord, Toast } from '$shared/lib';
+import {
+  Clock,
+  createMediaQuery,
+  formatClockTime,
+  isRecord,
+  PLATFORM_BREAKPOINTS,
+  Toast,
+} from '$shared/lib';
 import type { CompanionProbeResult, LayerSettings } from '$shared/map';
 import { DEFAULT_OVERLAY_STATE, probeCompanion } from '$shared/map';
 import { binnacleStorageKey } from '$shared/persistence';
@@ -583,8 +590,8 @@ const backToOfflineCharts = (): void => openPanel('regions');
 // 600px literal is mirrored in the `@media (max-width: 600px)` blocks in styles/panels.css and the
 // scoped styles of WeatherMap, AppMenu, WeatherConditions, and the
 // scoped CSS below. This const is the source of truth; retune all of them together.
-const NARROW_BREAKPOINT_PX = 600;
-const INSTRUMENTS_FULLSCREEN_BREAKPOINT_PX = 900;
+const NARROW_BREAKPOINT_PX = PLATFORM_BREAKPOINTS.phoneMaxPx;
+const INSTRUMENTS_FULLSCREEN_BREAKPOINT_PX = PLATFORM_BREAKPOINTS.compactHelmMaxPx;
 // On a phone the note detail and a leading panel both collapse to bottom sheets and would overlap,
 // so at narrow widths opening one closes the other. On a wide screen they dock to opposite edges and
 // coexist, so this exclusion only applies while the phone query matches.
@@ -3879,6 +3886,18 @@ const plotterActions = {
       </button>
     {/if}
   </div>
+  <div class="compact-instrument-action">
+    <button type="button" class="btn btn-pill" onclick={cycleInstruments}>
+      <Gauge size={16} aria-hidden="true" />
+      <span>
+        {instruments.screenEditing
+          ? 'Hide instruments'
+          : instruments.open
+            ? 'Edit instruments'
+            : 'Show instruments'}
+      </span>
+    </button>
+  </div>
 </main>
 
 {#if commandPaletteOpen}
@@ -4076,9 +4095,25 @@ const plotterActions = {
 .desktop-helm-actions :global(button) {
   pointer-events: auto;
 }
+.compact-instrument-action {
+  display: none;
+}
+/* PLATFORM_BREAKPOINTS.compactHelmMaxPx */
 @media (max-width: 900px) {
   .desktop-helm-actions {
     display: none;
+  }
+  .compact-instrument-action {
+    position: fixed;
+    z-index: var(--z-menu);
+    inset-inline: 0;
+    inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .compact-instrument-action :global(button) {
+    pointer-events: auto;
   }
   .binnacle-shell > :global(.instruments) {
     position: fixed;

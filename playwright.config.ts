@@ -87,6 +87,28 @@ export default defineConfig({
       use: { ...devices['iPhone 13'] },
     },
     {
+      name: 'ipad-webkit',
+      testMatch: /(?:ui-quality|instrument-screen)\.spec\.ts/,
+      use: { ...devices['iPad Pro 11'] },
+    },
+    {
+      name: 'ipad-webkit-landscape',
+      testMatch: /(?:ui-quality|instrument-screen)\.spec\.ts/,
+      use: { ...devices['iPad Pro 11 landscape'] },
+    },
+    // Chromium is retained beside iPad Safari only for CDP's genuine multi-phase touch stream.
+    // The Safari projects above remain the platform-layout coverage.
+    {
+      name: 'ipad-chromium-touch',
+      testMatch: /instrument-screen\.spec\.ts/,
+      use: { ...devices['iPad Pro 11'], browserName: 'chromium' },
+    },
+    {
+      name: 'mobile-webkit-instruments',
+      testMatch: /instrument-screen\.spec\.ts/,
+      use: { ...devices['iPhone 13'] },
+    },
+    {
       name: 'chromium-pwa',
       testMatch: /pwa\.spec\.ts/,
       use: {

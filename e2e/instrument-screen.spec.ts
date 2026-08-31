@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { stubVesselsSelf } from './helpers';
+import { expectInsideViewport, stubVesselsSelf } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await stubVesselsSelf(page);
@@ -62,6 +62,23 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
     .toBe(true);
 });
 
+test('the persistent helm control cycles show, edit, and hide instruments', async ({ page }) => {
+  await page.goto('/');
+
+  const helmControl = page.getByRole('button', { name: 'Show instruments' });
+  await expect(helmControl).toBeVisible();
+  await expectInsideViewport(helmControl, page);
+  await helmControl.click();
+  await expect(page.getByRole('button', { name: 'Edit instruments' })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit instruments' }).click();
+  const done = page.getByRole('button', { name: 'Done', exact: true });
+  await expect(done).toBeVisible();
+  await expectInsideViewport(done, page);
+  await expect(page.getByRole('button', { name: 'Hide instruments' })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide instruments' }).click();
+  await expect(page.getByRole('button', { name: 'Show instruments' })).toBeVisible();
+});
+
 test('screen edit mode drags an instrument from its face on the chart', async ({ page }) => {
   await page.goto('/');
   await runScreenEditCommand(page);
@@ -88,6 +105,38 @@ test('screen edit mode drags an instrument from its face on the chart', async ({
   expect(frameBox).not.toBeNull();
   expect(frameBox?.x).toBeLessThan(destination.x + destination.width * 0.6);
   await expect(frame).not.toHaveClass(/floating-frame--dragging/);
+});
+
+test('touch drag from the instrument body keeps the edit toolbar reachable', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'ipad-chromium-touch',
+    "This scenario uses CDP's genuine touch input on the iPad-sized Chromium project.",
+  );
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const layer = page.locator('.instrument-screen-layer');
+  const [source, destination] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
+  if (!source || !destination) throw new Error('Instrument or chart target missing.');
+  const session = await page.context().newCDPSession(page);
+  const start = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+  const end = {
+    x: destination.x + destination.width * 0.7,
+    y: destination.y + destination.height * 0.45,
+  };
+  await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }],
+  });
+  await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [end] });
+  await expect(frame).toHaveClass(/floating-frame--dragging/);
+  await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(frame).not.toHaveClass(/floating-frame--dragging/);
+  await expectInsideViewport(page.getByRole('button', { name: 'Done', exact: true }), page);
 });
 
 test('the locked screen layout persists across a reload and can be removed again', async ({

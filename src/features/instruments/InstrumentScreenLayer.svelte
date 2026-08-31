@@ -95,12 +95,65 @@ let expandedId = $state<string | undefined>();
 // event; the persisted box only changes when the pointer is released.
 let dragBox = $state<FloatingInstrumentBox | undefined>();
 let dropPreview = $state<FloatingInstrumentBox | undefined>();
+let alignmentAnnouncement = $state('');
 
 const floatingTiles = $derived(controller.floatingTiles);
 const editing = $derived(controller.screenEditing);
 const atFloatingCap = $derived(floatingTiles.length >= MAX_FLOATING_INSTRUMENTS);
 
 type AlignmentGuide = { axis: 'x' | 'y'; value: number };
+type AlignmentEdge = 'start' | 'center' | 'end';
+
+function edgeValues(start: number, size: number): Array<{ edge: AlignmentEdge; value: number }> {
+  return [
+    { edge: 'start', value: start },
+    { edge: 'center', value: start + size / 2 },
+    { edge: 'end', value: start + size },
+  ];
+}
+
+function edgeName(edge: AlignmentEdge): string {
+  return edge === 'start' ? 'leading edge' : edge === 'end' ? 'trailing edge' : 'center';
+}
+
+function snapToAlignment(box: FloatingInstrumentBox): FloatingInstrumentBox {
+  const others = floatingTiles
+    .filter(({ def }) => def.id !== box.id)
+    .map(({ box: other }) => other);
+  let next = { ...box };
+  let horizontal: string | undefined;
+  let vertical: string | undefined;
+  for (const other of others) {
+    for (const own of edgeValues(next.x, next.width)) {
+      const match = edgeValues(other.x, other.width).find(
+        (candidate) => Math.abs(candidate.value - own.value) <= ALIGNMENT_TOLERANCE,
+      );
+      if (match) {
+        next.x += match.value - own.value;
+        horizontal = edgeName(match.edge);
+        break;
+      }
+    }
+    for (const own of edgeValues(next.y, next.height)) {
+      const match = edgeValues(other.y, other.height).find(
+        (candidate) => Math.abs(candidate.value - own.value) <= ALIGNMENT_TOLERANCE,
+      );
+      if (match) {
+        next.y += match.value - own.value;
+        vertical = edgeName(match.edge);
+        break;
+      }
+    }
+  }
+  const message = [
+    horizontal && `Aligned ${horizontal} horizontally`,
+    vertical && `aligned ${vertical} vertically`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  if (message !== alignmentAnnouncement) alignmentAnnouncement = message;
+  return clampFloatingBox(next);
+}
 const alignmentGuides = $derived.by<AlignmentGuide[]>(() => {
   if (!dragBox) return [];
   const guides: AlignmentGuide[] = [];
@@ -192,13 +245,17 @@ function beginDrag(
     const dx = (moveEvent.clientX - startClientX) / bounds.width;
     const dy = (moveEvent.clientY - startClientY) / bounds.height;
     if (kind === 'move') {
-      dragBox = clampFloatingBox({ ...startBox, x: startBox.x + dx, y: startBox.y + dy });
+      dragBox = snapToAlignment(
+        clampFloatingBox({ ...startBox, x: startBox.x + dx, y: startBox.y + dy }),
+      );
     } else {
-      dragBox = clampFloatingBox({
-        ...startBox,
-        width: startBox.width + dx,
-        height: startBox.height + dy,
-      });
+      dragBox = snapToAlignment(
+        clampFloatingBox({
+          ...startBox,
+          width: startBox.width + dx,
+          height: startBox.height + dy,
+        }),
+      );
     }
     moveEvent.preventDefault();
   };
@@ -244,11 +301,13 @@ function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEve
     const dyPx = moveEvent.clientY - startY;
     if (!dragging && Math.hypot(dxPx, dyPx) < DRAG_THRESHOLD_PX) return;
     dragging = true;
-    dragBox = clampFloatingBox({
-      ...startBox,
-      x: startBox.x + dxPx / bounds.width,
-      y: startBox.y + dyPx / bounds.height,
-    });
+    dragBox = snapToAlignment(
+      clampFloatingBox({
+        ...startBox,
+        x: startBox.x + dxPx / bounds.width,
+        y: startBox.y + dyPx / bounds.height,
+      }),
+    );
     moveEvent.preventDefault();
   };
   const finish = (): void => {
@@ -272,13 +331,18 @@ function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEve
 }
 
 function nudge(id: string, box: FloatingInstrumentBox, dx: number, dy: number): void {
-  controller.setFloatingBox(id, clampFloatingBox({ ...box, x: box.x + dx, y: box.y + dy }));
+  controller.setFloatingBox(
+    id,
+    snapToAlignment(clampFloatingBox({ ...box, x: box.x + dx, y: box.y + dy })),
+  );
 }
 
 function grow(id: string, box: FloatingInstrumentBox, dWidth: number, dHeight: number): void {
   controller.setFloatingBox(
     id,
-    clampFloatingBox({ ...box, width: box.width + dWidth, height: box.height + dHeight }),
+    snapToAlignment(
+      clampFloatingBox({ ...box, width: box.width + dWidth, height: box.height + dHeight }),
+    ),
   );
 }
 
@@ -469,6 +533,10 @@ function finishEditing(): void {
     {/if}
   {/if}
 
+  {#if editing}
+    <span class="visually-hidden" role="status">{alignmentAnnouncement}</span>
+  {/if}
+
   {#each floatingTiles as entry (entry.def.id)}
     {@const box = dragBox && dragBox.id === entry.def.id ? dragBox : entry.box}
     {@const expanded = expandedId === entry.def.id}
@@ -610,7 +678,13 @@ function finishEditing(): void {
 }
 .screen-edit-chrome {
   position: absolute;
-  inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  /* Clears the persistent Show/Edit/Hide helm action in every supported platform mode. */
+  inset-block-end: calc(
+    var(--control-size) +
+    2 *
+    var(--space-2) +
+    env(safe-area-inset-bottom, 0px)
+  );
   inset-inline-start: var(--space-2);
   /* MapLibre owns the chart's top-end corner for the 44 px zoom target plus its shared edge
      gutter. Keep the editing actions entirely out of that hit area at every dock width. */
@@ -641,6 +715,10 @@ function finishEditing(): void {
   /* The layer itself is click-through to preserve chart gestures, but each placed instrument is
      a real control: open it, use its built-in controls, and click it again to restore its size. */
   pointer-events: auto;
+}
+.instrument-screen-layer--editing .floating-frame {
+  /* The frame body is the touch drag surface, so the browser must not begin a map pan first. */
+  touch-action: none;
 }
 .floating-frame :global(.tile) {
   flex: 1;

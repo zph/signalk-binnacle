@@ -28,9 +28,13 @@ instruments were inert, even though the supported behavior is now clickable char
 That spec has been updated in this change, but it still needs to be exercised on the full device
 matrix below.
 
-## Findings
+## Findings and remediation
 
 ### P1. The control model is not equivalent on desktop, iPad, and phone
+
+**Resolved, 2026-08-31.** The persistent Show/Edit/Hide control now remains in the centered helm
+action position at every width. At compact widths the other desktop-only actions hide, while this
+control remains reachable above the safe area. The screen-edit toolbar reserves its clearance.
 
 - **Location**: `src/app/App.svelte` renders `.desktop-helm-actions` with the primary
   Show/Edit/Hide instruments control, then hides that entire group at `max-width: 900px`.
@@ -48,6 +52,10 @@ matrix below.
 
 ### P2. The automated browser matrix does not cover all supported platforms
 
+**Resolved for chart instruments, 2026-08-31.** Playwright now has iPad Safari portrait and
+landscape projects plus a phone Safari instrument project. The representative instrument flow runs
+on each; the existing mobile UI project continues to cover shared visual quality.
+
 - **Location**: `playwright.config.ts` defines Desktop Chrome, Desktop Safari, a fixture-backed
   desktop project, and an iPhone 13 project limited to `ui-quality.spec.ts`. It has no iPad device
   project and no full phone functional project.
@@ -63,6 +71,11 @@ matrix below.
 
 ### P3. Chart-instrument editing lacks platform-specific touch coverage
 
+**Resolved, 2026-08-31.** The edit frame declares `touch-action: none`, has a genuine Chromium
+touch-drag scenario, and its screen workflow runs in the new iPad and phone Safari projects.
+The scenario checks the persistent control, tile-body drag, locked map panning, persistence,
+removal, and toolbar viewport bounds.
+
 - **Location**: `src/features/instruments/InstrumentScreenLayer.svelte` owns body dragging,
   resizing, expansion, removal, alignment guides, and the lower edit toolbar. Before this audit,
   `e2e/instrument-screen.spec.ts` relied on the retired dock drag and asserted inert locked tiles.
@@ -76,6 +89,11 @@ matrix below.
   drag and `expectInsideViewport` checks for the toolbar and its menu.
 
 ### P4. Breakpoints are feature-local rather than an explicit platform contract
+
+**Resolved for new work, 2026-08-31.** `src/shared/lib/platform.ts` is the named source for the
+phone and compact-helm breakpoints, and supplies the supported viewport matrix used by browser
+work. Existing CSS literals remain necessary because CSS cannot import TypeScript; they must cite
+the contract when touched and are now prohibited from introducing a new unnamed platform mode.
 
 - **Location**: 600 and 900 pixel decisions are repeated across `src/app/App.svelte`,
   `src/styles/panels.css`, `src/app/StatusStrip.svelte`, `src/features/menu/PinnedActions.svelte`,
@@ -91,6 +109,10 @@ matrix below.
   scenarios at the boundary values.
 
 ### P5. Keyboard parity is inconsistent for chart-layout controls
+
+**Resolved, 2026-08-31.** Pointer dragging, resize dragging, and keyboard nudges all share the
+same alignment snap calculation. A live region announces the aligned horizontal and vertical edge
+or center for keyboard and assistive-technology users.
 
 - **Location**: move and resize handles in `InstrumentScreenLayer.svelte` support arrow-key
   changes, while body dragging and alignment feedback are pointer-only.
@@ -116,13 +138,8 @@ matrix below.
 - Map interactions have touch-specific tests for long press, measurement, anchor watch, tides, and
   instrument customization reorder.
 
-## Remediation order
+## Ongoing verification
 
-1. Fix P1 and P3 together: ship the same Show/Edit/Hide control in every mode and test the chart
-   instrument flow with real touch input.
-2. Fix P2: make iPad and phone functional test projects part of the browser gate.
-3. Fix P4: publish and enforce the platform breakpoint contract.
-4. Fix P5 with the next chart-layout accessibility pass.
-
-No feature should be declared complete against this policy until the relevant desktop, iPad, and
-phone scenarios are green.
+No feature is complete against this policy until relevant desktop, iPad, and phone scenarios are
+green. The platform projects above are the minimum regression matrix for the chart-instrument
+surface; other major surfaces must add their own equivalent scenarios before changing behavior.
