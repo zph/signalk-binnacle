@@ -685,14 +685,17 @@ function openTideStationSettings(): void {
   loadTides();
 }
 
-function toggleInstrumentsPanel(): void {
-  if (instruments.open) {
+function cycleInstruments(): void {
+  if (instruments.screenEditing) {
+    exitScreenInstrumentEditing();
     instruments.setOpen(false);
     instrumentsPanelRequested = false;
     return;
   }
-  // This is the helm-level show/hide control. The drawer remains available only for explicit
-  // configuration and expanded-instrument workflows, so it no longer covers the chart by default.
+  if (instruments.open) {
+    startScreenInstrumentEditing();
+    return;
+  }
   instruments.setOpen(true);
 }
 
@@ -2107,7 +2110,7 @@ const menuItems = $derived<MenuItem[]>([
     group: 'Instruments',
     toolbarEligible: false,
     pressed: instruments.open,
-    onSelect: toggleInstrumentsPanel,
+    onSelect: cycleInstruments,
   },
   {
     id: 'customize-instruments',
@@ -3832,9 +3835,15 @@ const plotterActions = {
       onLocate={flyToPosition}
       writeBlocked={auth.writeBlocked}
     />
-    <button type="button" class="btn btn-pill" onclick={toggleInstrumentsPanel}>
+    <button type="button" class="btn btn-pill" onclick={cycleInstruments}>
       <Gauge size={16} aria-hidden="true" />
-      <span>{instruments.open ? 'Hide instruments' : 'Show instruments'}</span>
+      <span>
+        {instruments.screenEditing
+          ? 'Hide instruments'
+          : instruments.open
+            ? 'Edit instruments'
+            : 'Show instruments'}
+      </span>
     </button>
     <button type="button" class="btn btn-pill" onclick={() => void toggleBrowserFullScreen()}>
       {#if browserFullScreen}

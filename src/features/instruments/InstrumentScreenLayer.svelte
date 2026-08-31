@@ -567,6 +567,7 @@ function finishEditing(): void {
           type="button"
           class="icon-btn frame-handle frame-handle--remove"
           aria-label={`Remove ${controller.resolvedLabel(entry.def)} from chart`}
+          onpointerdown={(event) => event.stopPropagation()}
           onclick={() => removeInstrument(entry.def.id)}
         >
           <X size={16} aria-hidden="true" />
