@@ -537,6 +537,7 @@ let menuOpen = $state(false);
 let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
 let actionDialOpen = $state(false);
+let actionDialContextPoint = $state<LatLon | undefined>();
 let browserFullScreen = $state(false);
 type ActionDialPosition = { x: number; y: number };
 
@@ -2602,6 +2603,61 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
 });
 
 const actionDialActions = $derived.by<MenuItem[]>(() => {
+  if (actionDialContextPoint) {
+    const point = actionDialContextPoint;
+    return [
+      {
+        id: 'go-to-here',
+        label: 'Go to here',
+        shortLabel: 'Go to',
+        icon: Navigation,
+        group: 'Chart location',
+        onSelect: () => void routeController.onGoToHere(point),
+      },
+      {
+        id: 'start-route-here',
+        label: 'Start route here',
+        shortLabel: 'Route',
+        icon: Route,
+        group: 'Chart location',
+        onSelect: () => onStartRouteHere(point),
+      },
+      {
+        id: 'drop-waypoint',
+        label: 'Drop waypoint',
+        shortLabel: 'Waypoint',
+        icon: MapPin,
+        group: 'Chart location',
+        onSelect: () => waypointsController.onDropWaypoint(point),
+      },
+      {
+        id: 'add-note',
+        label: 'Add note here',
+        shortLabel: 'Note',
+        icon: ClipboardList,
+        group: 'Chart location',
+        onSelect: () => personalNotesController.openAdd(point),
+      },
+      {
+        id: 'measure-from-here',
+        label: 'Measure from here',
+        shortLabel: 'Measure',
+        icon: Ruler,
+        group: 'Chart location',
+        onSelect: () => {
+          if (armMeasure(true)) measure.add(point);
+        },
+      },
+      {
+        id: 'lock-interface',
+        label: 'Lock controls',
+        shortLabel: 'Lock',
+        icon: Lock,
+        group: 'Safety',
+        onSelect: interfaceLock.lock,
+      },
+    ];
+  }
   const menuAction = (id: string): MenuItem | undefined => menuItems.find((item) => item.id === id);
   return [
     menuAction('center'),
@@ -3457,6 +3513,11 @@ const plotterActions = {
   closePoiSearch,
   backFromPoiSearch,
   onSetRadarPower,
+  onQuickActions: (position: { x: number; y: number; latitude: number; longitude: number }) => {
+    actionDialPosition.set({ x: position.x, y: position.y });
+    actionDialContextPoint = { latitude: position.latitude, longitude: position.longitude };
+    actionDialOpen = true;
+  },
   openInstrumentsPanel: finishOpeningInstrumentsPanel,
   lockInterface: interfaceLock.lock,
 };
@@ -3558,9 +3619,13 @@ const plotterActions = {
   <ActionDial
     actions={actionDialActions}
     open={actionDialOpen}
-    onOpenChange={(next) => (actionDialOpen = next)}
+    onOpenChange={(next) => {
+      actionDialOpen = next;
+      if (!next) actionDialContextPoint = undefined;
+    }}
     position={actionDialPosition.value}
     onPositionChange={(position) => actionDialPosition.set(position)}
+    showTrigger={false}
   />
 
   {#snippet screenLayerLoadError(retry: () => void)}
@@ -3835,67 +3900,26 @@ const plotterActions = {
     onLocate={flyToPosition}
     writeBlocked={auth.writeBlocked}
   />
-  <div class="desktop-helm-actions" role="group" aria-label="Helm actions">
+  <div class="helm-primary-actions" role="group" aria-label="Helm actions">
     <MobButton
       {mob}
       onTrigger={mobController.onTrigger}
       onLocate={flyToPosition}
       writeBlocked={auth.writeBlocked}
     />
-    <button type="button" class="btn btn-pill" onclick={cycleInstruments}>
-      <Gauge size={16} aria-hidden="true" />
-      <span>
-        {instruments.screenEditing
-          ? 'Hide instruments'
-          : instruments.open
-            ? 'Edit instruments'
-            : 'Show instruments'}
-      </span>
-    </button>
-    <button type="button" class="btn btn-pill" onclick={() => void toggleBrowserFullScreen()}>
-      {#if browserFullScreen}
-        <Minimize2 size={16} aria-hidden="true" />
-      {:else}
-        <Maximize2 size={16} aria-hidden="true" />
-      {/if}
-      <span>{browserFullScreen ? 'Unmaximize' : 'Maximize'}</span>
-    </button>
-    <button type="button" class="btn btn-pill" onclick={interfaceLock.lock}>
-      <Lock size={16} aria-hidden="true" />
-      <span>Lock</span>
-    </button>
     <button
       type="button"
       class="btn btn-pill"
+      aria-label={actionDialOpen ? 'Close quick actions' : 'Open quick actions'}
+      aria-expanded={actionDialOpen}
+      aria-haspopup="menu"
       onclick={() => {
-      layersOpenRequest = { mode: 'charts' };
-      togglePanel('layers');
-    }}
+        actionDialContextPoint = undefined;
+        actionDialOpen = !actionDialOpen;
+      }}
     >
-      <Layers size={16} aria-hidden="true" />
-      <span>Charts</span>
-    </button>
-    {#if updateReady}
-      <button
-        type="button"
-        class="btn btn-primary btn-pill"
-        onclick={() => { updateReady = false; pwa.update(); }}
-      >
-        <DownloadCloud size={16} aria-hidden="true" />
-        <span>Update</span>
-      </button>
-    {/if}
-  </div>
-  <div class="compact-instrument-action">
-    <button type="button" class="btn btn-pill" onclick={cycleInstruments}>
-      <Gauge size={16} aria-hidden="true" />
-      <span>
-        {instruments.screenEditing
-          ? 'Hide instruments'
-          : instruments.open
-            ? 'Edit instruments'
-            : 'Show instruments'}
-      </span>
+      <MenuIcon size={16} aria-hidden="true" />
+      <span>Menu</span>
     </button>
   </div>
 </main>
@@ -4082,7 +4106,7 @@ const plotterActions = {
   border-radius: var(--radius-md);
   background: var(--surface);
 }
-.desktop-helm-actions {
+.helm-primary-actions {
   display: flex;
   position: fixed;
   z-index: var(--z-menu);
@@ -4092,35 +4116,14 @@ const plotterActions = {
   gap: var(--space-2);
   pointer-events: none;
 }
-.desktop-helm-actions :global(button) {
+.helm-primary-actions :global(button) {
   pointer-events: auto;
 }
-.compact-instrument-action {
-  display: none;
-}
-/* PLATFORM_BREAKPOINTS.compactHelmMaxPx */
-@media (max-width: 900px) {
-  .desktop-helm-actions {
-    display: none;
-  }
-  .compact-instrument-action {
-    position: fixed;
-    z-index: var(--z-menu);
-    inset-inline: 0;
-    inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-  }
-  .compact-instrument-action :global(button) {
-    pointer-events: auto;
-  }
-  .binnacle-shell > :global(.instruments) {
-    position: fixed;
-    inset: 0;
-    z-index: var(--z-panel);
-    inline-size: auto;
-    background: var(--surface);
-  }
+.binnacle-shell > :global(.instruments) {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-panel);
+  inline-size: auto;
+  background: var(--surface);
 }
 </style>

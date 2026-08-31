@@ -76,7 +76,7 @@ test('the attached left tab expands and collapses the app-menu dock', async ({ p
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('chart context menu requests browser fullscreen for the chart surface', async ({ page }) => {
+test('bottom Menu quick actions request browser fullscreen', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLElement.prototype.requestFullscreen = async function () {
       this.dataset.fullscreenRequested = 'true';
@@ -85,12 +85,10 @@ test('chart context menu requests browser fullscreen for the chart surface', asy
   });
   await page.goto('/');
 
-  const canvas = page.locator('.maplibregl-canvas');
-  await expect(canvas).toBeVisible();
-  await canvas.click({ button: 'right', position: { x: 200, y: 200 } });
-  await page.getByRole('menuitem', { name: 'Full screen' }).click();
+  await page.getByRole('button', { name: 'Open quick actions' }).click();
+  await page.getByRole('menuitem', { name: 'Maximize Binnacle' }).click();
 
-  await expect(page.locator('.chart-canvas')).toHaveAttribute('data-fullscreen-requested', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-fullscreen-requested', 'true');
 });
 
 test('interface lock covers every view and persists until explicitly unlocked', async ({
@@ -137,16 +135,26 @@ test('interface lock covers every view and persists until explicitly unlocked', 
   await expect(page.getByRole('button', { name: 'Menu', exact: true })).toBeVisible();
 });
 
-test('chart context menu can lock the entire interface', async ({ page }) => {
+test('chart quick actions can lock the entire interface', async ({ page }) => {
   await page.goto('/');
 
   const canvas = page.locator('.maplibregl-canvas');
   await expect(canvas).toBeVisible();
   await canvas.click({ button: 'right', position: { x: 200, y: 200 } });
-  await page.getByRole('menuitem', { name: 'Lock Binnacle' }).click();
+  await page.getByRole('menuitem', { name: 'Lock controls' }).click();
 
   const lockLayer = page.getByRole('dialog', { name: 'Binnacle controls locked' });
   await expect(lockLayer).toBeVisible();
-  await lockLayer.getByRole('button', { name: 'Unlock Binnacle' }).click();
-  await expect(lockLayer).toHaveCount(0);
+});
+
+test('chart quick actions replace the rectangular context menu with location actions', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  const canvas = page.locator('.maplibregl-canvas');
+  await expect(canvas).toBeVisible();
+  await canvas.click({ button: 'right', position: { x: 200, y: 200 } });
+  await expect(page.getByRole('menuitem', { name: 'Go to here' })).toBeVisible();
+  await expect(page.locator('.chart-context-menu')).toHaveCount(0);
 });

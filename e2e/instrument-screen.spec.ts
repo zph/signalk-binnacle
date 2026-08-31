@@ -62,21 +62,22 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
     .toBe(true);
 });
 
-test('the persistent helm control cycles show, edit, and hide instruments', async ({ page }) => {
+test('the persistent Menu opens the radial instrument control cycle', async ({ page }) => {
   await page.goto('/');
 
-  const helmControl = page.getByRole('button', { name: 'Show instruments' });
+  const helmControl = page.getByRole('button', { name: 'Open quick actions' });
   await expect(helmControl).toBeVisible();
   await expectInsideViewport(helmControl, page);
   await helmControl.click();
-  await expect(page.getByRole('button', { name: 'Edit instruments' })).toBeVisible();
-  await page.getByRole('button', { name: 'Edit instruments' }).click();
+  await page.getByRole('menuitem', { name: 'Instrument dock' }).click();
+  await helmControl.click();
+  await page.getByRole('menuitem', { name: 'Instrument dock' }).click();
   const done = page.getByRole('button', { name: 'Done', exact: true });
   await expect(done).toBeVisible();
   await expectInsideViewport(done, page);
-  await expect(page.getByRole('button', { name: 'Hide instruments' })).toBeVisible();
-  await page.getByRole('button', { name: 'Hide instruments' }).click();
-  await expect(page.getByRole('button', { name: 'Show instruments' })).toBeVisible();
+  await helmControl.click();
+  await page.getByRole('menuitem', { name: 'Instrument dock' }).click();
+  await expect(done).toHaveCount(0);
 });
 
 test('screen edit mode drags an instrument from its face on the chart', async ({ page }) => {

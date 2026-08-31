@@ -178,6 +178,13 @@ interface Props {
   onMeasureFrom?: (position: LatLon) => void;
   // Freeze all app-shell interaction from the chart context menu.
   onLockInterface?: () => void;
+  // The radial action menu replaces the rectangular context menu when the shell provides it.
+  onQuickActions?: (position: {
+    x: number;
+    y: number;
+    latitude: number;
+    longitude: number;
+  }) => void;
   // The lazily-imported route editor chunk failed to load, so the app can surface it.
   onRouteEditorError?: () => void;
   // Whether the server runs the tracks plugin, read per tick so trails light up when known.
@@ -260,6 +267,7 @@ const {
   onAddNote,
   onMeasureFrom,
   onLockInterface,
+  onQuickActions,
   onRouteEditorError,
   aisTrailsAvailable,
   isOnline,
@@ -529,6 +537,10 @@ onMount(async () => {
         return;
       }
       dismissContextHint();
+      if (onQuickActions) {
+        onQuickActions({ x: point.x, y: point.y, latitude: point.lat, longitude: point.lng });
+        return;
+      }
       chartMenu = {
         x: point.x,
         y: point.y,

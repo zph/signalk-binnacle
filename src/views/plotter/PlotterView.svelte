@@ -244,6 +244,7 @@ interface FlatProps {
   onUserChartsReady: (registrar: UserChartRegistrar) => void;
   onMapInstance: (m: MapLibreMap) => void;
   onMapDestroyed: () => void;
+  onQuickActions: (position: { x: number; y: number; latitude: number; longitude: number }) => void;
   onUserPan: () => void;
   onNoteSelect: (selection: NoteSelection | undefined) => void;
   onAisSelect: (id: string | undefined) => void;
@@ -370,6 +371,7 @@ type ActionKey =
   | 'onUserChartsReady'
   | 'onMapInstance'
   | 'onMapDestroyed'
+  | 'onQuickActions'
   | 'onUserPan'
   | 'onNoteSelect'
   | 'onAisSelect'
@@ -559,6 +561,7 @@ const {
   onUserChartsReady,
   onMapInstance,
   onMapDestroyed,
+  onQuickActions,
   onUserPan,
   onNoteSelect,
   onAisSelect,
@@ -898,6 +901,7 @@ $effect(() => {
       if (armMeasure(true)) measure.add(position);
     }}
     onLockInterface={lockInterface}
+    {onQuickActions}
     onRouteEditorError={() => routeController.flagEditorLoadFailed()}
     onAnchorMoved={(position) => void anchorController.onAnchorMoved(position)}
     marineRadarLayer={marineRadar.layer}

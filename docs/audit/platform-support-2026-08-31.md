@@ -32,9 +32,9 @@ matrix below.
 
 ### P1. The control model is not equivalent on desktop, iPad, and phone
 
-**Resolved, 2026-08-31.** The persistent Show/Edit/Hide control now remains in the centered helm
-action position at every width. At compact widths the other desktop-only actions hide, while this
-control remains reachable above the safe area. The screen-edit toolbar reserves its clearance.
+**Resolved, 2026-08-31.** A persistent MOB and Menu pair now appears above the safe area at every
+width. Menu opens the same radial action set on desktop, iPad, and phone, including the instrument
+control cycle. The screen-edit toolbar reserves its clearance.
 
 - **Location**: `src/app/App.svelte` renders `.desktop-helm-actions` with the primary
   Show/Edit/Hide instruments control, then hides that entire group at `max-width: 900px`.

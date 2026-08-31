@@ -8,9 +8,18 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   position?: { x: number; y: number } | null;
   onPositionChange?: (position: { x: number; y: number }) => void;
+  // The shell can provide the persistent Menu trigger instead of duplicating a floating hub.
+  showTrigger?: boolean;
 }
 
-const { actions, open, onOpenChange, position = null, onPositionChange }: Props = $props();
+const {
+  actions,
+  open,
+  onOpenChange,
+  position = null,
+  onPositionChange,
+  showTrigger = true,
+}: Props = $props();
 
 let dial = $state<HTMLButtonElement>();
 let dragPointerId = $state<number | undefined>();
@@ -139,30 +148,32 @@ $effect(() => {
       {/each}
     </div>
   {/if}
-  <button
-    type="button"
-    class="action-dial-core"
-    aria-label={open ? 'Close quick actions' : 'Open quick actions'}
-    aria-expanded={open}
-    aria-haspopup="menu"
-    bind:this={dial}
-    onpointerdown={begin}
-    onpointermove={move}
-    onpointerup={end}
-    onpointercancel={() => {
+  {#if showTrigger}
+    <button
+      type="button"
+      class="action-dial-core"
+      aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+      aria-expanded={open}
+      aria-haspopup="menu"
+      bind:this={dial}
+      onpointerdown={begin}
+      onpointermove={move}
+      onpointerup={end}
+      onpointercancel={() => {
       dragPointerId = undefined;
       cancelMove();
     }}
-    onclick={() => {
+      onclick={() => {
       if (ignoreClick) {
         ignoreClick = false;
         return;
       }
       onOpenChange(!open);
     }}
-  >
-    <span aria-hidden="true">+</span>
-  </button>
+    >
+      <span aria-hidden="true">+</span>
+    </button>
+  {/if}
 </div>
 
 <style>
@@ -235,10 +246,5 @@ $effect(() => {
 }
 .action-dial-wedge--blocked {
   opacity: var(--disabled-opacity);
-}
-@media (pointer: fine) {
-  .action-dial {
-    display: none;
-  }
 }
 </style>
