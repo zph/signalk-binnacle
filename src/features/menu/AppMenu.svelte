@@ -4,7 +4,6 @@ import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 import { onDestroy } from 'svelte';
 import { Toast } from '$shared/lib';
 import {
-  CustomizeToggle,
   nextRovingIndex,
   onKeydownAction,
   type RovingKey,
@@ -14,8 +13,6 @@ import {
 import MenuItemCount from './MenuItemCount.svelte';
 import MenuItemIcon from './MenuItemIcon.svelte';
 import { blockedReason, itemBlocked, type MenuItem } from './menu-item';
-import { resolvePinned } from './pinned-actions';
-import ToolbarEditor from './ToolbarEditor.svelte';
 
 interface Props {
   items?: MenuItem[];
@@ -42,23 +39,16 @@ const {
   open,
   onOpenChange,
   panelOpen = false,
-  pinnedIds = [],
   editing = false,
   onEditingChange,
   onTogglePin,
-  onReorderPinned,
-  onResetPinned,
-  showToolbarLabels = true,
-  onShowToolbarLabelsChange,
 }: Props = $props();
 
-const pinnedSet = $derived(
-  new Set([...pinnedIds, ...items.filter((item) => item.fixedToBar).map((item) => item.id)]),
-);
-const pinnedItems = $derived(resolvePinned(items, pinnedIds));
+const pinnedSet = $derived(new Set<string>());
 
 let trigger = $state<HTMLButtonElement>();
 let card = $state<HTMLElement>();
+let swipeStartX = 0;
 
 // A tap or click on a blocked tile explains itself via Toast's timed-message primitive instead of
 // silently doing nothing, since the title tooltip it also carries is mouse-hover-only. Sized
@@ -152,7 +142,15 @@ function onCardKeydown(event: KeyboardEvent): void {
   const at = tiles.indexOf(document.activeElement as HTMLButtonElement);
   tiles[nextRovingIndex(key, at, tiles.length)]?.focus();
 }
+
+function onWindowPointerDown(event: PointerEvent): void {
+  if (!open || card?.contains(event.target as Node) || trigger?.contains(event.target as Node))
+    return;
+  closeMenu(false);
+}
 </script>
+
+<svelte:window onpointerdown={onWindowPointerDown} />
 
 <aside class="app-menu-dock" class:is-open={open} class:panel-open={panelOpen} aria-label={label}>
   {#if open}
@@ -163,33 +161,16 @@ function onCardKeydown(event: KeyboardEvent): void {
       aria-label={label}
       bind:this={card}
       use:onKeydownAction={onCardKeydown}
+      onpointerdown={(event) => (swipeStartX = event.clientX)}
+      onpointerup={(event) => {
+        if (event.clientX - swipeStartX > 72) closeMenu(false);
+      }}
     >
       {#if items.length === 0}
         <span class="muted-note">No options</span>
       {:else}
         <TransientNote message={blockedNote.message} noteClass="blocked-note-slot" />
         <div class="launcher-scroll">
-          <div class="menu-head">
-            <CustomizeToggle
-              object="toolbar"
-              {editing}
-              onToggle={() => onEditingChange?.(!editing)}
-            />
-          </div>
-          {#if editing}
-            <!-- Announce the mode change: in edit mode the tile accent means "pinned to the bar", not
-             "panel open", which is invisible to a screen reader without this. -->
-            <p class="muted-note">
-              Tap an action to pin or unpin it on the bottom toolbar. Fixed actions stay shown.
-            </p>
-            <ToolbarEditor
-              items={pinnedItems}
-              onReorder={onReorderPinned}
-              onReset={onResetPinned}
-              showLabels={showToolbarLabels}
-              onShowLabelsChange={onShowToolbarLabelsChange}
-            />
-          {/if}
           {#each groups as group, gi (gi)}
             <!-- Every menu item carries a group label, so role="group" always has an accessible name
              here; the static role is required by the linter's valid-role rule. -->
@@ -386,12 +367,6 @@ function onCardKeydown(event: KeyboardEvent): void {
 .launcher.editing {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
-}
-/* The customize entry reads as quiet header chrome above the groups: right-aligned ghost, never
-   the menu's loudest action. */
-.menu-head {
-  display: flex;
-  justify-content: flex-end;
 }
 /* Sticky, not absolute: .launcher is both the containing block and the scroll container, so an
    absolutely positioned note scrolls away with the tiles and a navigator who has scrolled down the

@@ -6,14 +6,42 @@ interface Props {
   actions: MenuItem[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  position?: { x: number; y: number } | null;
+  onPositionChange?: (position: { x: number; y: number }) => void;
 }
 
-const { actions, open, onOpenChange }: Props = $props();
+const { actions, open, onOpenChange, position = null, onPositionChange }: Props = $props();
 
 let dial = $state<HTMLButtonElement>();
 let dragPointerId = $state<number | undefined>();
-let openedByPointerId = $state<number | undefined>();
 let ignoreClick = $state(false);
+let movingPointerId = $state<number | undefined>();
+let holdTimer: ReturnType<typeof setTimeout> | undefined;
+let host = $state<HTMLDivElement>();
+
+const MOVE_HOLD_MS = 450;
+const RING_CLEARANCE_PX = 176;
+
+function move(event: PointerEvent): void {
+  if (movingPointerId !== event.pointerId || !host?.parentElement) return;
+  const bounds = host.parentElement.getBoundingClientRect();
+  onPositionChange?.({
+    x: Math.min(
+      bounds.width - RING_CLEARANCE_PX,
+      Math.max(RING_CLEARANCE_PX, event.clientX - bounds.left),
+    ),
+    y: Math.min(
+      bounds.height - RING_CLEARANCE_PX,
+      Math.max(RING_CLEARANCE_PX, event.clientY - bounds.top),
+    ),
+  });
+}
+
+function cancelMove(): void {
+  clearTimeout(holdTimer);
+  holdTimer = undefined;
+  movingPointerId = undefined;
+}
 
 function run(action: MenuItem): void {
   if (itemBlocked(action)) return;
@@ -26,7 +54,12 @@ function begin(event: PointerEvent): void {
   ignoreClick = true;
   if (!open) {
     onOpenChange(true);
-    openedByPointerId = event.pointerId;
+    dragPointerId = event.pointerId;
+    dial?.setPointerCapture(event.pointerId);
+    holdTimer = setTimeout(() => {
+      if (dragPointerId !== event.pointerId) return;
+      movingPointerId = event.pointerId;
+    }, MOVE_HOLD_MS);
     return;
   }
   dragPointerId = event.pointerId;
@@ -48,17 +81,27 @@ function selectFromDrag(event: PointerEvent): void {
 }
 
 function end(event: PointerEvent): void {
-  if (openedByPointerId === event.pointerId) {
-    openedByPointerId = undefined;
+  if (movingPointerId === event.pointerId) {
+    cancelMove();
+    dragPointerId = undefined;
     return;
   }
   if (dragPointerId !== event.pointerId) return;
+  clearTimeout(holdTimer);
+  holdTimer = undefined;
   selectFromDrag(event);
   dragPointerId = undefined;
 }
 </script>
 
-<div class="action-dial" class:action-dial--open={open}>
+<div
+  class="action-dial"
+  class:action-dial--open={open}
+  style:inset-inline-start={position ? `${position.x}px` : undefined}
+  style:inset-block-start={position ? `${position.y}px` : undefined}
+  class:action-dial--positioned={position !== null}
+  bind:this={host}
+>
   {#if open}
     <div class="action-dial-ring" role="menu" aria-label="Quick actions">
       {#each actions as action, index (action.id)}
@@ -89,8 +132,12 @@ function end(event: PointerEvent): void {
     aria-haspopup="menu"
     bind:this={dial}
     onpointerdown={begin}
+    onpointermove={move}
     onpointerup={end}
-    onpointercancel={() => (dragPointerId = undefined)}
+    onpointercancel={() => {
+      dragPointerId = undefined;
+      cancelMove();
+    }}
     onclick={() => {
       if (ignoreClick) {
         ignoreClick = false;
@@ -114,6 +161,11 @@ function end(event: PointerEvent): void {
   inline-size: 4rem;
   block-size: 4rem;
   pointer-events: auto;
+}
+.action-dial--positioned {
+  inset-inline-end: auto;
+  inset-block-end: auto;
+  transform: translate(-50%, -50%);
 }
 .action-dial-core {
   position: absolute;

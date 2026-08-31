@@ -10,7 +10,6 @@ import DownloadCloud from '@lucide/svelte/icons/download-cloud';
 import Expand from '@lucide/svelte/icons/expand';
 import Gauge from '@lucide/svelte/icons/gauge';
 import History from '@lucide/svelte/icons/history';
-import Home from '@lucide/svelte/icons/home';
 import Layers from '@lucide/svelte/icons/layers';
 import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
@@ -32,12 +31,10 @@ import Ship from '@lucide/svelte/icons/ship';
 import Spline from '@lucide/svelte/icons/spline';
 import Sun from '@lucide/svelte/icons/sun';
 import UserCog from '@lucide/svelte/icons/user-cog';
-import VolumeX from '@lucide/svelte/icons/volume-x';
 import Waves from '@lucide/svelte/icons/waves';
 import Wind from '@lucide/svelte/icons/wind';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { onDestroy, onMount, tick, untrack } from 'svelte';
-import { slide } from 'svelte/transition';
+import { onDestroy, onMount, untrack } from 'svelte';
 import { AisNameCache, AisTargets } from '$entities/ais';
 import { AnchorWatch } from '$entities/anchor';
 import { CollisionAssessment } from '$entities/collision';
@@ -126,7 +123,6 @@ import {
   itemBlocked,
   type MenuItem,
   reorderPinned,
-  resolvePinned,
   togglePinned,
 } from '$features/menu';
 import { createMobController, MOB_TONE, MobButton } from '$features/mob';
@@ -148,10 +144,8 @@ import {
   downloadProfileJson,
   type ImportedProfile,
   loadProfilesPanel,
-  ProfileSwitcher,
 } from '$features/profiles';
 import { createRouteController } from '$features/routing';
-import { ThemeToggle } from '$features/theme-toggle';
 import {
   createTidesController,
   createTidesLoader,
@@ -188,15 +182,7 @@ import {
   padBbox,
   quantizeViewCellKey,
 } from '$shared/geo';
-import {
-  Clock,
-  createMediaQuery,
-  formatClockTime,
-  HeldFlag,
-  isRecord,
-  prefersReducedMotion,
-  Toast,
-} from '$shared/lib';
+import { Clock, createMediaQuery, formatClockTime, isRecord, Toast } from '$shared/lib';
 import type { CompanionProbeResult, LayerSettings } from '$shared/map';
 import { DEFAULT_OVERLAY_STATE, probeCompanion } from '$shared/map';
 import { binnacleStorageKey } from '$shared/persistence';
@@ -243,7 +229,7 @@ import {
   useLocalTrackFallback,
   type WeatherSourceId,
 } from '$shared/settings';
-import type { ConnectionPhase, HistoryProviders } from '$shared/signalk';
+import type { HistoryProviders } from '$shared/signalk';
 import {
   AuthController,
   adminLoginUrl,
@@ -251,7 +237,6 @@ import {
   fetchHistoryProviders,
   fetchServerFeatures,
   fetchSymbols,
-  isConnectionDown,
   isConnectionOpen,
   recentSourceRefs,
   SELF_CONTEXT,
@@ -268,22 +253,18 @@ import {
   dialog,
   ErrorBoundary,
   LazyPanelState,
-  PANEL_TRANSITION_MS,
   type PanelId,
   type Theme,
   trapFocus,
 } from '$shared/ui';
 import { loadInstrumentChart, type MapCommands } from '$widgets/chart-canvas';
 import { PlotterView } from '../views';
-import AppInfo from './AppInfo.svelte';
 import { resolveOrientation } from './chart-orientation';
 import { createFollowController } from './follow-controller.svelte';
 import { collectHandoffFacts } from './handoff-facts';
 import LiveRegions from './LiveRegions.svelte';
 import { layerSettingsCodec } from './layer-settings-codec';
 import { createNotificationsController } from './notifications-controller.svelte';
-import ShellBarTabs from './ShellBarTabs.svelte';
-import StatusStrip from './StatusStrip.svelte';
 import { createSafetyAnnunciator } from './safety-annunciator.svelte';
 import { createStreamController } from './stream-controller.svelte';
 
@@ -550,14 +531,12 @@ let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
 let actionDialOpen = $state(false);
 let browserFullScreen = $state(false);
+type ActionDialPosition = { x: number; y: number };
 
 function openCommandPalette(): void {
   commandPaletteOpen = true;
 }
 let mobCommandRequest = $state(0);
-// The helm toolbar can be tucked away without entering browser fullscreen. Its attached tab stays
-// reachable at the viewport edge, so the toolbar always has an obvious route back.
-let bottomBarVisible = $state(true);
 // Closing a panel drops everything that panel put on the chart or armed inside it, so nothing it
 // owned outlives it: a dismissed confirm cannot come back armed, and a hover ring cannot strand on
 // the chart with no panel to clear it.
@@ -750,10 +729,6 @@ function exitScreenInstrumentEditing(): void {
 }
 
 async function requestMobFromPalette(): Promise<void> {
-  if (!bottomBarVisible) {
-    bottomBarVisible = true;
-    await tick();
-  }
   mobCommandRequest += 1;
 }
 let recolorMap: ((theme: Theme) => void) | undefined;
@@ -862,11 +837,21 @@ const bottomToolbarLabels = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
-const bottomStatusReadouts = new PersistedValue<boolean>(
-  binnacleStorageKey('bottomStatusReadouts'),
-  false,
+const actionDialPosition = new PersistedValue<ActionDialPosition | null>(
+  binnacleStorageKey('actionDialPosition'),
+  null,
   undefined,
-  booleanPersistedCodec,
+  createPersistedCodec(
+    (value): value is ActionDialPosition =>
+      typeof value === 'object' &&
+      value !== null &&
+      'x' in value &&
+      'y' in value &&
+      typeof value.x === 'number' &&
+      Number.isFinite(value.x) &&
+      typeof value.y === 'number' &&
+      Number.isFinite(value.y),
+  ),
 );
 // The helm display is normally the active chart. Keep it awake by default, while retaining a
 // device-local opt-out for a portable iPad that needs to conserve its battery.
@@ -2184,18 +2169,22 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: () => screenWakeLockEnabled.set(!screenWakeLockEnabled.value),
   },
   {
-    id: 'bottom-status-readouts',
-    label: bottomStatusReadouts.value
-      ? 'Hide bottom status readouts'
-      : 'Show bottom status readouts',
-    sublabel: bottomStatusReadouts.value
-      ? 'Hide metrics, vessel position, and local time below the toolbar'
-      : 'Show metrics, vessel position, and local time below the toolbar',
-    icon: Gauge,
+    id: 'theme',
+    label: 'Appearance',
+    sublabel: `Current theme: ${theme.theme}`,
+    icon: Sun,
     group: 'Settings',
     toolbarEligible: false,
-    pressed: bottomStatusReadouts.value,
-    onSelect: () => bottomStatusReadouts.set(!bottomStatusReadouts.value),
+    onSelect: () => theme.cycle(),
+  },
+  {
+    id: 'lock-interface',
+    label: 'Lock controls',
+    sublabel: 'Prevent accidental chart changes',
+    icon: Lock,
+    group: 'Safety',
+    toolbarEligible: false,
+    onSelect: interfaceLock.lock,
   },
   {
     id: 'help',
@@ -2543,16 +2532,6 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       ],
     },
     {
-      id: 'bottom-toolbar',
-      label: bottomBarVisible ? 'Hide bottom toolbar' : 'Show bottom toolbar',
-      description: 'Toggle the helm controls at the bottom of the chart',
-      group: 'Display',
-      icon: MenuIcon,
-      onSelect: () => {
-        bottomBarVisible = !bottomBarVisible;
-      },
-    },
-    {
       id: 'bottom-toolbar-labels',
       label: bottomToolbarLabels.value
         ? 'Hide bottom toolbar labels'
@@ -2609,9 +2588,6 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   ];
 });
 
-// The pinned actions in canonical order, resolved from the persisted id list against the live
-// registry, for the bottom bar to render.
-const resolvedPinned = $derived(resolvePinned(menuItems, pinnedActions.value));
 const actionDialActions = $derived.by<MenuItem[]>(() => {
   const menuAction = (id: string): MenuItem | undefined => menuItems.find((item) => item.id === id);
   return [
@@ -2633,6 +2609,22 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
       onSelect: () => void toggleBrowserFullScreen(),
     },
     menuAction('measure'),
+    {
+      id: 'lock-interface',
+      label: 'Lock controls',
+      shortLabel: 'Lock',
+      icon: Lock,
+      group: 'Safety',
+      onSelect: interfaceLock.lock,
+    },
+    {
+      id: 'mob',
+      label: mob.position ? 'Find MOB mark' : 'Man overboard',
+      shortLabel: 'MOB',
+      icon: LifeBuoy,
+      group: 'Safety',
+      onSelect: () => void requestMobFromPalette(),
+    },
     {
       id: 'open-menu',
       label: 'Open menu',
@@ -3006,49 +2998,6 @@ const removePrimeListeners = () => {
   window.removeEventListener('keydown', primeAudio);
 };
 
-const CONNECTION_LABELS: Record<ConnectionPhase, string> = {
-  open: 'Connected',
-  connecting: 'Connecting',
-  reconnecting: 'Reconnecting',
-  closed: 'Not connected',
-};
-
-// An open socket with no data for this long is a silent stop (a wedged provider chain, a stale
-// token the server accepted but does not authenticate), which per-tile staleness dashes never name.
-const DATA_STALL_MS = 30_000;
-// Gated on a data frame ever arriving, so a stock server with no producers reads plain Connected
-// truthfully rather than claiming its silence is a fault.
-const dataStalled = $derived(
-  isConnectionOpen(store.connection.phase) &&
-    store.lastDataEpoch > 0 &&
-    clock.now - store.lastDataEpoch > DATA_STALL_MS,
-);
-const connectionLabel = $derived(
-  dataStalled ? 'Connected, no data' : CONNECTION_LABELS[store.connection.phase],
-);
-// The fuller explanation behind the conn chip's short label: the label also feeds the visible
-// stalled readout and the live announcement, so it must stay short, and this title carries the
-// diagnosis a hover or chip tap reveals.
-const connectionTitle = $derived(
-  dataStalled
-    ? "Connected to Signal K, but no data has arrived for 30 seconds; check the server's data sources."
-    : isConnectionDown(store.connection.phase)
-      ? 'The link to the Signal K server dropped. Binnacle retries by itself, and Reconnect retries now.'
-      : 'Connected to the Signal K server.',
-);
-// The own fix has aged out: the footer dashes SOG and COG and shows a calm "No GPS fix" note rather
-// than presenting a frozen speed and course as if they were live.
-const fixStale = $derived(vessel.positionStale);
-// A connected server that has never published a position must not look healthy: after a short
-// startup grace (so a normal boot never flashes the chip), the strip says it is waiting for GPS.
-// Distinct from fixStale, which is the had-then-lost case.
-const GPS_WAIT_GRACE_MS = 8_000;
-const gpsNeverReceived = new HeldFlag(
-  clock,
-  GPS_WAIT_GRACE_MS,
-  () => isConnectionOpen(store.connection.phase) && !vessel.positionReceived,
-);
-
 // The count of AIS targets the lookout is tracking, so a quiet footer chip confirms the watch is live
 // and receiving traffic, rather than leaving the navigator to wonder whether an empty danger strip
 // means "all clear" or "not working". list() reads aisVersion, so the derived stays reactive.
@@ -3137,7 +3086,6 @@ const streamController = createStreamController({
     trends.resubscribe();
   },
 });
-const streamError = $derived(streamController.error);
 
 // Detect a configured Signal K weather provider so the panel can prefer it over the free sources.
 // undefined means the TRANSPORT failed (a 401 before the token landed, a slow server): keep the
@@ -3584,6 +3532,8 @@ const plotterActions = {
     actions={actionDialActions}
     open={actionDialOpen}
     onOpenChange={(next) => (actionDialOpen = next)}
+    position={actionDialPosition.value}
+    onPositionChange={(position) => actionDialPosition.set(position)}
   />
 
   {#snippet screenLayerLoadError(retry: () => void)}
@@ -3847,135 +3797,14 @@ const plotterActions = {
     {/await}
   {/if}
 
-  {#snippet statusStripFixedActions()}
-    <button
-      type="button"
-      class="btn btn-pill fixed-toolbar-action"
-      class:is-on={screenWakeLockEnabled.value}
-      aria-pressed={screenWakeLockEnabled.value}
-      aria-label={screenWakeLockEnabled.value ? 'Screen stays awake' : 'Allow screen sleep'}
-      title={screenWakeLockEnabled.value ? 'Screen stays awake' : 'Allow screen sleep'}
-      onclick={() => screenWakeLockEnabled.set(!screenWakeLockEnabled.value)}
-    >
-      <Sun size={16} aria-hidden="true" />
-      <span class="fixed-action-label">Awake</span>
-    </button>
-    <button
-      type="button"
-      class="btn btn-pill fixed-toolbar-action"
-      class:is-on={activePanel === 'tracks'}
-      aria-pressed={activePanel === 'tracks'}
-      aria-label="Tracks"
-      title="Tracks"
-      onclick={() => togglePanel('tracks')}
-    >
-      <Spline size={16} aria-hidden="true" />
-      <span class="fixed-action-label">Tracks</span>
-    </button>
-    {#if collisionMute.active}
-      <button
-        type="button"
-        class="btn btn-warning btn-pill"
-        aria-pressed="true"
-        aria-label="Collision alarm muted, {muteRemainingMin} minutes left, tap to unmute"
-        title="Collision alarm muted, {muteRemainingMin} min left, tap to unmute"
-        onclick={() => collisionMute.unmute()}
-      >
-        <VolumeX size={16} aria-hidden="true" />
-        <span class="fixed-action-label">Muted {muteRemainingMin}min</span>
-      </button>
-    {/if}
-    {#if updateReady}
-      <button
-        type="button"
-        class="btn btn-primary btn-pill"
-        aria-label="Install update"
-        title="Install update"
-        onclick={() => {
-          updateReady = false;
-          pwa.update();
-        }}
-      >
-        <DownloadCloud size={16} aria-hidden="true" />
-        <span class="fixed-action-label">Update</span>
-      </button>
-    {/if}
-    <ProfileSwitcher
-      active={profileStore.active}
-      profiles={profileStore.profiles}
-      hasUpdate={profileStore.remoteUpdateAvailable}
-      onSelect={onApplyProfile}
-      onManage={() => openPanel('profiles')}
-    />
-    <ThemeToggle controller={theme} />
-    <a class="icon-pill" href="/" aria-label="Signal K home" title="Signal K home">
-      <Home size={16} aria-hidden="true" />
-    </a>
-    <AppInfo version={__APP_VERSION__} />
-    {@render interfaceLockAction()}
-    <!-- The fixed emergency key shares the bottom action row but stays outside customization, so
-         it is always reachable and retains its dedicated confirm-before-marking flow. -->
-    <MobButton
-      {mob}
-      requestOpen={mobCommandRequest}
-      onTrigger={mobController.onTrigger}
-      onLocate={flyToPosition}
-      writeBlocked={auth.writeBlocked}
-    />
-  {/snippet}
-
-  <div class="statusbar-slot" id="bottom-toolbar">
-    {#if bottomBarVisible}
-      <div transition:slide={{ duration: prefersReducedMotion() ? 0 : PANEL_TRANSITION_MS }}>
-        <StatusStrip
-          {connectionLabel}
-          {connectionTitle}
-          {streamError}
-          {dataStalled}
-          online={net.online}
-          {fixStale}
-          gpsNeverReceived={gpsNeverReceived.held}
-          connectionPhase={store.connection.phase}
-          {aisCount}
-          aisUnassessed={collision.assessment.unassessed.length}
-          navigating={courseGuidance.active}
-          {anchor}
-          {units}
-          {vessel}
-          shallowAlarming={shallowController.alarming}
-          shallowState={shallowController.monitorState}
-          {radarHealth}
-          orientation={chartOrientation.value !== 'north'
-            ? { label: orientation.label, active: orientation.active }
-            : undefined}
-          onResetOrientation={() => chartOrientation.set('north')}
-          pinnedActions={resolvedPinned}
-          showActionLabels={bottomToolbarLabels.value}
-          showReadouts={bottomStatusReadouts.value}
-          fixedActions={statusStripFixedActions}
-          editing={menuEditing}
-          {clock}
-          onOpenHelp={() => openPanel('help')}
-          onOpenAnchor={() => openPanel('anchor')}
-          onReconnect={() => {
-            // On a fixed helm display no focus or visibility event ever re-probes an exhausted auth
-            // poll, so the one visible retry action must also revalidate access, or it silently no-ops
-            // while status is stuck at unknown and the stream controller refuses to connect.
-            auth.recheck();
-            streamController.reconnect();
-          }}
-        />
-      </div>
-    {/if}
-    <ShellBarTabs
-      {bottomBarVisible}
-      instrumentsOpen={instruments.open}
-      {instrumentsFullScreen}
-      bottomTabVisible={!bottomTabObscured}
-      onToggleBottom={() => (bottomBarVisible = !bottomBarVisible)}
-      onToggleInstruments={toggleInstrumentsPanel}
-    />
-  </div>
+  <MobButton
+    {mob}
+    showButton={false}
+    requestOpen={mobCommandRequest}
+    onTrigger={mobController.onTrigger}
+    onLocate={flyToPosition}
+    writeBlocked={auth.writeBlocked}
+  />
 </main>
 
 {#if commandPaletteOpen}
@@ -4168,12 +3997,5 @@ const plotterActions = {
     inline-size: auto;
     background: var(--surface);
   }
-}
-/* The strip's root lives inside the StatusStrip component, so the span reaches it with :global. */
-.statusbar-slot {
-  position: relative;
-  grid-row: 2;
-  grid-column: 1 / -1;
-  min-block-size: 0;
 }
 </style>

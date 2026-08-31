@@ -15,9 +15,18 @@ interface Props {
   onLocate: (position: LatLon) => void;
   // A trusted shell action may request the same guarded press flow as this visible button.
   requestOpen?: number;
+  // The radial dial can own the visible trigger while this component retains the shared confirm flow.
+  showButton?: boolean;
 }
 
-const { mob, writeBlocked = false, onTrigger, onLocate, requestOpen = 0 }: Props = $props();
+const {
+  mob,
+  writeBlocked = false,
+  onTrigger,
+  onLocate,
+  requestOpen = 0,
+  showButton = true,
+}: Props = $props();
 
 // The MOB button must never trigger on a stray tap, so marking takes two: the button opens a
 // centered confirm dialog, and only its Mark button commits. The fix is snapshotted at PRESS time,
@@ -72,21 +81,23 @@ function onTimeout(): void {
 }
 </script>
 
-<button
-  type="button"
-  class="btn btn-pill mob-btn"
-  class:is-on={mob.active}
-  aria-pressed={mob.active}
-  aria-haspopup={mob.position ? undefined : 'dialog'}
-  aria-label={mob.position ? 'Fly to the man overboard mark' : 'Mark man overboard here'}
-  title={mob.position
+{#if showButton}
+  <button
+    type="button"
+    class="btn btn-pill mob-btn"
+    class:is-on={mob.active}
+    aria-pressed={mob.active}
+    aria-haspopup={mob.position ? undefined : 'dialog'}
+    aria-label={mob.position ? 'Fly to the man overboard mark' : 'Mark man overboard here'}
+    title={mob.position
     ? 'Fly to the MOB mark'
     : 'Mark man overboard at the boat position (asks to confirm)'}
-  onclick={onButton}
->
-  <LifeBuoy size={16} aria-hidden="true" />
-  <span class="mob-label">MOB</span>
-</button>
+    onclick={onButton}
+  >
+    <LifeBuoy size={16} aria-hidden="true" />
+    <span class="mob-label">MOB</span>
+  </button>
+{/if}
 {#if confirming}
   <MobConfirmDialog mark={pressMark} {writeBlocked} {onConfirm} {onCancel} {onTimeout} />
 {/if}

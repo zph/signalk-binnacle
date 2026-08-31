@@ -1,5 +1,6 @@
 <script lang="ts">
 import LockOpen from '@lucide/svelte/icons/lock-open';
+import { onDestroy } from 'svelte';
 import { dialog, focusOnMount } from '$shared/ui';
 import type { InterfaceLockController } from './interface-lock-controller.svelte';
 
@@ -14,6 +15,40 @@ function stayLocked(): void {}
 function suppressContextMenu(event: MouseEvent): void {
   event.preventDefault();
 }
+
+const UNLOCK_HOLD_MS = 5_000;
+let holding = $state(false);
+let remainingSeconds = $state(5);
+let holdStartedAt = 0;
+let holdTimer: ReturnType<typeof setInterval> | undefined;
+let unlockTimer: ReturnType<typeof setTimeout> | undefined;
+
+function cancelHold(): void {
+  holding = false;
+  remainingSeconds = 5;
+  clearInterval(holdTimer);
+  clearTimeout(unlockTimer);
+  holdTimer = undefined;
+  unlockTimer = undefined;
+}
+
+function startHold(event: PointerEvent): void {
+  if (event.button !== 0 || holding) return;
+  holding = true;
+  holdStartedAt = performance.now();
+  holdTimer = setInterval(() => {
+    remainingSeconds = Math.max(
+      1,
+      Math.ceil((UNLOCK_HOLD_MS - (performance.now() - holdStartedAt)) / 1000),
+    );
+  }, 100);
+  unlockTimer = setTimeout(() => {
+    cancelHold();
+    controller.unlock();
+  }, UNLOCK_HOLD_MS);
+}
+
+onDestroy(cancelHold);
 </script>
 
 {#if controller.locked}
@@ -27,13 +62,16 @@ function suppressContextMenu(event: MouseEvent): void {
     <button
       type="button"
       class="btn btn-pill unlock-control"
-      aria-label="Unlock Binnacle"
-      title="Unlock Binnacle"
+      aria-label={holding ? `Keep holding to unlock, ${remainingSeconds} seconds remaining` : 'Hold 5 seconds to unlock Binnacle'}
+      title="Hold for 5 seconds to unlock"
       use:focusOnMount
-      onclick={controller.unlock}
+      onpointerdown={startHold}
+      onpointerup={cancelHold}
+      onpointerleave={cancelHold}
+      onpointercancel={cancelHold}
     >
       <LockOpen size={16} aria-hidden="true" />
-      <span>Unlock</span>
+      <span>{holding ? `Keep holding ${remainingSeconds}s` : 'Hold 5s to unlock'}</span>
     </button>
   </dialog>
 {/if}
