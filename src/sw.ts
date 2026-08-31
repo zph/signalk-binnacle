@@ -58,11 +58,17 @@ if (import.meta.env.PROD && !precacheEntries?.length) {
   throw new Error('The production service worker was built without a precache manifest.');
 }
 
+// Set only by a release command when an incompatible change needs every open client to take the
+// new worker immediately. Normal builds remain prompt-mode and continue to wait for the user to
+// choose Install update.
+const forceImmediateUpdate = import.meta.env.VITE_FORCE_IMMEDIATE_UPDATE === 'true';
+
 const serwist = new Serwist({
   precacheEntries,
   // Prompt-mode updates: the new worker waits until the navigator accepts (Serwist itself
-  // listens for the SKIP_WAITING message that messageSkipWaiting() posts).
-  skipWaiting: false,
+  // listens for the SKIP_WAITING message that messageSkipWaiting() posts). A deliberately
+  // flagged one-time release activates immediately so it can replace open clients.
+  skipWaiting: forceImmediateUpdate,
   // Unlike the previous worker, the first-ever install takes control immediately, so the first
   // visit starts filling runtime caches without a reload. The window side reloads only for an
   // update, an external activation, or a surfaced waiting worker, so this cannot reload a first

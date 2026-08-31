@@ -2607,6 +2607,21 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
       disabledLabel: 'This browser does not offer full-screen mode.',
       onSelect: () => void toggleBrowserFullScreen(),
     },
+    ...(updateReady
+      ? [
+          {
+            id: 'update',
+            label: 'Install update',
+            shortLabel: 'Update',
+            icon: DownloadCloud,
+            group: 'Settings',
+            onSelect: () => {
+              updateReady = false;
+              pwa.update();
+            },
+          },
+        ]
+      : []),
     menuAction('measure'),
     {
       id: 'lock-interface',
