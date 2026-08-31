@@ -950,6 +950,23 @@ describe('createInstrumentsController screen layout', () => {
     ctrl.dispose();
   });
 
+  it('frees the selected instruments into a persistent, non-overlapping chart layout', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps({ tiles: ['sog', 'depth', 'stw'] });
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.ensureSelectedFloating();
+
+    expect(ctrl.floating.map((box) => box.id)).toEqual(['sog', 'depth', 'stw']);
+    expect(new Set(ctrl.floating.map((box) => `${box.x}:${box.y}`)).size).toBe(3);
+    expect(deps.floatingStore.value).toEqual(ctrl.floating);
+
+    // A later edit session preserves the carefully placed helm layout instead of resetting it.
+    ctrl.ensureSelectedFloating();
+    expect(ctrl.floating).toHaveLength(3);
+    ctrl.dispose();
+  });
+
   it('addFloating is idempotent for a duplicate id', () => {
     stubSilentDiscovery();
     const deps = makeDeps();

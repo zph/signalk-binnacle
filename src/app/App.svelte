@@ -627,6 +627,7 @@ const togglePanel = (panel: PanelId, onOpen?: () => void): void => {
 };
 
 function finishOpeningInstrumentsPanel(): void {
+  instrumentsPanelRequested = true;
   if (instrumentsFullScreen) {
     radarControlsOpen = false;
     weatherPanelOpen = false;
@@ -687,17 +688,12 @@ function openTideStationSettings(): void {
 function toggleInstrumentsPanel(): void {
   if (instruments.open) {
     instruments.setOpen(false);
+    instrumentsPanelRequested = false;
     return;
   }
-  if (instrumentsFullScreen) {
-    if (radarControlsOpen) {
-      if (radarDraftDirty) {
-        radarPanelRequest = 'instruments';
-        return;
-      }
-    }
-  }
-  finishOpeningInstrumentsPanel();
+  // This is the helm-level show/hide control. The drawer remains available only for explicit
+  // configuration and expanded-instrument workflows, so it no longer covers the chart by default.
+  instruments.setOpen(true);
 }
 
 function openInstrumentsLayout(layout: 'full' | InstrumentDockLayout): void {
@@ -711,21 +707,18 @@ function openInstrumentsLayout(layout: 'full' | InstrumentDockLayout): void {
   finishOpeningInstrumentsPanel();
 }
 
-// Screen edit mode over the chart. The dock stays open as a drag source on wide displays; on a
-// phone (below the 900px instruments breakpoint) it would cover the whole chart, so the Add
-// instrument menu is the placement path there.
-let dockOpenBeforeScreenEditing = false;
+// Screen edit mode frees the selected dock instruments onto the chart on first use. The chart
+// overlay remains visible after Done, under the same global Instruments show/hide control.
 function startScreenInstrumentEditing(): void {
   if (instruments.screenEditing) return;
-  dockOpenBeforeScreenEditing = instruments.open;
-  // A forced full-screen dock would cover the chart being edited.
+  instruments.ensureSelectedFloating();
   instrumentsFullScreenForced = false;
-  if (!instrumentsViewportFullScreen) instruments.setOpen(true);
+  instrumentsPanelRequested = false;
+  instruments.setOpen(true);
   instruments.setScreenEditing(true);
 }
 function exitScreenInstrumentEditing(): void {
   instruments.setScreenEditing(false);
-  instruments.setOpen(dockOpenBeforeScreenEditing);
 }
 
 async function requestMobFromPalette(): Promise<void> {
@@ -938,7 +931,17 @@ const instrumentScreenLayout = new PersistedValue<FloatingInstrumentBox[]>(
   undefined,
   floatingInstrumentBoxesCodec,
 );
+const instrumentOverlayOpacity = new PersistedValue<number>(
+  binnacleStorageKey('instrumentOverlayOpacity'),
+  1,
+  undefined,
+  boundedNumberPersistedCodec(0.2, 1),
+);
 let instrumentDockWidth = $state(untrack(() => instrumentDockWidthStore.value));
+let instrumentsPanelRequested = $state(false);
+$effect(() => {
+  if (!instruments.open) instrumentsPanelRequested = false;
+});
 
 function resizeInstrumentDock(width: number): void {
   instrumentDockWidth = width;
@@ -2382,8 +2385,8 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       id: 'instruments-layout',
       label: 'Instruments',
       description: instruments.open
-        ? 'Choose a layout or close the instrument dock'
-        : 'Open the instrument dock',
+        ? 'Show or hide the chart instruments, or open a full-screen layout'
+        : 'Show the chart instruments',
       group: 'Instruments',
       keywords: ['settings', 'configuration', 'customize', 'layout'],
       icon: Gauge,
@@ -2415,8 +2418,8 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         },
         {
           id: 'instruments-close',
-          label: 'Close instruments',
-          description: 'Return to the chart',
+          label: 'Hide instruments',
+          description: 'Hide all chart instruments',
           icon: Gauge,
           disabled: !instruments.open,
           disabledReason: 'The instrument dock is already closed.',
@@ -2427,7 +2430,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     {
       id: 'instruments-customize',
       label: 'Customize instruments',
-      description: 'Choose which instruments the dock shows',
+      description: 'Choose chart instruments and their overlay opacity',
       group: 'Instruments',
       keywords: ['instruments', 'web view', 'webview', 'configure', 'layout'],
       icon: Gauge,
@@ -3562,7 +3565,7 @@ const plotterActions = {
   <!-- Instruments placed freely over the chart, rendered by the screen edit mode. The slot sits
        exactly over the chart cell and never intercepts itself; the layer root inside owns its
        pointer events per mode. Rendered after PlotterView so it stacks above the chart. -->
-  {#if instruments.screenEditing || instruments.floating.length > 0}
+  {#if instruments.screenEditing || (instruments.open && instruments.floating.length > 0)}
     <div class="instrument-screen-slot">
       {#await instrumentScreenLayerForAttempt() then module}
         <ErrorBoundary>
@@ -3582,6 +3585,7 @@ const plotterActions = {
             windRoseArcMarginRad={windRoseArcMarginRad.value}
             topBannerPresent={showHelpWelcome || showEncPrompt || arrivalBanner !== undefined}
             onDone={exitScreenInstrumentEditing}
+            overlayOpacity={instrumentOverlayOpacity.value}
           />
 
           {#snippet fallback(_error, reset)}
@@ -3758,7 +3762,7 @@ const plotterActions = {
     {/await}
   {/snippet}
 
-  {#if instruments.open}
+  {#if instruments.open && instrumentsPanelRequested}
     {#await instrumentsPanelForAttempt()}
       {@render instrumentsState('Loading Instruments controls…')}
     {:then module}
@@ -3798,6 +3802,8 @@ const plotterActions = {
           onViewTrend={openFocusedTrend}
           onTrendFocusRestored={() => (trendReturnInstrumentId = undefined)}
           screenEditing={instruments.screenEditing}
+          overlayOpacity={instrumentOverlayOpacity.value}
+          onOverlayOpacityChange={(opacity) => instrumentOverlayOpacity.set(opacity)}
         />
 
         {#snippet fallback(_error, reset)}
@@ -3828,7 +3834,7 @@ const plotterActions = {
     />
     <button type="button" class="btn btn-pill" onclick={toggleInstrumentsPanel}>
       <Gauge size={16} aria-hidden="true" />
-      <span>Instruments</span>
+      <span>{instruments.open ? 'Hide instruments' : 'Show instruments'}</span>
     </button>
     <button type="button" class="btn btn-pill" onclick={() => void toggleBrowserFullScreen()}>
       {#if browserFullScreen}

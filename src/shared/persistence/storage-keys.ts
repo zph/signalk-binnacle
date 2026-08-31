@@ -61,6 +61,10 @@ const BINNACLE_STORAGE_KEYS = {
     key: 'binnacle-custom:instrument-screen-layout',
     scope: 'device',
   },
+  instrumentOverlayOpacity: {
+    key: 'binnacle-custom:instrument-overlay-opacity',
+    scope: 'device',
+  },
   aisRadarRangeNm: { key: 'binnacle-custom:ais-radar-range-nm', scope: 'device' },
   layerCategories: { key: 'binnacle-custom:layer-categories', scope: 'device' },
   mapRenderingQuality: { key: 'binnacle-custom:map-rendering-quality', scope: 'device' },

@@ -81,6 +81,8 @@ interface Props {
   // True while the screen edit mode is active over the chart, so each tile becomes a drag source
   // for placement on the chart.
   screenEditing?: boolean;
+  overlayOpacity?: number;
+  onOverlayOpacityChange?: (opacity: number) => void;
 }
 
 const {
@@ -118,6 +120,8 @@ const {
   initialCustomizeRequest,
   onCustomizeRequestHandled,
   screenEditing = false,
+  overlayOpacity = 1,
+  onOverlayOpacityChange = () => {},
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -516,8 +520,13 @@ $effect(() => {
     <div class="customize-instruction">
       <span class="muted-note">Tap an instrument to show or hide. Drag to reorder.</span>
     </div>
-    <InstrumentsCustomize {controller} {deps} />
+    <InstrumentsCustomize {controller} {deps} {overlayOpacity} {onOverlayOpacityChange} />
   {:else}
+    <div class="instrument-config-action">
+      <button type="button" class="btn btn-ghost" onclick={toggleCustomizing}>
+        Customize instruments
+      </button>
+    </div>
     {#if reordering}
       <p id="instrument-reorder-instruction" class="reorder-instruction muted-note" role="status">
         Drag an instrument by its handle to move it. Select the open lock when done.
@@ -649,6 +658,11 @@ $effect(() => {
 </aside>
 
 <style>
+.instrument-config-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-2) var(--space-3) 0;
+}
 .tiles {
   display: grid;
   /* The 40% arm caps the full-screen phone layout at two readable columns (and one column on a

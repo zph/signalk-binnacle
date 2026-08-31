@@ -221,7 +221,16 @@ function closeTargetDetails(): void {
 {/snippet}
 
 {#if expanded}
+  <!-- A radar face is a temporary close-up: tapping its open water collapses it. Direct radar
+       controls stack above this full-face button and retain their own actions. -->
   <section class="tile tile--expanded ais-radar" aria-label={accessibleLabel}>
+    <button
+      class="radar-collapse"
+      type="button"
+      aria-label={actionLabel}
+      title={actionLabel}
+      onclick={onOpen}
+    ></button>
     <button
       class="icon-btn close"
       type="button"
@@ -267,6 +276,21 @@ function closeTargetDetails(): void {
   overflow: hidden;
   background: var(--surface-raised);
   color: var(--text);
+}
+.radar-collapse {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.radar-collapse:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .face {
   position: relative;

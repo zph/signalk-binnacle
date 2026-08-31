@@ -43,6 +43,7 @@ interface Props {
   topBannerPresent?: boolean;
   // Called when the helm presses Done, so the shell can clear any edit-mode side effects.
   onDone?: () => void;
+  overlayOpacity?: number;
 }
 
 const {
@@ -61,6 +62,7 @@ const {
   onOpenTideSettings,
   topBannerPresent = false,
   onDone = () => {},
+  overlayOpacity = 1,
 }: Props = $props();
 
 const DRAG_MIME = 'text/x-binnacle-instrument';
@@ -85,6 +87,7 @@ const aisRadar = $derived(
 let layerEl = $state<HTMLElement | undefined>();
 let addMenuOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
+let expandedId = $state<string | undefined>();
 
 // In-flight move or resize, so a drag renders its live box without writing storage per pointer
 // event; the persisted box only changes when the pointer is released.
@@ -392,6 +395,7 @@ function finishEditing(): void {
 
   {#each floatingTiles as entry (entry.def.id)}
     {@const box = dragBox && dragBox.id === entry.def.id ? dragBox : entry.box}
+    {@const expanded = expandedId === entry.def.id}
     {@const reading = entry.def.read(deps)}
     {@const zone = controller.zoneState(entry.def, reading.siValue)}
     {@const staleAge = staleAgeText(deps, entry.def, reading)}
@@ -402,13 +406,14 @@ function finishEditing(): void {
     <div
       class="floating-frame"
       class:floating-frame--dragging={dragBox !== undefined}
-      style:left={`${box.x * 100}%`}
-      style:top={`${box.y * 100}%`}
-      style:width={`${box.width * 100}%`}
-      style:height={`${box.height * 100}%`}
+      class:floating-frame--expanded={expanded}
+      style:left={expanded ? '0' : `${box.x * 100}%`}
+      style:top={expanded ? '0' : `${box.y * 100}%`}
+      style:width={expanded ? '100%' : `${box.width * 100}%`}
+      style:height={expanded ? '100%' : `${box.height * 100}%`}
+      style:opacity={overlayOpacity}
       data-instrument-id={entry.def.id}
       data-instrument-label={controller.resolvedLabel(entry.def)}
-      inert={!editing}
     >
       <InstrumentTile
         def={entry.def}
@@ -422,7 +427,8 @@ function finishEditing(): void {
         mapInstrument={editing ? undefined : mapInstrument}
         {windRoseNoGoAngleRad}
         {windRoseArcMarginRad}
-        onActivate={() => {}}
+        {expanded}
+        onActivate={() => (expandedId = expanded ? undefined : entry.def.id)}
         onTideSettings={entry.def.kind === 'tide' ? onOpenTideSettings : undefined}
       />
       {#if editing}
@@ -527,6 +533,9 @@ function finishEditing(): void {
   display: flex;
   min-inline-size: 6rem;
   min-block-size: 4rem;
+  /* The layer itself is click-through to preserve chart gestures, but each placed instrument is
+     a real control: open it, use its built-in controls, and click it again to restore its size. */
+  pointer-events: auto;
 }
 .floating-frame :global(.tile) {
   flex: 1;
@@ -535,6 +544,9 @@ function finishEditing(): void {
 .floating-frame--dragging :global(.tile) {
   outline: 2px solid var(--accent);
   opacity: 0.85;
+}
+.floating-frame--expanded {
+  z-index: 3;
 }
 .floating-drop-preview {
   position: absolute;

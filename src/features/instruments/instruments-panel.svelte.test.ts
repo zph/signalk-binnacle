@@ -49,6 +49,7 @@ function makeController(overrides: Partial<InstrumentsController> = {}): Instrum
     toggleTile: () => {},
     reorderTile: () => {},
     setScreenEditing: () => {},
+    ensureSelectedFloating: () => {},
     isFloating: () => false,
     addFloating: () => {},
     removeFloating: () => {},

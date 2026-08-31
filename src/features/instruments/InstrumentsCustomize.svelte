@@ -8,9 +8,11 @@ import { instrumentOptionLabels, type TileDef, type TileDeps } from './tile-cata
 interface Props {
   controller: InstrumentsController;
   deps: TileDeps;
+  overlayOpacity?: number;
+  onOverlayOpacityChange?: (opacity: number) => void;
 }
 
-const { controller, deps }: Props = $props();
+const { controller, deps, overlayOpacity = 1, onOverlayOpacityChange = () => {} }: Props = $props();
 
 let listEl: HTMLElement | undefined = $state(undefined);
 
@@ -106,6 +108,26 @@ const webviewStatusMessage = $derived.by(() => {
 <!-- The reorder controller measures rows and listens for scroll on this element, so it is the one
      scroll container over both sections and it holds the data-tile-row rows (the shown list). -->
 <div class="customize-list" bind:this={listEl}>
+  <section class="instrument-overlay-settings" aria-label="Instrument overlay">
+    <h3 class="caps-label section-label">Chart overlay</h3>
+    <div class="opacity-field">
+      <div class="opacity-label">
+        <label for="instrument-overlay-opacity">Opacity</label>
+        <span class="num">{Math.round(overlayOpacity * 100)}%</span>
+      </div>
+      <input
+        id="instrument-overlay-opacity"
+        class="range"
+        type="range"
+        min="0.2"
+        max="1"
+        step="0.05"
+        value={overlayOpacity}
+        aria-valuetext={`${Math.round(overlayOpacity * 100)}%`}
+        oninput={(event) => onOverlayOpacityChange(Number(event.currentTarget.value))}
+      >
+    </div>
+  </section>
   <h3 class="caps-label section-label">Shown</h3>
   <ul class="tile-list bare-list">
     {#each shown as def, i (def.id)}

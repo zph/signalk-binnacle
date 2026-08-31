@@ -104,6 +104,7 @@ export interface InstrumentsController {
   toggleTile(id: string): void;
   reorderTile(id: string, slot: number): void;
   setScreenEditing(editing: boolean): void;
+  ensureSelectedFloating(): void;
   isFloating(id: string): boolean;
   addFloating(id: string, at?: { x?: number; y?: number }): void;
   removeFloating(id: string): void;
@@ -511,6 +512,32 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     fetchMetaForSelected();
   }
 
+  function ensureSelectedFloating(): void {
+    const current = Array.isArray(deps.floatingStore.value) ? deps.floatingStore.value : [];
+    const placed = new Set(current.map((box) => box?.id));
+    const next = [...current];
+    for (const id of resolveSelectedIds()) {
+      if (placed.has(id) || next.length >= MAX_FLOATING_INSTRUMENTS) continue;
+      const def = deps.registry.resolve(id);
+      if (!def) continue;
+      // Give newly freed instruments a visible, non-overlapping first arrangement. Existing
+      // placements are retained exactly, so returning to edit mode never loses a helm layout.
+      const slot = next.length;
+      next.push(
+        defaultFloatingBox(
+          { x: 0.04 + (slot % 3) * 0.3, y: 0.12 + Math.floor(slot / 3) * 0.22 },
+          id,
+        ),
+      );
+      placed.add(id);
+      ensureFloatingCells(def);
+    }
+    if (next.length === current.length) return;
+    deps.floatingStore.set(next);
+    syncSubscriptions();
+    fetchMetaForSelected();
+  }
+
   function ensureFloatingCells(def: TileDef): void {
     deps.store.ensureCells(def.paths);
     deps.store.traceSources(def.paths);
@@ -728,6 +755,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     toggleTile,
     reorderTile,
     setScreenEditing,
+    ensureSelectedFloating,
     isFloating,
     addFloating,
     removeFloating,
