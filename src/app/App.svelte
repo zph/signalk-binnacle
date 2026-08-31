@@ -3804,7 +3804,7 @@ const plotterActions = {
     onLocate={flyToPosition}
     writeBlocked={auth.writeBlocked}
   />
-  <div class="desktop-helm-actions" aria-label="Helm actions">
+  <div class="desktop-helm-actions" role="group" aria-label="Helm actions">
     <MobButton
       {mob}
       onTrigger={mobController.onTrigger}
@@ -3816,22 +3816,34 @@ const plotterActions = {
       <span>Instruments</span>
     </button>
     <button type="button" class="btn btn-pill" onclick={() => void toggleBrowserFullScreen()}>
-      {#if browserFullScreen}<Minimize2 size={16} aria-hidden="true" />{:else}<Maximize2 size={16} aria-hidden="true" />{/if}
+      {#if browserFullScreen}
+        <Minimize2 size={16} aria-hidden="true" />
+      {:else}
+        <Maximize2 size={16} aria-hidden="true" />
+      {/if}
       <span>{browserFullScreen ? 'Unmaximize' : 'Maximize'}</span>
     </button>
     <button type="button" class="btn btn-pill" onclick={interfaceLock.lock}>
       <Lock size={16} aria-hidden="true" />
       <span>Lock</span>
     </button>
-    <button type="button" class="btn btn-pill" onclick={() => {
+    <button
+      type="button"
+      class="btn btn-pill"
+      onclick={() => {
       layersOpenRequest = { mode: 'charts' };
       togglePanel('layers');
-    }}>
+    }}
+    >
       <Layers size={16} aria-hidden="true" />
       <span>Charts</span>
     </button>
     {#if updateReady}
-      <button type="button" class="btn btn-primary btn-pill" onclick={() => { updateReady = false; pwa.update(); }}>
+      <button
+        type="button"
+        class="btn btn-primary btn-pill"
+        onclick={() => { updateReady = false; pwa.update(); }}
+      >
         <DownloadCloud size={16} aria-hidden="true" />
         <span>Update</span>
       </button>
@@ -4031,9 +4043,13 @@ const plotterActions = {
   gap: var(--space-2);
   pointer-events: none;
 }
-.desktop-helm-actions :global(button) { pointer-events: auto; }
+.desktop-helm-actions :global(button) {
+  pointer-events: auto;
+}
 @media (max-width: 900px) {
-  .desktop-helm-actions { display: none; }
+  .desktop-helm-actions {
+    display: none;
+  }
   .binnacle-shell > :global(.instruments) {
     position: fixed;
     inset: 0;

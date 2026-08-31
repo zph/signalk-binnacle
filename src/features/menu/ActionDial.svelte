@@ -14,6 +14,7 @@ const { actions, open, onOpenChange, position = null, onPositionChange }: Props 
 
 let dial = $state<HTMLButtonElement>();
 let dragPointerId = $state<number | undefined>();
+let openedByPointerId = $state<number | undefined>();
 let ignoreClick = $state(false);
 let movingPointerId = $state<number | undefined>();
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
@@ -54,6 +55,7 @@ function begin(event: PointerEvent): void {
   ignoreClick = true;
   if (!open) {
     onOpenChange(true);
+    openedByPointerId = event.pointerId;
     dragPointerId = event.pointerId;
     dial?.setPointerCapture(event.pointerId);
     holdTimer = setTimeout(() => {
@@ -71,10 +73,7 @@ function selectFromDrag(event: PointerEvent): void {
   const bounds = dial.getBoundingClientRect();
   const dx = event.clientX - (bounds.left + bounds.width / 2);
   const dy = event.clientY - (bounds.top + bounds.height / 2);
-  if (Math.hypot(dx, dy) < bounds.width * 0.8) {
-    onOpenChange(false);
-    return;
-  }
+  if (Math.hypot(dx, dy) < bounds.width * 0.8) return;
   const angle = (Math.atan2(dy, dx) + Math.PI * 2.5) % (Math.PI * 2);
   const action = actions[Math.floor(angle / ((Math.PI * 2) / actions.length))];
   if (action) run(action);
@@ -89,9 +88,25 @@ function end(event: PointerEvent): void {
   if (dragPointerId !== event.pointerId) return;
   clearTimeout(holdTimer);
   holdTimer = undefined;
-  selectFromDrag(event);
+  const bounds = dial?.getBoundingClientRect();
+  const dx = bounds ? event.clientX - (bounds.left + bounds.width / 2) : 0;
+  const dy = bounds ? event.clientY - (bounds.top + bounds.height / 2) : 0;
+  if (openedByPointerId === event.pointerId && Math.hypot(dx, dy) < (bounds?.width ?? 0) * 0.8) {
+    openedByPointerId = undefined;
+  } else if (Math.hypot(dx, dy) < (bounds?.width ?? 0) * 0.8) {
+    onOpenChange(false);
+  } else {
+    selectFromDrag(event);
+  }
   dragPointerId = undefined;
 }
+
+const AUTO_CLOSE_MS = 10_000;
+$effect(() => {
+  if (!open) return;
+  const timer = setTimeout(() => onOpenChange(false), AUTO_CLOSE_MS);
+  return () => clearTimeout(timer);
+});
 </script>
 
 <div
