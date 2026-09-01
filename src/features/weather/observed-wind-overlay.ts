@@ -60,8 +60,6 @@ export function createObservedWindOverlay(
     title: 'Observed wind stations',
     description: 'Measured NOAA NDBC wind at buoys and coastal stations.',
     band: 'weather', supportsOpacity: true, defaultVisible: false,
-    available: () => response !== undefined,
-    unavailableHint: 'Observed stations need the enabled Signal K Observed Wind Stations plugin.',
     layerIds: [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES],
     add(ctx) {
       if (!ctx.map.getSource(SOURCE)) {
