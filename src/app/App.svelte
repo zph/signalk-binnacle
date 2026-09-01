@@ -3907,6 +3907,21 @@ const plotterActions = {
       onLocate={flyToPosition}
       writeBlocked={auth.writeBlocked}
     />
+    {#if updateReady}
+      <button
+        type="button"
+        class="btn btn-pill helm-update-action"
+        aria-label="Install ready update"
+        title="Install ready update"
+        onclick={() => {
+          updateReady = false;
+          pwa.update();
+        }}
+      >
+        <DownloadCloud size={16} aria-hidden="true" />
+        <span>Update</span>
+      </button>
+    {/if}
     <button
       type="button"
       class="btn btn-pill"
