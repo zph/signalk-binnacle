@@ -11,15 +11,43 @@ import { fetchObservedWindStations, type ObservedWindResponse } from './observed
 import { WEATHER_LAYER_IDS } from './fills';
 
 const SOURCE = 'binnacle-observed-wind';
+const BARB_SOURCE = 'binnacle-observed-wind-barbs';
 const CLUSTERS = 'binnacle-observed-wind-clusters';
 const CLUSTER_COUNT = 'binnacle-observed-wind-cluster-count';
-const ARROWS = 'binnacle-observed-wind-arrows';
+const BARB_CASING = 'binnacle-observed-wind-barb-casing';
+const BARBS = 'binnacle-observed-wind-barbs';
 const SPEED = 'binnacle-observed-wind-speed';
 const NAMES = 'binnacle-observed-wind-names';
 const STALE_MS = 2 * 60 * 60 * 1000;
 
 export function observedWindAge(observedAt: string, now = Date.now()): 'live' | 'stale' {
   return now - Date.parse(observedAt) > STALE_MS ? 'stale' : 'live';
+}
+
+function barbCoordinates(station: ObservedWindResponse['stations'][number]): GeoJSON.Position[][] {
+  const length = 0.004;
+  const radians = (station.directionDeg * Math.PI) / 180;
+  const east = Math.sin(radians);
+  const north = Math.cos(radians);
+  const start: GeoJSON.Position = [
+    station.longitude - east * length * 0.5,
+    station.latitude - north * length * 0.5,
+  ];
+  const end: GeoJSON.Position = [
+    station.longitude + east * length * 0.5,
+    station.latitude + north * length * 0.5,
+  ];
+  const feathers = Math.max(0, Math.min(6, Math.round((station.speedMps * 1.94384) / 5)));
+  const lines: GeoJSON.Position[][] = [[start, end]];
+  for (let feather = 0; feather < feathers; feather += 1) {
+    const along = Math.min(0.88, 0.2 + feather * 0.13);
+    const shaft: GeoJSON.Position = [
+      end[0] - east * length * along,
+      end[1] - north * length * along,
+    ];
+    lines.push([shaft, [shaft[0] - north * length * 0.3, shaft[1] + east * length * 0.3]]);
+  }
+  return lines;
 }
 
 export function createObservedWindOverlay(
@@ -52,12 +80,19 @@ export function createObservedWindOverlay(
         geometry: { type: 'Point' as const, coordinates: [station.longitude, station.latitude] },
         properties: {
           ...station,
-          source: response?.provider,
           stale: observedWindAge(station.observedAt),
           // Meteorological direction is where wind comes from; symbols point where it goes.
           rotation: (station.directionDeg + 180) % 360,
           speedLabel: `${formatSpeedOr(station.speedMps, unit, 0)} ${speedUnitLabel(unit)}`,
         },
+      })),
+    });
+    setSourceData(ctx.map, BARB_SOURCE, {
+      type: 'FeatureCollection',
+      features: response.stations.map((station) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'MultiLineString' as const, coordinates: barbCoordinates(station) },
+        properties: { stale: observedWindAge(station.observedAt) },
       })),
     });
   };
@@ -68,7 +103,7 @@ export function createObservedWindOverlay(
     band: 'weather',
     supportsOpacity: true,
     defaultVisible: false,
-    layerIds: [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES],
+    layerIds: [CLUSTERS, CLUSTER_COUNT, BARB_CASING, BARBS, SPEED, NAMES],
     add(ctx) {
       if (!ctx.map.getSource(SOURCE)) {
         ctx.map.addSource(SOURCE, {
@@ -76,6 +111,12 @@ export function createObservedWindOverlay(
           data: { type: 'FeatureCollection', features: [] },
           cluster: true,
           clusterRadius: 42,
+        });
+      }
+      if (!ctx.map.getSource(BARB_SOURCE)) {
+        ctx.map.addSource(BARB_SOURCE, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
         });
       }
       const symbol = (id: string, text: unknown, minzoom = 0): SymbolLayerSpecification => ({
@@ -90,10 +131,10 @@ export function createObservedWindOverlay(
         layout: {
           'text-field': text as never,
           'text-font': ['Noto Sans Regular'],
-          'text-size': id === ARROWS ? 22 : 11,
-          'text-rotate': id === ARROWS ? ['get', 'rotation'] : 0,
+          'text-size': 11,
+          'text-rotate': 0,
           'text-offset': id === SPEED ? [0, 1.35] : id === NAMES ? [0, 2.55] : [0, 0],
-          'text-allow-overlap': id === ARROWS,
+          'text-allow-overlap': false,
         },
         paint: {
           'text-color':
@@ -109,7 +150,29 @@ export function createObservedWindOverlay(
         symbol(CLUSTER_COUNT, ['get', 'point_count_abbreviated']),
         ctx.beforeIdFor('weather'),
       );
-      ctx.map.addLayer(symbol(ARROWS, '➤'), ctx.beforeIdFor('weather'));
+      ctx.map.addLayer(
+        {
+          id: BARB_CASING,
+          type: 'line',
+          source: BARB_SOURCE,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#18242c', 'line-width': 3.5 },
+        },
+        ctx.beforeIdFor('weather'),
+      );
+      ctx.map.addLayer(
+        {
+          id: BARBS,
+          type: 'line',
+          source: BARB_SOURCE,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': ['case', ['==', ['get', 'stale'], 'stale'], '#a35b18', '#ffffff'],
+            'line-width': 1.5,
+          },
+        },
+        ctx.beforeIdFor('weather'),
+      );
       ctx.map.addLayer(symbol(SPEED, ['get', 'speedLabel']), ctx.beforeIdFor('weather'));
       ctx.map.addLayer(symbol(NAMES, ['get', 'name'], 8), ctx.beforeIdFor('weather'));
       load();
@@ -124,11 +187,19 @@ export function createObservedWindOverlay(
       lastUnit = undefined;
     },
     remove(ctx) {
-      removeLayersAndSources(ctx.map, [NAMES, SPEED, ARROWS, CLUSTER_COUNT, CLUSTERS], [SOURCE]);
+      removeLayersAndSources(
+        ctx.map,
+        [NAMES, SPEED, BARBS, BARB_CASING, CLUSTER_COUNT, CLUSTERS],
+        [BARB_SOURCE, SOURCE],
+      );
     },
     setVisible(ctx, value) {
       visible = value;
-      setLayersVisibility(ctx.map, [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES], value);
+      setLayersVisibility(
+        ctx.map,
+        [CLUSTERS, CLUSTER_COUNT, BARB_CASING, BARBS, SPEED, NAMES],
+        value,
+      );
       if (value) {
         lastUnit = undefined;
         load();
@@ -136,8 +207,10 @@ export function createObservedWindOverlay(
       }
     },
     setOpacity(ctx, value) {
-      for (const id of [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES])
+      for (const id of [CLUSTERS, CLUSTER_COUNT, SPEED, NAMES])
         if (ctx.map.getLayer(id)) ctx.map.setPaintProperty(id, 'text-opacity', value);
+      for (const id of [BARB_CASING, BARBS])
+        if (ctx.map.getLayer(id)) ctx.map.setPaintProperty(id, 'line-opacity', value);
     },
   };
 }
