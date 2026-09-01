@@ -33,7 +33,13 @@ export function createObservedWindOverlay(
   let lastUnit: SpeedUnit | undefined;
   const load = () => {
     if (loading) return;
-    loading = fetchObservedWindStations(origin, getToken).then((value) => { response = value; }).finally(() => { loading = undefined; });
+    loading = fetchObservedWindStations(origin, getToken)
+      .then((value) => {
+        response = value;
+      })
+      .finally(() => {
+        loading = undefined;
+      });
   };
   const update = (ctx: OverlayContext) => {
     const unit = getSpeedUnit();
@@ -58,30 +64,80 @@ export function createObservedWindOverlay(
   return {
     id: WEATHER_LAYER_IDS.observedWind,
     title: 'Observed wind stations',
-    description: 'Measured NOAA NDBC wind at buoys and coastal stations.',
-    band: 'weather', supportsOpacity: true, defaultVisible: false,
+    description: 'Measured NOAA buoy, coastal, and METAR-station wind.',
+    band: 'weather',
+    supportsOpacity: true,
+    defaultVisible: false,
     layerIds: [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES],
     add(ctx) {
       if (!ctx.map.getSource(SOURCE)) {
-        ctx.map.addSource(SOURCE, { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterRadius: 42 });
+        ctx.map.addSource(SOURCE, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterRadius: 42,
+        });
       }
       const symbol = (id: string, text: unknown, minzoom = 0): SymbolLayerSpecification => ({
-        id, type: 'symbol', source: SOURCE, minzoom,
-        filter: id === CLUSTERS || id === CLUSTER_COUNT ? ['has', 'point_count'] : ['!', ['has', 'point_count']],
-        layout: { 'text-field': text as never, 'text-font': ['Noto Sans Regular'], 'text-size': id === ARROWS ? 22 : 11, 'text-rotate': id === ARROWS ? ['get', 'rotation'] : 0, 'text-offset': id === SPEED ? [0, 1.35] : id === NAMES ? [0, 2.55] : [0, 0], 'text-allow-overlap': id === ARROWS },
-        paint: { 'text-color': id === CLUSTERS ? '#16334a' : ['case', ['==', ['get', 'stale'], 'stale'], '#a35b18', '#ffffff'] as never, 'text-halo-color': '#18242c', 'text-halo-width': 1.5 },
+        id,
+        type: 'symbol',
+        source: SOURCE,
+        minzoom,
+        filter:
+          id === CLUSTERS || id === CLUSTER_COUNT
+            ? ['has', 'point_count']
+            : ['!', ['has', 'point_count']],
+        layout: {
+          'text-field': text as never,
+          'text-font': ['Noto Sans Regular'],
+          'text-size': id === ARROWS ? 22 : 11,
+          'text-rotate': id === ARROWS ? ['get', 'rotation'] : 0,
+          'text-offset': id === SPEED ? [0, 1.35] : id === NAMES ? [0, 2.55] : [0, 0],
+          'text-allow-overlap': id === ARROWS,
+        },
+        paint: {
+          'text-color':
+            id === CLUSTERS
+              ? '#16334a'
+              : (['case', ['==', ['get', 'stale'], 'stale'], '#a35b18', '#ffffff'] as never),
+          'text-halo-color': '#18242c',
+          'text-halo-width': 1.5,
+        },
       });
       ctx.map.addLayer(symbol(CLUSTERS, '●'), ctx.beforeIdFor('weather'));
-      ctx.map.addLayer(symbol(CLUSTER_COUNT, ['get', 'point_count_abbreviated']), ctx.beforeIdFor('weather'));
+      ctx.map.addLayer(
+        symbol(CLUSTER_COUNT, ['get', 'point_count_abbreviated']),
+        ctx.beforeIdFor('weather'),
+      );
       ctx.map.addLayer(symbol(ARROWS, '➤'), ctx.beforeIdFor('weather'));
       ctx.map.addLayer(symbol(SPEED, ['get', 'speedLabel']), ctx.beforeIdFor('weather'));
       ctx.map.addLayer(symbol(NAMES, ['get', 'name'], 8), ctx.beforeIdFor('weather'));
       load();
     },
-    sync(ctx) { if (visible) { load(); update(ctx); } },
-    reset() { lastUnit = undefined; },
-    remove(ctx) { removeLayersAndSources(ctx.map, [NAMES, SPEED, ARROWS, CLUSTER_COUNT, CLUSTERS], [SOURCE]); },
-    setVisible(ctx, value) { visible = value; setLayersVisibility(ctx.map, [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES], value); if (value) { lastUnit = undefined; load(); this.sync(ctx); } },
-    setOpacity(ctx, value) { for (const id of [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES]) if (ctx.map.getLayer(id)) ctx.map.setPaintProperty(id, 'text-opacity', value); },
+    sync(ctx) {
+      if (visible) {
+        load();
+        update(ctx);
+      }
+    },
+    reset() {
+      lastUnit = undefined;
+    },
+    remove(ctx) {
+      removeLayersAndSources(ctx.map, [NAMES, SPEED, ARROWS, CLUSTER_COUNT, CLUSTERS], [SOURCE]);
+    },
+    setVisible(ctx, value) {
+      visible = value;
+      setLayersVisibility(ctx.map, [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES], value);
+      if (value) {
+        lastUnit = undefined;
+        load();
+        this.sync(ctx);
+      }
+    },
+    setOpacity(ctx, value) {
+      for (const id of [CLUSTERS, CLUSTER_COUNT, ARROWS, SPEED, NAMES])
+        if (ctx.map.getLayer(id)) ctx.map.setPaintProperty(id, 'text-opacity', value);
+    },
   };
 }
