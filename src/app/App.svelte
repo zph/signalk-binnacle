@@ -500,6 +500,7 @@ const weatherLayerSettings = new PersistedValue<LayerSettings>(
   binnacleStorageKey('weatherLayers'),
   {
     [WEATHER_LAYER_IDS.wind]: { ...DEFAULT_OVERLAY_STATE },
+    [WEATHER_LAYER_IDS.observedWind]: { ...DEFAULT_OVERLAY_STATE },
     [WEATHER_LAYER_IDS.waves]: { visible: true, opacity: 0.7 },
   },
   undefined,
@@ -2476,6 +2477,33 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
           WEATHER_LAYER_IDS.wind,
           !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
         ),
+    },
+    {
+      id: 'observed-wind-stations-overlay',
+      label: layerSettings.value[WEATHER_LAYER_IDS.observedWind]?.visible
+        ? 'Hide observed wind stations'
+        : 'Show observed wind stations',
+      description: 'Show measured NOAA buoy and coastal-station wind observations on the chart',
+      group: 'Weather',
+      keywords: ['wind', 'observed', 'stations', 'buoy', 'noaa', 'overlay'],
+      icon: Wind,
+      onSelect: () =>
+        setLayerVisible(
+          WEATHER_LAYER_IDS.observedWind,
+          !(layerSettings.value[WEATHER_LAYER_IDS.observedWind]?.visible ?? false),
+        ),
+    },
+    {
+      id: 'wind-sources-both',
+      label: 'Show forecast and observed wind',
+      description: 'Show the forecast wind field together with measured station observations',
+      group: 'Weather',
+      keywords: ['wind', 'forecast', 'observed', 'both', 'stations'],
+      icon: Wind,
+      onSelect: () => {
+        setLayerVisible(WEATHER_LAYER_IDS.wind, true);
+        setLayerVisible(WEATHER_LAYER_IDS.observedWind, true);
+      },
     },
     {
       id: 'trip-log-toggle',

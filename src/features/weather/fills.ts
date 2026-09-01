@@ -3,6 +3,7 @@
 // saved layer settings, so they must stay stable.
 export const WEATHER_LAYER_IDS = {
   wind: 'weather-wind',
+  observedWind: 'weather-observed-wind',
   pressure: 'weather-pressure',
   waves: 'weather-waves',
   precip: 'weather-precip',

@@ -45,6 +45,7 @@ const factories = vi.hoisted(() => {
       (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
         marker('weather-wind'),
     ),
+    createObservedWindOverlay: vi.fn(() => marker('weather-observed-wind')),
   };
 });
 
@@ -72,7 +73,7 @@ vi.mock('$features/track-layer', () => ({
 }));
 vi.mock('$features/vessel-layer', () => ({ createVesselOverlay: factories.createVesselOverlay }));
 vi.mock('$features/waypoints', () => ({ createWaypointOverlay: factories.createWaypointOverlay }));
-vi.mock('$features/weather', () => ({ createWindOverlay: factories.createWindOverlay }));
+vi.mock('$features/weather', () => ({ createWindOverlay: factories.createWindOverlay, createObservedWindOverlay: factories.createObservedWindOverlay }));
 
 function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => boolean) {
   const assessment = { contacts: [], worst: 'clear' };
@@ -125,6 +126,7 @@ describe('buildDynamicOverlays', () => {
 
     expect(overlays.map(({ id }) => id)).toEqual([
       'weather-wind',
+      'weather-observed-wind',
       'tides',
       'anchor',
       'measure',
@@ -150,6 +152,7 @@ describe('buildDynamicOverlays', () => {
     const { overlays } = setup();
     expect(overlays.map(({ id }) => id)).toEqual([
       'weather-wind',
+      'weather-observed-wind',
       'tides',
       'anchor',
       'measure',
@@ -181,6 +184,11 @@ describe('buildDynamicOverlays', () => {
     expect(factories.createWindOverlay).toHaveBeenCalledWith(
       deps.weather,
       undefined,
+      expect.any(Function),
+    );
+    expect(factories.createObservedWindOverlay).toHaveBeenCalledWith(
+      deps.origin,
+      deps.getToken,
       expect.any(Function),
     );
     const windSpeedUnit = factories.createWindOverlay.mock.calls[0]?.[2];

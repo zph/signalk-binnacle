@@ -32,3 +32,4 @@ export { createWavesOverlay } from './waves-overlay';
 export { createWeatherLoader, type WeatherLoader } from './weather-loader';
 export { precipUnitLabel, RAIN_VISIBLE_MM_H } from './weather-readout';
 export { createWindOverlay } from './wind-overlay';
+export { createObservedWindOverlay } from './observed-wind-overlay';
