@@ -57,42 +57,64 @@ const rollReadout = $derived(
   {#if reading.state === 'never'}
     <span class="value"><span class="muted-note">{sensorGloss}</span></span>
   {:else}
-    <span class="attitude-values num">
-      <span
-        class="attitude-reading"
-        class:attitude-reading--normal={attitudeZones.pitch === 'normal'}
-        class:attitude-reading--warning={attitudeZones.pitch === 'warning'}
-        class:attitude-reading--alarm={attitudeZones.pitch === 'alarm'}
-        ><span>P:</span><span class="attitude-number">{pitchReadout}°</span></span
-      >
-      <span
-        class="attitude-reading"
-        class:attitude-reading--normal={attitudeZones.roll === 'normal'}
-        class:attitude-reading--warning={attitudeZones.roll === 'warning'}
-        class:attitude-reading--alarm={attitudeZones.roll === 'alarm'}
-        ><span>R:</span><span class="attitude-number">{rollReadout}°</span></span
-      >
+    <span class="attitude-readout">
+      <span class="attitude-values num">
+        <span
+          class="attitude-reading"
+          class:attitude-reading--normal={attitudeZones.pitch === 'normal'}
+          class:attitude-reading--warning={attitudeZones.pitch === 'warning'}
+          class:attitude-reading--alarm={attitudeZones.pitch === 'alarm'}
+          ><span class="attitude-axis">P:</span
+          ><span class="attitude-number">{pitchReadout}°</span></span
+        >
+        <span
+          class="attitude-reading"
+          class:attitude-reading--normal={attitudeZones.roll === 'normal'}
+          class:attitude-reading--warning={attitudeZones.roll === 'warning'}
+          class:attitude-reading--alarm={attitudeZones.roll === 'alarm'}
+          ><span class="attitude-axis">R:</span
+          ><span class="attitude-number">{rollReadout}°</span></span
+        >
+      </span>
+      {#if staleAgeText}
+        <span class="tile-secondary">{staleAgeText}</span>
+      {/if}
     </span>
-    {#if staleAgeText}
-      <span class="tile-secondary">{staleAgeText}</span>
-    {/if}
   {/if}
   <span class="caps-label"><span class="abbr">ATT</span> {label}</span>
   <TileStateBadge state={reading.state} />
 </button>
 
 <style>
+.attitude-readout {
+  container-type: size;
+  display: grid;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: hidden;
+  place-content: center;
+}
 .attitude-values {
-  display: inline-grid;
+  display: grid;
   gap: var(--space-1);
-  font-size: var(--text-readout);
+  justify-items: center;
 }
 .attitude-reading {
-  display: inline-grid;
-  grid-template-columns: 2ch 3ch;
+  align-items: baseline;
   column-gap: var(--space-1);
+  display: flex;
+  justify-content: center;
+  line-height: 0.9;
+}
+.attitude-axis {
+  font-size: clamp(var(--text-sm), min(8cqi, 9cqb), var(--text-readout-lg));
+  font-weight: 700;
 }
 .attitude-number {
+  font-size: clamp(var(--text-readout-lg), min(33cqi, 38cqb), 18rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
   text-align: end;
 }
 .attitude-reading--normal {
@@ -105,7 +127,7 @@ const rollReadout = $derived(
   color: var(--alarm);
 }
 .tile--expanded .attitude-values {
-  font-size: clamp(var(--text-xl), 4vmin, 2.5rem);
+  gap: clamp(var(--space-2), 1.5cqb, var(--space-5));
 }
 .tile--stale .attitude-reading {
   color: var(--text-muted);

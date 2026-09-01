@@ -1,8 +1,6 @@
 import type {
   CircleLayerSpecification,
   LineLayerSpecification,
-  MapLayerMouseEvent,
-  MapLayerTouchEvent,
   MapMouseEvent,
   MapTouchEvent,
   PointLike,
@@ -345,13 +343,15 @@ export function createMeasureOverlay(
         measure.cancelMove();
       };
 
-      const beginDrag = (
-        event: MapLayerMouseEvent | MapLayerTouchEvent,
-        isTouch: boolean,
-      ): void => {
+      const beginDrag = (event: MapMouseEvent | MapTouchEvent, isTouch: boolean): void => {
         if (!measure.active || !measure.moveArmed || dragging) return;
         if (isTouch && 'points' in event && event.points.length !== 1) return;
-        const vertexId = event.features?.[0]?.properties?.vertexId;
+        // Listen on the map and resolve the hit ourselves. Arming a move changes the line styling,
+        // which refreshes the shared GeoJSON source; during that worker round trip, MapLibre can
+        // briefly omit the transparent delegated hit feature. hitTest falls back to current store
+        // geometry, so a prompt drag still starts instead of being silently dropped.
+        const point = isTouch && 'points' in event ? event.points[0] : event.point;
+        const vertexId = hitTest?.(point);
         if (vertexId !== measure.selectedId) return;
         event.preventDefault();
         dragging = true;
@@ -371,16 +371,16 @@ export function createMeasureOverlay(
         });
       };
 
-      const onMouseDown = (event: MapLayerMouseEvent): void => beginDrag(event, false);
-      const onTouchStart = (event: MapLayerTouchEvent): void => beginDrag(event, true);
-      map.on('mousedown', HIT_LAYER, onMouseDown);
-      map.on('touchstart', HIT_LAYER, onTouchStart);
+      const onMouseDown = (event: MapMouseEvent): void => beginDrag(event, false);
+      const onTouchStart = (event: MapTouchEvent): void => beginDrag(event, true);
+      map.on('mousedown', onMouseDown);
+      map.on('touchstart', onTouchStart);
 
       cancelActiveDrag = onPointerCancel;
       detachInteractions = () => {
         onPointerCancel();
-        map.off('mousedown', HIT_LAYER, onMouseDown);
-        map.off('touchstart', HIT_LAYER, onTouchStart);
+        map.off('mousedown', onMouseDown);
+        map.off('touchstart', onTouchStart);
       };
     },
     reset,

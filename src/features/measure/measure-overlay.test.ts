@@ -137,8 +137,8 @@ describe('measure overlay', () => {
     measure.select(vertexId);
     measure.armMove();
     const preventDefault = vi.fn();
-    map.emitLayer('mousedown', 'binnacle-measure-hit', {
-      features: [{ properties: { vertexId } }],
+    map.emit('mousedown', {
+      point: { x: 0, y: 0 },
       lngLat: { lat: 0, lng: 0 },
       preventDefault,
     });
@@ -246,8 +246,8 @@ describe('measure overlay', () => {
     const vertexId = measure.vertices[0].id;
     measure.select(vertexId);
     measure.armMove();
-    map.emitLayer('touchstart', 'binnacle-measure-hit', {
-      features: [{ properties: { vertexId } }],
+    map.emit('touchstart', {
+      point: { x: 0, y: 0 },
       points: [{ x: 0, y: 0 }],
       lngLat: { lat: 0, lng: 0 },
       preventDefault: vi.fn(),
