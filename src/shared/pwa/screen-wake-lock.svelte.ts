@@ -1,4 +1,4 @@
-export type ScreenWakeLockStatus = 'active' | 'off' | 'unavailable' | 'unsupported';
+type ScreenWakeLockStatus = 'active' | 'off' | 'unavailable' | 'unsupported';
 
 interface WakeLockSentinelLike {
   released: boolean;

@@ -175,7 +175,8 @@ $effect(() => {
           class:action-dial-wedge--blocked={itemBlocked(action)}
           aria-label={action.label}
           disabled={itemBlocked(action)}
-          style:transform={`translate(-50%, -50%) rotate(${placement.angle}deg) translateY(-${placement.radius}rem) rotate(${-placement.angle}deg)`}
+          style:--wedge-angle={`${placement.angle}deg`}
+          style:--wedge-radius={`${placement.radius}rem`}
           onclick={() => run(action)}
         >
           {#if Icon}
@@ -277,6 +278,8 @@ $effect(() => {
   font-size: var(--text-xs);
   line-height: 1.1;
   text-align: center;
+  transform: translate(-50%, -50%) rotate(var(--wedge-angle))
+    translateY(calc(-1 * var(--wedge-radius))) rotate(calc(-1 * var(--wedge-angle)));
 }
 .action-dial-wedge:active:not(:disabled) {
   border-color: var(--accent);
@@ -305,7 +308,7 @@ $effect(() => {
     position: static;
     inline-size: auto;
     min-block-size: var(--control-size);
-    transform: none !important;
+    transform: none;
   }
 }
 </style>

@@ -436,7 +436,6 @@ $effect(() => {
   };
 });
 
-
 onMount(async () => {
   document.addEventListener('fullscreenchange', resizeAfterFullScreenChange);
   try {
