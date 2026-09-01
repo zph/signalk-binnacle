@@ -2652,6 +2652,17 @@ function uniqueActionIds(actions: MenuItem[]): MenuItem[] {
   });
 }
 
+function mobAction(): MenuItem {
+  return {
+    id: 'mob',
+    label: mob.position ? 'Find MOB mark' : 'Man overboard',
+    shortLabel: 'MOB',
+    icon: LifeBuoy,
+    group: 'Safety',
+    onSelect: () => void requestMobFromPalette(),
+  };
+}
+
 const actionDialActions = $derived.by<MenuItem[]>(() => {
   if (actionDialContextPoint) {
     const point = actionDialContextPoint;
@@ -2710,7 +2721,7 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
     // The chart right-click is the supermenu: location-specific actions first, then every action
     // available from the app Menu. The bottom Menu button opens this same surface without a chart
     // point, so there is one complete action vocabulary at the helm.
-    return uniqueActionIds([...chartActions, ...menuItems]);
+    return uniqueActionIds([...chartActions, ...menuItems, mobAction()]);
   }
   return uniqueActionIds([
     ...menuItems,
@@ -2722,14 +2733,7 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
       group: 'Safety',
       onSelect: interfaceLock.lock,
     },
-    {
-      id: 'mob',
-      label: mob.position ? 'Find MOB mark' : 'Man overboard',
-      shortLabel: 'MOB',
-      icon: LifeBuoy,
-      group: 'Safety',
-      onSelect: () => void requestMobFromPalette(),
-    },
+    mobAction(),
   ]);
 });
 
