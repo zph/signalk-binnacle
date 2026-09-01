@@ -31,6 +31,21 @@ let host = $state<HTMLDivElement>();
 
 const MOVE_HOLD_MS = 450;
 const RING_CLEARANCE_PX = 176;
+const ACTIONS_PER_RING = 8;
+const INNER_RING_RADIUS_REM = 7;
+const OUTER_RING_RADIUS_REM = 12;
+
+function ringPlacement(index: number): { angle: number; radius: number } {
+  const ring = Math.floor(index / ACTIONS_PER_RING);
+  const indexInRing = index % ACTIONS_PER_RING;
+  const actionsInRing = Math.min(ACTIONS_PER_RING, actions.length - ring * ACTIONS_PER_RING);
+  return {
+    angle: indexInRing * (360 / actionsInRing),
+    // Every additional ring expands by five rem, keeping 4.5rem buttons separated even at eight
+    // actions per ring. The current expanded context set occupies the first two rings.
+    radius: INNER_RING_RADIUS_REM + ring * (OUTER_RING_RADIUS_REM - INNER_RING_RADIUS_REM),
+  };
+}
 
 function move(event: PointerEvent): void {
   if (movingPointerId !== event.pointerId || !host?.parentElement) return;
@@ -116,6 +131,28 @@ $effect(() => {
   const timer = setTimeout(() => onOpenChange(false), AUTO_CLOSE_MS);
   return () => clearTimeout(timer);
 });
+
+// The dial is a transient menu, so it must never trap a navigator behind an empty part of the
+// chart. Pointer dismissal also covers touch, while Escape gives desktop and keyboard users the
+// same immediate exit.
+$effect(() => {
+  if (!open) return;
+  const dismissOutside = (event: PointerEvent) => {
+    if (event.target instanceof Node && host?.contains(event.target)) return;
+    onOpenChange(false);
+  };
+  const dismissEscape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    onOpenChange(false);
+  };
+  document.addEventListener('pointerdown', dismissOutside);
+  document.addEventListener('keydown', dismissEscape);
+  return () => {
+    document.removeEventListener('pointerdown', dismissOutside);
+    document.removeEventListener('keydown', dismissEscape);
+  };
+});
 </script>
 
 <div
@@ -130,6 +167,7 @@ $effect(() => {
     <div class="action-dial-ring" role="menu" aria-label="Quick actions">
       {#each actions as action, index (action.id)}
         {@const Icon = action.icon}
+        {@const placement = ringPlacement(index)}
         <button
           type="button"
           role="menuitem"
@@ -137,7 +175,7 @@ $effect(() => {
           class:action-dial-wedge--blocked={itemBlocked(action)}
           aria-label={action.label}
           disabled={itemBlocked(action)}
-          style:transform={`translate(-50%, -50%) rotate(${index * (360 / actions.length)}deg) translateY(-7rem) rotate(${-index * (360 / actions.length)}deg)`}
+          style:transform={`translate(-50%, -50%) rotate(${placement.angle}deg) translateY(-${placement.radius}rem) rotate(${-placement.angle}deg)`}
           onclick={() => run(action)}
         >
           {#if Icon}
@@ -246,5 +284,28 @@ $effect(() => {
 }
 .action-dial-wedge--blocked {
   opacity: var(--disabled-opacity);
+}
+/* A two-ring menu belongs on a wide chart. On a phone it becomes a full-height, scrolling action
+   grid: every option stays touch-sized, visible, and non-overlapping instead of being squeezed
+   around a hub that cannot fit between the safe edges. */
+@media (max-width: 600px) {
+  .action-dial--positioned .action-dial-ring {
+    position: fixed;
+    inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: start;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    overflow-y: auto;
+    background: var(--surface-overlay);
+  }
+  .action-dial--positioned .action-dial-wedge {
+    position: static;
+    inline-size: auto;
+    min-block-size: var(--control-size);
+    transform: none !important;
+  }
 }
 </style>

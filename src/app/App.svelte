@@ -2605,7 +2605,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
 const actionDialActions = $derived.by<MenuItem[]>(() => {
   if (actionDialContextPoint) {
     const point = actionDialContextPoint;
-    return [
+    const chartActions: MenuItem[] = [
       {
         id: 'go-to-here',
         label: 'Go to here',
@@ -2657,6 +2657,26 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
         onSelect: interfaceLock.lock,
       },
     ];
+    // A chart right-click is the full chart-action surface, rather than a cut-down context menu.
+    // Keep the point-specific actions first, then expose the helm actions that a navigator would
+    // otherwise need to close this menu and reopen from the bottom Menu button to reach.
+    const menuAction = (id: string): MenuItem | undefined =>
+      menuItems.find((item) => item.id === id);
+    return [
+      ...chartActions,
+      ...[
+        'center',
+        'follow',
+        'orientation',
+        'layers',
+        'regions',
+        'routes',
+        'waypoints',
+        'ais',
+        'radar',
+        'anchor',
+      ].map(menuAction),
+    ].filter((item): item is MenuItem => item !== undefined);
   }
   const menuAction = (id: string): MenuItem | undefined => menuItems.find((item) => item.id === id);
   return [
@@ -3514,7 +3534,13 @@ const plotterActions = {
   backFromPoiSearch,
   onSetRadarPower,
   onQuickActions: (position: { x: number; y: number; latitude: number; longitude: number }) => {
-    actionDialPosition.set({ x: position.x, y: position.y });
+    // The expanded context dial uses two rings. Keep the hub clear of the chart edges so every
+    // action stays on-screen instead of being clipped when a right-click lands near a corner.
+    const clearance = window.innerWidth > 600 ? 15 * 16 : 0;
+    actionDialPosition.set({
+      x: Math.min(window.innerWidth - clearance, Math.max(clearance, position.x)),
+      y: Math.min(window.innerHeight - clearance, Math.max(clearance, position.y)),
+    });
     actionDialContextPoint = { latitude: position.latitude, longitude: position.longitude };
     actionDialOpen = true;
   },
