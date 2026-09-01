@@ -13,6 +13,13 @@ export interface WindVectorFeatures {
   markers: GeoJSON.FeatureCollection;
 }
 
+export interface WindVectorView {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
 // Select the centers of evenly sized bins rather than every Nth raw cell. The result stays balanced
 // across the padded field and yields about 48 vectors regardless of the provider grid's resolution.
 // Roughly a quarter of that padded field is visible, which keeps about a dozen vectors on-screen.
@@ -23,9 +30,27 @@ function evenIndices(length: number, target: number): number[] {
   );
 }
 
-function barbLength(grid: WeatherGrid, columnCount: number, rowCount: number): number {
-  const lonSpan = Math.abs((grid.lons.at(-1) ?? 0) - (grid.lons[0] ?? 0));
-  const latSpan = Math.abs((grid.lats.at(-1) ?? 0) - (grid.lats[0] ?? 0));
+function visibleIndices(values: number[], low: number, high: number, target: number): number[] {
+  const eligible = values
+    .map((value, index) => ({ value, index }))
+    .filter(({ value }) => value >= low && value <= high);
+  const indices =
+    eligible.length > 0 ? eligible.map(({ index }) => index) : values.map((_, index) => index);
+  return evenIndices(indices.length, target).map((index) => indices[index]!);
+}
+
+function barbLength(
+  grid: WeatherGrid,
+  columnCount: number,
+  rowCount: number,
+  view?: WindVectorView,
+): number {
+  const lonSpan = Math.abs(
+    (view?.east ?? grid.lons.at(-1) ?? 0) - (view?.west ?? grid.lons[0] ?? 0),
+  );
+  const latSpan = Math.abs(
+    (view?.north ?? grid.lats.at(-1) ?? 0) - (view?.south ?? grid.lats[0] ?? 0),
+  );
   const spacings = [lonSpan / Math.max(1, columnCount), latSpan / Math.max(1, rowCount)].filter(
     (value) => value > 0,
   );
@@ -39,14 +64,19 @@ export function windVectorFeatures(
   grid: WeatherGrid,
   bracket: TimeBracket,
   speedUnit: SpeedUnit,
+  view?: WindVectorView,
 ): WindVectorFeatures {
   const u0 = grid.windU[bracket.lo] ?? [];
   const u1 = grid.windU[bracket.hi] ?? u0;
   const v0 = grid.windV[bracket.lo] ?? [];
   const v1 = grid.windV[bracket.hi] ?? v0;
-  const columns = evenIndices(grid.lons.length, TARGET_COLUMNS);
-  const rows = evenIndices(grid.lats.length, TARGET_ROWS);
-  const length = barbLength(grid, columns.length, rows.length);
+  const columns = view
+    ? visibleIndices(grid.lons, view.west, view.east, TARGET_COLUMNS)
+    : evenIndices(grid.lons.length, TARGET_COLUMNS);
+  const rows = view
+    ? visibleIndices(grid.lats, view.south, view.north, TARGET_ROWS)
+    : evenIndices(grid.lats.length, TARGET_ROWS);
+  const length = barbLength(grid, columns.length, rows.length, view);
   const arrows: GeoJSON.Feature[] = [];
   const markers: GeoJSON.Feature[] = [];
 

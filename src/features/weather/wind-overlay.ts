@@ -14,7 +14,7 @@ import { type CanvasFactory, createFieldOverlay } from './field-overlay';
 import { WEATHER_LAYER_IDS } from './fills';
 import { gridTimeGate } from './grid-time-gate';
 import { becameVisible } from './overlay-visibility';
-import { windVectorFeatures } from './wind-arrows';
+import { type WindVectorView, windVectorFeatures } from './wind-arrows';
 import { windSpeedFieldRgba } from './wind-speed-field';
 
 const SOURCE_ID = 'binnacle-weather-wind';
@@ -51,6 +51,7 @@ export function createWindOverlay(
   let opacity = 1;
   let visible = false;
   let lastSpeedUnit: SpeedUnit | undefined;
+  let lastViewKey: string | undefined;
   const gate = gridTimeGate(store);
 
   function addBarbLayer(ctx: OverlayContext): void {
@@ -109,9 +110,19 @@ export function createWindOverlay(
     }
   }
 
-  function syncBarbs(ctx: OverlayContext, speedUnit: SpeedUnit): void {
+  function viewFor(ctx: OverlayContext): WindVectorView {
+    const bounds = ctx.map.getBounds();
+    return {
+      west: bounds.getWest(),
+      south: bounds.getSouth(),
+      east: bounds.getEast(),
+      north: bounds.getNorth(),
+    };
+  }
+
+  function syncBarbs(ctx: OverlayContext, speedUnit: SpeedUnit, view: WindVectorView): void {
     const grid = store.grid;
-    const vectors = grid ? windVectorFeatures(grid, store.bracket, speedUnit) : undefined;
+    const vectors = grid ? windVectorFeatures(grid, store.bracket, speedUnit, view) : undefined;
     setSourceData(ctx.map, SOURCE_ID, vectors?.arrows ?? emptyFeatureCollection());
     setSourceData(ctx.map, MARKER_SOURCE_ID, vectors?.markers ?? emptyFeatureCollection());
   }
@@ -131,6 +142,7 @@ export function createWindOverlay(
     reset() {
       gate.reset();
       lastSpeedUnit = undefined;
+      lastViewKey = undefined;
       field.reset?.();
     },
     sync(ctx) {
@@ -138,9 +150,12 @@ export function createWindOverlay(
       field.sync(ctx);
       const changed = gate.changed();
       const speedUnit = getSpeedUnit();
-      if (!changed && speedUnit === lastSpeedUnit) return;
-      syncBarbs(ctx, speedUnit);
+      const view = viewFor(ctx);
+      const viewKey = `${view.west.toFixed(4)},${view.south.toFixed(4)},${view.east.toFixed(4)},${view.north.toFixed(4)}`;
+      if (!changed && speedUnit === lastSpeedUnit && viewKey === lastViewKey) return;
+      syncBarbs(ctx, speedUnit, view);
       lastSpeedUnit = speedUnit;
+      lastViewKey = viewKey;
     },
     remove(ctx) {
       visible = false;
@@ -158,6 +173,7 @@ export function createWindOverlay(
       setLayersVisibility(ctx.map, [CASING_LAYER_ID, LAYER_ID, MARKER_LAYER_ID], value);
       if (justBecameVisible) {
         gate.reset();
+        lastViewKey = undefined;
         this.sync(ctx);
       }
     },

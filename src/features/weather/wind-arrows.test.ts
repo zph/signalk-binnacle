@@ -54,6 +54,46 @@ describe('windArrowFeatures', () => {
     expect(new Set(coordinates.map((position) => position[1])).size).toBe(12);
   });
 
+  it('resamples and resizes barbs for the visible map viewport', () => {
+    const lats = Array.from({ length: 12 }, (_, index) => index);
+    const lons = Array.from({ length: 18 }, (_, index) => index);
+    const cells = lats.length * lons.length;
+    const dense: WeatherGrid = {
+      lats,
+      lons,
+      times: [1000],
+      windU: [new Array(cells).fill(5)],
+      windV: [new Array(cells).fill(0)],
+    };
+    const wide = windVectorFeatures(dense, { lo: 0, hi: 0, frac: 0 }, 'm/s', {
+      west: 2,
+      south: 2,
+      east: 16,
+      north: 10,
+    });
+    const close = windVectorFeatures(dense, { lo: 0, hi: 0, frac: 0 }, 'm/s', {
+      west: 7,
+      south: 4,
+      east: 10,
+      north: 7,
+    });
+    const closePoints = close.markers.features.map(
+      (feature) => (feature.geometry as GeoJSON.Point).coordinates,
+    );
+    expect(
+      closePoints.every(
+        ([longitude, latitude]) =>
+          longitude >= 7 && longitude <= 10 && latitude >= 4 && latitude <= 7,
+      ),
+    ).toBe(true);
+    const wideStaff = (wide.arrows.features[0].geometry as GeoJSON.MultiLineString).coordinates[0];
+    const closeStaff = (close.arrows.features[0].geometry as GeoJSON.MultiLineString)
+      .coordinates[0];
+    expect(Math.abs(closeStaff[1][0] - closeStaff[0][0])).toBeLessThan(
+      Math.abs(wideStaff[1][0] - wideStaff[0][0]),
+    );
+  });
+
   it('skips near-calm cells', () => {
     const calm: WeatherGrid = {
       ...grid,
