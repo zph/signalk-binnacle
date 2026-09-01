@@ -292,6 +292,11 @@ $effect(() => {
    grid: every option stays touch-sized, visible, and non-overlapping instead of being squeezed
    around a hub that cannot fit between the safe edges. */
 @media (max-width: 600px) {
+  /* A transformed ancestor becomes the containing block for fixed descendants. Clear the desktop
+     centering transform here so the mobile sheet is fixed to the viewport, not the 4rem hub. */
+  .action-dial--positioned {
+    transform: none;
+  }
   .action-dial--positioned .action-dial-ring {
     position: fixed;
     inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
