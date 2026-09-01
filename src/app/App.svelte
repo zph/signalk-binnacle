@@ -2106,7 +2106,7 @@ const menuItems = $derived<MenuItem[]>([
     id: 'observed-wind-stations',
     label: 'Observed wind stations',
     shortLabel: 'Observed wind',
-    sublabel: 'Show measured NOAA buoy and coastal-station wind on the main chart',
+    sublabel: 'Show measured NOAA buoy, coastal, and METAR wind on the main chart',
     icon: Wind,
     group: 'Weather',
     pressed: layerSettings.value[WEATHER_LAYER_IDS.observedWind]?.visible ?? false,
@@ -2497,7 +2497,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       label: layerSettings.value[WEATHER_LAYER_IDS.observedWind]?.visible
         ? 'Hide observed wind stations'
         : 'Show observed wind stations',
-      description: 'Show measured NOAA buoy and coastal-station wind observations on the chart',
+      description: 'Show measured NOAA buoy, coastal, and METAR wind observations on the chart',
       group: 'Weather',
       keywords: ['wind', 'observed', 'stations', 'buoy', 'noaa', 'overlay'],
       icon: Wind,
