@@ -543,8 +543,8 @@ $effect(() => {
         {@const attitudeZones =
           def.kind === 'attitude'
             ? {
-                pitch: controller.zoneStateForPath(`${def.zonesPath}.pitch`, reading.pitchRad),
-                roll: controller.zoneStateForPath(`${def.zonesPath}.roll`, reading.rollRad),
+                pitch: controller.zoneStateForProperty(def.zonesPath, 'pitch', reading.pitchRad),
+                roll: controller.zoneStateForProperty(def.zonesPath, 'roll', reading.rollRad),
               }
             : undefined}
         {@const staleAge = staleAgeText(deps, def, reading)}
@@ -626,8 +626,12 @@ $effect(() => {
     {@const attitudeZones =
       expandedDef.kind === 'attitude'
         ? {
-            pitch: controller.zoneStateForPath(`${expandedDef.zonesPath}.pitch`, reading.pitchRad),
-            roll: controller.zoneStateForPath(`${expandedDef.zonesPath}.roll`, reading.rollRad),
+            pitch: controller.zoneStateForProperty(
+              expandedDef.zonesPath,
+              'pitch',
+              reading.pitchRad,
+            ),
+            roll: controller.zoneStateForProperty(expandedDef.zonesPath, 'roll', reading.rollRad),
           }
         : undefined}
     {@const staleAge = staleAgeText(deps, expandedDef, reading)}

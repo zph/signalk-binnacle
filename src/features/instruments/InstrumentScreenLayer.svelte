@@ -545,8 +545,8 @@ function finishEditing(): void {
     {@const attitudeZones =
       entry.def.kind === 'attitude'
         ? {
-            pitch: controller.zoneStateForPath(`${entry.def.zonesPath}.pitch`, reading.pitchRad),
-            roll: controller.zoneStateForPath(`${entry.def.zonesPath}.roll`, reading.rollRad),
+            pitch: controller.zoneStateForProperty(entry.def.zonesPath, 'pitch', reading.pitchRad),
+            roll: controller.zoneStateForProperty(entry.def.zonesPath, 'roll', reading.rollRad),
           }
         : undefined}
     {@const staleAge = staleAgeText(deps, entry.def, reading)}

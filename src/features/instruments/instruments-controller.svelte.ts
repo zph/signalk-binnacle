@@ -117,6 +117,7 @@ export interface InstrumentsController {
   resolvedLabel(def: TileDef): string;
   zoneState(def: TileDef, value: number | undefined): ZoneState;
   zoneStateForPath(path: string, value: number | undefined): ZoneState;
+  zoneStateForProperty(path: string, property: string, value: number | undefined): ZoneState;
   resubscribe(): void;
   dispose(): void;
 }
@@ -631,6 +632,16 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     return zoneStateForPath(def.zonesPath, value);
   }
 
+  function zoneStateForProperty(
+    path: string,
+    property: string,
+    value: number | undefined,
+  ): ZoneState {
+    void metaCache.version;
+    const zones = metaCache.get(path)?.properties?.[property]?.zones;
+    return zoneStateFor(value, zones);
+  }
+
   // The dock can be opened, or restored open, while the history-provider probe is still running.
   // Watch the probe and run the armed scan the moment it settles. $effect.root, not a bare $effect:
   // the controller is a plain factory, constructed outside a component by its own tests.
@@ -775,6 +786,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     resolvedLabel,
     zoneState,
     zoneStateForPath,
+    zoneStateForProperty,
     resubscribe,
     dispose,
   };

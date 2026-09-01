@@ -61,6 +61,7 @@ function makeController(overrides: Partial<InstrumentsController> = {}): Instrum
     resolvedLabel: (def) => def.label,
     zoneState: () => 'normal',
     zoneStateForPath: () => 'normal',
+    zoneStateForProperty: () => 'normal',
     resubscribe: () => {},
     dispose: () => {},
     ...overrides,

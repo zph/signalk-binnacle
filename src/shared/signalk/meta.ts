@@ -15,6 +15,10 @@ export interface MetaZone {
 
 export interface PathMeta {
   zones?: MetaZone[];
+  // Compound Signal K values (for example navigation.attitude) declare their child metrics in
+  // properties. Each child can carry its own ordinary meta.zones array even though it has no REST
+  // path of its own.
+  properties?: Record<string, { zones?: MetaZone[] }>;
   units?: string;
   displayName?: string;
   // The path's declared staleness window in SECONDS (the server's meta.timeout): 0 means never
@@ -82,12 +86,24 @@ export async function fetchPathMeta(
   const body = await fetchAuthedJson<unknown>(url, token);
   if (!isRecord(body)) return undefined;
   const zones = Array.isArray(body.zones) ? body.zones.filter(isMetaZone) : undefined;
+  const properties = isRecord(body.properties)
+    ? Object.fromEntries(
+        Object.entries(body.properties).flatMap(([name, property]) => {
+          if (!isRecord(property)) return [];
+          const propertyZones = Array.isArray(property.zones)
+            ? property.zones.filter(isMetaZone)
+            : undefined;
+          return [[name, { zones: propertyZones }]];
+        }),
+      )
+    : undefined;
   const timeout =
     body.timeout === 'auto' || (isFiniteNumber(body.timeout) && body.timeout >= 0)
       ? body.timeout
       : undefined;
   return {
     zones,
+    properties,
     units: typeof body.units === 'string' ? body.units : undefined,
     displayName: typeof body.displayName === 'string' ? body.displayName : undefined,
     timeout,

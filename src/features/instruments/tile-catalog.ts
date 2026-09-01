@@ -1016,7 +1016,6 @@ const HEEL_DEF: TileDef = {
   sensorGloss: 'No heel data',
   paths: [SK_PATHS.attitude],
   zonesPath: SK_PATHS.attitude,
-  additionalZonePaths: [`${SK_PATHS.attitude}.pitch`, `${SK_PATHS.attitude}.roll`],
   useMetaDisplayName: false,
   category: 'navigation',
   kind: 'heel',

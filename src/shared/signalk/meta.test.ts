@@ -78,6 +78,20 @@ describe('fetchPathMeta', () => {
     expect(meta?.zones).toEqual([{ upper: 3, state: 'alarm', message: 'Shallow' }]);
   });
 
+  it('reads zones for metrics nested in a compound value', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(200, {
+          properties: { pitch: { zones: ZONES }, roll: { zones: [{ lower: 0, state: 'warn' }] } },
+        }),
+      ),
+    );
+    const meta = await fetchPathMeta('http://pi', undefined, 'navigation.attitude');
+    expect(zoneStateFor(4, meta?.properties?.pitch?.zones)).toBe('warning');
+    expect(zoneStateFor(1, meta?.properties?.roll?.zones)).toBe('warning');
+  });
+
   it('keeps banding correct when the server mixes valid and malformed zones', async () => {
     const zones = [
       { lower: 0, upper: 10, state: 'warn' },
