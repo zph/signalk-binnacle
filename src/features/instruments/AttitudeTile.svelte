@@ -31,6 +31,16 @@ const accessibleLabel = $derived(
 );
 const rollDeg = $derived(-clamp((reading.rollRad ?? 0) * RAD_TO_DEG, -60, 60));
 const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30) * 0.8);
+const pitchReadout = $derived(
+  reading.pitchRad === undefined
+    ? '---'
+    : String(Math.round(Math.abs(reading.pitchRad * RAD_TO_DEG))),
+);
+const rollReadout = $derived(
+  reading.rollRad === undefined
+    ? '---'
+    : String(Math.round(Math.abs(reading.rollRad * RAD_TO_DEG))),
+);
 </script>
 
 <button
@@ -68,12 +78,15 @@ const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30
       <circle class="ring" cx="60" cy="49" r="42" />
       <path class="wings" d="M31 49 H51 L60 56 L69 49 H89 M60 56 V64" />
     </svg>
-    <span class="attitude-values num"
-      >P
-      {reading.pitchRad === undefined ? '---' : Math.abs(reading.pitchRad * RAD_TO_DEG).toFixed(1)}°
-      · R
-      {reading.rollRad === undefined ? '---' : Math.abs(reading.rollRad * RAD_TO_DEG).toFixed(1)}°</span
-    >
+    <span class="attitude-values num">
+      <span class="attitude-reading"
+        ><span>P:</span><span class="attitude-number">{pitchReadout}°</span></span
+      >
+      <span class="attitude-separator" aria-hidden="true">·</span>
+      <span class="attitude-reading"
+        ><span>R:</span><span class="attitude-number">{rollReadout}°</span></span
+      >
+    </span>
     {#if staleAgeText}
       <span class="tile-secondary">{staleAgeText}</span>
     {/if}
@@ -118,7 +131,24 @@ const pitchOffset = $derived(clamp((reading.pitchRad ?? 0) * RAD_TO_DEG, -30, 30
   stroke-width: 2.5;
 }
 .attitude-values {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
   font-size: var(--text-sm);
+}
+.attitude-reading {
+  display: inline-grid;
+  grid-template-columns: 2ch 3ch;
+  column-gap: var(--space-1);
+}
+.attitude-number {
+  text-align: end;
+}
+/* The inter-reading dot is a deliberate visual divider, not a barely perceptible text glyph. */
+.attitude-separator {
+  color: var(--accent);
+  font-size: 1.45em;
+  line-height: 0;
 }
 .tile--expanded .attitude-values {
   font-size: clamp(var(--text-xl), 4vmin, 2.5rem);

@@ -450,8 +450,9 @@ describe('purpose-built instrument faces', () => {
       },
     }).body;
     expect(html).toContain('class="attitude ');
-    expect(html).toMatch(/P\s+5\.7°/);
-    expect(html).toMatch(/R\s+11\.5°/);
+    expect(html).toMatch(/P:<\/span><span class="attitude-number[^>]*>6°/);
+    expect(html).toMatch(/R:<\/span><span class="attitude-number[^>]*>11°/);
+    expect(html).toContain('class="attitude-separator');
   });
 
   it('centers the heading over the compass and keeps other readouts outside it', () => {
