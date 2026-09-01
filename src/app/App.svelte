@@ -2103,6 +2103,20 @@ const menuItems = $derived<MenuItem[]>([
     },
   },
   {
+    id: 'observed-wind-stations',
+    label: 'Observed wind stations',
+    shortLabel: 'Observed wind',
+    sublabel: 'Show measured NOAA buoy and coastal-station wind on the main chart',
+    icon: Wind,
+    group: 'Weather',
+    pressed: layerSettings.value[WEATHER_LAYER_IDS.observedWind]?.visible ?? false,
+    onSelect: () =>
+      setLayerVisible(
+        WEATHER_LAYER_IDS.observedWind,
+        !(layerSettings.value[WEATHER_LAYER_IDS.observedWind]?.visible ?? false),
+      ),
+  },
+  {
     id: 'tides',
     label: 'Tide instrument',
     shortLabel: 'Tides',

@@ -1,6 +1,5 @@
 <script lang="ts">
 import Check from '@lucide/svelte/icons/check';
-import { WEATHER_LAYER_IDS } from '$features/weather';
 import type { LayerListItem } from '$shared/map';
 import type { WeatherSourceId, WeatherSourceOption } from '$shared/settings';
 import { AnchoredMenu, rovingFocus } from '$shared/ui';
@@ -42,17 +41,6 @@ const groups = $derived(
   ].filter((group) => group.items.length > 0),
 );
 
-const forecastVisible = $derived(
-  overlays.find((item) => item.id === WEATHER_LAYER_IDS.wind)?.visible ?? false,
-);
-const observedVisible = $derived(
-  overlays.find((item) => item.id === WEATHER_LAYER_IDS.observedWind)?.visible ?? false,
-);
-type WindMode = 'forecast' | 'observed' | 'both';
-function setWindMode(mode: WindMode): void {
-  onToggle(WEATHER_LAYER_IDS.wind, mode !== 'observed');
-  onToggle(WEATHER_LAYER_IDS.observedWind, mode !== 'forecast');
-}
 </script>
 
 <!-- AnchoredMenu owns the backdrop dismiss, gated registerDismiss, and the grow transition.
@@ -71,12 +59,6 @@ function setWindMode(mode: WindMode): void {
          leave into the map and footer; do not "correct" this into a focusTrap. rovingFocus lands the
          keyboard on the first row and moves it with the arrow keys. -->
   <div class="rows" use:rovingFocus={'.menu-row'}>
-    <p class="caps-label">Wind source</p>
-    <div class="segmented wind-source" role="group" aria-label="Wind source">
-      <button type="button" class="btn" class:is-on={forecastVisible && !observedVisible} onclick={() => setWindMode('forecast')}>Forecast</button>
-      <button type="button" class="btn" class:is-on={!forecastVisible && observedVisible} onclick={() => setWindMode('observed')}>Observed</button>
-      <button type="button" class="btn" class:is-on={forecastVisible && observedVisible} onclick={() => setWindMode('both')}>Both</button>
-    </div>
     {#each groups as group (group.label)}
       <p class="caps-label">{group.label}</p>
       {#each group.items as item (item.id)}
@@ -181,14 +163,6 @@ function setWindMode(mode: WindMode): void {
 .provenance {
   margin: var(--space-1) 0 0;
   padding: 0 0.6rem;
-}
-.wind-source {
-  inline-size: 100%;
-}
-.wind-source .btn {
-  min-inline-size: 0;
-  flex: 1;
-  padding-inline: var(--space-2);
 }
 /* On a narrow weather panel (not a narrow viewport: the panel is min(94vw, 46rem) and can be narrow
    on a wide screen), dock the card to the bottom of the map as a sheet instead of covering the
