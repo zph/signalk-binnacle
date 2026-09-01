@@ -24,6 +24,7 @@ interface Props {
   reading: TileReading;
   zone: ZoneState;
   depthZone?: ZoneState;
+  attitudeZones?: { pitch: ZoneState; roll: ZoneState };
   staleAgeText?: string;
   sparkPoints?: number[];
   expanded?: boolean;
@@ -50,6 +51,7 @@ const {
   reading,
   zone,
   depthZone = 'normal',
+  attitudeZones = { pitch: 'normal', roll: 'normal' },
   staleAgeText,
   sparkPoints,
   expanded = false,
@@ -158,6 +160,7 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     {label}
     {reading}
     {zone}
+    {attitudeZones}
     sensorGloss={def.sensorGloss}
     {staleAgeText}
     {expanded}

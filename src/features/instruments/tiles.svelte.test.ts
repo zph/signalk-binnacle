@@ -446,13 +446,15 @@ describe('purpose-built instrument faces', () => {
           rollRad: -0.2,
         },
         zone: normal,
+        attitudeZones: { pitch: 'warning', roll: 'alarm' },
         sensorGloss: 'No attitude data',
       },
     }).body;
-    expect(html).toContain('class="attitude ');
+    expect(html).toContain('class="attitude-reading');
     expect(html).toMatch(/P:<\/span><span class="attitude-number[^>]*>6°/);
     expect(html).toMatch(/R:<\/span><span class="attitude-number[^>]*>11°/);
-    expect(html).toContain('class="attitude-separator');
+    expect(html).toContain('attitude-reading--warning');
+    expect(html).toContain('attitude-reading--alarm');
   });
 
   it('centers the heading over the compass and keeps other readouts outside it', () => {

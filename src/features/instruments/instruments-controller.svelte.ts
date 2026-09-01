@@ -116,6 +116,7 @@ export interface InstrumentsController {
   // The name to show for a tile: the server's meta displayName when it is usable, else the catalog label.
   resolvedLabel(def: TileDef): string;
   zoneState(def: TileDef, value: number | undefined): ZoneState;
+  zoneStateForPath(path: string, value: number | undefined): ZoneState;
   resubscribe(): void;
   dispose(): void;
 }
@@ -609,21 +610,25 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     }
   }
 
-  function zoneState(def: TileDef, value: number | undefined): ZoneState {
+  function zoneStateForPath(path: string, value: number | undefined): ZoneState {
     // Read reactive version counters so a template $derived re-evaluates after fetches and notifications.
     void metaCache.version;
     void deps.store.notificationsVersion;
-    const notification = deps.store.notifications.get(`notifications.${def.zonesPath}`);
+    const notification = deps.store.notifications.get(`notifications.${path}`);
     const raisedState = notificationState(notification);
     if (raisedState === 'alarm' || raisedState === 'emergency') return 'alarm';
     if (raisedState === 'warn' || raisedState === 'alert') return 'warning';
-    const cached = metaCache.get(def.zonesPath);
+    const cached = metaCache.get(path);
     if (cached?.zones?.length) return zoneStateFor(value, cached.zones);
     // Server zones win whenever they are known. In every other state, never fetched, in flight,
     // awaiting a retry, or given up, the client defaults (shallow-depth safety bands for a stock
     // server with no configured zones) stand in: a transient fetch failure must not strip a depth
     // tile of its safety banding.
-    return zoneStateFor(value, CLIENT_DEFAULT_ZONES.get(def.zonesPath));
+    return zoneStateFor(value, CLIENT_DEFAULT_ZONES.get(path));
+  }
+
+  function zoneState(def: TileDef, value: number | undefined): ZoneState {
+    return zoneStateForPath(def.zonesPath, value);
   }
 
   // The dock can be opened, or restored open, while the history-provider probe is still running.
@@ -769,6 +774,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     },
     resolvedLabel,
     zoneState,
+    zoneStateForPath,
     resubscribe,
     dispose,
   };

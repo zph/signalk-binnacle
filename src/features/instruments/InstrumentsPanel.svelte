@@ -540,6 +540,13 @@ $effect(() => {
         {@const indicator = reorder.indicatorFor(def.id)}
         {@const reading = def.read(deps)}
         {@const zone = controller.zoneState(def, reading.siValue)}
+        {@const attitudeZones =
+          def.kind === 'attitude'
+            ? {
+                pitch: controller.zoneStateForPath(`${def.zonesPath}.pitch`, reading.pitchRad),
+                roll: controller.zoneStateForPath(`${def.zonesPath}.roll`, reading.rollRad),
+              }
+            : undefined}
         {@const staleAge = staleAgeText(deps, def, reading)}
         {@const depthZone =
           def.kind === 'wind-rose' && depthDef && reading.windRose
@@ -570,6 +577,7 @@ $effect(() => {
             label={resolvedLabel}
             {reading}
             {zone}
+            {attitudeZones}
             {depthZone}
             staleAgeText={staleAge}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
@@ -615,6 +623,13 @@ $effect(() => {
   {#if expandedDef}
     {@const reading = expandedDef.read(deps)}
     {@const zone = controller.zoneState(expandedDef, reading.siValue)}
+    {@const attitudeZones =
+      expandedDef.kind === 'attitude'
+        ? {
+            pitch: controller.zoneStateForPath(`${expandedDef.zonesPath}.pitch`, reading.pitchRad),
+            roll: controller.zoneStateForPath(`${expandedDef.zonesPath}.roll`, reading.rollRad),
+          }
+        : undefined}
     {@const staleAge = staleAgeText(deps, expandedDef, reading)}
     {@const depthZone =
       expandedDef.kind === 'wind-rose' && depthDef && reading.windRose
@@ -636,6 +651,7 @@ $effect(() => {
         label={controller.resolvedLabel(expandedDef)}
         {reading}
         {zone}
+        {attitudeZones}
         {depthZone}
         staleAgeText={staleAge}
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}

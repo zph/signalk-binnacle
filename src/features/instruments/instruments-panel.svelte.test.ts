@@ -60,6 +60,7 @@ function makeController(overrides: Partial<InstrumentsController> = {}): Instrum
     pluginName: () => undefined,
     resolvedLabel: (def) => def.label,
     zoneState: () => 'normal',
+    zoneStateForPath: () => 'normal',
     resubscribe: () => {},
     dispose: () => {},
     ...overrides,

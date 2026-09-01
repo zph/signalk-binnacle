@@ -542,6 +542,13 @@ function finishEditing(): void {
     {@const expanded = expandedId === entry.def.id}
     {@const reading = entry.def.read(deps)}
     {@const zone = controller.zoneState(entry.def, reading.siValue)}
+    {@const attitudeZones =
+      entry.def.kind === 'attitude'
+        ? {
+            pitch: controller.zoneStateForPath(`${entry.def.zonesPath}.pitch`, reading.pitchRad),
+            roll: controller.zoneStateForPath(`${entry.def.zonesPath}.roll`, reading.rollRad),
+          }
+        : undefined}
     {@const staleAge = staleAgeText(deps, entry.def, reading)}
     {@const depthZone =
       entry.def.kind === 'wind-rose' && depthDef && reading.windRose
@@ -569,6 +576,7 @@ function finishEditing(): void {
         label={controller.resolvedLabel(entry.def)}
         {reading}
         {zone}
+        {attitudeZones}
         {depthZone}
         staleAgeText={staleAge}
         sparkPoints={entry.def.viz === 'spark' ? history.series(entry.def.id) : undefined}
