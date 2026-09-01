@@ -166,7 +166,7 @@ interface Props {
   onUserPan?: () => void;
   // Set a single "go to here" destination at a chart point the user long-pressed or right-clicked.
   onGoToHere?: (position: LatLon) => void;
-  // The radial action menu replaces the rectangular context menu when the shell provides it.
+  // The radial supermenu replaces the rectangular context menu when the shell provides it.
   onQuickActions?: (position: {
     x: number;
     y: number;

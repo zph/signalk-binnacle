@@ -164,7 +164,7 @@ $effect(() => {
   bind:this={host}
 >
   {#if open}
-    <div class="action-dial-ring" role="menu" aria-label="Quick actions">
+    <div class="action-dial-ring" role="menu" aria-label="Supermenu">
       {#each actions as action, index (action.id)}
         {@const Icon = action.icon}
         {@const placement = ringPlacement(index)}
@@ -191,7 +191,7 @@ $effect(() => {
     <button
       type="button"
       class="action-dial-core"
-      aria-label={open ? 'Close quick actions' : 'Open quick actions'}
+      aria-label={open ? 'Close supermenu' : 'Open supermenu'}
       aria-expanded={open}
       aria-haspopup="menu"
       bind:this={dial}

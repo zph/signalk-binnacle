@@ -158,6 +158,7 @@ import {
 import { createTimeTravelController } from '$features/time-travel';
 import { createTrackController, createTripLogController } from '$features/tracks';
 import { createTrendsController } from '$features/trends';
+import { createWayfindingController } from '$features/wayfinding';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
   createPointConditionsLoader,
@@ -539,7 +540,6 @@ let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
 let actionDialOpen = $state(false);
 let actionDialContextPoint = $state<LatLon | undefined>();
-let browserFullScreen = $state(false);
 type ActionDialPosition = { x: number; y: number };
 
 function openCommandPalette(): void {
@@ -1847,6 +1847,11 @@ $effect(() => {
   ]);
 });
 
+const wayfindingController = createWayfindingController({
+  origin,
+  getToken: () => chartsToken,
+});
+
 // The app menu's options, grouped into helm-first intent groups: chart controls and navigation,
 // safety, weather, instruments, optional offline charts, and settings. Adding an option is a single
 // entry; the launcher renders and groups whatever it is given.
@@ -1941,6 +1946,23 @@ const menuItems = $derived<MenuItem[]>([
         ? 'Offline charts (finish the radar-area chart edit first)'
         : 'Offline charts (chart is loading)',
     onSelect: () => togglePanel('regions'),
+  },
+  {
+    id: 'wayfinding',
+    label: 'Sail wayfinding',
+    shortLabel: 'Wayfinding',
+    icon: Compass,
+    group: 'Navigate',
+    available: wayfindingController.capabilities?.ready === true,
+    unavailableHint:
+      wayfindingController.error ??
+      wayfindingController.capabilities?.unavailableReason ??
+      'Checking for signalk-wayfinder and its required forecast, polar, shore, and depth capabilities.',
+    pressed: activePanel === 'wayfinding',
+    onSelect: () => {
+      if (activePanel !== 'wayfinding') void wayfindingController.refresh();
+      togglePanel('wayfinding');
+    },
   },
   {
     id: 'routes',
@@ -2644,6 +2666,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
   ];
 });
 
+function uniqueActionIds(actions: MenuItem[]): MenuItem[] {
+  const ids = new Set<string>();
+  return actions.filter((action) => {
+    if (ids.has(action.id)) return false;
+    ids.add(action.id);
+    return true;
+  });
+}
+
 const actionDialActions = $derived.by<MenuItem[]>(() => {
   if (actionDialContextPoint) {
     const point = actionDialContextPoint;
@@ -2699,61 +2730,13 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
         onSelect: interfaceLock.lock,
       },
     ];
-    // A chart right-click is the full chart-action surface, rather than a cut-down context menu.
-    // Keep the point-specific actions first, then expose the helm actions that a navigator would
-    // otherwise need to close this menu and reopen from the bottom Menu button to reach.
-    const menuAction = (id: string): MenuItem | undefined =>
-      menuItems.find((item) => item.id === id);
-    return [
-      ...chartActions,
-      ...[
-        'center',
-        'follow',
-        'orientation',
-        'layers',
-        'regions',
-        'routes',
-        'waypoints',
-        'ais',
-        'radar',
-        'anchor',
-      ].map(menuAction),
-    ].filter((item): item is MenuItem => item !== undefined);
+    // The chart right-click is the supermenu: location-specific actions first, then every action
+    // available from the app Menu. The bottom Menu button opens this same surface without a chart
+    // point, so there is one complete action vocabulary at the helm.
+    return uniqueActionIds([...chartActions, ...menuItems]);
   }
-  const menuAction = (id: string): MenuItem | undefined => menuItems.find((item) => item.id === id);
-  return [
-    menuAction('center'),
-    menuAction('follow'),
-    menuAction('layers'),
-    menuAction('instruments'),
-    {
-      id: 'browser-fullscreen',
-      label: browserFullScreen ? 'Unmaximize Binnacle' : 'Maximize Binnacle',
-      shortLabel: browserFullScreen ? 'Unmaximize' : 'Maximize',
-      icon: browserFullScreen ? Minimize2 : Maximize2,
-      group: 'Display',
-      disabled:
-        typeof document === 'undefined' ||
-        (!browserFullScreen && typeof document.documentElement.requestFullscreen !== 'function'),
-      disabledLabel: 'This browser does not offer full-screen mode.',
-      onSelect: () => void toggleBrowserFullScreen(),
-    },
-    ...(updateReady
-      ? [
-          {
-            id: 'update',
-            label: 'Install update',
-            shortLabel: 'Update',
-            icon: DownloadCloud,
-            group: 'Settings',
-            onSelect: () => {
-              updateReady = false;
-              pwa.update();
-            },
-          },
-        ]
-      : []),
-    menuAction('measure'),
+  return uniqueActionIds([
+    ...menuItems,
     {
       id: 'lock-interface',
       label: 'Lock controls',
@@ -2770,15 +2753,7 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
       group: 'Safety',
       onSelect: () => void requestMobFromPalette(),
     },
-    {
-      id: 'open-menu',
-      label: 'Open menu',
-      shortLabel: 'Menu',
-      icon: MenuIcon,
-      group: 'Chart',
-      onSelect: () => (menuOpen = true),
-    },
-  ].filter((item): item is MenuItem => item !== undefined);
+  ]);
 });
 
 // AIS staleness pruning, tied to the app lifecycle; the entity owns the TTL and cadence policy.
@@ -3300,11 +3275,6 @@ onMount(() => {
   // decision through the visible Update button.
   pwa.checkForUpdate();
   screenWakeLock.start();
-  const syncBrowserFullScreen = (): void => {
-    browserFullScreen = document.fullscreenElement !== null;
-  };
-  syncBrowserFullScreen();
-  document.addEventListener('fullscreenchange', syncBrowserFullScreen);
   const pwaUpdateCheck = window.setInterval(() => pwa.checkForUpdate(), PWA_UPDATE_CHECK_MS);
   refreshCompanionProbe();
   companionStatus.start();
@@ -3403,7 +3373,6 @@ onMount(() => {
   }
   return () => {
     clearInterval(pwaUpdateCheck);
-    document.removeEventListener('fullscreenchange', syncBrowserFullScreen);
     instrumentsFullScreenQuery.removeEventListener('change', syncInstrumentsFullScreen);
     window.removeEventListener('focus', refreshProfiles);
     document.removeEventListener('visibilitychange', refreshProfiles);
@@ -3477,6 +3446,7 @@ const plotterServices = {
 };
 
 const plotterControllers = {
+  wayfindingController,
   anchorController,
   mobController,
   routeController,
@@ -3576,14 +3546,15 @@ const plotterActions = {
   backFromPoiSearch,
   onSetRadarPower,
   onQuickActions: (position: { x: number; y: number; latitude: number; longitude: number }) => {
-    // The expanded context dial uses two rings. Keep the hub clear of the chart edges so every
-    // action stays on-screen instead of being clipped when a right-click lands near a corner.
-    const clearance = window.innerWidth > 600 ? 15 * 16 : 0;
+    actionDialContextPoint = { latitude: position.latitude, longitude: position.longitude };
+    // The supermenu grows additional rings as actions are added. Keep its hub clear of the chart
+    // edge by its actual outer radius, not a fixed two-ring estimate.
+    const rings = Math.ceil(actionDialActions.length / 8);
+    const clearance = window.innerWidth > 600 ? (7 + Math.max(0, rings - 1) * 5 + 3) * 16 : 0;
     actionDialPosition.set({
       x: Math.min(window.innerWidth - clearance, Math.max(clearance, position.x)),
       y: Math.min(window.innerHeight - clearance, Math.max(clearance, position.y)),
     });
-    actionDialContextPoint = { latitude: position.latitude, longitude: position.longitude };
     actionDialOpen = true;
   },
   openInstrumentsPanel: finishOpeningInstrumentsPanel,
@@ -3993,11 +3964,12 @@ const plotterActions = {
     <button
       type="button"
       class="btn btn-pill"
-      aria-label={actionDialOpen ? 'Close quick actions' : 'Open quick actions'}
+      aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}
       aria-expanded={actionDialOpen}
       aria-haspopup="menu"
       onclick={() => {
         actionDialContextPoint = undefined;
+        actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
         actionDialOpen = !actionDialOpen;
       }}
     >
