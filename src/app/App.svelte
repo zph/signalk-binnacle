@@ -158,7 +158,6 @@ import {
 import { createTimeTravelController } from '$features/time-travel';
 import { createTrackController, createTripLogController } from '$features/tracks';
 import { createTrendsController } from '$features/trends';
-import { createWayfindingController } from '$features/wayfinding';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
   createPointConditionsLoader,
@@ -1847,11 +1846,6 @@ $effect(() => {
   ]);
 });
 
-const wayfindingController = createWayfindingController({
-  origin,
-  getToken: () => chartsToken,
-});
-
 // The app menu's options, grouped into helm-first intent groups: chart controls and navigation,
 // safety, weather, instruments, optional offline charts, and settings. Adding an option is a single
 // entry; the launcher renders and groups whatever it is given.
@@ -1946,23 +1940,6 @@ const menuItems = $derived<MenuItem[]>([
         ? 'Offline charts (finish the radar-area chart edit first)'
         : 'Offline charts (chart is loading)',
     onSelect: () => togglePanel('regions'),
-  },
-  {
-    id: 'wayfinding',
-    label: 'Sail wayfinding',
-    shortLabel: 'Wayfinding',
-    icon: Compass,
-    group: 'Navigate',
-    available: wayfindingController.capabilities?.ready === true,
-    unavailableHint:
-      wayfindingController.error ??
-      wayfindingController.capabilities?.unavailableReason ??
-      'Checking for signalk-wayfinder and its required forecast, polar, shore, and depth capabilities.',
-    pressed: activePanel === 'wayfinding',
-    onSelect: () => {
-      if (activePanel !== 'wayfinding') void wayfindingController.refresh();
-      togglePanel('wayfinding');
-    },
   },
   {
     id: 'routes',
@@ -3446,7 +3423,6 @@ const plotterServices = {
 };
 
 const plotterControllers = {
-  wayfindingController,
   anchorController,
   mobController,
   routeController,
