@@ -169,6 +169,36 @@ test('iPad rotation keeps an edge-mounted instrument inside the chart and restor
   await expectInsideViewport(frame, page);
 });
 
+test('iPad portrait-to-landscape rotation redraws a top and bottom instrument without clipping', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  const layer = page.locator('.instrument-screen-layer');
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const [source, target] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
+  if (!source || !target) throw new Error('Instrument or chart target missing.');
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width - 2, target.y + 2, { steps: 12 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await expectInsideViewport(frame, page);
+  const [landscapeFrame, landscapeLayer] = await Promise.all([
+    frame.boundingBox(),
+    layer.boundingBox(),
+  ]);
+  if (!landscapeFrame || !landscapeLayer) throw new Error('Instrument or chart target missing.');
+  expect(landscapeFrame.y).toBeGreaterThanOrEqual(landscapeLayer.y);
+  expect(landscapeFrame.y + landscapeFrame.height).toBeLessThanOrEqual(
+    landscapeLayer.y + landscapeLayer.height,
+  );
+});
+
 test('touch drag from the instrument body keeps the edit toolbar reachable', async ({
   page,
 }, testInfo) => {

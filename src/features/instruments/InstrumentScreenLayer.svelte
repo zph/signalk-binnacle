@@ -99,6 +99,7 @@ const aisRadar = $derived(
 
 let layerEl = $state<HTMLElement | undefined>();
 let layerSize = $state<{ width: number; height: number } | undefined>();
+let layoutEpoch = $state(0);
 let addMenuOpen = $state(false);
 let windRoseSettingsOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
@@ -120,7 +121,12 @@ const hasWindRose = $derived(floatingTiles.some(({ def }) => def.id === 'wind-ro
 function observeLayer(node: HTMLElement): { destroy(): void } {
   const updateSize = (): void => {
     const { width, height } = node.getBoundingClientRect();
+    const previous = layerSize;
     layerSize = { width, height };
+    // A rotation can leave a child tile with a canvas or measured readout sized for the old axis.
+    // Re-key the frames after the chart bounds settle, so every instrument redraws to the final
+    // portrait or landscape box instead of retaining a clipped top or bottom from the old shape.
+    if (previous && (previous.width !== width || previous.height !== height)) layoutEpoch += 1;
   };
   updateSize();
   if (typeof ResizeObserver === 'undefined') {
@@ -622,7 +628,7 @@ function finishEditing(): void {
     <span class="visually-hidden" role="status">{alignmentAnnouncement}</span>
   {/if}
 
-  {#each floatingTiles as entry (entry.def.id)}
+  {#each floatingTiles as entry (`${entry.def.id}:${layoutEpoch}`)}
     {@const box = dragBox && dragBox.id === entry.def.id ? dragBox : entry.box}
     {@const visibleBox = displayedBox(box)}
     {@const expanded = expandedId === entry.def.id}
