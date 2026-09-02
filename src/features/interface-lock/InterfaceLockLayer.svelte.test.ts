@@ -18,7 +18,7 @@ describe('InterfaceLockLayer', () => {
     expect(body).toContain('<dialog');
     expect(body).toContain('aria-label="Binnacle controls locked"');
     expect(body).toContain('aria-modal="true"');
-    expect(body).toContain('aria-label="Unlock Binnacle"');
+    expect(body).toContain('Hold 5 seconds to unlock Binnacle');
   });
 
   it('does not mount a modal while controls are unlocked', () => {
