@@ -125,8 +125,17 @@ function end(event: PointerEvent): void {
   dragPointerId = undefined;
 }
 
-// The dial stays available until the navigator dismisses it. Pointer dismissal also covers touch,
-// while Escape gives desktop and keyboard users the same immediate exit.
+// A minute gives a navigator time to scan the rings without leaving a transient surface stranded.
+// Its close path uses onOpenChange, so the parent restores the main category ring for next time.
+const AUTO_CLOSE_MS = 60_000;
+$effect(() => {
+  if (!open) return;
+  const timer = setTimeout(() => onOpenChange(false), AUTO_CLOSE_MS);
+  return () => clearTimeout(timer);
+});
+
+// Pointer dismissal also covers touch, while Escape gives desktop and keyboard users the same
+// immediate exit.
 $effect(() => {
   if (!open) return;
   const dismissOutside = (event: PointerEvent) => {

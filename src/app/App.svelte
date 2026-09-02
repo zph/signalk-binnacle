@@ -549,6 +549,14 @@ type SupermenuBucketId = 'navigate' | 'chart' | 'vessel' | 'weather' | 'system' 
 let actionDialBucket = $state<SupermenuBucketId | undefined>();
 type ActionDialPosition = { x: number; y: number };
 
+function setActionDialOpen(next: boolean): void {
+  actionDialOpen = next;
+  if (!next) {
+    actionDialContextPoint = undefined;
+    actionDialBucket = undefined;
+  }
+}
+
 // A chartplotter's Back action must mean the view the navigator just left, not an approximation
 // such as "the menu". This history is deliberately display-local and bounded: it restores only
 // transient UI surfaces, never chart data, edits, or actions with safety consequences.
@@ -3898,13 +3906,7 @@ const plotterActions = {
   <ActionDial
     actions={actionDialActions}
     open={actionDialOpen}
-    onOpenChange={(next) => {
-      actionDialOpen = next;
-      if (!next) {
-        actionDialContextPoint = undefined;
-        actionDialBucket = undefined;
-      }
-    }}
+    onOpenChange={setActionDialOpen}
     position={actionDialPosition.value}
     onPositionChange={(position) => actionDialPosition.set(position)}
     showTrigger={false}
@@ -4253,8 +4255,7 @@ const plotterActions = {
       onclick={() => {
         actionDialContextPoint = undefined;
         actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-        if (actionDialOpen) actionDialBucket = undefined;
-        actionDialOpen = !actionDialOpen;
+        setActionDialOpen(!actionDialOpen);
       }}
     >
       <MenuIcon size={16} aria-hidden="true" />

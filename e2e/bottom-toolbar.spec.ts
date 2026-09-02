@@ -51,10 +51,12 @@ test('the helm Menu button toggles the supermenu and keeps lock and full-screen 
   await expect(back).toBeVisible();
   await expect(back).toHaveClass(/action-dial-wedge--back/);
   await expect(supermenu.getByRole('menuitem', { name: /Center on boat/ })).toBeVisible();
-  await supermenu.getByRole('menuitem', { name: 'Back to menu categories' }).click();
-  await expect(supermenu.getByRole('menuitem', { name: 'Weather' })).toBeVisible();
   await helm.getByRole('button', { name: 'Close supermenu' }).click();
   await expect(supermenu).toHaveCount(0);
+  await helm.getByRole('button', { name: 'Open supermenu' }).click();
+  await expect(supermenu.getByRole('menuitem', { name: 'Navigate' })).toBeVisible();
+  await expect(supermenu.getByRole('menuitem', { name: 'Back to menu categories' })).toHaveCount(0);
+  await helm.getByRole('button', { name: 'Close supermenu' }).click();
 });
 
 test('the Chart supermenu section shows and hides the instrument dock', async ({ page }) => {
