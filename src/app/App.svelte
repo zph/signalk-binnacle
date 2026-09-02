@@ -3929,6 +3929,30 @@ const plotterActions = {
     writeBlocked={auth.writeBlocked}
   />
   <div class="helm-primary-actions" role="group" aria-label="Helm actions">
+    <button
+      type="button"
+      class="btn btn-pill"
+      aria-label={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
+      title={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
+      onclick={interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock}
+    >
+      {#if interfaceLock.locked}
+        <LockOpen size={16} aria-hidden="true" />
+      {:else}
+        <Lock size={16} aria-hidden="true" />
+      {/if}
+      <span>{interfaceLock.locked ? 'Unlock' : 'Lock'}</span>
+    </button>
+    <button
+      type="button"
+      class="btn btn-pill"
+      aria-label="Toggle full screen"
+      title="Toggle full screen"
+      onclick={() => void toggleBrowserFullScreen()}
+    >
+      <Maximize2 size={16} aria-hidden="true" />
+      <span>Full screen</span>
+    </button>
     <MobButton
       {mob}
       onTrigger={mobController.onTrigger}
@@ -3956,6 +3980,7 @@ const plotterActions = {
       aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}
       aria-expanded={actionDialOpen}
       aria-haspopup="menu"
+      onpointerdown={(event) => event.stopPropagation()}
       onclick={() => {
         actionDialContextPoint = undefined;
         actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });

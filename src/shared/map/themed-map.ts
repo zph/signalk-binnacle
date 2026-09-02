@@ -280,14 +280,6 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
 
   if (opts.showMapControls !== false) {
     mapInstance.addControl(
-      new maplibregl.NavigationControl({
-        showCompass: false,
-        showZoom: true,
-        visualizePitch: false,
-      }),
-      'top-right',
-    );
-    mapInstance.addControl(
       new maplibregl.ScaleControl({ maxWidth: 120, unit: 'nautical' }),
       'bottom-right',
     );

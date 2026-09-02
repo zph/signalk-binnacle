@@ -285,11 +285,11 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
 
     await page.getByRole('button', { name: 'Close OpenFreeMap base opacity' }).click();
     await page.getByRole('button', { name: 'Close layers and charts' }).click();
-    const zoomIn = page.locator('.maplibregl-ctrl-zoom-in');
-    // MapLibre animates control-button zooms. Let each ease finish so rapid clicks do not collapse
-    // into one partial step and leave the test below the declared native maxzoom.
+    // Keyboard zoom remains available after removing the chart's top-right zoom buttons. Let each
+    // animation finish so rapid steps do not collapse into one partial zoom.
+    await canvas.focus();
     for (let step = 0; step < 7; step += 1) {
-      await zoomIn.click();
+      await page.keyboard.press('+');
       await page.waitForTimeout(350);
     }
     await expect

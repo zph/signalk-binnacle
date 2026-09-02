@@ -571,7 +571,7 @@ describe('createThemedMap long-press', () => {
 });
 
 describe('createThemedMap navigation controls', () => {
-  it('locks rotation and pitch and installs zoom and nautical scale controls', async () => {
+  it('locks rotation and pitch and installs only the nautical scale control', async () => {
     createThemedMap({ container, onLoad: () => {} });
     const map = await lastMap();
     expect(map.options.dragRotate).toBe(false);
@@ -583,10 +583,6 @@ describe('createThemedMap navigation controls', () => {
     expect(map.touchZoomRotate?.disableRotation).toHaveBeenCalledOnce();
     expect(map.keyboard?.disableRotation).toHaveBeenCalledOnce();
     expect(map.controls).toEqual([
-      {
-        control: { options: { showCompass: false, showZoom: true, visualizePitch: false } },
-        position: 'top-right',
-      },
       {
         control: { options: { maxWidth: 120, unit: 'nautical' } },
         position: 'bottom-right',

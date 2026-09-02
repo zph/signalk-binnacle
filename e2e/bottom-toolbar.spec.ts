@@ -30,6 +30,21 @@ test('the right-edge Instruments tab opens and closes the dock', async ({ page }
   );
 });
 
+test('the helm Menu button toggles the supermenu and keeps lock and full-screen actions reachable', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const helm = page.getByRole('group', { name: 'Helm actions' });
+  await expect(helm.getByRole('button', { name: 'Lock Binnacle' })).toBeVisible();
+  await expect(helm.getByRole('button', { name: 'Toggle full screen' })).toBeVisible();
+
+  const menu = helm.getByRole('button', { name: 'Open supermenu' });
+  await menu.click();
+  await expect(page.getByRole('menu', { name: 'Supermenu' })).toBeVisible();
+  await helm.getByRole('button', { name: 'Close supermenu' }).click();
+  await expect(page.getByRole('menu', { name: 'Supermenu' })).toHaveCount(0);
+});
+
 test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto('/');
