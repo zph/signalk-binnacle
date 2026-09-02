@@ -104,6 +104,25 @@ test('the helm instruments control advances from Show to Edit and opens a bounde
   await expect(picker.locator('.add-menu-scroll')).toHaveCSS('overflow-y', 'auto');
 });
 
+test('iPad helm keeps MOB centered with double-size controls', async ({ page }) => {
+  await page.goto('/');
+  await dismissOrientation(page);
+
+  const helm = page.getByRole('group', { name: 'Helm actions' });
+  const mob = helm.getByRole('button', { name: 'Mark man overboard here' });
+  const [helmBox, mobBox, lockBox] = await Promise.all([
+    helm.boundingBox(),
+    mob.boundingBox(),
+    helm.getByRole('button', { name: 'Lock Binnacle' }).boundingBox(),
+  ]);
+  if (!helmBox || !mobBox || !lockBox) throw new Error('The iPad helm controls did not lay out.');
+
+  const viewportCenter = await page.evaluate(() => window.innerWidth / 2);
+  expect(mobBox.x + mobBox.width / 2).toBeCloseTo(viewportCenter, 0);
+  expect(lockBox.width).toBeCloseTo(88, 0);
+  expect(mobBox.width).toBeCloseTo(88, 0);
+});
+
 test('screen edit mode drags an instrument from its face on the chart', async ({ page }) => {
   await page.goto('/');
   await runScreenEditCommand(page);

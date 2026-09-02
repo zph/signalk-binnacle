@@ -30,11 +30,12 @@ describe('installed PWA system-bar clearance', () => {
     expect(STATUS_STRIP).toContain('env(safe-area-inset-right, 0px)');
   });
 
-  it('keeps a ready update visible at the leading edge of the iPad bottom bar', () => {
+  it('keeps ready updates and chart controls on the iPad rails around centered MOB', () => {
     expect(APP).toContain('class:helm-primary-actions--update-ready={updateReady}');
     expect(APP).toContain('aria-label="Install ready update"');
-    expect(APP).toMatch(/@media \(pointer: coarse\) and \(min-width: 601px\)[\s\S]*order: -1/);
-    expect(APP).toMatch(/helm-update-action[\s\S]*position: sticky/);
+    expect(APP).toContain('class="helm-actions-start"');
+    expect(APP).toContain('class="helm-actions-end"');
+    expect(APP).toContain('--helm-action-size: calc(2 * var(--control-size))');
   });
 
   it('removes the redundant browser full-screen control in an installed PWA', () => {

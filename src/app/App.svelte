@@ -638,8 +638,8 @@ const closePanel = (): void => {
   viewHistory.clear();
 };
 const goHome = (): void => {
-  // Home is a predictable escape hatch: it returns to the uncluttered chart without changing the
-  // chart's position, navigation plan, or any other operational data.
+  // Home is a predictable escape hatch: it closes transient UI without changing the chart's
+  // position, navigation plan, or the helm's current instrument show or hide choice.
   resetPanel();
   selectedNote = undefined;
   selectedAisId = undefined;
@@ -648,7 +648,7 @@ const goHome = (): void => {
   weatherPanelOpen = false;
   radarControlsOpen = false;
   instrumentsFullScreenForced = false;
-  instruments.setOpen(false);
+  exitScreenInstrumentEditing();
   menuOpen = false;
   actionDialOpen = false;
   actionDialBucket = undefined;
@@ -1685,16 +1685,6 @@ function toggleRadarControlsFromMenu(): void {
   radarControlsOpen = true;
 }
 
-function toggleWeatherPanelFromMenu(): void {
-  if (weatherPanelOpen) {
-    weatherPanelOpen = false;
-    viewHistory.clear();
-    return;
-  }
-  rememberCurrentView();
-  if (instrumentsFullScreen) instruments.setOpen(false);
-  weatherPanelOpen = true;
-}
 const bottomTabObscured = $derived(
   activePanel !== null ||
     weatherPanelOpen ||
@@ -4131,107 +4121,113 @@ const plotterActions = {
     role="group"
     aria-label="Helm actions"
   >
-    <button
-      type="button"
-      class="btn btn-pill"
-      aria-label={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
-      title={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
-      onclick={interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock}
-    >
-      {#if interfaceLock.locked}
-        <LockOpen size={16} aria-hidden="true" />
-      {:else}
-        <Lock size={16} aria-hidden="true" />
-      {/if}
-    </button>
-    {#if !installedPwa}
+    <div class="helm-actions-start">
       <button
         type="button"
         class="btn btn-pill"
-        aria-label="Toggle full screen"
-        title="Toggle full screen"
-        onclick={() => void toggleBrowserFullScreen()}
+        aria-label={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
+        title={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
+        onclick={interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock}
       >
-        <Maximize2 size={16} aria-hidden="true" />
+        {#if interfaceLock.locked}
+          <LockOpen size={16} aria-hidden="true" />
+        {:else}
+          <Lock size={16} aria-hidden="true" />
+        {/if}
       </button>
-    {/if}
-    <button
-      type="button"
-      class="btn btn-pill"
-      aria-label="Home"
-      title="Return to chart"
-      onclick={goHome}
-    >
-      <House size={16} aria-hidden="true" />
-    </button>
-    <button
-      type="button"
-      class="btn btn-pill"
-      class:is-on={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
-      aria-label={
-        layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
-          ? 'Hide wind layer'
-          : 'Show wind layer'
-      }
-      aria-pressed={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
-      title="Toggle wind layer"
-      onclick={() =>
-        setLayerVisible(
-          WEATHER_LAYER_IDS.wind,
-          !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
-        )}
-    >
-      <CloudSun size={16} aria-hidden="true" />
-    </button>
-    <button
-      type="button"
-      class="btn btn-pill helm-instruments-action"
-      aria-label={instrumentsActionLabel()}
-      title={instrumentsActionLabel()}
-      onclick={cycleInstruments}
-    >
-      {#if instruments.screenEditing}
-        <Pencil size={18} aria-hidden="true" />
-      {:else}
-        <Gauge size={18} aria-hidden="true" />
+      {#if !installedPwa}
+        <button
+          type="button"
+          class="btn btn-pill"
+          aria-label="Toggle full screen"
+          title="Toggle full screen"
+          onclick={() => void toggleBrowserFullScreen()}
+        >
+          <Maximize2 size={16} aria-hidden="true" />
+        </button>
       {/if}
-    </button>
-    <MobButton
-      {mob}
-      showLabel={false}
-      onTrigger={mobController.onTrigger}
-      onLocate={flyToPosition}
-      writeBlocked={auth.writeBlocked}
-    />
-    {#if updateReady}
       <button
         type="button"
-        class="btn btn-pill helm-update-action"
-        aria-label="Install ready update"
-        title="A Binnacle update is ready to install"
+        class="btn btn-pill"
+        aria-label="Home"
+        title="Return to chart"
+        onclick={goHome}
+      >
+        <House size={16} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="btn btn-pill"
+        class:is-on={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
+        aria-label={
+          layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
+            ? 'Hide wind layer'
+            : 'Show wind layer'
+        }
+        aria-pressed={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
+        title="Toggle wind layer"
+        onclick={() =>
+          setLayerVisible(
+            WEATHER_LAYER_IDS.wind,
+            !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
+          )}
+      >
+        <CloudSun size={16} aria-hidden="true" />
+      </button>
+    </div>
+    <div class="helm-mob-action">
+      <MobButton
+        {mob}
+        showLabel={false}
+        onTrigger={mobController.onTrigger}
+        onLocate={flyToPosition}
+        writeBlocked={auth.writeBlocked}
+      />
+    </div>
+    <div class="helm-actions-end">
+      <button
+        type="button"
+        class="btn btn-pill helm-instruments-action"
+        aria-label={instrumentsActionLabel()}
+        title={instrumentsActionLabel()}
+        onclick={cycleInstruments}
+      >
+        {#if instruments.screenEditing}
+          <Pencil size={18} aria-hidden="true" />
+        {:else}
+          <Gauge size={18} aria-hidden="true" />
+        {/if}
+      </button>
+      {#if updateReady}
+        <button
+          type="button"
+          class="btn btn-pill helm-update-action"
+          aria-label="Install ready update"
+          title="A Binnacle update is ready to install"
+          onclick={() => {
+            updateReady = false;
+            pwa.update();
+          }}
+        >
+          <DownloadCloud size={16} aria-hidden="true" />
+        </button>
+      {/if}
+      <button
+        type="button"
+        class="btn btn-pill"
+        aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}
+        aria-expanded={actionDialOpen}
+        aria-haspopup="menu"
+        onpointerdown={(event) => event.stopPropagation()}
         onclick={() => {
-          updateReady = false;
-          pwa.update();
+          actionDialContextPoint = undefined;
+          actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          setActionDialOpen(!actionDialOpen);
         }}
       >
-        <DownloadCloud size={16} aria-hidden="true" />
+        <MenuIcon size={16} aria-hidden="true" />
       </button>
-    {/if}
-    <button
-      type="button"
-      class="btn btn-pill"
-      aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}
-      aria-expanded={actionDialOpen}
-      aria-haspopup="menu"
-      onpointerdown={(event) => event.stopPropagation()}
-      onclick={() => {
-        actionDialContextPoint = undefined;
-        actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-        setActionDialOpen(!actionDialOpen);
-      }}
-    >
-      <MenuIcon size={16} aria-hidden="true" />
-    </button>
+    </div>
   </div>
 </main>
 
@@ -4418,22 +4414,45 @@ const plotterActions = {
   background: var(--surface);
 }
 .helm-primary-actions {
-  display: flex;
+  --helm-action-size: var(--control-size);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* This fixed rail is still a shell grid child. Span the shell explicitly so its center is the
+     viewport center, not an auto-placement cell beside the chart. */
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
   position: fixed;
   z-index: var(--z-menu);
-  inset-inline: 0;
+  /* iPad Safari's layout viewport can be wider than the visible chart. Use the dynamic viewport
+     width so the helm rail and its emergency key remain on the screen the operator is touching. */
+  inset-inline-start: 0;
+  inline-size: 100dvw;
   inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  justify-content: center;
-  gap: var(--space-2);
   pointer-events: none;
+}
+.helm-actions-start,
+.helm-actions-end {
+  display: flex;
+  gap: var(--space-2);
+}
+.helm-actions-start {
+  justify-self: end;
+}
+.helm-actions-end {
+  justify-self: start;
+}
+.helm-mob-action {
+  position: absolute;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
 }
 .helm-primary-actions :global(button) {
   pointer-events: auto;
 }
 .helm-primary-actions :global(.btn-pill) {
-  inline-size: var(--control-size);
-  block-size: var(--control-size);
-  min-inline-size: var(--control-size);
+  inline-size: var(--helm-action-size);
+  block-size: var(--helm-action-size);
+  min-inline-size: var(--helm-action-size);
   padding: 0;
   border-radius: 50%;
   justify-content: center;
@@ -4443,20 +4462,15 @@ const plotterActions = {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: var(--text);
 }
-/* The update action is an explicit helm decision. On touch tablets, keep it at the leading edge
-   of the persistent bottom bar instead of letting the normal control sequence hide it offscreen. */
+/* iPad helm chrome favors deliberate, gloved-hand operation. Keep MOB exactly centered while the
+   navigation and chart controls occupy balanced rails to either side. */
 @media (pointer: coarse) and (min-width: 601px) and (max-width: 1200px) {
-  .helm-primary-actions--update-ready {
-    justify-content: flex-start;
-    padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px));
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
+  .helm-primary-actions {
+    --helm-action-size: calc(2 * var(--control-size));
   }
-  .helm-primary-actions--update-ready .helm-update-action {
-    order: -1;
-    position: sticky;
-    inset-inline-start: 0;
-    z-index: 1;
+  .helm-primary-actions :global(.btn-pill svg) {
+    inline-size: calc(var(--control-size) * 0.73);
+    block-size: calc(var(--control-size) * 0.73);
   }
 }
 .binnacle-shell > :global(.instruments) {
