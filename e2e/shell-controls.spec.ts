@@ -2,32 +2,6 @@ import { expect, test } from '@playwright/test';
 
 test.use({ serviceWorkers: 'block' });
 
-test('the attached tab expands and restores the bottom toolbar', async ({ page }) => {
-  await page.goto('/');
-
-  const chart = page.locator('.chart-host');
-  const initial = await chart.boundingBox();
-  expect(initial).not.toBeNull();
-  await expect(page.locator('.binnacle-shell > header')).toHaveCount(0);
-  expect(initial?.y).toBe(0);
-
-  const status = page.locator('.status-strip');
-  const statusBox = await status.boundingBox();
-  const tabBox = await page.getByRole('button', { name: 'Hide bottom bar' }).boundingBox();
-  expect(statusBox).not.toBeNull();
-  expect(tabBox).not.toBeNull();
-  expect(Math.abs((tabBox?.y ?? 0) + (tabBox?.height ?? 0) - (statusBox?.y ?? 0))).toBeLessThan(2);
-
-  await page.getByRole('button', { name: 'Hide bottom bar' }).click();
-  await expect(page.locator('.status-strip')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Show bottom bar' })).toBeVisible();
-  const withoutBottom = await chart.boundingBox();
-  expect(withoutBottom?.height).toBeGreaterThan(initial?.height ?? 0);
-
-  await page.getByRole('button', { name: 'Show bottom bar' }).click();
-  await expect(page.locator('.status-strip')).toBeVisible();
-});
-
 test('left edge owns the menu while the lower toolbar owns profile, theme, and app information', async ({
   page,
 }) => {

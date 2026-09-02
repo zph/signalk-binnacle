@@ -1115,8 +1115,7 @@ test('instrument dock resizes horizontally and restores its device-local width',
   await expect(handle).toBeVisible();
   const initial = await dock.boundingBox();
   const handleBox = await handle.boundingBox();
-  if (!initial || !handleBox)
-    throw new Error('Instrument dock resize control did not lay out.');
+  if (!initial || !handleBox) throw new Error('Instrument dock resize control did not lay out.');
   // The resize target must stay inside its dock rather than intruding into the chart cell.
   expect(handleBox.x).toBeGreaterThanOrEqual(initial.x);
 

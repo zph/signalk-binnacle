@@ -683,9 +683,13 @@ onDestroy(() => {
 <style>
 .weather-panel {
   position: fixed;
-  /* Sit just above the status strip, whose min-block-size is calc(--control-size + --space-2), using
-     the same expression so the panel cannot drift out of sync with the strip it clears. */
-  inset-block-end: calc(var(--control-size) + var(--space-2) + env(safe-area-inset-bottom, 0px));
+  /* Sit directly above the optional helm action rail. The shell publishes its real action size,
+     including the larger coarse-pointer iPad controls, and drops the offset to zero while the rail
+     is hidden. */
+  inset-block-end: var(
+    --helm-panel-offset,
+    calc(var(--control-size) + var(--space-2) + env(safe-area-inset-bottom, 0px))
+  );
   inset-inline: 0;
   margin-inline: auto;
   inline-size: min(94vw, 46rem);

@@ -647,6 +647,11 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
   state and moves with the dock edge while the dock is open. The left app
   menu's toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar
   only renders the resolved customizable list.
+- The chart's fixed helm action rail publishes `--helm-actions-clearance`, so forecast controls,
+  bottom-positioned safety cards, and MapLibre's lower controls always sit above it. Dragging
+  downward anywhere across the rail hides it for the current session. While hidden, the full bottom
+  edge is a 44 px swipe-up and tap target, so restoring the rail never depends on finding a small
+  flange. A reload restores the rail, and the hidden edge target remains keyboard accessible.
 - The Layers and charts panel opens on chart sources first. The Charts view lists server and user chart
   sources. Each compact row has one separate drag grip, a name-sized visibility button whose enabled
   state lights the row, a child-layer caret, and one chart-detail action. A chart with facets discloses

@@ -64,6 +64,14 @@ function cancelIfHolding(): void {
   if (holding) cancelHold();
 }
 
+$effect(() => {
+  if (!controller.locked) return;
+  cancelHold();
+  clearTimeout(releaseTimer);
+  releaseTimer = undefined;
+  unlocked = false;
+});
+
 onDestroy(() => {
   cancelHold();
   clearTimeout(releaseTimer);
@@ -88,13 +96,11 @@ onDestroy(() => {
     <button
       type="button"
       class="btn btn-pill unlock-control"
-      aria-label={
-        unlocked
+      aria-label={unlocked
           ? 'Binnacle unlocked'
           : holding
             ? `Keep holding to unlock, ${remainingSeconds} seconds remaining`
-            : 'Hold 5 seconds to unlock Binnacle'
-      }
+            : 'Hold 5 seconds to unlock Binnacle'}
       title="Hold for 5 seconds to unlock"
       use:focusOnMount
       onpointerdown={startHold}
@@ -170,9 +176,15 @@ onDestroy(() => {
   text-transform: uppercase;
 }
 @keyframes unlock-flash {
-  0% { background: color-mix(in srgb, var(--accent) 0%, transparent); }
-  35% { background: color-mix(in srgb, #2496ff 32%, transparent); }
-  100% { background: color-mix(in srgb, #2496ff 0%, transparent); }
+  0% {
+    background: color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  35% {
+    background: color-mix(in srgb, #2496ff 32%, transparent);
+  }
+  100% {
+    background: color-mix(in srgb, #2496ff 0%, transparent);
+  }
 }
 @media (max-width: 600px) {
   .unlock-control {

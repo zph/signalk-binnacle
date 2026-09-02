@@ -40,7 +40,6 @@ const groups = $derived(
     { label: 'Overlays', items: overlays },
   ].filter((group) => group.items.length > 0),
 );
-
 </script>
 
 <!-- AnchoredMenu owns the backdrop dismiss, gated registerDismiss, and the grow transition.

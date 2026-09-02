@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, stubVesselsSelf } from './helpers';
+import { expectNoHorizontalOverflow, holdToUnlockInterface, stubVesselsSelf } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -89,6 +89,18 @@ test('Home returns from an open panel to the chart', async ({ page }) => {
   await expect(page.locator('#app-menu-launcher')).toHaveCount(0);
 });
 
+test('Home keeps the current chart instrument visibility', async ({ page }) => {
+  await page.goto('/');
+  const helm = page.getByRole('group', { name: 'Helm actions' });
+  await helm.getByRole('button', { name: 'Show instruments' }).click();
+
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Home' }).click();
+
+  await expect(page.locator('#app-menu-launcher')).toHaveCount(0);
+  await expect(helm.getByRole('button', { name: 'Edit instruments' })).toBeVisible();
+});
+
 test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto('/');
@@ -123,7 +135,9 @@ test('status readouts stay below the action row and pin to opposite edges', asyn
   expect(vesselBox.x + vesselBox.width).toBeLessThanOrEqual(toolbarBox.x + toolbarBox.width);
 });
 
-test('the interface lock stays reachable from full-screen Instruments', async ({ page }) => {
+test('the interface lock repeats hold-to-unlock cycles from full-screen Instruments', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.goto('/');
 
@@ -132,9 +146,12 @@ test('the interface lock stays reachable from full-screen Instruments', async ({
   await expect(instruments).toBeVisible();
   await instruments.getByRole('button', { name: 'Lock Binnacle' }).click();
 
-  const lockLayer = page.getByRole('dialog', { name: 'Binnacle controls locked' });
-  await expect(lockLayer).toBeVisible();
-  await lockLayer.getByRole('button', { name: 'Unlock Binnacle' }).click();
-  await expect(lockLayer).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Binnacle controls locked' })).toBeVisible();
+  await holdToUnlockInterface(page);
+
+  await instruments.getByRole('button', { name: 'Lock Binnacle' }).click();
+  await expect(page.getByRole('dialog', { name: 'Binnacle controls locked' })).toBeVisible();
+  await holdToUnlockInterface(page);
+
   await expect(instruments).toBeVisible();
 });

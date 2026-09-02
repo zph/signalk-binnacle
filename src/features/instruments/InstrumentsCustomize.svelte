@@ -151,17 +151,38 @@ const webviewStatusMessage = $derived.by(() => {
   </section>
   <section class="instrument-overlay-settings" aria-label="Web view instruments">
     <h3 class="caps-label section-label">Web view instruments</h3>
-    <p class="muted-note">Add each iframe here. It stays in Binnacle, independent of App Launcher.</p>
+    <p class="muted-note">
+      Add each iframe here. It stays in Binnacle, independent of App Launcher.
+    </p>
     <form class="webview-form" onsubmit={(event) => { event.preventDefault(); addWebview(); }}>
-      <input class="input" aria-label="Web view name" bind:value={webviewTitle} placeholder="Instrument name">
-      <input class="input" aria-label="Web view URL" bind:value={webviewUrl} placeholder="https://… or /plugin/">
+      <input
+        class="input"
+        aria-label="Web view name"
+        bind:value={webviewTitle}
+        placeholder="Instrument name"
+      >
+      <input
+        class="input"
+        aria-label="Web view URL"
+        bind:value={webviewUrl}
+        placeholder="https://… or /plugin/"
+      >
       <button class="btn btn-primary" type="submit">Add iframe</button>
     </form>
-    {#if webviewError}<p class="control-error" role="alert">{webviewError}</p>{/if}
+    {#if webviewError}
+      <p class="control-error" role="alert">{webviewError}</p>
+    {/if}
     {#each controller.webviews ?? [] as view (view.id)}
       <div class="webview-row">
         <span class="truncate">{view.title}</span>
-        <button class="icon-btn" type="button" aria-label={`Remove ${view.title}`} onclick={() => controller.removeWebview?.(view.id)}><Trash2 size={16} aria-hidden="true" /></button>
+        <button
+          class="icon-btn"
+          type="button"
+          aria-label={`Remove ${view.title}`}
+          onclick={() => controller.removeWebview?.(view.id)}
+        >
+          <Trash2 size={16} aria-hidden="true" />
+        </button>
       </div>
     {/each}
   </section>
@@ -288,8 +309,18 @@ const webviewStatusMessage = $derived.by(() => {
 .section-label:first-child {
   padding-block-start: 0;
 }
-.webview-form { display: grid; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
-.webview-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-3); }
+.webview-form {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2);
+}
+.webview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+}
 .available-head {
   display: flex;
   align-items: center;

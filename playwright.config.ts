@@ -100,7 +100,7 @@ export default defineConfig({
     // The Safari projects above remain the platform-layout coverage.
     {
       name: 'ipad-chromium-touch',
-      testMatch: /instrument-screen\.spec\.ts/,
+      testMatch: /(?:helm-actions|instrument-screen)\.spec\.ts/,
       use: { ...devices['iPad Pro 11'], browserName: 'chromium' },
     },
     {

@@ -96,7 +96,11 @@
    controls where they are. The uniform --space-3 margin is the one chrome gutter every floating
    control shares. */
 .chart-canvas .maplibregl-ctrl-bottom-right {
-  inset-block-end: calc(var(--space-3) + var(--rail-clearance, 0px));
+  inset-block-end: calc(
+    var(--space-3) +
+    var(--rail-clearance, 0px) +
+    var(--helm-actions-clearance, 0px)
+  );
 }
 .maplibregl-ctrl-top-right .maplibregl-ctrl,
 .maplibregl-ctrl-bottom-right .maplibregl-ctrl {

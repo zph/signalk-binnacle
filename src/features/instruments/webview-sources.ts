@@ -61,11 +61,15 @@ const webviewInstrumentCodec: PersistedCodec<WebviewInstrument> = {
     const id = cleanBoundedText(value.id, 64);
     const title = cleanBoundedText(value.title, 80);
     const url = cleanWebviewUrl(value.url);
-    return id && title && url ? { state: 'valid', value: { id, title, url } } : { state: 'invalid' };
+    return id && title && url
+      ? { state: 'valid', value: { id, title, url } }
+      : { state: 'invalid' };
   },
 };
 
-export const webviewInstrumentsCodec = arrayPersistedCodec(webviewInstrumentCodec, { maxItems: 100 });
+export const webviewInstrumentsCodec = arrayPersistedCodec(webviewInstrumentCodec, {
+  maxItems: 100,
+});
 
 export function directWebviewTileDef(view: WebviewInstrument): TileDef {
   return webviewTileDef({ ...view, kind: 'link' });

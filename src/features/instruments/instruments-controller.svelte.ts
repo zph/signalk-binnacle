@@ -31,7 +31,12 @@ import {
   type InstrumentRegistry,
   SIGNALK_INSTRUMENT_PLUGIN_SCOPE,
 } from './instrument-registry.svelte';
-import { directWebviewTileDef, discoverWebviewInstruments, type WebviewInstrument, type WebviewSourceState } from './webview-sources';
+import {
+  directWebviewTileDef,
+  discoverWebviewInstruments,
+  type WebviewInstrument,
+  type WebviewSourceState,
+} from './webview-sources';
 
 type InstrumentHistoryStatus =
   | 'idle'
@@ -333,12 +338,14 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
 
   function discoverWebviews(): void {
     if (deps.webviewStore) {
-      deps.registry.replaceScope(WEBVIEW_INSTRUMENT_SCOPE, [{
-        apiVersion: INSTRUMENT_PLUGIN_API_VERSION,
-        id: 'binnacle.webview',
-        name: 'Binnacle web views',
-        instruments: deps.webviewStore.value.map(directWebviewTileDef),
-      }]);
+      deps.registry.replaceScope(WEBVIEW_INSTRUMENT_SCOPE, [
+        {
+          apiVersion: INSTRUMENT_PLUGIN_API_VERSION,
+          id: 'binnacle.webview',
+          name: 'Binnacle web views',
+          instruments: deps.webviewStore.value.map(directWebviewTileDef),
+        },
+      ]);
       webviewStatus = 'ready';
       return;
     }

@@ -62,6 +62,20 @@ export async function expectNoHorizontalOverflow(surface: Locator): Promise<void
     .toBe(true);
 }
 
+// The interface lock intentionally requires a five-second continuous hold. Use a real mouse hold so
+// the test covers the same pointer sequence as a helm control.
+export async function holdToUnlockInterface(page: Page): Promise<void> {
+  const lockLayer = page.getByRole('dialog', { name: 'Binnacle controls locked' });
+  const unlockControl = lockLayer.getByRole('button', {
+    name: 'Hold 5 seconds to unlock Binnacle',
+  });
+  await unlockControl.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(5_100);
+  await page.mouse.up();
+  await expect(lockLayer).toHaveCount(0);
+}
+
 // Assert a floating surface lies inside the viewport it was measured in. Measures the live document
 // rather than restating pixels, so a spec that sets its own viewport cannot leave a stale bound
 // asserting against a size the page no longer has. clientWidth and clientHeight, not viewportSize:
