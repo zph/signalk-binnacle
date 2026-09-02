@@ -1,4 +1,5 @@
 <script lang="ts">
+import CircleHelp from '@lucide/svelte/icons/circle-help';
 import Expand from '@lucide/svelte/icons/expand';
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import Plus from '@lucide/svelte/icons/plus';
@@ -43,8 +44,6 @@ interface Props {
   onWindRoseNoGoAngleChange?: (angleRad: number) => void;
   onWindRoseArcMarginChange?: (angleRad: number) => void;
   onOpenTideSettings?: () => void;
-  // The chart's centered welcome, arrival, or chart-setup banner is visible. Keep the editing
-  // toolbar below it so the first-run path never hides the only way to finish the layout.
   topBannerPresent?: boolean;
   // Called when the helm presses Done, so the shell can clear any edit-mode side effects.
   onDone?: () => void;
@@ -69,7 +68,6 @@ const {
   onWindRoseNoGoAngleChange = () => {},
   onWindRoseArcMarginChange = () => {},
   onOpenTideSettings,
-  topBannerPresent = false,
   onDone = () => {},
   onEdit = () => {},
   overlayOpacity = 1,
@@ -101,8 +99,10 @@ let layerEl = $state<HTMLElement | undefined>();
 let layerSize = $state<{ width: number; height: number } | undefined>();
 let layoutEpoch = $state(0);
 let addMenuOpen = $state(false);
+let helpOpen = $state(false);
 let windRoseSettingsOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
+let helpTrigger = $state<HTMLElement | undefined>();
 let expandedId = $state<string | undefined>();
 
 // In-flight move or resize, so a drag renders its live box without writing storage per pointer
@@ -397,6 +397,12 @@ function addAt(at: { x?: number; y?: number }, id: string): void {
 
 function toggleAddMenu(): void {
   addMenuOpen = !addMenuOpen;
+  helpOpen = false;
+}
+
+function toggleHelp(): void {
+  helpOpen = !helpOpen;
+  addMenuOpen = false;
 }
 
 function clearLongPress(): void {
@@ -529,6 +535,7 @@ $effect(() => {
 
 function finishEditing(): void {
   addMenuOpen = false;
+  helpOpen = false;
   onDone();
 }
 </script>
@@ -557,30 +564,29 @@ function finishEditing(): void {
         />
       </div>
     {:else}
-      <div class="screen-edit-chrome" class:screen-edit-chrome--below-banner={topBannerPresent}>
-        <p id="screen-edit-note" class="muted-note screen-edit-note" role="status">
-          Drag any instrument to place it. Use the corner handle to resize, then select Done to lock
-          the layout.
-        </p>
-        <div class="screen-edit-actions">
-          <button
-            type="button"
-            class="btn"
-            bind:this={addMenuTrigger}
-            aria-expanded={addMenuOpen}
-            onclick={toggleAddMenu}
-          >
-            <Plus size={16} aria-hidden="true" />
-            Add instrument
-          </button>
-          {#if hasWindRose}
-            <button type="button" class="btn" onclick={() => (windRoseSettingsOpen = true)}>
-              <SlidersHorizontal size={16} aria-hidden="true" />
-              Wind rose settings
-            </button>
-          {/if}
-          <button type="button" class="btn btn-primary" onclick={finishEditing}>Done</button>
-        </div>
+      <div class="screen-edit-chrome" role="toolbar" aria-label="Instrument editing actions">
+        <button
+          type="button"
+          class="btn"
+          bind:this={addMenuTrigger}
+          aria-expanded={addMenuOpen}
+          onclick={toggleAddMenu}
+        >
+          <Plus size={16} aria-hidden="true" />
+          Add instrument
+        </button>
+        <button type="button" class="btn btn-primary" onclick={finishEditing}>Done</button>
+        <button
+          type="button"
+          class="btn screen-edit-help-trigger"
+          bind:this={helpTrigger}
+          aria-label="Instrument editing help"
+          aria-expanded={helpOpen}
+          title="Instrument editing help"
+          onclick={toggleHelp}
+        >
+          <CircleHelp size={18} aria-hidden="true" />
+        </button>
       </div>
     {/if}
     {#if addMenuOpen}
@@ -622,9 +628,44 @@ function finishEditing(): void {
         </div>
       </AnchoredMenu>
     {/if}
+    {#if helpOpen}
+      <AnchoredMenu
+        open={true}
+        onClose={() => (helpOpen = false)}
+        backdropLabel="Dismiss instrument editing help"
+        backdropClass="screen-add-backdrop"
+        surfaceClass="popover-card screen-edit-help"
+        ariaLabel="Instrument editing help"
+        anchor={helpTrigger}
+        preferredPlacement="below"
+        anchorAlign="end"
+        onFocusLeft={() => (helpOpen = false)}
+      >
+        <p class="muted-note">
+          Drag an instrument to move it. Use its corner controls to resize, expand, or remove it.
+          Select Done when the layout is ready.
+        </p>
+        {#if hasWindRose}
+          <button
+            type="button"
+            class="btn"
+            onclick={() => {
+              helpOpen = false;
+              windRoseSettingsOpen = true;
+            }}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            Wind rose settings
+          </button>
+        {/if}
+      </AnchoredMenu>
+    {/if}
   {/if}
 
   {#if editing}
+    <span id="screen-edit-note" class="visually-hidden">
+      Drag an instrument to move it. Use its corner controls to resize, expand, or remove it.
+    </span>
     <span class="visually-hidden" role="status">{alignmentAnnouncement}</span>
   {/if}
 
@@ -784,34 +825,24 @@ function finishEditing(): void {
 }
 .screen-edit-chrome {
   position: absolute;
-  /* Clears the persistent Show/Edit/Hide helm action in every supported platform mode. */
-  inset-block-end: calc(
-    var(--control-size) +
-    2 *
-    var(--space-2) +
-    env(safe-area-inset-bottom, 0px)
-  );
-  inset-inline-start: var(--space-2);
-  /* MapLibre owns the chart's top-end corner for the 44 px zoom target plus its shared edge
-     gutter. Keep the editing actions entirely out of that hit area at every dock width. */
-  inset-inline-end: calc(var(--control-size) + 2 * var(--space-3));
-  z-index: 2;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: var(--z-menu);
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  justify-content: space-between;
-  flex-wrap: wrap;
-  padding: var(--space-2) var(--space-3);
+  max-inline-size: calc(100% - 2 * var(--space-3));
+  padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-overlay);
+  transform: translate(-50%, -50%);
 }
-.screen-edit-note {
-  margin: 0;
-}
-.screen-edit-actions {
-  display: flex;
-  gap: var(--space-2);
+.screen-edit-help-trigger {
+  flex: none;
+  inline-size: var(--control-size);
+  padding: 0;
 }
 .screen-edit-settings {
   position: absolute;
@@ -915,6 +946,16 @@ function finishEditing(): void {
   position: fixed;
   z-index: calc(var(--z-menu) + 1);
   padding: var(--space-1);
+}
+:global(.screen-edit-help) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: min(18rem, calc(100vw - 2 * var(--space-3)));
+  padding: var(--space-3);
+}
+:global(.screen-edit-help .muted-note) {
+  margin: 0;
 }
 .add-menu-scroll {
   display: flex;

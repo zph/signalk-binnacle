@@ -4421,7 +4421,7 @@ const plotterActions = {
   grid-row: 1 / -1;
   grid-column: 1 / -1;
   position: fixed;
-  z-index: var(--z-menu);
+  z-index: calc(var(--z-menu) + 2);
   /* iPad Safari's layout viewport can be wider than the visible chart. Use the dynamic viewport
      width so the helm rail and its emergency key remain on the screen the operator is touching. */
   inset-inline-start: 0;

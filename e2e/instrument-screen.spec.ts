@@ -78,6 +78,12 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
   const done = layer.getByRole('button', { name: 'Done', exact: true });
   await expect(done).toBeVisible();
 
+  const actions = layer.getByRole('toolbar', { name: 'Instrument editing actions' });
+  const [actionsBox, layerBox] = await Promise.all([actions.boundingBox(), layer.boundingBox()]);
+  if (!actionsBox || !layerBox) throw new Error('Instrument editing actions did not lay out.');
+  expect(actionsBox.x + actionsBox.width / 2).toBeCloseTo(layerBox.x + layerBox.width / 2, 0);
+  expect(actionsBox.y + actionsBox.height / 2).toBeCloseTo(layerBox.y + layerBox.height / 2, 0);
+
   // Starting edit mode frees the selected set from the old drawer, so the chart immediately has
   // a real instrument to arrange rather than asking the operator to discover a second add flow.
   const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
@@ -162,6 +168,21 @@ test('the helm instruments control advances from Show to Edit and opens a bounde
   await expect(picker).toBeVisible();
   await expectInsideViewport(picker, page);
   await expect(picker.locator('.add-menu-scroll')).toHaveCSS('overflow-y', 'auto');
+});
+
+test('screen edit help explains the controls and keeps wind rose settings available', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  await page.getByRole('button', { name: 'Add instrument', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Wind rose', exact: true }).click();
+  await page.getByRole('button', { name: 'Instrument editing help' }).click();
+  const help = page.getByRole('group', { name: 'Instrument editing help' });
+  await expect(help).toContainText('Drag an instrument to move it.');
+  await expect(help.getByRole('button', { name: 'Wind rose settings' })).toBeVisible();
+  await expectInsideViewport(help, page);
 });
 
 test('iPad helm keeps double-size MOB and chart controls on one unobscured row', async ({

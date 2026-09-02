@@ -161,7 +161,19 @@ function onSearchKeydown(event: KeyboardEvent): void {
 }
 </script>
 
-<dialog class="modal-card command-palette" aria-label="Command palette" use:dialog={onClose}>
+<button
+  type="button"
+  class="overlay-backdrop command-palette-backdrop"
+  aria-label="Close command palette"
+  onclick={onClose}
+></button>
+<div
+  class="modal-card command-palette"
+  role="dialog"
+  aria-label="Command palette"
+  tabindex="-1"
+  use:dialog={onClose}
+>
   <header class="palette-header">
     {#if parent}
       <button type="button" class="icon-btn" aria-label="Back to all commands" onclick={goBack}>
@@ -264,14 +276,22 @@ function onSearchKeydown(event: KeyboardEvent): void {
       </span>
     {/if}
   </footer>
-</dialog>
+</div>
 
 <style>
+.command-palette-backdrop {
+  position: fixed;
+  z-index: var(--z-menu);
+}
 .command-palette {
+  position: fixed;
   inset-block-start: max(var(--space-6), 12dvh);
   inset-block-end: auto;
+  inset-inline: 0;
+  z-index: calc(var(--z-menu) + 1);
   inline-size: min(42rem, calc(100dvw - 2 * var(--space-4)));
   max-block-size: min(42rem, calc(100dvh - 2 * var(--space-6)));
+  margin-inline: auto;
   padding: 0;
   overflow: hidden;
 }

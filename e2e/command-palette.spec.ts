@@ -6,6 +6,24 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
 });
 
+test('tablet taps outside Command K to close it while helm actions stay usable', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  const helm = page.getByRole('group', { name: 'Helm actions' });
+  await expect(palette).toBeVisible();
+
+  await helm.getByRole('button', { name: 'Home' }).click();
+  await expect(palette).toBeVisible();
+
+  await page.mouse.click(830, 300);
+  await expect(palette).toHaveCount(0);
+});
+
 test('Command K searches commands and chains into instrument layouts', async ({ page }) => {
   await page.goto('/');
 
