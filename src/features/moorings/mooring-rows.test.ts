@@ -14,6 +14,7 @@ function mooring(
     category: 'mooring buoy',
     information: 'Guest harbor mooring',
     encCell: 'US5TEST',
+    scaleBand: 'harbour',
     assessment: {
       status,
       score: 0,

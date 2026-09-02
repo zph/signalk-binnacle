@@ -3,8 +3,14 @@
 const MAX_CPA_METERS = 1_852_000;
 const MAX_TCPA_SECONDS = 7 * 24 * 60 * 60;
 const ALARM_LOCATIONS = new Set(['top', 'center', 'bottom']);
-const NOAA_MOORINGS_URL =
-  'https://encdirect.noaa.gov/arcgis/rest/services/encdirect/enc_general/MapServer/40/query';
+const NOAA_MOORING_SOURCES = [
+  { scaleBand: 'overview', layer: 34 },
+  { scaleBand: 'general', layer: 40 },
+  { scaleBand: 'coastal', layer: 46 },
+  { scaleBand: 'approach', layer: 60 },
+  { scaleBand: 'harbour', layer: 56 },
+  { scaleBand: 'berthing', layer: 27 },
+];
 const NOAA_FIELDS = 'OBJECTID,BOYSHP,CATMOR,COLOUR,COLPAT,OBJNAM,INFORM,SORDAT,SORIND,DSNM';
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
@@ -83,7 +89,7 @@ function finiteInRange(value, min, max) {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 }
 
-function cleanNoaaFeature(value) {
+function cleanNoaaFeature(value, scaleBand) {
   if (!value || typeof value !== 'object' || value.geometry?.type !== 'Point') return undefined;
   const coordinates = value.geometry.coordinates;
   if (
@@ -113,11 +119,12 @@ function cleanNoaaFeature(value) {
       SORDAT: cleanText(properties.SORDAT, 254) ?? null,
       SORIND: cleanText(properties.SORIND, 254) ?? null,
       DSNM: cleanText(properties.DSNM, 12) ?? null,
+      BINNACLE_SCALE_BAND: scaleBand,
     },
   };
 }
 
-async function fetchNoaaMoorings(bbox) {
+async function fetchNoaaMooringSource(source, bbox) {
   const features = [];
   const seen = new Set();
   for (let offset = 0; offset < MAX_MOORINGS; offset += NOAA_PAGE_SIZE) {
@@ -135,7 +142,8 @@ async function fetchNoaaMoorings(bbox) {
       resultRecordCount: String(NOAA_PAGE_SIZE),
       f: 'geojson',
     });
-    const response = await fetch(`${NOAA_MOORINGS_URL}?${params}`, {
+    const url = `https://encdirect.noaa.gov/arcgis/rest/services/encdirect/enc_${source.scaleBand}/MapServer/${source.layer}/query`;
+    const response = await fetch(`${url}?${params}`, {
       headers: { Accept: 'application/geo+json, application/json' },
       signal: AbortSignal.timeout(12_000),
     });
@@ -145,7 +153,7 @@ async function fetchNoaaMoorings(bbox) {
       throw new Error('NOAA ENC returned an invalid feature collection');
     }
     for (const raw of body.features) {
-      const feature = cleanNoaaFeature(raw);
+      const feature = cleanNoaaFeature(raw, source.scaleBand);
       if (!feature || seen.has(feature.id)) continue;
       seen.add(feature.id);
       features.push(feature);
@@ -153,7 +161,25 @@ async function fetchNoaaMoorings(bbox) {
     }
     if (features.length >= MAX_MOORINGS || body.features.length < NOAA_PAGE_SIZE) break;
   }
-  return { type: 'FeatureCollection', features };
+  return features;
+}
+
+async function fetchNoaaMoorings(bbox) {
+  const results = await Promise.allSettled(
+    NOAA_MOORING_SOURCES.map((source) => fetchNoaaMooringSource(source, bbox)),
+  );
+  const byPosition = new Map();
+  let sourceAnswered = false;
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    sourceAnswered = true;
+    for (const feature of result.value) {
+      const [longitude, latitude] = feature.geometry.coordinates;
+      byPosition.set(`${longitude.toFixed(6)},${latitude.toFixed(6)}`, feature);
+    }
+  }
+  if (!sourceAnswered) throw new Error('NOAA ENC mooring services were unavailable');
+  return { type: 'FeatureCollection', features: [...byPosition.values()].slice(0, MAX_MOORINGS) };
 }
 
 function createNoaaCache() {

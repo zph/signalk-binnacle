@@ -84,10 +84,11 @@ export const dialog: Action<HTMLElement, () => void> = (node, onClose) => {
     };
   }
 
-  // Move focus into the panel on open so a keyboard or screen-reader user lands inside it, not back on
-  // the trigger that opened it. The panel carries tabindex="-1" to receive focus; this is a no-op if
-  // the node is not focusable. restoreTo was captured above, so closing still returns focus correctly.
-  node.focus({ preventScroll: true });
+  // A surface can mark its preferred field so the parent action, rather than mount ordering between
+  // nested actions, owns initial focus. Otherwise the panel itself receives focus. restoreTo was
+  // captured above, so closing still returns focus correctly.
+  const initialFocus = node.querySelector<HTMLElement>('[data-dialog-initial-focus]') ?? node;
+  initialFocus.focus({ preventScroll: true });
 
   return {
     update,

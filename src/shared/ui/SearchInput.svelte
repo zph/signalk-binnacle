@@ -54,6 +54,7 @@ function clear(): void {
     type="search"
     {placeholder}
     aria-label={ariaLabel}
+    data-dialog-initial-focus={focusOnOpen ? '' : undefined}
     onfocus={() => (focused = true)}
     onblur={() => (focused = false)}
     use:focusOnMountIf={focusOnOpen}

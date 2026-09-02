@@ -9,6 +9,7 @@ function mooring(id: string, longitude = 0): MooringPoint {
     id,
     name: id,
     position: { latitude: 0, longitude },
+    scaleBand: 'harbour',
     assessment: { status: 'unknown', score: 0, evidence: [] },
   };
 }

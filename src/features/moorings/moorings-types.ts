@@ -3,6 +3,13 @@ import { cleanBoundedText, isRecord } from '$shared/lib';
 
 export type MooringOccupancy = 'likely-occupied' | 'possible' | 'unknown';
 export type MooringAisSource = 'onboard' | 'destination';
+export type MooringScaleBand =
+  | 'overview'
+  | 'general'
+  | 'coastal'
+  | 'approach'
+  | 'harbour'
+  | 'berthing';
 
 export interface MooringAssessment {
   status: MooringOccupancy;
@@ -24,6 +31,7 @@ export interface MooringPoint {
   sourceDate?: string;
   sourceIndication?: string;
   encCell?: string;
+  scaleBand: MooringScaleBand;
   buoyShape?: number;
   colors?: string;
   colorPattern?: string;
@@ -75,7 +83,19 @@ function text(value: unknown, maxLength: number): string | undefined {
   return cleanBoundedText(value, maxLength);
 }
 
-export function mooringFromGeoJson(value: unknown): MooringPoint | undefined {
+const MOORING_SCALE_BANDS = new Set<MooringScaleBand>([
+  'overview',
+  'general',
+  'coastal',
+  'approach',
+  'harbour',
+  'berthing',
+]);
+
+export function mooringFromGeoJson(
+  value: unknown,
+  fallbackScaleBand: MooringScaleBand = 'general',
+): MooringPoint | undefined {
   if (!isRecord(value) || !isRecord(value.geometry) || value.geometry.type !== 'Point') {
     return undefined;
   }
@@ -86,7 +106,12 @@ export function mooringFromGeoJson(value: unknown): MooringPoint | undefined {
   const properties = value.properties;
   const objectId = properties.OBJECTID;
   if (!Number.isSafeInteger(objectId) || Number(objectId) < 0) return undefined;
-  const id = `noaa-enc:${objectId}`;
+  const providedScaleBand = text(properties.BINNACLE_SCALE_BAND, 16);
+  const scaleBand = MOORING_SCALE_BANDS.has(providedScaleBand as MooringScaleBand)
+    ? (providedScaleBand as MooringScaleBand)
+    : fallbackScaleBand;
+  const encCell = text(properties.DSNM, 12);
+  const id = `noaa-enc:${scaleBand}:${encCell ?? 'unknown'}:${objectId}`;
   return {
     id,
     name: text(properties.OBJNAM, 254) ?? text(properties.CATMOR, 25) ?? `Mooring ${objectId}`,
@@ -95,7 +120,8 @@ export function mooringFromGeoJson(value: unknown): MooringPoint | undefined {
     information: text(properties.INFORM, 254),
     sourceDate: text(properties.SORDAT, 254),
     sourceIndication: text(properties.SORIND, 254),
-    encCell: text(properties.DSNM, 12),
+    encCell,
+    scaleBand,
     buoyShape:
       typeof properties.BOYSHP === 'number' && Number.isFinite(properties.BOYSHP)
         ? properties.BOYSHP

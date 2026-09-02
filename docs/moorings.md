@@ -1,10 +1,12 @@
 # Moorings
 
-Binnacle shows fixed mooring and warping facilities from the NOAA ENC Direct point layer in U.S.
-waters. Open **Moorings** from the main menu or Command K, pan to the harbor to review, and zoom to
-level 11 or closer. The panel lists only facilities inside the visible chart area. Search covers the
-name, category, ENC cell, NOAA information, observed vessel, and AIS clue. A row or chart marker
-selects the same mooring, and **Locate** centers the chart on it.
+Binnacle shows fixed mooring and warping facilities from NOAA ENC Direct in U.S. waters. It merges
+the Overview, General, Coastal, Approach, Harbour, and Berthing compilation scales, preferring the
+most detailed record when scale bands place a facility at the same charted position. Open
+**Moorings** from the main menu or Command K, pan to the harbor to review, and zoom to level 11 or
+closer. The panel lists only facilities inside the visible chart area. Search covers the name,
+category, ENC cell, NOAA information, observed vessel, and AIS clue. A row or chart marker selects
+the same mooring, and **Locate** centers the chart on it.
 
 The charted position is authoritative source data, but the occupancy clue is only an observation.
 Binnacle reports three states:
@@ -38,5 +40,5 @@ available. The panel explains the degraded state, and unobserved facilities stay
 
 Sources:
 
-- [NOAA ENC Direct mooring and warping facility layer](https://encdirect.noaa.gov/arcgis/rest/services/encdirect/enc_general/MapServer/40)
+- [NOAA ENC Direct services](https://nauticalcharts.noaa.gov/learn/encdirect/)
 - [AISStream WebSocket documentation](https://aisstream.io/documentation)

@@ -235,11 +235,52 @@ describe('Binnacle server settings plugin', () => {
     expect(response.headers['Cache-Control']).toBe('public, max-age=300');
     expect(response.body).toMatchObject({
       type: 'FeatureCollection',
-      features: [{ id: 42, properties: { OBJNAM: 'Harbor 42' } }],
+      features: [
+        {
+          id: 42,
+          properties: { OBJNAM: 'Harbor 42', BINNACLE_SCALE_BAND: 'berthing' },
+        },
+      ],
     });
-    const requested = new URL(String(fetchMock.mock.calls[0]?.[0]));
-    expect(requested.hostname).toBe('encdirect.noaa.gov');
-    expect(requested.searchParams.get('geometry')).toBe('-71,41,-70,42');
+    const requested = fetchMock.mock.calls.map((call) => new URL(String(call[0])));
+    expect(requested).toHaveLength(6);
+    expect(
+      requested.map((url) => `${url.pathname.split('/')[5]}/${url.pathname.split('/')[7]}`),
+    ).toEqual([
+      'enc_overview/34',
+      'enc_general/40',
+      'enc_coastal/46',
+      'enc_approach/60',
+      'enc_harbour/56',
+      'enc_berthing/27',
+    ]);
+    expect(requested.every((url) => url.hostname === 'encdirect.noaa.gov')).toBe(true);
+    expect(requested.every((url) => url.searchParams.get('geometry') === '-71,41,-70,42')).toBe(
+      true,
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('retains NOAA results when one scale service fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.pathname.includes('/enc_general/')) return new Response('', { status: 503 });
+        return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+          status: 200,
+        });
+      }),
+    );
+    const test = harness();
+    const response = test.response();
+    await test.routes.get('readonly:GET:/api/moorings')?.(
+      { query: { bbox: '[-71,41,-70,42]' } },
+      response,
+    );
+
+    expect(response.code).toBe(200);
+    expect(response.body).toEqual({ type: 'FeatureCollection', features: [] });
     vi.unstubAllGlobals();
   });
 
