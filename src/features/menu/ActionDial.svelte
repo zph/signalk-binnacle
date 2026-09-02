@@ -172,6 +172,7 @@ $effect(() => {
           type="button"
           role="menuitem"
           class="action-dial-wedge"
+          class:action-dial-wedge--back={action.id === 'supermenu-back'}
           class:action-dial-wedge--blocked={itemBlocked(action)}
           aria-label={action.label}
           disabled={itemBlocked(action)}
@@ -284,6 +285,13 @@ $effect(() => {
 .action-dial-wedge:active:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-tint);
+}
+/* Back is a gentle navigation cue. The theme-owned accent tint reads mild blue by day and dusk,
+   while remaining night-red compliant after dark. */
+.action-dial-wedge--back {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent-tint-text);
 }
 .action-dial-wedge--blocked {
   opacity: var(--disabled-opacity);

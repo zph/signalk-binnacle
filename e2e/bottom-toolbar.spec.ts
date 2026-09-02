@@ -47,7 +47,9 @@ test('the helm Menu button toggles the supermenu and keeps lock and full-screen 
   await expect(supermenu.getByRole('menuitem', { name: 'Chart' })).toBeVisible();
   await expect(supermenu.getByRole('menuitem', { name: 'Safety' })).toBeVisible();
   await supermenu.getByRole('menuitem', { name: 'Navigate' }).click();
-  await expect(supermenu.getByRole('menuitem', { name: 'Back to menu categories' })).toBeVisible();
+  const back = supermenu.getByRole('menuitem', { name: 'Back to menu categories' });
+  await expect(back).toBeVisible();
+  await expect(back).toHaveClass(/action-dial-wedge--back/);
   await expect(supermenu.getByRole('menuitem', { name: /Center on boat/ })).toBeVisible();
   await supermenu.getByRole('menuitem', { name: 'Back to menu categories' }).click();
   await expect(supermenu.getByRole('menuitem', { name: 'Weather' })).toBeVisible();
