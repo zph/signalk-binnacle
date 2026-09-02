@@ -24,6 +24,7 @@ import { createCollisionOverlay } from '$features/lookout';
 import type { PpiLayer } from '$features/marine-radar';
 import { createMeasureOverlay } from '$features/measure';
 import { createMobOverlay } from '$features/mob';
+import type { MooringsOverlay } from '$features/moorings';
 import type { NotesOverlay } from '$features/notes';
 import { createCourseOverlay, createRouteOverlay } from '$features/route-layer';
 import { createTidesOverlay, type TideStationSelectionEvent } from '$features/tides';
@@ -86,6 +87,7 @@ export interface DynamicOverlaysDeps {
   savedTracks?: SavedTracksSource;
   // The already-built notes overlay, woven into the stack at its band position.
   notesOverlay: NotesOverlay;
+  mooringsOverlay?: MooringsOverlay;
   onAnchorMoved?: (position: LatLon) => void;
   aisTrailsAvailable: () => boolean;
   historyProviders: () => HistoryProviders | undefined;
@@ -130,6 +132,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     tripLog,
     savedTracks,
     notesOverlay,
+    mooringsOverlay,
     onAnchorMoved,
     aisTrailsAvailable,
     historyProviders,
@@ -154,6 +157,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
       interactionsAllowed,
     }),
     notesOverlay,
+    ...(mooringsOverlay ? [mooringsOverlay] : []),
     createAisTrailsOverlay(origin, getToken, aisTrailsAvailable, () => store.selfContext),
     createAisVectorsOverlay(aisTargets, () => collision.assessment, Date.now, onAisMotionUpdate, {
       origin,

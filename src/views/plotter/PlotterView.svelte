@@ -38,6 +38,7 @@ import {
   radarAreaChartInstruction,
 } from '$features/marine-radar';
 import { loadMeasureStrip } from '$features/measure';
+import { loadMooringsPanel, type MooringPoint, type MooringViewState } from '$features/moorings';
 import { NavStrip, type RouteProgress } from '$features/navigation';
 import { type NoteDetailLoader, NoteDetailPanel, type NoteSelection } from '$features/notes';
 import { loadPoiSearchPanel, type Poi } from '$features/poi-search';
@@ -186,6 +187,9 @@ interface FlatProps {
   activePanel: PanelId | null;
   selectedAisId: string | undefined;
   selectedWaypointId: string | undefined;
+  selectedMooringId: string | undefined;
+  moorings: MooringPoint[];
+  mooringViewState: MooringViewState;
   // A waypoint just saved with "Save and navigate", whose navigation confirm the panel arms once.
   armNavigateWaypointId?: string;
   tidesOpenedFrom: 'menu' | 'chart';
@@ -256,6 +260,9 @@ interface FlatProps {
   onNoteSelect: (selection: NoteSelection | undefined) => void;
   onAisSelect: (id: string | undefined) => void;
   onWaypointSelect: (id: string) => void;
+  onMooringSelect: (id: string | undefined) => void;
+  onMoorings: (moorings: MooringPoint[]) => void;
+  onMooringStatus: (state: MooringViewState) => void;
   onTideStationSelect: (selection: TideStationSelectionEvent) => void;
   onNotes: (notes: NotePoint[]) => void;
   onPoiStatus: (state: PoiViewState) => void;
@@ -384,6 +391,9 @@ type ActionKey =
   | 'onNoteSelect'
   | 'onAisSelect'
   | 'onWaypointSelect'
+  | 'onMooringSelect'
+  | 'onMoorings'
+  | 'onMooringStatus'
   | 'onTideStationSelect'
   | 'onNotes'
   | 'onPoiStatus'
@@ -457,6 +467,9 @@ let {
   activePanel,
   selectedAisId,
   selectedWaypointId,
+  selectedMooringId,
+  moorings,
+  mooringViewState,
   armNavigateWaypointId,
   tidesOpenedFrom,
   menuOpen = $bindable(),
@@ -582,6 +595,9 @@ const {
   onNoteSelect,
   onAisSelect,
   onWaypointSelect,
+  onMooringSelect,
+  onMoorings,
+  onMooringStatus,
   onTideStationSelect,
   onNotes,
   onPoiStatus,
@@ -873,6 +889,11 @@ $effect(() => {
     onAisMotionUpdate={(motionById) => (aisMotionById = motionById)}
     onAisSelect={(id) => onAisSelect(id)}
     onWaypointSelect={(id) => onWaypointSelect(id)}
+    destinationAisAvailable={() => serverFeatures?.plugins.has('signalk-aisstream') ?? false}
+    {selectedMooringId}
+    onMooringSelect={(id) => onMooringSelect(id)}
+    {onMoorings}
+    {onMooringStatus}
     {anchor}
     {mob}
     {measure}
@@ -1426,6 +1447,55 @@ $effect(() => {
             message="Tides controls could not load. Check the connection, then retry."
             onClose={closePanel}
             onBack={tidesOpenedFrom === 'menu' ? backToMenu : undefined}
+            onRetry={retryLazyPanel}
+          />
+        {/await}
+      {:else if activePanel === 'moorings'}
+        {#await forAttempt(loadMooringsPanel)}
+          <LazyPanelState
+            title="Moorings"
+            closeLabel="Close moorings"
+            state="loading"
+            message="Loading Moorings controls…"
+            onClose={closePanel}
+            onBack={backToMenu}
+          />
+        {:then module}
+          <ErrorBoundary>
+            <module.default
+              {moorings}
+              {vessel}
+              {units}
+              viewState={mooringViewState}
+              selectedId={selectedMooringId}
+              shown={layerSettings.moorings?.visible ?? false}
+              onToggleShown={(shown) => setLayerVisible('moorings', shown)}
+              onSelect={(mooring) => onMooringSelect(mooring.id)}
+              onLocate={(mooring) => flyToPosition(mooring.position)}
+              onClose={closePanel}
+              onBack={backToMenu}
+            />
+
+            {#snippet fallback(_error, reset)}
+              <LazyPanelState
+                title="Moorings"
+                closeLabel="Close moorings"
+                state="error"
+                message="Moorings controls stopped unexpectedly."
+                onClose={closePanel}
+                onBack={backToMenu}
+                onRetry={reset}
+              />
+            {/snippet}
+          </ErrorBoundary>
+        {:catch}
+          <LazyPanelState
+            title="Moorings"
+            closeLabel="Close moorings"
+            state="error"
+            message="Moorings controls could not load."
+            onClose={closePanel}
+            onBack={backToMenu}
             onRetry={retryLazyPanel}
           />
         {/await}

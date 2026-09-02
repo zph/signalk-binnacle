@@ -35,7 +35,10 @@ interface RouterStub {
   };
 }
 
-type RouteHandler = (request: { body?: unknown }, response: ResponseStub) => void | Promise<void>;
+type RouteHandler = (
+  request: { body?: unknown; query?: Record<string, unknown> },
+  response: ResponseStub,
+) => void | Promise<void>;
 
 const thresholds = {
   dangerCpaMeters: 463,
@@ -81,7 +84,7 @@ function harness(initial: object = {}, savePluginOptions?: AppStub['savePluginOp
     };
     return value;
   };
-  return { app, response, routes };
+  return { app, plugin, response, routes };
 }
 
 describe('Binnacle server settings plugin', () => {
@@ -193,5 +196,60 @@ describe('Binnacle server settings plugin', () => {
     );
     expect(response.code).toBe(400);
     expect(test.app.savePluginOptions).not.toHaveBeenCalled();
+  });
+
+  it('proxies and bounds NOAA ENC moorings for readonly clients', async () => {
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request) =>
+        new Response(
+          JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                id: 42,
+                geometry: { type: 'Point', coordinates: [-70.7, 41.5] },
+                properties: {
+                  OBJECTID: 42,
+                  CATMOR: 'mooring buoy',
+                  OBJNAM: 'Harbor 42',
+                  INFORM: 'Guest mooring',
+                  SORDAT: '20260102',
+                  DSNM: 'US5TEST.000',
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const test = harness();
+    const response = test.response();
+    await test.routes.get('readonly:GET:/api/moorings')?.(
+      { query: { bbox: '[-71,41,-70,42]' } },
+      response,
+    );
+
+    expect(response.code).toBe(200);
+    expect(response.headers['Cache-Control']).toBe('public, max-age=300');
+    expect(response.body).toMatchObject({
+      type: 'FeatureCollection',
+      features: [{ id: 42, properties: { OBJNAM: 'Harbor 42' } }],
+    });
+    const requested = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(requested.hostname).toBe('encdirect.noaa.gov');
+    expect(requested.searchParams.get('geometry')).toBe('-71,41,-70,42');
+    vi.unstubAllGlobals();
+  });
+
+  it('rejects a NOAA request that spans an unbounded area', async () => {
+    const test = harness();
+    const response = test.response();
+    await test.routes.get('readonly:GET:/api/moorings')?.(
+      { query: { bbox: '[-180,-90,180,90]' } },
+      response,
+    );
+    expect(response.code).toBe(400);
   });
 });

@@ -1,0 +1,270 @@
+<script lang="ts">
+import LocateFixed from '@lucide/svelte/icons/locate-fixed';
+import type { UnitsStore } from '$entities/units';
+import type { OwnVessel } from '$entities/vessel';
+import { formatBearingOr, formatMetersOrNm } from '$shared/lib';
+import { MAX_NAV_ROWS, type NavSortState, toggleSort } from '$shared/nav';
+import {
+  createPanelMinimize,
+  NavSortControl,
+  SearchInput,
+  ShowOnChartToggle,
+  SlideOver,
+} from '$shared/ui';
+import { defaultSort, filterRows, type MooringSort, sortRows, toRows } from './mooring-rows';
+import type { MooringPoint, MooringViewState } from './moorings-types';
+
+interface Props {
+  moorings: readonly MooringPoint[];
+  vessel: OwnVessel;
+  units: UnitsStore;
+  viewState: MooringViewState;
+  selectedId?: string;
+  shown: boolean;
+  onToggleShown: (shown: boolean) => void;
+  onSelect: (mooring: MooringPoint) => void;
+  onLocate: (mooring: MooringPoint) => void;
+  onClose: () => void;
+  onBack?: () => void;
+}
+
+const {
+  moorings,
+  vessel,
+  units,
+  viewState,
+  selectedId,
+  shown,
+  onToggleShown,
+  onSelect,
+  onLocate,
+  onClose,
+  onBack,
+}: Props = $props();
+
+let query = $state('');
+let sortState = $state<NavSortState<MooringSort>>(defaultSort(false));
+let sortTouched = $state(false);
+const minimize = createPanelMinimize();
+const vesselPosition = $derived(vessel.coarsePosition);
+const allRows = $derived(
+  sortRows(filterRows(toRows(moorings, vesselPosition), query), sortState.key, sortState.dir),
+);
+const rows = $derived(allRows.slice(0, MAX_NAV_ROWS));
+const selected = $derived(moorings.find((mooring) => mooring.id === selectedId));
+const likelyCount = $derived(
+  moorings.filter((mooring) => mooring.assessment.status === 'likely-occupied').length,
+);
+const possibleCount = $derived(
+  moorings.filter((mooring) => mooring.assessment.status === 'possible').length,
+);
+const subtitle = $derived(
+  `${moorings.length} in view · ${likelyCount} likely · ${possibleCount} possible`,
+);
+
+const SORTS: { key: MooringSort; label: string }[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'status', label: 'AIS clue' },
+  { key: 'distance', label: 'Distance' },
+  { key: 'bearing', label: 'Bearing' },
+];
+
+function chooseSort(key: MooringSort): void {
+  sortTouched = true;
+  sortState = toggleSort(sortState, key);
+}
+
+function occupancyLabel(mooring: MooringPoint): string {
+  if (mooring.assessment.status === 'likely-occupied') return 'Likely occupied';
+  if (mooring.assessment.status === 'possible') return 'Possible occupancy';
+  return 'Unknown';
+}
+
+$effect(() => {
+  if (sortTouched) return;
+  const next = defaultSort(vesselPosition !== undefined);
+  if (sortState.key !== next.key || sortState.dir !== next.dir) sortState = next;
+});
+</script>
+
+<SlideOver
+  title="Moorings"
+  {subtitle}
+  {onClose}
+  {onBack}
+  closeLabel="Close moorings"
+  bodyFlex
+  {minimize}
+>
+  <p class="muted-note">
+    NOAA ENC charted mooring facilities in the current chart view. AIS clues are advisory. Unknown
+    never means vacant, and boats without AIS are not observed.
+  </p>
+  <ShowOnChartToggle
+    visible={shown}
+    label="Show moorings on chart"
+    description="Charted positions colored by AIS observation"
+    onToggle={onToggleShown}
+  />
+  {#if viewState.destinationAis === 'unavailable'}
+    <p class="muted-note" role="status">
+      Remote-area AIS needs the extended signalk-aisstream plugin. Onboard Signal K AIS still
+      contributes when it covers this chart area.
+    </p>
+  {:else if viewState.destinationAis === 'connecting' || viewState.destinationAis === 'checking'}
+    <p class="muted-note" role="status">Connecting the destination-area AIS review feed…</p>
+  {:else if viewState.destinationAis === 'disconnected' || viewState.destinationAis === 'error'}
+    <p class="alert-note" role="alert">
+      Destination AIS is unavailable right now. Mooring positions remain available, with unknown
+      occupancy where no current observation exists.
+    </p>
+  {/if}
+  <SearchInput
+    bind:value={query}
+    placeholder="Search name, category, vessel, or ENC cell"
+    ariaLabel="Search moorings by name, category, vessel, or ENC cell"
+    clearLabel="Clear the mooring search"
+  />
+  <NavSortControl
+    sorts={SORTS}
+    state={sortState}
+    onChoose={chooseSort}
+    ariaLabel="Sort moorings by"
+  />
+
+  {#if rows.length === 0}
+    {#if moorings.length > 0}
+      <p class="muted-note" role="status">No moorings match your search.</p>
+    {:else if viewState.phase === 'zoomed-out'}
+      <p class="muted-note" role="status">Zoom in to level 11 or closer to review moorings.</p>
+    {:else if viewState.phase === 'hidden'}
+      <p class="muted-note" role="status">Turn on Show moorings on chart to search this area.</p>
+    {:else if viewState.phase === 'error'}
+      <p class="alert-note" role="alert">Mooring positions could not load. Pan or zoom to retry.</p>
+    {:else if viewState.phase === 'loading' || viewState.phase === 'idle'}
+      <p class="muted-note" role="status">Loading moorings for this chart view…</p>
+    {:else}
+      <p class="muted-note" role="status">
+        No NOAA ENC mooring facilities were found in this view.
+      </p>
+    {/if}
+  {:else}
+    <ul class="nav-list bare-list" aria-label="Moorings in view">
+      {#each rows as row (row.mooring.id)}
+        <li>
+          <button
+            type="button"
+            class="nav-row"
+            aria-current={selectedId === row.mooring.id ? 'true' : undefined}
+            onclick={() => onSelect(row.mooring)}
+          >
+            <span class="mooring-title">
+              <span class="nav-name">{row.mooring.name}</span>
+              <span class="mooring-source">
+                {row.mooring.category ?? 'Mooring facility'}
+                {row.mooring.encCell
+                  ? ` · ${row.mooring.encCell}`
+                  : ''}
+              </span>
+            </span>
+            <span class="nav-metrics">
+              <span class="nav-metric occupancy occupancy--{row.mooring.assessment.status}">
+                AIS <b>{occupancyLabel(row.mooring)}</b>
+              </span>
+              <span class="nav-metric">
+                Distance <b class="num">{formatMetersOrNm(row.distanceMeters, units.mode)}</b>
+              </span>
+              <span class="nav-metric">
+                Bearing
+                <b class="num">
+                  {row.bearingRad === undefined ? '--' : `${formatBearingOr(row.bearingRad)}°T`}
+                </b>
+              </span>
+            </span>
+          </button>
+        </li>
+      {/each}
+    </ul>
+    {#if allRows.length > MAX_NAV_ROWS}
+      <p class="muted-note" role="status">
+        Showing the first {MAX_NAV_ROWS} of {allRows.length} matches. Search or zoom in to narrow
+        the results.
+      </p>
+    {/if}
+  {/if}
+
+  {#if selected}
+    <section class="detail-card" aria-label="Selected mooring details">
+      <div>
+        <strong>{selected.name}</strong>
+        <p>{occupancyLabel(selected)} · score {selected.assessment.score} of 100</p>
+      </div>
+      <button type="button" class="btn btn-compact" onclick={() => onLocate(selected)}>
+        <LocateFixed size={16} aria-hidden="true" />
+        Locate
+      </button>
+      {#if selected.information}
+        <p>{selected.information}</p>
+      {/if}
+      {#if selected.assessment.vesselName}
+        <p>
+          AIS target: {selected.assessment.vesselName}. Source:
+          {selected.assessment.source ===
+          'destination'
+            ? 'destination review feed'
+            : 'onboard Signal K'}.
+        </p>
+      {/if}
+      {#if selected.assessment.evidence.length > 0}
+        <ul>
+          {#each selected.assessment.evidence as evidence, index (index)}
+            <li>{evidence}</li>
+          {/each}
+        </ul>
+      {/if}
+      <p class="muted-note">
+        NOAA ENC {selected.encCell ?? 'source cell unavailable'}
+        {selected.sourceDate
+          ? ` · source date ${selected.sourceDate}`
+          : ''}
+      </p>
+    </section>
+  {/if}
+</SlideOver>
+
+<style>
+.mooring-title {
+  min-inline-size: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.mooring-source {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.occupancy--likely-occupied b {
+  color: var(--alarm);
+}
+.occupancy--possible b {
+  color: var(--warning);
+}
+.detail-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.detail-card p,
+.detail-card ul {
+  margin: 0;
+}
+.detail-card .btn {
+  justify-self: start;
+}
+</style>

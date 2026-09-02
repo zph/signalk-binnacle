@@ -222,6 +222,11 @@ Binnacle ships its full feature set as a Signal K webapp:
   refresh, while v1-only providers and read-only authorization explain why saving is unavailable.
   Loading, zoom-limit, cached-offline, empty, and provider-error states remain distinct. Custom chart
   symbols are supported through the signalk-symbol-manager plugin.
+- **Moorings:** pan to a U.S. harbor, zoom to level 11 or closer, then search and sort NOAA ENC
+  mooring facilities in the visible chart area. Clickable markers and list rows show advisory AIS
+  clues as likely occupied, possible occupancy, or unknown. Onboard Signal K AIS works locally. An
+  extended signalk-aisstream plugin adds a separate temporary destination feed without moving the
+  vessel-centered AIS subscription. Unknown never means vacant.
 - **Chart orientation:** north-up by default, with course-up and heading-up as explicit
   profile-owned choices. Heading-up follows fresh true heading, course-up follows fresh COG with
   way on, and a stale or missing reference falls back to north immediately; the status strip keeps

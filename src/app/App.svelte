@@ -129,6 +129,7 @@ import {
   togglePinned,
 } from '$features/menu';
 import { createMobController, MOB_TONE, MobButton } from '$features/mob';
+import type { MooringPoint, MooringViewState } from '$features/moorings';
 import { ARRIVAL_TONE, shouldSoundArrivalAlarm } from '$features/navigation';
 import {
   createNoteDetailLoader,
@@ -537,6 +538,12 @@ let layersView = $state<LayersView | undefined>();
 let activePanel = $state<PanelId | null>(null);
 let selectedAisId = $state<string | undefined>();
 let selectedWaypointId = $state<string | undefined>();
+let selectedMooringId = $state<string | undefined>();
+let moorings = $state<MooringPoint[]>([]);
+let mooringViewState = $state<MooringViewState>({
+  phase: 'idle',
+  destinationAis: 'checking',
+});
 let tidesOpenedFrom = $state<'menu' | 'chart'>('menu');
 let profilesPanelAttempt = $state(0);
 let personalNoteDialogAttempt = $state(0);
@@ -578,6 +585,7 @@ type ViewSnapshot = {
   selectedNote: NoteSelection | undefined;
   selectedAisId: string | undefined;
   selectedWaypointId: string | undefined;
+  selectedMooringId: string | undefined;
   trendFocusedId: string | undefined;
   weatherPanelOpen: boolean;
   radarControlsOpen: boolean;
@@ -592,6 +600,7 @@ function captureView(): ViewSnapshot {
     selectedNote,
     selectedAisId,
     selectedWaypointId,
+    selectedMooringId,
     trendFocusedId: trends.focusedId,
     weatherPanelOpen,
     radarControlsOpen,
@@ -605,6 +614,7 @@ function restoreView(view: ViewSnapshot): void {
   selectedNote = view.selectedNote;
   selectedAisId = view.selectedAisId;
   selectedWaypointId = view.selectedWaypointId;
+  selectedMooringId = view.selectedMooringId;
   trends.setFocus(view.trendFocusedId);
   weatherPanelOpen = view.weatherPanelOpen;
   radarControlsOpen = view.radarControlsOpen;
@@ -645,6 +655,7 @@ const resetPanel = (): void => {
     armNavigateWaypointId = undefined;
   }
   if (activePanel === 'poi-search') hoveredPoi = undefined;
+  if (activePanel === 'moorings') selectedMooringId = undefined;
   activePanel = null;
 };
 const closePanel = (): void => {
@@ -658,6 +669,7 @@ const goHome = (): void => {
   selectedNote = undefined;
   selectedAisId = undefined;
   selectedWaypointId = undefined;
+  selectedMooringId = undefined;
   noteReturnsToPlaces = false;
   weatherPanelOpen = false;
   radarControlsOpen = false;
@@ -825,6 +837,7 @@ const openPanel = (panel: PanelId): void => {
     armNavigateWaypointId = undefined;
   }
   if (panel !== 'poi-search') hoveredPoi = undefined;
+  if (panel !== 'moorings') selectedMooringId = undefined;
   activePanel = panel;
   if (panel === 'trends') trends.setOpen(true);
   if (narrow) selectedNote = undefined;
@@ -2258,6 +2271,23 @@ const menuItems = $derived<MenuItem[]>([
       }
     },
   },
+  {
+    id: 'moorings',
+    label: 'Moorings',
+    icon: Anchor,
+    group: 'Navigate',
+    pressed: activePanel === 'moorings',
+    disabled: !mapCommands,
+    disabledLabel: 'Moorings (chart is loading)',
+    onSelect: () => {
+      if (activePanel === 'moorings') {
+        closePanel();
+      } else {
+        openPanel('moorings');
+        setLayerVisible('moorings', true);
+      }
+    },
+  },
   // Measure remains armed when selected again; pressed reflects the active state.
   {
     id: 'measure',
@@ -2943,6 +2973,7 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
     orientation: 'navigate',
     routes: 'navigate',
     waypoints: 'navigate',
+    moorings: 'navigate',
     layers: 'chart',
     'charts-management': 'chart',
     measure: 'chart',
@@ -3184,6 +3215,12 @@ function selectWaypointFromChart(id: string): void {
   if (!waypointsStore.waypoints.some((waypoint) => waypoint.id === id)) return;
   openPanel('waypoints');
   selectedWaypointId = id;
+}
+
+function selectMooring(id: string | undefined): void {
+  if (id && !moorings.some((mooring) => mooring.id === id)) return;
+  selectedMooringId = id;
+  if (id) openPanel('moorings');
 }
 
 function selectPoi(poi: Poi): void {
@@ -3838,6 +3875,9 @@ const plotterActions = {
   onNoteSelect: selectNote,
   onAisSelect: selectAisTarget,
   onWaypointSelect: selectWaypointFromChart,
+  onMooringSelect: selectMooring,
+  onMoorings: (next: MooringPoint[]) => (moorings = next),
+  onMooringStatus: (state: MooringViewState) => (mooringViewState = state),
   onTideStationSelect,
   onNotes: (notes: NotePoint[]) => (poiNotes = notes),
   onPoiStatus: (state: PoiViewState) => (poiViewState = state),
@@ -3955,6 +3995,9 @@ const plotterActions = {
     {activePanel}
     {selectedAisId}
     {selectedWaypointId}
+    {selectedMooringId}
+    {moorings}
+    {mooringViewState}
     {armNavigateWaypointId}
     {tidesOpenedFrom}
     bind:menuOpen

@@ -1,0 +1,126 @@
+import { expect, test } from '@playwright/test';
+import { expectInsideViewport, expectNoHorizontalOverflow, stubVesselsSelf } from './helpers';
+
+test.use({ serviceWorkers: 'block' });
+
+const viewports = [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'iPad', width: 834, height: 1112 },
+  { name: 'phone', width: 320, height: 568 },
+] as const;
+
+for (const viewport of viewports) {
+  test(`moorings searches destination AIS on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem('binnacle-custom:help-orientation', 'true');
+      localStorage.setItem(
+        'binnacle-custom:map-view',
+        JSON.stringify({ lat: 41.49, lon: -71.32, zoom: 13 }),
+      );
+    });
+    await stubVesselsSelf(page);
+    await page.route(/\/signalk\/v2\/features\?enabled=1$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          apis: [],
+          plugins: [{ id: 'signalk-aisstream', version: '0.9.1' }],
+        }),
+      }),
+    );
+    await page.route(/\/plugins\/binnacle-custom\/api\/moorings/, async (route) => {
+      const url = new URL(route.request().url());
+      const bbox = JSON.parse(url.searchParams.get('bbox') ?? '[-71.33,41.48,-71.31,41.5]') as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const longitude = (bbox[0] + bbox[2]) / 2;
+      const latitude = (bbox[1] + bbox[3]) / 2;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/geo+json',
+        body: JSON.stringify({
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [longitude, latitude] },
+              properties: {
+                OBJECTID: 42,
+                OBJNAM: 'Guest Mooring 42',
+                CATMOR: 'Mooring buoy',
+                INFORM: 'Harbor guest mooring',
+                DSNM: 'US5RI11M',
+              },
+            },
+          ],
+        }),
+      });
+    });
+    await page.route(/\/plugins\/signalk-aisstream\/api\/destination/, async (route) => {
+      const url = new URL(route.request().url());
+      const bbox = JSON.parse(url.searchParams.get('bbox') ?? '[-71.33,41.48,-71.31,41.5]') as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      const longitude = (bbox[0] + bbox[2]) / 2;
+      const latitude = (bbox[1] + bbox[3]) / 2;
+      const now = Date.now();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          state: 'live',
+          targets: [
+            {
+              id: 'aisstream:123456789',
+              mmsi: '123456789',
+              name: 'Visitor',
+              position: { latitude, longitude },
+              sogMps: 0.1,
+              navigationState: 'moored',
+              lastReportAtMs: now,
+              history: {
+                firstSeenAtMs: now - 20 * 60_000,
+                sampleCount: 12,
+                medianSogMps: 0.1,
+                center: { latitude, longitude },
+                maxRadiusMeters: 10,
+              },
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/');
+    const helm = page.getByRole('group', { name: 'Helm actions' });
+    await helm.getByRole('button', { name: 'Open supermenu' }).click();
+    const supermenu = page.getByRole('menu', { name: 'Supermenu' });
+    await supermenu.getByRole('menuitem', { name: 'Navigate' }).click();
+    await supermenu.getByRole('menuitem', { name: 'Moorings' }).click();
+    const panel = page.getByRole('complementary', { name: 'Moorings' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('Guest Mooring 42')).toBeVisible({ timeout: 15_000 });
+    await expect(panel.getByText('Likely occupied', { exact: true })).toBeVisible();
+
+    const search = panel.getByRole('searchbox', {
+      name: 'Search moorings by name, category, vessel, or ENC cell',
+    });
+    await search.fill('Visitor');
+    const row = panel.getByRole('button', { name: /Guest Mooring 42/ });
+    await expect(row).toBeVisible();
+    await row.click();
+    await expect(row).toHaveAttribute('aria-current', 'true');
+    await expect(panel.getByRole('button', { name: 'Locate' })).toBeVisible();
+    await expectNoHorizontalOverflow(panel);
+    await expectInsideViewport(panel, page);
+  });
+}

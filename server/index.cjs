@@ -3,6 +3,14 @@
 const MAX_CPA_METERS = 1_852_000;
 const MAX_TCPA_SECONDS = 7 * 24 * 60 * 60;
 const ALARM_LOCATIONS = new Set(['top', 'center', 'bottom']);
+const NOAA_MOORINGS_URL =
+  'https://encdirect.noaa.gov/arcgis/rest/services/encdirect/enc_general/MapServer/40/query';
+const NOAA_FIELDS = 'OBJECTID,BOYSHP,CATMOR,COLOUR,COLPAT,OBJNAM,INFORM,SORDAT,SORIND,DSNM';
+const MAX_MOORINGS = 5_000;
+const NOAA_PAGE_SIZE = 1_000;
+const NOAA_CACHE_MS = 15 * 60 * 1_000;
+const MAX_CACHE_ENTRIES = 32;
+const MAX_AREA_SPAN_DEGREES = 5;
 
 function collisionThresholds(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
@@ -29,6 +37,143 @@ function bounded(value, max) {
 
 function alarmLocation(value) {
   return typeof value === 'string' && ALARM_LOCATIONS.has(value) ? value : undefined;
+}
+
+function parseBbox(value) {
+  if (typeof value !== 'string' || value.length > 160) return undefined;
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed) || parsed.length !== 4) return undefined;
+  const [west, south, east, north] = parsed;
+  if (
+    ![west, south, east, north].every(Number.isFinite) ||
+    west < -180 ||
+    east > 180 ||
+    south < -90 ||
+    north > 90 ||
+    west >= east ||
+    south >= north ||
+    east - west > MAX_AREA_SPAN_DEGREES ||
+    north - south > MAX_AREA_SPAN_DEGREES
+  ) {
+    return undefined;
+  }
+  return [west, south, east, north];
+}
+
+function bboxKey(bbox) {
+  return bbox.map((value) => value.toFixed(5)).join(',');
+}
+
+function cleanText(value, maxLength) {
+  if (typeof value !== 'string') return undefined;
+  const text = value.trim();
+  const hasControlCharacter = Array.from(text).some((character) => {
+    const code = character.codePointAt(0);
+    return code !== undefined && (code <= 31 || code === 127);
+  });
+  return text && text.length <= maxLength && !hasControlCharacter ? text : undefined;
+}
+
+function finiteInRange(value, min, max) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
+
+function cleanNoaaFeature(value) {
+  if (!value || typeof value !== 'object' || value.geometry?.type !== 'Point') return undefined;
+  const coordinates = value.geometry.coordinates;
+  if (
+    !Array.isArray(coordinates) ||
+    coordinates.length < 2 ||
+    !finiteInRange(coordinates[0], -180, 180) ||
+    !finiteInRange(coordinates[1], -90, 90)
+  ) {
+    return undefined;
+  }
+  const properties = value.properties;
+  if (!properties || typeof properties !== 'object') return undefined;
+  const objectId = properties.OBJECTID;
+  if (!Number.isSafeInteger(objectId) || objectId < 0) return undefined;
+  return {
+    type: 'Feature',
+    id: objectId,
+    geometry: { type: 'Point', coordinates: [coordinates[0], coordinates[1]] },
+    properties: {
+      OBJECTID: objectId,
+      BOYSHP: finiteInRange(properties.BOYSHP, 0, 100) ? properties.BOYSHP : null,
+      CATMOR: cleanText(properties.CATMOR, 25) ?? null,
+      COLOUR: cleanText(properties.COLOUR, 254) ?? null,
+      COLPAT: cleanText(properties.COLPAT, 254) ?? null,
+      OBJNAM: cleanText(properties.OBJNAM, 254) ?? null,
+      INFORM: cleanText(properties.INFORM, 254) ?? null,
+      SORDAT: cleanText(properties.SORDAT, 254) ?? null,
+      SORIND: cleanText(properties.SORIND, 254) ?? null,
+      DSNM: cleanText(properties.DSNM, 12) ?? null,
+    },
+  };
+}
+
+async function fetchNoaaMoorings(bbox) {
+  const features = [];
+  const seen = new Set();
+  for (let offset = 0; offset < MAX_MOORINGS; offset += NOAA_PAGE_SIZE) {
+    const params = new URLSearchParams({
+      where: '1=1',
+      geometry: bbox.join(','),
+      geometryType: 'esriGeometryEnvelope',
+      inSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects',
+      outFields: NOAA_FIELDS,
+      returnGeometry: 'true',
+      outSR: '4326',
+      orderByFields: 'OBJECTID',
+      resultOffset: String(offset),
+      resultRecordCount: String(NOAA_PAGE_SIZE),
+      f: 'geojson',
+    });
+    const response = await fetch(`${NOAA_MOORINGS_URL}?${params}`, {
+      headers: { Accept: 'application/geo+json, application/json' },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) throw new Error(`NOAA ENC returned ${response.status}`);
+    const body = await response.json();
+    if (!body || typeof body !== 'object' || !Array.isArray(body.features)) {
+      throw new Error('NOAA ENC returned an invalid feature collection');
+    }
+    for (const raw of body.features) {
+      const feature = cleanNoaaFeature(raw);
+      if (!feature || seen.has(feature.id)) continue;
+      seen.add(feature.id);
+      features.push(feature);
+      if (features.length >= MAX_MOORINGS) break;
+    }
+    if (features.length >= MAX_MOORINGS || body.features.length < NOAA_PAGE_SIZE) break;
+  }
+  return { type: 'FeatureCollection', features };
+}
+
+function createNoaaCache() {
+  const entries = new Map();
+  return {
+    async get(bbox) {
+      const key = bboxKey(bbox);
+      const now = Date.now();
+      const cached = entries.get(key);
+      if (cached && cached.expiresAt > now) return cached.value;
+      const value = await fetchNoaaMoorings(bbox);
+      entries.delete(key);
+      entries.set(key, { expiresAt: now + NOAA_CACHE_MS, value });
+      while (entries.size > MAX_CACHE_ENTRIES) entries.delete(entries.keys().next().value);
+      return value;
+    },
+    clear() {
+      entries.clear();
+    },
+  };
 }
 
 function schema() {
@@ -69,6 +214,7 @@ module.exports = function createBinnaclePlugin(app) {
   let storedThresholds;
   let storedAlarmLocation;
   let saveQueue = Promise.resolve();
+  const noaaCache = createNoaaCache();
 
   function start(options) {
     saveQueue = Promise.resolve();
@@ -125,8 +271,25 @@ module.exports = function createBinnaclePlugin(app) {
     description: 'Stores boat-wide Binnacle configuration on the Signal K server.',
     schema,
     start,
-    stop: () => undefined,
+    stop() {
+      noaaCache.clear();
+    },
     registerWithRouter(router) {
+      router.access('readonly').get('/api/moorings', async (request, response) => {
+        const bbox = parseBbox(request.query?.bbox);
+        if (!bbox) {
+          response.status(400).json({ error: 'A valid, bounded bbox is required.' });
+          return;
+        }
+        try {
+          const collection = await noaaCache.get(bbox);
+          response.set('Cache-Control', 'public, max-age=300');
+          response.json(collection);
+        } catch (fetchError) {
+          app.error?.(`Unable to load NOAA ENC moorings: ${errorMessage(fetchError)}`);
+          response.status(502).json({ error: 'Unable to load NOAA ENC moorings.' });
+        }
+      });
       router.access('readonly').get('/api/settings/collision', (_request, response) => {
         response.set('Cache-Control', 'no-store');
         response.json({ thresholds: storedThresholds ?? null });
@@ -180,6 +343,9 @@ module.exports = function createBinnaclePlugin(app) {
           '/api/settings/alarm-location': {
             get: { summary: 'Read alarm location' },
             put: { summary: 'Store alarm location' },
+          },
+          '/api/moorings': {
+            get: { summary: 'Read NOAA ENC mooring facilities for a bounded chart area' },
           },
         },
       };

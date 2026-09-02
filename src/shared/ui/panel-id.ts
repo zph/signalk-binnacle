@@ -13,6 +13,7 @@ export type PanelId =
   | 'anchor'
   | 'alarms'
   | 'poi-search'
+  | 'moorings'
   | 'profiles'
   | 'regions'
   | 'charts-management'

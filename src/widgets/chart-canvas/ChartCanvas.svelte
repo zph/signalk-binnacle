@@ -25,6 +25,11 @@ import type { PpiLayer } from '$features/marine-radar';
 import { MEASURE_OVERLAY_ID, type MeasureOverlay } from '$features/measure';
 import { MOB_OVERLAY_ID } from '$features/mob';
 import {
+  createMooringsOverlay,
+  type MooringPoint,
+  type MooringViewState,
+} from '$features/moorings';
+import {
   createNotesOverlay,
   type NotePoint,
   type NoteSelection,
@@ -163,6 +168,11 @@ interface Props {
   // The on-screen POI set, forwarded from the notes overlay to the POI search.
   onNotes?: (notes: NotePoint[]) => void;
   onPoiStatus?: (state: PoiViewState) => void;
+  destinationAisAvailable?: () => boolean;
+  selectedMooringId?: string;
+  onMooringSelect?: (id: string) => void;
+  onMoorings?: (moorings: MooringPoint[]) => void;
+  onMooringStatus?: (state: MooringViewState) => void;
   // Fired when the user pans the map by hand (a drag), so a follow lock can release.
   onUserPan?: () => void;
   // Set a single "go to here" destination at a chart point the user long-pressed or right-clicked.
@@ -249,6 +259,11 @@ const {
   onTideStationSelect,
   onNotes,
   onPoiStatus,
+  destinationAisAvailable,
+  selectedMooringId,
+  onMooringSelect,
+  onMoorings,
+  onMooringStatus,
   onUserPan,
   onGoToHere,
   onQuickActions,
@@ -600,6 +615,16 @@ onMount(async () => {
           personalNotes,
         },
       );
+      const mooringsOverlay = createMooringsOverlay(origin, () => chartsToken, aisTargets, {
+        destinationAisAvailable: destinationAisAvailable ?? (() => false),
+        selectedId: () => selectedMooringId,
+        interactionsAllowed: markerInteractionsAllowed,
+        onSelect: (id) => {
+          if (markerInteractionsAllowed()) onMooringSelect?.(id);
+        },
+        onMoorings,
+        onStatus: onMooringStatus,
+      });
       // One list feeds both registration and the per-frame tick, so the two cannot drift. The order
       // sets z within each band (tides under the safety overlays, the own vessel on top).
       const dynamicOverlays = buildDynamicOverlays({
@@ -637,6 +662,7 @@ onMount(async () => {
         tripLog,
         savedTracks,
         notesOverlay,
+        mooringsOverlay,
         onAnchorMoved,
         aisTrailsAvailable: aisTrailsAvailable ?? (() => false),
         historyProviders: historyProviders ?? (() => undefined),
