@@ -117,5 +117,5 @@ which does see template usage, is the real backstop.
 - Do not revert user changes unless explicitly asked.
 - Keep scratch files in `tmp/`.
 - Never force-push from this workspace. A force-push is never acceptable.
-- Never push from this workspace unless the user explicitly instructs Codex to push. Permission to
-  commit, deploy, publish, or complete a workflow does not imply permission to push.
+- Never push to GitHub from this workspace. Commit, deploy, publish, or complete workflows without
+  pushing, even when asked to push.
