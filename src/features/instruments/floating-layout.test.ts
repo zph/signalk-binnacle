@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   clampFloatingBox,
   defaultFloatingBox,
-  fitFloatingBoxToViewport,
   type FloatingInstrumentBox,
+  fitFloatingBoxToViewport,
   floatingInstrumentBoxesCodec,
   MAX_FLOATING_INSTRUMENTS,
   MIN_FLOATING_HEIGHT,

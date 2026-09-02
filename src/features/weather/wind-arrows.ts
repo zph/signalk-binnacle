@@ -36,7 +36,10 @@ function visibleIndices(values: number[], low: number, high: number, target: num
     .filter(({ value }) => value >= low && value <= high);
   const indices =
     eligible.length > 0 ? eligible.map(({ index }) => index) : values.map((_, index) => index);
-  return evenIndices(indices.length, target).map((index) => indices[index]!);
+  return evenIndices(indices.length, target).flatMap((index) => {
+    const value = indices[index];
+    return value === undefined ? [] : [value];
+  });
 }
 
 function barbLength(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import INDEX_HTML from '../../index.html?raw';
 import TOKENS_CSS from '../styles/tokens.css?raw';
+import APP from './App.svelte?raw';
 import STATUS_STRIP from './StatusStrip.svelte?raw';
 
 describe('installed PWA system-bar clearance', () => {
@@ -27,5 +28,12 @@ describe('installed PWA system-bar clearance', () => {
     );
     expect(STATUS_STRIP).toContain('env(safe-area-inset-left, 0px)');
     expect(STATUS_STRIP).toContain('env(safe-area-inset-right, 0px)');
+  });
+
+  it('keeps a ready update visible at the leading edge of the iPad bottom bar', () => {
+    expect(APP).toContain('class:helm-primary-actions--update-ready={updateReady}');
+    expect(APP).toContain('<span>Update ready</span>');
+    expect(APP).toMatch(/@media \(pointer: coarse\) and \(min-width: 601px\)[\s\S]*order: -1/);
+    expect(APP).toMatch(/helm-update-action[\s\S]*position: sticky/);
   });
 });

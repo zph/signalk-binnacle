@@ -1,5 +1,5 @@
 import type { SymbolLayerSpecification } from 'maplibre-gl';
-import { formatSpeedOr, speedUnitLabel, type SpeedUnit } from '$shared/lib';
+import { formatSpeedOr, type SpeedUnit, speedUnitLabel } from '$shared/lib';
 import {
   type OverlayContext,
   type OverlayModule,
@@ -7,8 +7,8 @@ import {
   setLayersVisibility,
   setSourceData,
 } from '$shared/map';
-import { fetchObservedWindStations, type ObservedWindResponse } from './observed-wind-client';
 import { WEATHER_LAYER_IDS } from './fills';
+import { fetchObservedWindStations, type ObservedWindResponse } from './observed-wind-client';
 
 const SOURCE = 'binnacle-observed-wind';
 const BARB_SOURCE = 'binnacle-observed-wind-barbs';

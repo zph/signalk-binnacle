@@ -8,6 +8,7 @@ export {
 } from './fills';
 export { createForecastPlayback } from './forecast-playback.svelte';
 export { type WeatherLegend, weatherLegend } from './legend';
+export { createObservedWindOverlay } from './observed-wind-overlay';
 export { createPointConditionsLoader, type PointConditionsLoader } from './point-conditions';
 export { createPointReadout } from './point-readout.svelte';
 export { createPrecipOverlay } from './precip-overlay';
@@ -32,4 +33,3 @@ export { createWavesOverlay } from './waves-overlay';
 export { createWeatherLoader, type WeatherLoader } from './weather-loader';
 export { precipUnitLabel, RAIN_VISIBLE_MM_H } from './weather-readout';
 export { createWindOverlay } from './wind-overlay';
-export { createObservedWindOverlay } from './observed-wind-overlay';

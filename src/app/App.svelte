@@ -2727,12 +2727,9 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
 });
 
 function uniqueActionIds(actions: MenuItem[]): MenuItem[] {
-  const ids = new Set<string>();
-  return actions.filter((action) => {
-    if (ids.has(action.id)) return false;
-    ids.add(action.id);
-    return true;
-  });
+  return actions.filter(
+    (action, index) => actions.findIndex(({ id }) => id === action.id) === index,
+  );
 }
 
 function mobAction(): MenuItem {
@@ -4117,7 +4114,12 @@ const plotterActions = {
     onLocate={flyToPosition}
     writeBlocked={auth.writeBlocked}
   />
-  <div class="helm-primary-actions" role="group" aria-label="Helm actions">
+  <div
+    class="helm-primary-actions"
+    class:helm-primary-actions--update-ready={updateReady}
+    role="group"
+    aria-label="Helm actions"
+  >
     <button
       type="button"
       class="btn btn-pill"
@@ -4167,14 +4169,14 @@ const plotterActions = {
         type="button"
         class="btn btn-pill helm-update-action"
         aria-label="Install ready update"
-        title="Install ready update"
+        title="A Binnacle update is ready to install"
         onclick={() => {
           updateReady = false;
           pwa.update();
         }}
       >
         <DownloadCloud size={16} aria-hidden="true" />
-        <span>Update</span>
+        <span>Update ready</span>
       </button>
     {/if}
     <button
@@ -4391,6 +4393,27 @@ const plotterActions = {
 }
 .helm-primary-actions :global(button) {
   pointer-events: auto;
+}
+.helm-update-action {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+}
+/* The update action is an explicit helm decision. On touch tablets, keep it at the leading edge
+   of the persistent bottom bar instead of letting the normal control sequence hide it offscreen. */
+@media (pointer: coarse) and (min-width: 601px) and (max-width: 1200px) {
+  .helm-primary-actions--update-ready {
+    justify-content: flex-start;
+    padding-inline: max(var(--space-2), env(safe-area-inset-left, 0px));
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  .helm-primary-actions--update-ready .helm-update-action {
+    order: -1;
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+  }
 }
 .binnacle-shell > :global(.instruments) {
   position: fixed;

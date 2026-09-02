@@ -1,6 +1,6 @@
 import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import type { WeatherStore } from '$entities/weather';
-import { type SpeedUnit } from '$shared/lib';
+import type { SpeedUnit } from '$shared/lib';
 import {
   emptyFeatureCollection,
   ensureGeoJsonSource,
