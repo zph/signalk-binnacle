@@ -4180,6 +4180,7 @@ const plotterActions = {
           screenEditing={instruments.screenEditing}
           overlayOpacity={instrumentOverlayOpacity.value}
           onOverlayOpacityChange={(opacity) => instrumentOverlayOpacity.set(opacity)}
+          onEditScreenInstruments={startScreenInstrumentEditing}
         />
 
         {#snippet fallback(_error, reset)}
