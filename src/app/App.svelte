@@ -2752,6 +2752,20 @@ function uniqueActionIds(actions: MenuItem[]): MenuItem[] {
   );
 }
 
+function uniqueRingActions(actions: MenuItem[]): MenuItem[] {
+  const seenIds = new Set<string>();
+  const seenLabels = new Set<string>();
+  return actions.filter((action) => {
+    // The ring renders shortLabel when present, so that is the visible intent a navigator sees.
+    // A context action, such as Measure from here, therefore replaces its generic Measure sibling.
+    const label = (action.shortLabel ?? action.label).trim().toLocaleLowerCase();
+    if (seenIds.has(action.id) || seenLabels.has(label)) return false;
+    seenIds.add(action.id);
+    seenLabels.add(label);
+    return true;
+  });
+}
+
 function mobAction(): MenuItem {
   return {
     id: 'mob',
@@ -2878,7 +2892,10 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
   // model reaches it without duplicating its state or behavior.
   if (instrumentsAction) buckets.chart.push(instrumentsAction);
   if (actionDialContextActions.length > 0) {
-    buckets.chart = uniqueActionIds([...actionDialContextActions, ...buckets.chart]);
+    buckets.chart = [...actionDialContextActions, ...buckets.chart];
+  }
+  for (const bucket of Object.values(buckets)) {
+    bucket.splice(0, bucket.length, ...uniqueRingActions(bucket));
   }
   return buckets;
 });
