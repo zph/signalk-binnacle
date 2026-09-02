@@ -48,6 +48,7 @@ const BINNACLE_STORAGE_KEYS = {
   actionDialPosition: { key: 'binnacle-custom:action-dial-position', scope: 'device' },
   screenWakeLockEnabled: { key: 'binnacle-custom:screen-wake-lock-enabled', scope: 'device' },
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },
+  instrumentWebviews: { key: 'binnacle-custom:instrument-webviews', scope: 'profile' },
   instrumentTileLayouts: { key: 'binnacle-custom:instrument-tile-layouts', scope: 'profile' },
   windRoseNoGoAngleRad: { key: 'binnacle-custom:wind-rose-no-go-angle-rad', scope: 'profile' },
   windRoseArcMarginRad: { key: 'binnacle-custom:wind-rose-arc-margin-rad', scope: 'profile' },

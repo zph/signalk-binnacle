@@ -1,4 +1,5 @@
 import { cleanBoundedText, hasControlCharacters, isRecord } from '$shared/lib';
+import { arrayPersistedCodec, type PersistedCodec } from '$shared/settings';
 import { fetchAuthedJsonOutcome } from '$shared/signalk';
 import type { TileDef } from './tile-catalog';
 
@@ -15,6 +16,13 @@ export interface WebviewSource {
   // Validated: a same-origin absolute path, or an http/https absolute URL.
   url: string;
   kind: WebviewSourceKind;
+}
+
+// Binnacle-owned iframe instruments. These do not use App Launcher.
+export interface WebviewInstrument {
+  id: string;
+  title: string;
+  url: string;
 }
 
 const MAX_WEBVIEW_TILES = 100;
@@ -45,6 +53,22 @@ export function cleanWebviewUrl(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+const webviewInstrumentCodec: PersistedCodec<WebviewInstrument> = {
+  decode(value) {
+    if (!isRecord(value)) return { state: 'invalid' };
+    const id = cleanBoundedText(value.id, 64);
+    const title = cleanBoundedText(value.title, 80);
+    const url = cleanWebviewUrl(value.url);
+    return id && title && url ? { state: 'valid', value: { id, title, url } } : { state: 'invalid' };
+  },
+};
+
+export const webviewInstrumentsCodec = arrayPersistedCodec(webviewInstrumentCodec, { maxItems: 100 });
+
+export function directWebviewTileDef(view: WebviewInstrument): TileDef {
+  return webviewTileDef({ ...view, kind: 'link' });
 }
 
 // One endpoint's parse result. Undefined means the top-level body was not the documented shape,

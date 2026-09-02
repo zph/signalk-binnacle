@@ -31,8 +31,7 @@ import {
   type InstrumentRegistry,
   SIGNALK_INSTRUMENT_PLUGIN_SCOPE,
 } from './instrument-registry.svelte';
-import type { WebviewSourceState } from './webview-sources';
-import { discoverWebviewInstruments } from './webview-sources';
+import { directWebviewTileDef, discoverWebviewInstruments, type WebviewInstrument, type WebviewSourceState } from './webview-sources';
 
 type InstrumentHistoryStatus =
   | 'idle'
@@ -71,6 +70,7 @@ export interface InstrumentsDeps {
   tilesStore: PersistedValue<string[]>;
   openStore: PersistedValue<boolean>;
   floatingStore: PersistedValue<FloatingInstrumentBox[]>;
+  webviewStore?: PersistedValue<WebviewInstrument[]>;
   registry: InstrumentRegistry;
 }
 
@@ -93,6 +93,7 @@ export interface InstrumentsController {
   readonly historyStatus: InstrumentHistoryStatus;
   readonly pluginStatus: InstrumentPluginLoadState | 'idle';
   readonly webviewStatus: WebviewSourceState | 'idle';
+  readonly webviews?: readonly WebviewInstrument[];
   readonly externalPluginCount: number;
   readonly trendCatalog: readonly InstrumentTrendDescriptor[];
   isHistoricalOnly(id: string): boolean;
@@ -108,6 +109,8 @@ export interface InstrumentsController {
   isFloating(id: string): boolean;
   addFloating(id: string, at?: { x?: number; y?: number }): void;
   removeFloating(id: string): void;
+  addWebview?: (title: string, url: string) => void;
+  removeWebview?: (id: string) => void;
   setFloatingBox(id: string, box: FloatingInstrumentBox): void;
   refreshCatalog(): void;
   refreshLiveCatalog(): void;
@@ -329,6 +332,16 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
   }
 
   function discoverWebviews(): void {
+    if (deps.webviewStore) {
+      deps.registry.replaceScope(WEBVIEW_INSTRUMENT_SCOPE, [{
+        apiVersion: INSTRUMENT_PLUGIN_API_VERSION,
+        id: 'binnacle.webview',
+        name: 'Binnacle web views',
+        instruments: deps.webviewStore.value.map(directWebviewTileDef),
+      }]);
+      webviewStatus = 'ready';
+      return;
+    }
     const generation = ++webviewDiscoveryGeneration;
     webviewDiscovering = true;
     void discoverWebviewInstruments(deps.origin, deps.getToken())
@@ -350,6 +363,21 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
       .finally(() => {
         if (!disposed && generation === webviewDiscoveryGeneration) webviewDiscovering = false;
       });
+  }
+
+  function addWebview(title: string, url: string): void {
+    if (!deps.webviewStore) return;
+    deps.webviewStore.set([...deps.webviewStore.value, { id: crypto.randomUUID(), title, url }]);
+    discoverWebviews();
+  }
+
+  function removeWebview(id: string): void {
+    if (!deps.webviewStore) return;
+    const tileId = `webview:link:${id}`;
+    deps.webviewStore.set(deps.webviewStore.value.filter((view) => view.id !== id));
+    deps.tilesStore.set(deps.tilesStore.value.filter((selected) => selected !== tileId));
+    deps.floatingStore.set(deps.floatingStore.value.filter((box) => box.id !== tileId));
+    discoverWebviews();
   }
 
   function familyForDef(def: TileDef): keyof Omit<InstrumentInstances, 'paths'> | undefined {
@@ -752,6 +780,9 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     get webviewStatus() {
       return webviewStatus;
     },
+    get webviews() {
+      return deps.webviewStore?.value ?? [];
+    },
     get externalPluginCount() {
       return deps.registry.plugins.filter((plugin) => plugin.external).length;
     },
@@ -775,6 +806,8 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     isFloating,
     addFloating,
     removeFloating,
+    addWebview,
+    removeWebview,
     setFloatingBox,
     refreshCatalog,
     refreshLiveCatalog,

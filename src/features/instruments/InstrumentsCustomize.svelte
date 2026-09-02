@@ -1,9 +1,12 @@
 <script lang="ts">
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import RotateCw from '@lucide/svelte/icons/rotate-cw';
+import Trash2 from '@lucide/svelte/icons/trash-2';
+import { cleanBoundedText } from '$shared/lib';
 import { CustomizeCategory, createReorder, LayerToggle, UnavailableHint } from '$shared/ui';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { instrumentOptionLabels, type TileDef, type TileDeps } from './tile-catalog';
+import { cleanWebviewUrl } from './webview-sources';
 
 interface Props {
   controller: InstrumentsController;
@@ -15,6 +18,24 @@ interface Props {
 const { controller, deps, overlayOpacity = 1, onOverlayOpacityChange = () => {} }: Props = $props();
 
 let listEl: HTMLElement | undefined = $state(undefined);
+let webviewTitle = $state('');
+let webviewUrl = $state('');
+let webviewError = $state('');
+
+function addWebview(): void {
+  const title = cleanBoundedText(webviewTitle, 80);
+  const url = cleanWebviewUrl(webviewUrl);
+  if (!title || !url) {
+    webviewError = 'Enter a name and a valid https, http, or boat-relative URL.';
+    return;
+  }
+  controller.addWebview?.(title, url);
+  const added = controller.webviews?.at(-1);
+  if (added) controller.toggleTile(`webview:link:${added.id}`);
+  webviewTitle = '';
+  webviewUrl = '';
+  webviewError = '';
+}
 
 // The shown tiles in their selection order, so dragging visibly reorders these rows; the reorder
 // controller addresses rows by their index in this same list. The available tiles hang below in
@@ -127,6 +148,22 @@ const webviewStatusMessage = $derived.by(() => {
         oninput={(event) => onOverlayOpacityChange(Number(event.currentTarget.value))}
       >
     </div>
+  </section>
+  <section class="instrument-overlay-settings" aria-label="Web view instruments">
+    <h3 class="caps-label section-label">Web view instruments</h3>
+    <p class="muted-note">Add each iframe here. It stays in Binnacle, independent of App Launcher.</p>
+    <form class="webview-form" onsubmit={(event) => { event.preventDefault(); addWebview(); }}>
+      <input class="input" aria-label="Web view name" bind:value={webviewTitle} placeholder="Instrument name">
+      <input class="input" aria-label="Web view URL" bind:value={webviewUrl} placeholder="https://… or /plugin/">
+      <button class="btn btn-primary" type="submit">Add iframe</button>
+    </form>
+    {#if webviewError}<p class="control-error" role="alert">{webviewError}</p>{/if}
+    {#each controller.webviews ?? [] as view (view.id)}
+      <div class="webview-row">
+        <span class="truncate">{view.title}</span>
+        <button class="icon-btn" type="button" aria-label={`Remove ${view.title}`} onclick={() => controller.removeWebview?.(view.id)}><Trash2 size={16} aria-hidden="true" /></button>
+      </div>
+    {/each}
   </section>
   <h3 class="caps-label section-label">Shown</h3>
   <ul class="tile-list bare-list">
@@ -251,6 +288,8 @@ const webviewStatusMessage = $derived.by(() => {
 .section-label:first-child {
   padding-block-start: 0;
 }
+.webview-form { display: grid; gap: var(--space-2); padding: 0 var(--space-3) var(--space-2); }
+.webview-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-3); }
 .available-head {
   display: flex;
   align-items: center;

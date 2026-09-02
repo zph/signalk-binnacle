@@ -94,6 +94,8 @@ import {
   loadInstrumentsPanel,
   MAX_INSTRUMENT_DOCK_WIDTH_PX,
   MIN_INSTRUMENT_DOCK_WIDTH_PX,
+  type WebviewInstrument,
+  webviewInstrumentsCodec,
 } from '$features/instruments';
 import { createInterfaceLockController, InterfaceLockLayer } from '$features/interface-lock';
 import type { LayersView } from '$features/layers-panel';
@@ -878,6 +880,12 @@ const instrumentTiles = new PersistedValue<string[]>(
   undefined,
   stringArrayPersistedCodec({ maxItems: 100, maxLength: 256 }),
 );
+const instrumentWebviews = new PersistedValue<WebviewInstrument[]>(
+  binnacleStorageKey('instrumentWebviews'),
+  [],
+  undefined,
+  webviewInstrumentsCodec,
+);
 const instrumentTileLayouts = new PersistedValue<InstrumentTileLayouts>(
   binnacleStorageKey('instrumentTileLayouts'),
   {},
@@ -975,6 +983,7 @@ const instruments = createInstrumentsController({
   tilesStore: instrumentTiles,
   openStore: instrumentsOpen,
   floatingStore: instrumentScreenLayout,
+  webviewStore: instrumentWebviews,
   registry: instrumentRegistry,
 });
 const trends = createTrendsController({

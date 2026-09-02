@@ -32,6 +32,7 @@ export {
 export type { InstrumentsController } from './instruments-controller.svelte';
 export { createInstrumentsController } from './instruments-controller.svelte';
 export { DEFAULT_TILES } from './tile-catalog';
+export { type WebviewInstrument, webviewInstrumentsCodec } from './webview-sources';
 export {
   type InstrumentTileLayouts,
   type InstrumentTileSize,

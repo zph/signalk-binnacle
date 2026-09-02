@@ -9,29 +9,9 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
 });
 
-async function stubLauncher(page: import('@playwright/test').Page): Promise<void> {
-  await page.route('**/signalk-app-launcher/api/apps', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        apps: [{ name: 'fixture-app', title: APP_TITLE, url: '/fixture-app/' }],
-      }),
-    }),
-  );
-  await page.route('**/signalk-app-launcher/api/config', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ pinned: [], links: [] }),
-    }),
-  );
-}
-
-test('a launcher app becomes a web view instrument tile, expandable full screen', async ({
+test('a configured web view becomes an iframe instrument tile, expandable full screen', async ({
   page,
 }) => {
-  await stubLauncher(page);
   await page.route('**/fixture-app/', (route) =>
     route.fulfill({
       status: 200,
@@ -44,13 +24,14 @@ test('a launcher app becomes a web view instrument tile, expandable full screen'
 
   const palette = page.getByRole('dialog', { name: 'Command palette' });
   await palette.getByRole('searchbox', { name: 'Search commands' }).fill('customize instruments');
-  await palette.getByRole('option', { name: /Customize instruments/ }).click();
+  await palette.getByRole('option', { name: 'Customize instruments Instruments' }).click();
 
   const customize = page.locator('.customize-list');
   await expect(customize).toBeVisible();
 
-  // Enable the web view tile's row in the Apps category.
-  await page.getByRole('checkbox', { name: APP_TITLE }).check();
+  await page.getByRole('textbox', { name: 'Web view name' }).fill(APP_TITLE);
+  await page.getByRole('textbox', { name: 'Web view URL' }).fill('/fixture-app/');
+  await page.getByRole('button', { name: 'Add iframe' }).click();
 
   // Exit customize mode through the pane actions menu, then the dock grid shows the framed app.
   const pane = page.locator('aside.instruments');
@@ -68,20 +49,16 @@ test('a launcher app becomes a web view instrument tile, expandable full screen'
   await expect(dialog).toHaveCount(0);
 });
 
-test('explains an absent App Launcher in Customize', async ({ page }) => {
-  await page.route('**/signalk-app-launcher/api/**', (route) =>
-    route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }),
-  );
+test('allows more than one Binnacle-owned web view', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('Control+K');
 
   const palette = page.getByRole('dialog', { name: 'Command palette' });
   await palette.getByRole('searchbox', { name: 'Search commands' }).fill('customize instruments');
-  await palette.getByRole('option', { name: /Customize instruments/ }).click();
+  await palette.getByRole('option', { name: 'Customize instruments Instruments' }).click();
 
-  await expect(
-    page.getByText(
-      'Web view instruments need the App Launcher plugin on the server. Other instruments remain available.',
-    ),
-  ).toBeVisible();
+  await page.getByRole('textbox', { name: 'Web view name' }).fill('Second app');
+  await page.getByRole('textbox', { name: 'Web view URL' }).fill('/fixture-app/');
+  await page.getByRole('button', { name: 'Add iframe' }).click();
+  await expect(page.getByLabel('Web view instruments').getByText('Second app')).toBeVisible();
 });
