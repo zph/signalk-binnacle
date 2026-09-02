@@ -32,6 +32,10 @@ function storeWithGrid(): WeatherStore {
       [0, 0, 0, 0],
       [0, 0, 0, 0],
     ],
+    windGust: [
+      [14, 14, 14, 14],
+      [14, 14, 14, 14],
+    ],
   });
   return store;
 }
@@ -63,12 +67,28 @@ describe('wind overlay', () => {
     const source = map.sources.get('binnacle-weather-wind');
     if (!source) throw new Error('wind arrow source was not added');
     const fc = source.data as GeoJSON.FeatureCollection;
-    expect(fc.features).toHaveLength(4);
+    expect(fc.features).toHaveLength(192);
     const markers = map.sources.get('binnacle-weather-wind-markers');
     if (!markers) throw new Error('wind marker source was not added');
-    expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe('19 kn');
+    expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe(
+      '19 G27 kn',
+    );
     overlay.sync(fakeOverlayContext(map));
     expect(source.data).toBe(fc);
+  });
+
+  it('rebuilds the screen-space barbs after every completed zoom', async () => {
+    const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
+    const map = createFakeMap();
+    await overlay.add(fakeOverlayContext(map));
+    overlay.setVisible(fakeOverlayContext(map), true);
+    const source = map.sources.get('binnacle-weather-wind');
+    if (!source) throw new Error('wind arrow source was not added');
+    const before = source.data;
+
+    map.emit('zoomend', {});
+
+    expect(source.data).not.toBe(before);
   });
 
   it('removes its layer and source', async () => {

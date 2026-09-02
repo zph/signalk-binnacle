@@ -26,6 +26,9 @@ function loc(
       time: [1748908800, 1748912400],
       wind_speed_10m: speed,
       wind_direction_10m: dir,
+      wind_gusts_10m: [12, 14],
+      temperature_2m: [15, 16],
+      uv_index: [4, 5],
       pressure_msl: [1013, 1012],
       precipitation: [0, 0.2],
       cloud_cover: [10, 50],
@@ -54,7 +57,7 @@ describe('fetchForecast', () => {
     expect(grid?.forecastSource).toBe('noaa');
   });
 
-  it('requests only speed and direction for a chart wind field', async () => {
+  it('requests sustained wind and gusts for the combined chart wind field', async () => {
     const body = [
       loc(0, 0, [0, 0], [0, 0]),
       loc(0, 1, [0, 0], [0, 0]),
@@ -68,7 +71,28 @@ describe('fetchForecast', () => {
       fetchFn as unknown as typeof fetch,
     );
     const requestUrl = new URL(String(fetchFn.mock.calls[0][0]));
-    expect(requestUrl.searchParams.get('hourly')).toBe('wind_speed_10m,wind_direction_10m');
+    expect(requestUrl.searchParams.get('hourly')).toBe(
+      'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+    );
+  });
+
+  it('requests the three chart forecast modes without unrelated weather fields', async () => {
+    const body = [
+      loc(0, 0, [0, 0], [0, 0]),
+      loc(0, 1, [0, 0], [0, 0]),
+      loc(1, 0, [0, 0], [0, 0]),
+      loc(1, 1, [0, 0], [0, 0]),
+    ];
+    const fetchFn = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => res(body));
+    await fetchForecast(
+      { west: 0, south: 0, east: 1, north: 1 },
+      { maxCells: 4, forecastDays: 1, atmosphericFields: 'chart' },
+      fetchFn as unknown as typeof fetch,
+    );
+    const requestUrl = new URL(String(fetchFn.mock.calls[0][0]));
+    expect(requestUrl.searchParams.get('hourly')).toBe(
+      'wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,uv_index',
+    );
   });
 
   it('parses a 2x2 grid and derives u/v from speed and direction', async () => {
@@ -89,6 +113,9 @@ describe('fetchForecast', () => {
     // 10 m/s from 90 degrees (east) blows toward the west: u about -10, v about 0.
     expect(grid?.windU[0][0]).toBeCloseTo(-10, 4);
     expect(grid?.windV[0][0]).toBeCloseTo(0, 4);
+    expect(grid?.windGust?.[0]?.[0]).toBe(12);
+    expect(grid?.airTemperature?.[0]?.[0]).toBe(288.15);
+    expect(grid?.uvIndex?.[1]?.[0]).toBe(5);
     expect(grid?.times[0]).toBe(1748908800000);
     expect(grid?.atmosphericSource?.coordinates[0]).toEqual({ latitude: 0, longitude: 0 });
     expect(grid?.atmosphericSource?.times).toEqual(grid?.times);

@@ -3,10 +3,12 @@ import {
   formatPercent,
   formatPrecipRateOr,
   formatSpeedOr,
+  formatTemperatureOr,
   knotsToMetersPerSecond,
   lengthUnit,
   precipRateUnit,
   type SpeedUnit,
+  temperatureUnit,
   type UnitsMode,
 } from '$shared/lib';
 import type { Theme } from '$shared/ui';
@@ -16,6 +18,8 @@ import { WEATHER_LAYER_IDS } from './fills';
 import { precipColor } from './precip-colormap';
 import { isobarColors } from './pressure-colors';
 import { DEFAULT_INTERVAL_HPA } from './pressure-isobars';
+import { temperatureColor } from './temperature-colormap';
+import { uvColor } from './uv-colormap';
 import { waveColor } from './wave-colormap';
 import { windColor } from './wind-colormap';
 
@@ -43,6 +47,8 @@ const WIND_STOPS = [0, 10, 20, 30, 40, 50].map(knotsToMetersPerSecond);
 const WAVE_STOPS = [0.5, 1, 2, 4, 6, 9]; // m
 const PRECIP_STOPS = [0.2, 1, 2.5, 10, 25, 40]; // mm/h, tops out where the precip colormap does
 const CLOUD_STOPS = [0.25, 0.5, 0.75, 1]; // fraction
+const TEMPERATURE_STOPS = [263.15, 273.15, 283.15, 293.15, 303.15, 313.15]; // K
+const UV_STOPS = [0, 3, 6, 8, 11];
 
 // Render a colormap stop opaque so the legend ramp is visible even where the field itself is
 // translucent or fully transparent at the low end.
@@ -84,12 +90,31 @@ export function weatherLegend(
 ): WeatherLegend | undefined {
   switch (layerId) {
     case WEATHER_LAYER_IDS.wind:
+      return {
+        ...rampLegend(
+          layerId,
+          `Wind gusts (${speedUnit})`,
+          WIND_STOPS,
+          (s) => windColor(s, theme),
+          (s) => formatSpeedOr(s, speedUnit, 0),
+        ),
+        note: 'color shows gusts; barbs and first label value show sustained wind',
+      };
+    case WEATHER_LAYER_IDS.temperature:
       return rampLegend(
         layerId,
-        `Wind (${speedUnit})`,
-        WIND_STOPS,
-        (s) => windColor(s, theme),
-        (s) => formatSpeedOr(s, speedUnit, 0),
+        `Air temperature (${temperatureUnit(mode)})`,
+        TEMPERATURE_STOPS,
+        (value) => temperatureColor(value, theme),
+        (value) => formatTemperatureOr(value, mode, 0),
+      );
+    case WEATHER_LAYER_IDS.uv:
+      return rampLegend(
+        layerId,
+        'UV index',
+        UV_STOPS,
+        (value) => uvColor(value, theme),
+        (value) => String(value),
       );
     case WEATHER_LAYER_IDS.pressure:
       // Isobars are conventionally hectopascals on every chart, so the isobar legend and the

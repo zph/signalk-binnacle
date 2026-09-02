@@ -162,6 +162,7 @@ import { createTrackController, createTripLogController } from '$features/tracks
 import { createTrendsController } from '$features/trends';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
+  CHART_FORECAST_LAYER_IDS,
   createPointConditionsLoader,
   createWeatherLoader,
   defaultProvider,
@@ -1587,6 +1588,42 @@ function setLayerVisible(id: string, visible: boolean): void {
   mapCommands?.applyLayers(next, layerOrder.value);
 }
 
+type ChartForecastLayerId = (typeof CHART_FORECAST_LAYER_IDS)[number];
+
+const chartForecastLayer = $derived(
+  CHART_FORECAST_LAYER_IDS.find((id) => layerSettings.value[id]?.visible),
+);
+
+function chartForecastLayerName(id: ChartForecastLayerId | undefined): string {
+  if (id === WEATHER_LAYER_IDS.wind) return 'wind and gusts';
+  if (id === WEATHER_LAYER_IDS.temperature) return 'temperature';
+  if (id === WEATHER_LAYER_IDS.uv) return 'UV index';
+  return 'off';
+}
+
+function setChartForecastLayer(id: ChartForecastLayerId | undefined): void {
+  let changed = false;
+  const next = { ...layerSettings.value };
+  for (const layerId of CHART_FORECAST_LAYER_IDS) {
+    const current = next[layerId];
+    const visible = layerId === id;
+    if (current?.visible === visible) continue;
+    next[layerId] = current ? { ...current, visible } : { visible, opacity: 1 };
+    changed = true;
+  }
+  if (!changed) return;
+  layerSettings.set(next);
+  mapCommands?.applyLayers(next, layerOrder.value);
+}
+
+function cycleChartForecastLayer(): void {
+  const currentIndex = chartForecastLayer
+    ? CHART_FORECAST_LAYER_IDS.indexOf(chartForecastLayer)
+    : -1;
+  const next = CHART_FORECAST_LAYER_IDS[currentIndex + 1];
+  setChartForecastLayer(next);
+}
+
 function onTideStationSelect(selection: TideStationSelectionEvent): void {
   setLayerVisible(TIDES_OVERLAY_ID, true);
   if (activePanel !== 'tides') {
@@ -2490,20 +2527,12 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     },
     {
       id: 'wind-forecast-overlay',
-      label: layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
-        ? 'Hide wind forecast overlay'
-        : 'Show wind forecast overlay',
-      description: layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
-        ? 'Remove the animated wind field and forecast controls from the chart'
-        : 'Overlay forecast wind speed and direction on the chart',
+      label: `Cycle weather forecast overlay (${chartForecastLayerName(chartForecastLayer)})`,
+      description: 'Cycle wind and gusts, temperature, UV index, and off on the main chart',
       group: 'Weather',
-      keywords: ['wind', 'forecast', 'overlay', 'layer', 'enable', 'disable'],
+      keywords: ['wind', 'gust', 'temperature', 'UV', 'forecast', 'overlay', 'layer'],
       icon: Wind,
-      onSelect: () =>
-        setLayerVisible(
-          WEATHER_LAYER_IDS.wind,
-          !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
-        ),
+      onSelect: cycleChartForecastLayer,
     },
     {
       id: 'observed-wind-stations-overlay',
@@ -4158,19 +4187,11 @@ const plotterActions = {
       <button
         type="button"
         class="btn btn-pill"
-        class:is-on={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
-        aria-label={
-          layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
-            ? 'Hide wind layer'
-            : 'Show wind layer'
-        }
-        aria-pressed={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
-        title="Toggle wind layer"
-        onclick={() =>
-          setLayerVisible(
-            WEATHER_LAYER_IDS.wind,
-            !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
-          )}
+        class:is-on={chartForecastLayer !== undefined}
+        aria-label={`Weather forecast: ${chartForecastLayerName(chartForecastLayer)}. Activate for next overlay.`}
+        aria-pressed={chartForecastLayer !== undefined}
+        title={`Weather: ${chartForecastLayerName(chartForecastLayer)}`}
+        onclick={cycleChartForecastLayer}
       >
         <CloudSun size={16} aria-hidden="true" />
       </button>

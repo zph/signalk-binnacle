@@ -33,9 +33,9 @@ export interface ForecastOptions {
   maxCells: number;
   forecastDays: number;
   source?: WeatherSourceId;
-  // The primary chart needs only u/v wind. Omitting unrelated pressure, precipitation, cloud, and
-  // gust fields makes viewport-following requests much smaller; the full Forecast view keeps all.
-  atmosphericFields?: 'all' | 'wind';
+  // The primary chart needs sustained wind plus gusts. Omitting unrelated pressure, precipitation,
+  // and cloud fields makes viewport-following requests much smaller; the full Forecast view keeps all.
+  atmosphericFields?: 'all' | 'wind' | 'chart';
 }
 
 interface OmLoc {
@@ -46,6 +46,8 @@ interface OmLoc {
     wind_speed_10m?: Array<number | null>;
     wind_direction_10m?: Array<number | null>;
     wind_gusts_10m?: Array<number | null>;
+    temperature_2m?: Array<number | null>;
+    uv_index?: Array<number | null>;
     pressure_msl?: Array<number | null>;
     precipitation?: Array<number | null>;
     cloud_cover?: Array<number | null>;
@@ -229,11 +231,11 @@ export async function fetchForecast(
   const source = weatherSourceOption(opts.source);
   const result = await fetchGridLocations<OmLoc>(
     source.endpoint,
-    // Gusts ride along: gust versus sustained is the reefing decision, so the free grid must carry
-    // it for the readouts even when no provider is configured.
     opts.atmosphericFields === 'wind'
-      ? 'wind_speed_10m,wind_direction_10m'
-      : 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,precipitation,cloud_cover',
+      ? 'wind_speed_10m,wind_direction_10m,wind_gusts_10m'
+      : opts.atmosphericFields === 'chart'
+        ? 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,uv_index'
+        : 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,uv_index,pressure_msl,precipitation,cloud_cover',
     { wind_speed_unit: 'ms' },
     bbox,
     opts,
@@ -254,6 +256,8 @@ function parse(locs: OmLoc[], lats: number[], lons: number[]): WeatherGrid | und
   const windU = grid2d(steps, cells);
   const windV = grid2d(steps, cells);
   const windGust = grid2d(steps, cells);
+  const airTemperature = grid2d(steps, cells);
+  const uvIndex = grid2d(steps, cells);
   const pressureMsl = grid2d(steps, cells);
   const precipitation = grid2d(steps, cells);
   const cloudCover = grid2d(steps, cells);
@@ -262,6 +266,8 @@ function parse(locs: OmLoc[], lats: number[], lons: number[]): WeatherGrid | und
     const spd = h?.wind_speed_10m ?? [];
     const dir = h?.wind_direction_10m ?? [];
     const gust = h?.wind_gusts_10m ?? [];
+    const temperature = h?.temperature_2m ?? [];
+    const uv = h?.uv_index ?? [];
     const pres = h?.pressure_msl ?? [];
     const precip = h?.precipitation ?? [];
     const cloud = h?.cloud_cover ?? [];
@@ -275,6 +281,10 @@ function parse(locs: OmLoc[], lats: number[], lons: number[]): WeatherGrid | und
       }
       const g = finite(gust[t]);
       if (g !== undefined) windGust[t][c] = g;
+      const celsius = finite(temperature[t]);
+      if (celsius !== undefined) airTemperature[t][c] = celsius + 273.15;
+      const uvValue = finite(uv[t]);
+      if (uvValue !== undefined && uvValue >= 0) uvIndex[t][c] = uvValue;
       const hpa = finite(pres[t]);
       if (hpa !== undefined) pressureMsl[t][c] = hpa * PA_PER_HPA;
       const mm = finite(precip[t]);
@@ -290,6 +300,8 @@ function parse(locs: OmLoc[], lats: number[], lons: number[]): WeatherGrid | und
     windU,
     windV,
     windGust,
+    airTemperature,
+    uvIndex,
     pressureMsl,
     precipitation,
     precipitationInterval: 'preceding-hour',

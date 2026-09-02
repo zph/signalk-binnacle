@@ -1,6 +1,7 @@
 export { createChartWindController } from './chart-wind-controller.svelte';
 export { createCloudOverlay } from './cloud-overlay';
 export {
+  CHART_FORECAST_LAYER_IDS,
   GRID_SOURCE_LABEL,
   WEATHER_FILL_ID_SET,
   WEATHER_FILL_IDS,
@@ -26,7 +27,9 @@ export {
   fetchWeatherProviders,
   type WeatherProvider,
 } from './signalk-weather';
+export { createTemperatureOverlay } from './temperature-overlay';
 export { advancePlay, clampTime, stepTime, type TimeRange } from './time-scrub';
+export { createUvOverlay } from './uv-overlay';
 export { default as WeatherConditions } from './WeatherConditions.svelte';
 export { default as WindForecastStrip } from './WindForecastStrip.svelte';
 export { createWavesOverlay } from './waves-overlay';

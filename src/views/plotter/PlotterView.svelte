@@ -53,7 +53,12 @@ import { loadHistoryStrip, type TimeTravelController } from '$features/time-trav
 import { loadTracksPanel } from '$features/tracks';
 import { loadTrendsPanel } from '$features/trends';
 import { loadWaypointsPanel } from '$features/waypoints';
-import { WEATHER_LAYER_IDS, type WeatherProvider, WindForecastStrip } from '$features/weather';
+import {
+  CHART_FORECAST_LAYER_IDS,
+  WEATHER_LAYER_IDS,
+  type WeatherProvider,
+  WindForecastStrip,
+} from '$features/weather';
 import type { Bbox4, LatLon } from '$shared/geo';
 import { hasVisibleNavigationChart, type LayerSettings } from '$shared/map';
 import { etaSeconds } from '$shared/nav';
@@ -737,7 +742,16 @@ function activeRouteForCoverage(): { name: string; waypoints: RouteWaypoint[] } 
   return route === undefined ? undefined : { name: route.name, waypoints: route.waypoints };
 }
 const radarEchoShown = $derived(layerSettings[MARINE_RADAR_OVERLAY_ID]?.visible ?? false);
-const windForecastShown = $derived(layerSettings[WEATHER_LAYER_IDS.wind]?.visible ?? false);
+const chartForecastLayer = $derived(
+  CHART_FORECAST_LAYER_IDS.find((id) => layerSettings[id]?.visible),
+);
+const chartForecastKind = $derived(
+  chartForecastLayer === WEATHER_LAYER_IDS.temperature
+    ? 'Temperature'
+    : chartForecastLayer === WEATHER_LAYER_IDS.uv
+      ? 'UV index'
+      : 'Wind and gusts',
+);
 // Whole-route time: the active leg's own estimate (server timeToGo, else positive-VMG) plus the
 // explicit planning speed across the legs ahead. Never cross-track SOG for the whole route: an
 // off-course five knots would promise an arrival the boat is not making. Any missing input leaves
@@ -984,14 +998,17 @@ $effect(() => {
           </div>
         {/await}
       {/if}
-      {#if windForecastShown}
+      {#if chartForecastLayer}
         <WindForecastStrip
           store={chartWeather}
           {weatherSource}
           {units}
           {clock}
+          kind={chartForecastKind}
+          layerId={chartForecastLayer}
+          theme={theme.theme}
           onRetry={retryWindForecast}
-          onHide={() => setLayerVisible(WEATHER_LAYER_IDS.wind, false)}
+          onHide={() => setLayerVisible(chartForecastLayer, false)}
         />
       {/if}
       <NavStrip
@@ -2088,7 +2105,11 @@ $effect(() => {
    actions. */
 .bottom-stack {
   position: absolute;
-  inset-block-end: calc(var(--space-3) + var(--rail-clearance, 0px));
+  inset-block-end: calc(
+    var(--space-3) +
+    var(--rail-clearance, 0px) +
+    var(--helm-actions-clearance, 0px)
+  );
   inset-inline: var(--space-3);
   inline-size: min(calc(28rem + 2 * var(--space-3)), calc(100% - 2 * var(--space-3)));
   margin-inline: auto;
@@ -2111,7 +2132,11 @@ $effect(() => {
   overflow-y: auto;
 }
 .bottom-stack.above-weather {
-  inset-block-end: calc(var(--control-size) + 2 * var(--space-2) + var(--weather-panel-height));
+  inset-block-end: calc(
+    var(--weather-panel-height) +
+    var(--helm-panel-offset, 0px) +
+    var(--space-2)
+  );
 }
 /* The emergency rail stays at its chosen chart edge and is not lifted while Forecast is open;
    safety chrome stacks above that panel instead. At extreme text sizes, a wrapped status strip can
@@ -2144,7 +2169,7 @@ $effect(() => {
   transform: translateY(-50%);
 }
 .safety-rail[data-location="bottom"] {
-  inset-block-end: var(--space-3);
+  inset-block-end: calc(var(--space-3) + var(--helm-actions-clearance, 0px));
 }
 /* The Alarms panel is itself the emergency response surface. Let it own overlapping pixels so a
    centered alert cannot cover the location control on a short landscape display. */

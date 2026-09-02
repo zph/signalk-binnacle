@@ -81,7 +81,7 @@ export function weatherCacheKey(bbox: Bbox, opts: ForecastOptions, waves: boolea
     opts.maxCells,
     opts.forecastDays,
     waves ? 'm' : '-',
-    opts.atmosphericFields === 'wind' ? 'w' : 'a',
+    opts.atmosphericFields === 'wind' ? 'w' : opts.atmosphericFields === 'chart' ? 'c' : 'a',
   ];
   if (opts.source && opts.source !== 'automatic') parts.push(opts.source);
   return parts.join(':');

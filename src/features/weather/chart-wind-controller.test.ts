@@ -49,7 +49,7 @@ describe('createChartWindController', () => {
         maxCells: 120,
         forecastDays: 5,
         source: 'automatic',
-        atmosphericFields: 'wind',
+        atmosphericFields: 'chart',
       },
       { waves: false, radar: false },
       false,

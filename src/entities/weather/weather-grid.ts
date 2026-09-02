@@ -48,6 +48,8 @@ export interface WeatherGrid {
   // exception: Open-Meteo supplies the preceding hour's accumulation in millimeters, and the
   // display presents that hourly amount as mm/h.
   windGust?: number[][]; // m/s
+  airTemperature?: number[][]; // K
+  uvIndex?: number[][]; // dimensionless index
   pressureMsl?: number[][]; // Pa
   precipitation?: number[][]; // mm per preceding hour, a deliberate non-SI exception (see above)
   precipitationInterval?: 'preceding-hour';

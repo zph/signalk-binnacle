@@ -36,8 +36,8 @@ import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
 import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import {
+  CHART_FORECAST_LAYER_IDS,
   createChartWindController,
-  WEATHER_LAYER_IDS,
   type WeatherLoader,
 } from '$features/weather';
 import type { LatLon } from '$shared/geo';
@@ -350,13 +350,15 @@ let editGeneration = 0;
 // Captured from onLoad so the units effect below can reach
 // map.setGlobalStateProperty once the map exists. $state so the effect re-runs once it is assigned.
 let mapRef = $state<MapLibreMap | undefined>();
-let windVisible = untrack(() => savedLayers?.[WEATHER_LAYER_IDS.wind]?.visible ?? false);
+let forecastVisible = untrack(() =>
+  CHART_FORECAST_LAYER_IDS.some((id) => savedLayers?.[id]?.visible ?? false),
+);
 const chartWind = createChartWindController({
   store: untrack(() => weather),
   loader: untrack(() => weatherLoader),
   getBounds: () => (mapRef ? boundsToBbox(mapRef.getBounds()) : undefined),
   getSource: () => weatherSource.value,
-  isVisible: () => windVisible,
+  isVisible: () => forecastVisible,
 });
 
 $effect(() => chartWind.sourceChanged(weatherSource.value));
@@ -463,12 +465,15 @@ onMount(async () => {
     pixelRatio: mapRenderingPixelRatio(mapRenderingQuality.value, window.devicePixelRatio),
     managerOptions: {
       saved: savedLayers,
+      exclusive: [[...CHART_FORECAST_LAYER_IDS]],
       onChange: (settings) => {
         onLayersChange?.(settings);
-        const nextWindVisible = settings[WEATHER_LAYER_IDS.wind]?.visible ?? false;
-        if (nextWindVisible === windVisible) return;
-        windVisible = nextWindVisible;
-        chartWind.visibilityChanged(nextWindVisible);
+        const nextForecastVisible = CHART_FORECAST_LAYER_IDS.some(
+          (id) => settings[id]?.visible ?? false,
+        );
+        if (nextForecastVisible === forecastVisible) return;
+        forecastVisible = nextForecastVisible;
+        chartWind.visibilityChanged(nextForecastVisible);
       },
       savedOrder,
       onOrderChange,
@@ -745,8 +750,10 @@ onMount(async () => {
       const view = new LayersView(mgr);
       view.refresh();
       onReady?.(view);
-      windVisible = view.items.some((item) => item.id === WEATHER_LAYER_IDS.wind && item.visible);
-      if (windVisible) chartWind.schedule();
+      forecastVisible = view.items.some(
+        (item) => CHART_FORECAST_LAYER_IDS.some((id) => id === item.id) && item.visible,
+      );
+      if (forecastVisible) chartWind.schedule();
       onWindRetryReady?.(() => chartWind.load(true));
       if (isDestroyed()) return;
 

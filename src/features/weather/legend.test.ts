@@ -12,7 +12,7 @@ describe('weatherLegend', () => {
 
   it('uses the preferred Signal K speed unit independently of metric or imperial mode', () => {
     const legend = weatherLegend('weather-wind', 'day', 'imperial', 'km/h');
-    expect(legend?.title).toBe('Wind (km/h)');
+    expect(legend?.title).toBe('Wind gusts (km/h)');
     expect(legend?.highLabel).toBe('93');
   });
 
@@ -31,6 +31,17 @@ describe('weatherLegend', () => {
     for (const id of ['weather-waves', 'weather-precip', 'weather-cloud']) {
       expect(weatherLegend(id, 'day', 'metric')?.gradient).toMatch(/linear-gradient/);
     }
+  });
+
+  it('builds temperature and UV forecast legends', () => {
+    const temperature = weatherLegend('weather-temperature', 'day', 'imperial');
+    expect(temperature?.title).toBe('Air temperature (°F)');
+    expect(temperature?.lowLabel).toBe('14');
+    expect(temperature?.highLabel).toBe('104');
+    const uv = weatherLegend('weather-uv', 'day', 'metric');
+    expect(uv?.title).toBe('UV index');
+    expect(uv?.lowLabel).toBe('0');
+    expect(uv?.highLabel).toBe('11');
   });
 
   it('labels waves in meters with tenths under metric', () => {

@@ -77,7 +77,7 @@ export function createChartWindController(deps: ChartWindControllerDeps) {
         maxCells: MAX_WIND_CELLS,
         forecastDays: 5,
         source,
-        atmosphericFields: 'wind',
+        atmosphericFields: 'chart',
       },
       { waves: false, radar: false },
       force,

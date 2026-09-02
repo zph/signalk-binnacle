@@ -91,7 +91,10 @@ describe('weatherCacheKey', () => {
   it('separates compact wind-only grids from full atmospheric grids', () => {
     const full = weatherCacheKey(BBOX, { ...OPTS, atmosphericFields: 'all' }, false);
     const wind = weatherCacheKey(BBOX, { ...OPTS, atmosphericFields: 'wind' }, false);
+    const chart = weatherCacheKey(BBOX, { ...OPTS, atmosphericFields: 'chart' }, false);
     expect(wind).not.toBe(full);
+    expect(chart).not.toBe(full);
+    expect(chart).not.toBe(wind);
   });
 });
 

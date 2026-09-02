@@ -33,6 +33,16 @@ describe('windArrowFeatures', () => {
     expect(vectors.markers.features[0].properties?.label).toBe('19 kn');
   });
 
+  it('shows sustained and gust speed in one compact label', () => {
+    const vectors = windVectorFeatures(
+      { ...grid, windGust: [[14, 14, 14, 14]] },
+      { lo: 0, hi: 0, frac: 0 },
+      'kn',
+    );
+    expect(vectors.markers.features[0].properties?.label).toBe('19 G27 kn');
+    expect(vectors.markers.features[0].properties?.gust).toBe(14);
+  });
+
   it('uses a dense, even sample without oversized barbs', () => {
     const lats = Array.from({ length: 12 }, (_, index) => index);
     const lons = Array.from({ length: 18 }, (_, index) => index);
@@ -80,6 +90,7 @@ describe('windArrowFeatures', () => {
     const closePoints = close.markers.features.map(
       (feature) => (feature.geometry as GeoJSON.Point).coordinates,
     );
+    expect(closePoints).toHaveLength(192);
     expect(
       closePoints.every(
         ([longitude, latitude]) =>
@@ -92,6 +103,30 @@ describe('windArrowFeatures', () => {
     expect(Math.abs(closeStaff[1][0] - closeStaff[0][0])).toBeLessThan(
       Math.abs(wideStaff[1][0] - wideStaff[0][0]),
     );
+  });
+
+  it('interpolates a fresh dense lattice when zoomed inside a sparse source grid', () => {
+    const varying: WeatherGrid = {
+      ...grid,
+      windU: [
+        [2, 10, 2, 10],
+        [2, 10, 2, 10],
+      ],
+    };
+    const vectors = windVectorFeatures(varying, { lo: 0, hi: 0, frac: 0 }, 'm/s', {
+      west: 0.4,
+      south: 0.4,
+      east: 0.6,
+      north: 0.6,
+      width: 560,
+      height: 448,
+    });
+
+    expect(vectors.arrows.features).toHaveLength(80);
+    const speeds = vectors.arrows.features.map((feature) => feature.properties?.speed as number);
+    expect(Math.min(...speeds)).toBeGreaterThan(5);
+    expect(Math.max(...speeds)).toBeLessThan(7);
+    expect(new Set(speeds.map((speed) => speed.toFixed(2))).size).toBeGreaterThan(1);
   });
 
   it('skips near-calm cells', () => {

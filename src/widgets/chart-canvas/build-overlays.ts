@@ -36,7 +36,12 @@ import { createHistoryTrackOverlay, createTrackOverlay } from '$features/track-l
 import type { TripLogController } from '$features/tracks';
 import { createVesselOverlay } from '$features/vessel-layer';
 import { createWaypointOverlay } from '$features/waypoints';
-import { createObservedWindOverlay, createWindOverlay } from '$features/weather';
+import {
+  createObservedWindOverlay,
+  createTemperatureOverlay,
+  createUvOverlay,
+  createWindOverlay,
+} from '$features/weather';
 import type { LatLon } from '$shared/geo';
 import {
   type PersistedValue,
@@ -132,6 +137,8 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
   } = deps;
   return [
     createWindOverlay(weather, undefined, () => units.speedUnit),
+    createTemperatureOverlay(weather),
+    createUvOverlay(weather),
     createObservedWindOverlay(origin, getToken, () => units.speedUnit),
     interactionsAllowed
       ? createTidesOverlay(tides, units, onTideStationSelect, Date.now, interactionsAllowed)

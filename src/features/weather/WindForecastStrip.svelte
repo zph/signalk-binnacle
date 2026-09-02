@@ -13,7 +13,9 @@ import {
   WEATHER_SOURCE_OPTIONS,
   type WeatherSourceId,
 } from '$shared/settings';
+import type { Theme } from '$shared/ui';
 import { createForecastPlayback } from './forecast-playback.svelte';
+import { weatherLegend } from './legend';
 import type { TimeRange } from './time-scrub';
 
 interface Props {
@@ -21,11 +23,15 @@ interface Props {
   weatherSource: PersistedValue<WeatherSourceId>;
   units: UnitsStore;
   clock: ReactiveClock;
+  kind: 'Wind and gusts' | 'Temperature' | 'UV index';
+  layerId: string;
+  theme: Theme;
   onRetry?: () => void;
   onHide: () => void;
 }
 
-const { store, weatherSource, units, clock, onRetry, onHide }: Props = $props();
+const { store, weatherSource, units, clock, kind, layerId, theme, onRetry, onHide }: Props =
+  $props();
 const STEP_MS = 3 * HOUR_MS;
 
 const range = $derived<TimeRange | undefined>(
@@ -42,17 +48,28 @@ const timeKind = $derived(store.selectedTime < clock.now - STEP_MS / 2 ? 'Past' 
 const sourceTitle = $derived(
   WEATHER_SOURCE_OPTIONS.find((option) => option.id === weatherSource.value)?.title ?? 'Automatic',
 );
+const legend = $derived(weatherLegend(layerId, theme, units.mode, units.speedUnit));
+const uvUnavailable = $derived(
+  kind === 'UV index' &&
+    store.grid !== undefined &&
+    !store.grid.uvIndex?.some((step) => step.some(Number.isFinite)),
+);
 const nowFrac = $derived.by<number | undefined>(() => {
   if (!range || range.end <= range.start) return undefined;
   const fraction = (clock.now - range.start) / (range.end - range.start);
   return fraction >= 0 && fraction <= 1 ? fraction : undefined;
 });
 const statusNote = $derived.by(() => {
-  if (store.status === 'loading' && !store.grid) return 'Loading wind forecast';
-  if (store.status === 'error') return 'Wind forecast unavailable';
-  if (store.status === 'stale') return 'Showing the last cached wind forecast';
-  if (!store.grid) return 'Waiting for wind forecast';
-  return `${sourceTitle} · wind speed in ${speedUnitLabel(units.speedUnit)}`;
+  if (store.status === 'loading' && !store.grid) return `Loading ${kind.toLowerCase()} forecast`;
+  if (store.status === 'error') return `${kind} forecast unavailable`;
+  if (store.status === 'stale') return `Showing the last cached ${kind.toLowerCase()} forecast`;
+  if (!store.grid) return `Waiting for ${kind.toLowerCase()} forecast`;
+  if (uvUnavailable) {
+    return `UV index is unavailable from ${sourceTitle}. Choose Automatic or NOAA for UV.`;
+  }
+  return kind === 'Wind and gusts'
+    ? `${sourceTitle} · sustained and gust speed in ${speedUnitLabel(units.speedUnit)}`
+    : `${sourceTitle} · ${kind.toLowerCase()} forecast`;
 });
 
 const playback = createForecastPlayback(
@@ -63,11 +80,11 @@ const playback = createForecastPlayback(
 onDestroy(() => playback.destroy());
 </script>
 
-<aside class="bottom-strip bottom-strip--accent wind-strip" aria-label="Wind forecast overlay">
+<aside class="bottom-strip bottom-strip--accent wind-strip" aria-label={`${kind} forecast overlay`}>
   <div class="head">
-    <span class="title">Wind forecast</span>
+    <span class="title">{kind}</span>
     <label class="source-field">
-      <span class="visually-hidden">Wind forecast source</span>
+      <span class="visually-hidden">Weather forecast source</span>
       <select
         class="input source-select"
         value={weatherSource.value}
@@ -82,7 +99,7 @@ onDestroy(() => playback.destroy());
   </div>
 
   {#if range}
-    <div class="scrubber" role="group" aria-label="Wind forecast playback">
+    <div class="scrubber" role="group" aria-label="Weather forecast playback">
       <button
         type="button"
         class="icon-btn step"
@@ -94,7 +111,7 @@ onDestroy(() => playback.destroy());
       <button
         type="button"
         class="icon-btn step"
-        aria-label={playback.playing ? 'Pause wind forecast' : 'Play wind forecast'}
+        aria-label={playback.playing ? 'Pause weather forecast' : 'Play weather forecast'}
         onclick={playback.toggle}
       >
         {#if playback.playing}
@@ -119,7 +136,7 @@ onDestroy(() => playback.destroy());
           max={range.end}
           step={range.stepMs}
           value={store.selectedTime}
-          aria-label="Wind forecast time"
+          aria-label="Weather forecast time"
           aria-valuetext="{timeKind} {timeLabel}"
           oninput={(event) => playback.setTime(Number(event.currentTarget.value))}
         >
@@ -144,6 +161,14 @@ onDestroy(() => playback.destroy());
       </button>
     {/if}
   </div>
+  {#if legend?.gradient}
+    <div class="forecast-legend">
+      <span class="legend-title">{legend.title}</span>
+      <span class="legend-value num">{legend.lowLabel}</span>
+      <span class="legend-ramp" style:background={legend.gradient} aria-hidden="true"></span>
+      <span class="legend-value num">{legend.highLabel}</span>
+    </div>
+  {/if}
 </aside>
 
 <style>
@@ -199,6 +224,28 @@ onDestroy(() => playback.destroy());
   align-items: center;
   gap: var(--space-2);
   margin-block-start: var(--space-1);
+}
+.forecast-legend {
+  display: grid;
+  grid-template-columns: auto auto minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  font-size: var(--font-size-xs);
+}
+.legend-title {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.legend-value {
+  min-inline-size: 2ch;
+  color: var(--text-muted);
+  text-align: center;
+}
+.legend-ramp {
+  block-size: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
 }
 .status-row .note {
   flex: 1;

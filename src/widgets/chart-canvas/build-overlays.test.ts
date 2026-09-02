@@ -45,6 +45,8 @@ const factories = vi.hoisted(() => {
       (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
         marker('weather-wind'),
     ),
+    createTemperatureOverlay: vi.fn(() => marker('weather-temperature')),
+    createUvOverlay: vi.fn(() => marker('weather-uv')),
     createObservedWindOverlay: vi.fn(() => marker('weather-observed-wind')),
   };
 });
@@ -73,7 +75,12 @@ vi.mock('$features/track-layer', () => ({
 }));
 vi.mock('$features/vessel-layer', () => ({ createVesselOverlay: factories.createVesselOverlay }));
 vi.mock('$features/waypoints', () => ({ createWaypointOverlay: factories.createWaypointOverlay }));
-vi.mock('$features/weather', () => ({ createWindOverlay: factories.createWindOverlay, createObservedWindOverlay: factories.createObservedWindOverlay }));
+vi.mock('$features/weather', () => ({
+  createTemperatureOverlay: factories.createTemperatureOverlay,
+  createUvOverlay: factories.createUvOverlay,
+  createWindOverlay: factories.createWindOverlay,
+  createObservedWindOverlay: factories.createObservedWindOverlay,
+}));
 
 function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => boolean) {
   const assessment = { contacts: [], worst: 'clear' };
@@ -126,6 +133,8 @@ describe('buildDynamicOverlays', () => {
 
     expect(overlays.map(({ id }) => id)).toEqual([
       'weather-wind',
+      'weather-temperature',
+      'weather-uv',
       'weather-observed-wind',
       'tides',
       'anchor',
@@ -152,6 +161,8 @@ describe('buildDynamicOverlays', () => {
     const { overlays } = setup();
     expect(overlays.map(({ id }) => id)).toEqual([
       'weather-wind',
+      'weather-temperature',
+      'weather-uv',
       'weather-observed-wind',
       'tides',
       'anchor',
@@ -186,6 +197,8 @@ describe('buildDynamicOverlays', () => {
       undefined,
       expect.any(Function),
     );
+    expect(factories.createTemperatureOverlay).toHaveBeenCalledWith(deps.weather);
+    expect(factories.createUvOverlay).toHaveBeenCalledWith(deps.weather);
     expect(factories.createObservedWindOverlay).toHaveBeenCalledWith(
       deps.origin,
       deps.getToken,

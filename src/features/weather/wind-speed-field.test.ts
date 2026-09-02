@@ -32,4 +32,20 @@ describe('windSpeedFieldRgba', () => {
     const late = windSpeedFieldRgba(grid, { lo: 0, hi: 1, frac: 1 }, 'day');
     expect(late?.data.slice(0, 4)).not.toEqual(early?.data.slice(0, 4));
   });
+
+  it('colors by gust speed when the combined chart forecast carries gusts', () => {
+    const sustained = windSpeedFieldRgba(grid, { lo: 0, hi: 0, frac: 0 }, 'day');
+    const gusts = windSpeedFieldRgba(
+      {
+        ...grid,
+        windGust: [
+          [25, 25, 25, 25],
+          [25, 25, 25, 25],
+        ],
+      },
+      { lo: 0, hi: 0, frac: 0 },
+      'day',
+    );
+    expect(gusts?.data.slice(0, 4)).not.toEqual(sustained?.data.slice(0, 4));
+  });
 });

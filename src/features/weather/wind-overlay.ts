@@ -29,8 +29,9 @@ interface WindOverlay extends OverlayModule {
   sync(ctx: OverlayContext): void;
 }
 
-// The wind layer draws a speed field beneath compact conventional wind barbs. The barbs are static
-// by design: they remain legible at a glance and do not turn the chart into a moving particle field.
+// The wind layer draws gust speed as color beneath sustained-wind barbs and S/G labels. Gust models
+// provide speed but no separate direction, so one truthful direction symbol is clearer than two
+// overlapping barbs. The barbs are static so the chart stays legible at a glance.
 export function createWindOverlay(
   store: WeatherStore,
   makeCanvas?: CanvasFactory,
@@ -41,7 +42,7 @@ export function createWindOverlay(
     {
       id: WEATHER_LAYER_IDS.wind,
       title: 'Wind',
-      description: 'Wind speed and direction across the area.',
+      description: 'Sustained wind direction and speed over a gust-speed field.',
       sourceId: FIELD_SOURCE_ID,
       layerId: FIELD_LAYER_ID,
       fieldRgba: windSpeedFieldRgba,
@@ -113,12 +114,19 @@ export function createWindOverlay(
 
   function viewFor(ctx: OverlayContext): WindVectorView {
     const bounds = ctx.map.getBounds();
+    const canvasBounds = ctx.map.getCanvas().getBoundingClientRect();
     return {
       west: bounds.getWest(),
       south: bounds.getSouth(),
       east: bounds.getEast(),
       north: bounds.getNorth(),
+      width: canvasBounds.width,
+      height: canvasBounds.height,
     };
+  }
+
+  function viewKey(view: WindVectorView): string {
+    return `${view.west.toFixed(4)},${view.south.toFixed(4)},${view.east.toFixed(4)},${view.north.toFixed(4)},${view.width ?? 0},${view.height ?? 0}`;
   }
 
   function syncBarbs(ctx: OverlayContext, speedUnit: SpeedUnit, view: WindVectorView): void {
@@ -131,7 +139,7 @@ export function createWindOverlay(
   return {
     id: WEATHER_LAYER_IDS.wind,
     title: 'Wind',
-    description: 'Wind speed and direction across the area.',
+    description: 'Sustained wind direction and speed over a gust-speed field.',
     band: 'weather',
     supportsOpacity: true,
     defaultVisible: false,
@@ -148,7 +156,7 @@ export function createWindOverlay(
         const view = viewFor(ctx);
         syncBarbs(ctx, speedUnit, view);
         lastSpeedUnit = speedUnit;
-        lastViewKey = `${view.west.toFixed(4)},${view.south.toFixed(4)},${view.east.toFixed(4)},${view.north.toFixed(4)}`;
+        lastViewKey = viewKey(view);
       };
       ctx.map.on('zoomend', zoomListener);
     },
@@ -164,11 +172,11 @@ export function createWindOverlay(
       const changed = gate.changed();
       const speedUnit = getSpeedUnit();
       const view = viewFor(ctx);
-      const viewKey = `${view.west.toFixed(4)},${view.south.toFixed(4)},${view.east.toFixed(4)},${view.north.toFixed(4)}`;
-      if (!changed && speedUnit === lastSpeedUnit && viewKey === lastViewKey) return;
+      const nextViewKey = viewKey(view);
+      if (!changed && speedUnit === lastSpeedUnit && nextViewKey === lastViewKey) return;
       syncBarbs(ctx, speedUnit, view);
       lastSpeedUnit = speedUnit;
-      lastViewKey = viewKey;
+      lastViewKey = nextViewKey;
     },
     remove(ctx) {
       visible = false;

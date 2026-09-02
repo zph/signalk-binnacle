@@ -3,6 +3,8 @@
 // saved layer settings, so they must stay stable.
 export const WEATHER_LAYER_IDS = {
   wind: 'weather-wind',
+  temperature: 'weather-temperature',
+  uv: 'weather-uv',
   observedWind: 'weather-observed-wind',
   pressure: 'weather-pressure',
   waves: 'weather-waves',
@@ -10,6 +12,14 @@ export const WEATHER_LAYER_IDS = {
   cloud: 'weather-cloud',
   radar: 'weather-radar',
 } as const;
+
+// The primary chart's forecast button cycles these mutually exclusive visual modes. Keeping the
+// ordered cycle beside the stable ids makes the button, Layers panel, and map manager agree.
+export const CHART_FORECAST_LAYER_IDS = [
+  WEATHER_LAYER_IDS.wind,
+  WEATHER_LAYER_IDS.temperature,
+  WEATHER_LAYER_IDS.uv,
+] as const;
 
 // The weather area-fill layer ids. These are mutually exclusive (one fill at a time): the
 // LayerManager enforces it and the Weather panel groups them. Wind and pressure are combinable
