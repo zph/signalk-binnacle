@@ -297,7 +297,8 @@ describe('fetchMarine', () => {
     expect(marine?.source.coordinates[3]).toEqual({ latitude: 1, longitude: 1 });
     expect(marine?.source.times[0]).toBe(1748908800000);
     const requestUrl = new URL(String(fetchFn.mock.calls[0][0]));
-    expect(requestUrl.searchParams.get('velocity_unit')).toBe('ms');
+    expect(requestUrl.searchParams.get('wind_speed_unit')).toBe('ms');
+    expect(requestUrl.searchParams.has('velocity_unit')).toBe(false);
     expect(requestUrl.searchParams.get('temperature_unit')).toBe('kelvin');
   });
 

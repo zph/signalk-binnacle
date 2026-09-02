@@ -22,9 +22,8 @@ import { fetchAuthedJson } from '$shared/signalk';
 export const SIGNALK_TIDES_PLUGIN_ID = 'tides';
 
 const RESOURCE_PATH = '/signalk/v2/api/resources/tides';
-// The plugin answers with about a week of extremes. Trim to the CO-OPS window (the current UTC
-// day plus 48 hours) so the panel's curve and next-event readouts read the same whichever source
-// served them.
+// The plugin usually answers with about a week of extremes. Keep everything within Binnacle's
+// ten-day window, while accepting a shorter provider horizon as returned.
 const SYNTHETIC_STATION = 'Local tides (signalk-tides)';
 
 export interface SignalkTidesOptions {

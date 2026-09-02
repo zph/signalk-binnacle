@@ -198,7 +198,7 @@ describe('createTidesLoader', () => {
 
   it('refetches after a day rollover even when the boat has not moved', async () => {
     // Anchored: same position both loads, but the second lands on the next UTC day, so the
-    // 3 km skip radius must not pin the aging 48-hour event window.
+    // 3 km skip radius must not pin the aging ten-day event window.
     let nowMs = Date.UTC(2026, 5, 8, 23, 0);
     const d = deps({ now: () => nowMs });
     const loader = createTidesLoader(d);

@@ -757,11 +757,13 @@ const chartForecastLayer = $derived(
   CHART_FORECAST_LAYER_IDS.find((id) => layerSettings[id]?.visible),
 );
 const chartForecastKind = $derived(
-  chartForecastLayer === WEATHER_LAYER_IDS.temperature
-    ? 'Temperature'
-    : chartForecastLayer === WEATHER_LAYER_IDS.uv
-      ? 'UV index'
-      : 'Wind and gusts',
+  chartForecastLayer === WEATHER_LAYER_IDS.current
+    ? 'Ocean currents'
+    : chartForecastLayer === WEATHER_LAYER_IDS.temperature
+      ? 'Temperature'
+      : chartForecastLayer === WEATHER_LAYER_IDS.uv
+        ? 'UV index'
+        : 'Wind and gusts',
 );
 // Whole-route time: the active leg's own estimate (server timeToGo, else positive-VMG) plus the
 // explicit planning speed across the legs ahead. Never cross-track SOG for the whole route: an

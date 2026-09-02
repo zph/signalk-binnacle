@@ -3,6 +3,7 @@
 // saved layer settings, so they must stay stable.
 export const WEATHER_LAYER_IDS = {
   wind: 'weather-wind',
+  current: 'weather-current',
   temperature: 'weather-temperature',
   uv: 'weather-uv',
   observedWind: 'weather-observed-wind',
@@ -17,6 +18,7 @@ export const WEATHER_LAYER_IDS = {
 // ordered cycle beside the stable ids makes the button, Layers panel, and map manager agree.
 export const CHART_FORECAST_LAYER_IDS = [
   WEATHER_LAYER_IDS.wind,
+  WEATHER_LAYER_IDS.current,
   WEATHER_LAYER_IDS.temperature,
   WEATHER_LAYER_IDS.uv,
 ] as const;
@@ -25,6 +27,7 @@ export const CHART_FORECAST_LAYER_IDS = [
 // LayerManager enforces it and the Weather panel groups them. Wind and pressure are combinable
 // overlays, not fills.
 export const WEATHER_FILL_IDS: string[] = [
+  WEATHER_LAYER_IDS.current,
   WEATHER_LAYER_IDS.waves,
   WEATHER_LAYER_IDS.precip,
   WEATHER_LAYER_IDS.cloud,

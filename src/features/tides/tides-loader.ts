@@ -10,9 +10,14 @@ import type {
   TidesLoadResult,
   TidesStore,
 } from '$entities/tides';
-import { isTideStation, MAX_NEARBY_STATIONS, MAX_TIDE_SAMPLES } from '$entities/tides';
+import {
+  isTideStation,
+  MAX_NEARBY_STATIONS,
+  MAX_TIDE_SAMPLES,
+  TIDE_WINDOW_HOURS,
+} from '$entities/tides';
 import { quantizeCellDeg } from '$shared/geo';
-import { DAY_MS, isFiniteNumber, isRecord, MINUTE_MS } from '$shared/lib';
+import { DAY_MS, HOUR_MS, isFiniteNumber, isRecord, MINUTE_MS } from '$shared/lib';
 import { haversineMeters } from '$shared/nav';
 import { createExpiringStore, type ExpiringStore, MemoryCache } from '$shared/storage';
 import {
@@ -183,13 +188,13 @@ function validatedTideReading(value: unknown): TideReading | undefined {
   return { station: value.station, distanceMeters: value.distanceMeters, events, samples };
 }
 
-// Persisted predictions expire at the end of the 48-hour window the day's fetch covered. The day
+// Persisted predictions expire at the end of the ten-day window the day's fetch covered. The day
 // in the key already retires them at the UTC-midnight rollover; the expiry only bounds how long a
 // stale-day entry lingers before a prune sweeps it.
 function eventsExpiresAt(nowMs: number): number {
   const d = new Date(nowMs);
-  const nextUtcMidnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + DAY_MS;
-  return nextUtcMidnight + 2 * DAY_MS;
+  const utcDayStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return utcDayStart + TIDE_WINDOW_HOURS * HOUR_MS;
 }
 
 const realDeps: LoaderDeps = {

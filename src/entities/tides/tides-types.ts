@@ -1,10 +1,10 @@
 // All values are SI: height in meters, velocity in m/s, time as Unix milliseconds, and position in
 // decimal degrees. NOAA CO-OPS is the source, so this is US and territories only.
 
-// The tide and current prediction window, the current UTC day plus this many hours, so the next
-// high and low are always present even late in the day. Shared so the CO-OPS and signalk-tides
-// sources trim to the same span and their curves and readouts agree.
-export const TIDE_WINDOW_HOURS = 48;
+// The tide and current prediction window starts at the current UTC day. Ten days matches the
+// longest common horizon available from NOAA CO-OPS and gives passage planning the same span as
+// the weather overlays. A provider with a shorter horizon remains usable as returned.
+export const TIDE_WINDOW_HOURS = 240;
 export const MAX_NEARBY_STATIONS = 8;
 
 export interface TideStation {

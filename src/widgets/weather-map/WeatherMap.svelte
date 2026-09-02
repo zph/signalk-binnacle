@@ -13,6 +13,7 @@ import { LayersView } from '$features/layers-panel';
 import { createRouteOverlay } from '$features/route-layer';
 import {
   createCloudOverlay,
+  createCurrentOverlay,
   createForecastPlayback,
   createPointReadout,
   createPrecipOverlay,
@@ -216,6 +217,7 @@ const menuProvenance = $derived.by<string | undefined>(() => {
 });
 const layerOn = (id: string): boolean => items.some((i) => i.id === id && i.visible);
 const wavesActive = $derived(layerOn(WEATHER_LAYER_IDS.waves));
+const currentActive = $derived(layerOn(WEATHER_LAYER_IDS.current));
 const radarActive = $derived(layerOn(WEATHER_LAYER_IDS.radar));
 
 // Surface the loader's status so opening the panel offline or during a rate-limit is honest rather
@@ -223,8 +225,10 @@ const radarActive = $derived(layerOn(WEATHER_LAYER_IDS.radar));
 // forecast is still shown); only a first-load wait, a hard failure, or a stale fallback show a note.
 // A grid missing its requested wave fields is qualified rather than passed off as complete.
 const wavesMissing = $derived(wavesActive && !!store.grid?.partialWaves);
+const currentMissing = $derived(currentActive && !!store.grid && !store.grid.oceanCurrentSpeed);
 const statusNote = $derived.by<string>(() => {
-  const wavesNote = wavesMissing ? ' (waves unavailable)' : '';
+  const missing = [wavesMissing ? 'waves' : '', currentMissing ? 'currents' : ''].filter(Boolean);
+  const marineNote = missing.length > 0 ? ` (${missing.join(' and ')} unavailable)` : '';
   switch (store.status) {
     case 'loading':
       return store.grid ? '' : 'Loading forecast';
@@ -234,11 +238,11 @@ const statusNote = $derived.by<string>(() => {
       const fetched = store.grid?.fetchedAt;
       const age = fetched === undefined ? undefined : Math.round((clock.now - fetched) / MINUTE_MS);
       return age === undefined
-        ? `Showing last forecast${wavesNote}`
-        : `Showing forecast fetched ${age} min ago${wavesNote}`;
+        ? `Showing last forecast${marineNote}`
+        : `Showing forecast fetched ${age} min ago${marineNote}`;
     }
     default:
-      return wavesNote ? `Showing forecast${wavesNote}` : '';
+      return marineNote ? `Showing forecast${marineNote}` : '';
   }
 });
 
@@ -308,7 +312,7 @@ const playback = createForecastPlayback(
 // keep well under Open-Meteo's free-tier rate limit.
 const forecastOpts = () => ({
   maxCells: 200,
-  forecastDays: 5,
+  forecastDays: 10,
   source: weatherSource.value,
 });
 function loadCurrentWeather(currentItems = items, force = false): void {
@@ -319,7 +323,7 @@ function loadCurrentWeather(currentItems = items, force = false): void {
     getBounds(),
     forecastOpts(),
     {
-      waves: visible(WEATHER_LAYER_IDS.waves),
+      waves: visible(WEATHER_LAYER_IDS.waves) || visible(WEATHER_LAYER_IDS.current),
       radar: visible(WEATHER_LAYER_IDS.radar),
     },
     force,
@@ -353,9 +357,11 @@ function requestOnRisingEdge(active: boolean, requested: boolean): boolean {
   return true;
 }
 let wavesRequested = false;
+let currentRequested = false;
 let radarRequested = false;
 $effect(() => {
   wavesRequested = requestOnRisingEdge(wavesActive, wavesRequested);
+  currentRequested = requestOnRisingEdge(currentActive, currentRequested);
   radarRequested = requestOnRisingEdge(radarActive, radarRequested);
 });
 
@@ -404,6 +410,7 @@ onMount(() => {
       // fields; unlisted, so route context is not a weather layer to toggle or persist here.
       const overlays = [
         createWavesOverlay(store),
+        createCurrentOverlay(store, undefined, () => units.speedUnit),
         createPrecipOverlay(store),
         createCloudOverlay(store),
         createRadarOverlay(store, undefined, undefined, (t) => (radarFrameTime = t)),
@@ -499,7 +506,7 @@ onDestroy(() => {
         aria-expanded={conditionsOpen}
         aria-controls={conditionsOpen ? 'weather-conditions' : undefined}
         aria-label="Conditions at the boat"
-        title="Conditions at the boat: wind, pressure, waves, and any warnings"
+        title="Conditions at the boat: wind, pressure, waves, currents, and any warnings"
         onclick={toggleConditions}
       >
         Here
@@ -579,6 +586,14 @@ onDestroy(() => {
               {/if}
               {#if readout.waveFromRad !== undefined}
                 from <b class="num">{formatBearingOr(readout.waveFromRad)}</b>&deg;T
+              {/if}
+            {/if}
+            {#if showField(WEATHER_LAYER_IDS.current) && readout.currentSpeedMs !== undefined}
+              &middot; current
+              <b class="num">{formatSpeedOr(readout.currentSpeedMs, units.speedUnit, 1)}</b>
+              {speedUnitLabel(units.speedUnit)}
+              {#if readout.currentDirectionRad !== undefined}
+                toward <b class="num">{formatBearingOr(readout.currentDirectionRad)}</b>&deg;T
               {/if}
             {/if}
             {#if showPrecipOrRadar && readout.precipitationMm !== undefined && readout.precipitationMm >= RAIN_VISIBLE_MM_H}

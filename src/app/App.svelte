@@ -163,7 +163,6 @@ import { createTrackController, createTripLogController } from '$features/tracks
 import { createTrendsController } from '$features/trends';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
-  CHART_FORECAST_LAYER_IDS,
   createPointConditionsLoader,
   createWeatherLoader,
   defaultProvider,
@@ -1695,23 +1694,32 @@ function setLayerVisible(id: string, visible: boolean): void {
   mapCommands?.applyLayers(next, layerOrder.value);
 }
 
-type ChartForecastLayerId = (typeof CHART_FORECAST_LAYER_IDS)[number];
+const HELM_WEATHER_LAYER_IDS = [
+  WEATHER_LAYER_IDS.wind,
+  WEATHER_LAYER_IDS.current,
+  TIDES_OVERLAY_ID,
+  WEATHER_LAYER_IDS.temperature,
+  WEATHER_LAYER_IDS.uv,
+] as const;
+type HelmWeatherLayerId = (typeof HELM_WEATHER_LAYER_IDS)[number];
 
-const chartForecastLayer = $derived(
-  CHART_FORECAST_LAYER_IDS.find((id) => layerSettings.value[id]?.visible),
+const helmWeatherLayer = $derived(
+  HELM_WEATHER_LAYER_IDS.find((id) => layerSettings.value[id]?.visible),
 );
 
-function chartForecastLayerName(id: ChartForecastLayerId | undefined): string {
+function helmWeatherLayerName(id: HelmWeatherLayerId | undefined): string {
   if (id === WEATHER_LAYER_IDS.wind) return 'wind and gusts';
+  if (id === WEATHER_LAYER_IDS.current) return 'ocean currents';
+  if (id === TIDES_OVERLAY_ID) return 'tide and current stations';
   if (id === WEATHER_LAYER_IDS.temperature) return 'temperature';
   if (id === WEATHER_LAYER_IDS.uv) return 'UV index';
   return 'off';
 }
 
-function setChartForecastLayer(id: ChartForecastLayerId | undefined): void {
+function setHelmWeatherLayer(id: HelmWeatherLayerId | undefined): void {
   let changed = false;
   const next = { ...layerSettings.value };
-  for (const layerId of CHART_FORECAST_LAYER_IDS) {
+  for (const layerId of HELM_WEATHER_LAYER_IDS) {
     const current = next[layerId];
     const visible = layerId === id;
     if (current?.visible === visible) continue;
@@ -1723,12 +1731,10 @@ function setChartForecastLayer(id: ChartForecastLayerId | undefined): void {
   mapCommands?.applyLayers(next, layerOrder.value);
 }
 
-function cycleChartForecastLayer(): void {
-  const currentIndex = chartForecastLayer
-    ? CHART_FORECAST_LAYER_IDS.indexOf(chartForecastLayer)
-    : -1;
-  const next = CHART_FORECAST_LAYER_IDS[currentIndex + 1];
-  setChartForecastLayer(next);
+function cycleHelmWeatherLayer(): void {
+  const currentIndex = helmWeatherLayer ? HELM_WEATHER_LAYER_IDS.indexOf(helmWeatherLayer) : -1;
+  const next = HELM_WEATHER_LAYER_IDS[currentIndex + 1];
+  setHelmWeatherLayer(next);
 }
 
 function onTideStationSelect(selection: TideStationSelectionEvent): void {
@@ -2649,12 +2655,23 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     },
     {
       id: 'wind-forecast-overlay',
-      label: `Cycle weather forecast overlay (${chartForecastLayerName(chartForecastLayer)})`,
-      description: 'Cycle wind and gusts, temperature, UV index, and off on the main chart',
+      label: `Cycle weather and tide overlay (${helmWeatherLayerName(helmWeatherLayer)})`,
+      description:
+        'Cycle wind and gusts, ocean currents, tide and current stations, temperature, UV index, and off on the main chart',
       group: 'Weather',
-      keywords: ['wind', 'gust', 'temperature', 'UV', 'forecast', 'overlay', 'layer'],
+      keywords: [
+        'wind',
+        'gust',
+        'ocean current',
+        'tide',
+        'temperature',
+        'UV',
+        'forecast',
+        'overlay',
+        'layer',
+      ],
       icon: Wind,
-      onSelect: cycleChartForecastLayer,
+      onSelect: cycleHelmWeatherLayer,
     },
     {
       id: 'observed-wind-stations-overlay',
@@ -4320,11 +4337,11 @@ const plotterActions = {
         <button
           type="button"
           class="btn btn-pill"
-          class:is-on={chartForecastLayer !== undefined}
-          aria-label={`Weather forecast: ${chartForecastLayerName(chartForecastLayer)}. Activate for next overlay.`}
-          aria-pressed={chartForecastLayer !== undefined}
-          title={`Weather: ${chartForecastLayerName(chartForecastLayer)}`}
-          onclick={cycleChartForecastLayer}
+          class:is-on={helmWeatherLayer !== undefined}
+          aria-label={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}. Activate for next overlay.`}
+          aria-pressed={helmWeatherLayer !== undefined}
+          title={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}`}
+          onclick={cycleHelmWeatherLayer}
         >
           <CloudSun size={16} aria-hidden="true" />
         </button>

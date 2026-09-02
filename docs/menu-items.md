@@ -208,21 +208,21 @@ source, and surrounding traffic before relying on it.
 
 ## Weather
 
-- **Wind forecast overlay** is available on the primary chart under **Layers and charts**, **Overlays**,
-  and **Ocean conditions**. Command K exposes **Show wind forecast overlay** or **Hide wind forecast
-  overlay**, according to its current state. While it is visible, a chart strip selects Automatic,
-  NOAA GFS with U.S. HRRR coverage, DWD ICON with European regional coverage, or global ECMWF IFS,
-  and provides earlier, later, playback, and five-day time-scrubbing controls. The source belongs to
-  the active profile. Panning the primary chart loads the selected wind field for the settled chart
-  viewport plus a padded margin for nearby pans. The chart request carries only wind speed and
-  direction, so a larger relocation replaces the field without downloading unrelated weather
-  variables. A continuous color surface represents forecast intensity across the loaded area. A
+- **Wind and ocean-current forecast overlays** are available on the primary chart under **Layers and
+  charts**, **Overlays**, and **Ocean conditions**. The bottom weather button cycles wind, ocean
+  currents, tide and current stations, temperature, UV index, and off. Command K exposes the same
+  cycle. While an atmospheric forecast field is visible, a chart strip selects Automatic, NOAA GFS
+  with U.S. HRRR coverage, DWD ICON with European regional coverage, or global ECMWF IFS. Every
+  forecast strip provides earlier, later, playback, and up-to-ten-day time-scrubbing controls. Ocean
+  currents use Open-Meteo Marine. The atmospheric source belongs to the active profile. Panning the
+  primary chart loads the selected field for the settled chart viewport plus a padded margin for
+  nearby pans. A continuous color surface represents forecast intensity across the loaded area. A
   sparse, evenly distributed set of high-contrast arrows includes arrowheads and preferred-unit
-  speed labels, while animated particles add motion when WebGL and reduced-motion preferences permit
-  it.
+  speed labels. Wind adds motion when WebGL and reduced-motion preferences permit it.
 - **Forecast** opens a weather mini-map at the navigation chart view. Wind and waves start visible on
   a fresh install, and its weather layer menu uses the same forecast-source choice as the primary
-  chart overlay. Wind, gust, and current speeds use the Signal K preferred speed unit independently
+  chart overlay. Ocean currents can be shown as a forecast field with set arrows. Wind, gust, and
+  current speeds use the Signal K preferred speed unit independently
   of length and temperature preferences. Parsed U/V wind fields remain in meters per second in
   source-specific IndexedDB cache entries. Cached data is labeled with source and fetch time, stale
   data remains visible, and a manual Retry bypasses automatic backoff after a failed fetch. Conditions

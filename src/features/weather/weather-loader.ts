@@ -37,7 +37,7 @@ export interface WeatherLoader {
 }
 
 // Open-Meteo model runs are hours apart, and the time slider shows the right hour from the cached
-// 5-day window regardless, so a forecast stays useful far longer than the old 30-minute TTL. An hour
+// ten-day window regardless, so a forecast stays useful far longer than the old 30-minute TTL. An hour
 // keeps "now" reasonably fresh while roughly halving the request volume (and the rate-limit risk).
 const GRID_FRESH_MS = HOUR_MS;
 // Retain parsed grids beyond freshness so an offline reload can still show the latest known model.

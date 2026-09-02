@@ -16,6 +16,15 @@ describe('weatherLegend', () => {
     expect(legend?.highLabel).toBe('93');
   });
 
+  it('builds an ocean-current speed gradient in the preferred speed unit', () => {
+    const legend = weatherLegend('weather-current', 'day', 'imperial', 'km/h');
+    expect(legend?.title).toBe('Ocean currents (km/h)');
+    expect(legend?.gradient).toMatch(/linear-gradient/);
+    expect(legend?.lowLabel).toBe('0.0');
+    expect(legend?.highLabel).toBe('7.4');
+    expect(legend?.note).toMatch(/arrows point toward/i);
+  });
+
   it('builds a single isobar swatch for pressure', () => {
     const legend = weatherLegend('weather-pressure', 'day', 'metric');
     expect(legend?.swatches).toHaveLength(1);

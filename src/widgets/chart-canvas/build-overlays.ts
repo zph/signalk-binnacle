@@ -37,6 +37,7 @@ import type { TripLogController } from '$features/tracks';
 import { createVesselOverlay } from '$features/vessel-layer';
 import { createWaypointOverlay } from '$features/waypoints';
 import {
+  createCurrentOverlay,
   createObservedWindOverlay,
   createTemperatureOverlay,
   createUvOverlay,
@@ -137,6 +138,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
   } = deps;
   return [
     createWindOverlay(weather, undefined, () => units.speedUnit),
+    createCurrentOverlay(weather, undefined, () => units.speedUnit),
     createTemperatureOverlay(weather),
     createUvOverlay(weather),
     createObservedWindOverlay(origin, getToken, () => units.speedUnit),

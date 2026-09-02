@@ -94,14 +94,15 @@ describe('parseTidesResource', () => {
     expect(reading?.distanceMeters).toBe(0);
   });
 
-  it('trims events to the 48-hour window from the current UTC day', () => {
+  it('trims events to the ten-day window from the current UTC day', () => {
     const reading = parseTidesResource(
       {
         extremes: [
           { time: '2026-06-07T22:00:00.000Z', type: 'High', value: 1.0 },
           { time: '2026-06-08T04:00:00.000Z', type: 'Low', value: 0.1 },
           { time: '2026-06-09T23:00:00.000Z', type: 'High', value: 1.2 },
-          { time: '2026-06-10T06:00:00.000Z', type: 'Low', value: 0.2 },
+          { time: '2026-06-17T23:00:00.000Z', type: 'Low', value: 0.2 },
+          { time: '2026-06-18T06:00:00.000Z', type: 'High', value: 1.1 },
         ],
       },
       27.7,
@@ -111,6 +112,7 @@ describe('parseTidesResource', () => {
     expect(reading?.events.map((e) => e.timeMs)).toEqual([
       Date.UTC(2026, 5, 8, 4, 0),
       Date.UTC(2026, 5, 9, 23, 0),
+      Date.UTC(2026, 5, 17, 23, 0),
     ]);
   });
 

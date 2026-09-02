@@ -38,6 +38,7 @@ import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import {
   CHART_FORECAST_LAYER_IDS,
   createChartWindController,
+  WEATHER_LAYER_IDS,
   type WeatherLoader,
 } from '$features/weather';
 import type { LatLon } from '$shared/geo';
@@ -353,12 +354,14 @@ let mapRef = $state<MapLibreMap | undefined>();
 let forecastVisible = untrack(() =>
   CHART_FORECAST_LAYER_IDS.some((id) => savedLayers?.[id]?.visible ?? false),
 );
+let forecastMarine = untrack(() => savedLayers?.[WEATHER_LAYER_IDS.current]?.visible ?? false);
 const chartWind = createChartWindController({
   store: untrack(() => weather),
   loader: untrack(() => weatherLoader),
   getBounds: () => (mapRef ? boundsToBbox(mapRef.getBounds()) : undefined),
   getSource: () => weatherSource.value,
   isVisible: () => forecastVisible,
+  wantsMarine: () => forecastMarine,
 });
 
 $effect(() => chartWind.sourceChanged(weatherSource.value));
@@ -471,7 +474,13 @@ onMount(async () => {
         const nextForecastVisible = CHART_FORECAST_LAYER_IDS.some(
           (id) => settings[id]?.visible ?? false,
         );
-        if (nextForecastVisible === forecastVisible) return;
+        const nextForecastMarine = settings[WEATHER_LAYER_IDS.current]?.visible ?? false;
+        const marineChanged = nextForecastMarine !== forecastMarine;
+        forecastMarine = nextForecastMarine;
+        if (nextForecastVisible === forecastVisible) {
+          if (marineChanged && nextForecastMarine) chartWind.schedule();
+          return;
+        }
         forecastVisible = nextForecastVisible;
         chartWind.visibilityChanged(nextForecastVisible);
       },
@@ -752,6 +761,9 @@ onMount(async () => {
       onReady?.(view);
       forecastVisible = view.items.some(
         (item) => CHART_FORECAST_LAYER_IDS.some((id) => id === item.id) && item.visible,
+      );
+      forecastMarine = view.items.some(
+        (item) => item.id === WEATHER_LAYER_IDS.current && item.visible,
       );
       if (forecastVisible) chartWind.schedule();
       onWindRetryReady?.(() => chartWind.load(true));

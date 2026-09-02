@@ -9,7 +9,7 @@ const VIEWPORT_REUSE_MS = 45 * 60 * 1000;
 
 // Fetch beyond the visible bounds so ordinary nearby pans remain inside the loaded field and redraw
 // immediately. A large relocation still replaces the grid after moveend, but requests only the two
-// wind variables rather than the full weather payload.
+// chart atmospheric variables rather than the full weather payload.
 export function paddedWindBounds(bounds: Bbox): Bbox {
   const lonPadding = Math.max(0.05, (bounds.east - bounds.west) * VIEWPORT_PADDING);
   const latPadding = Math.max(0.05, (bounds.north - bounds.south) * VIEWPORT_PADDING);
@@ -27,10 +27,12 @@ interface ChartWindControllerDeps {
   getBounds: () => Bbox | undefined;
   getSource: () => WeatherSourceId;
   isVisible: () => boolean;
+  wantsMarine: () => boolean;
 }
 
-// Loads only the atmospheric grid required by the primary chart's wind overlay. View changes are
-// debounced, and the shared loader handles source-specific caching, stale fallback, and cooldowns.
+// Loads the compact atmospheric grid required by the primary chart forecast overlays and adds the
+// marine grid only for ocean currents. View changes are debounced, and the shared loader handles
+// source-specific caching, stale fallback, and cooldowns.
 export function createChartWindController(deps: ChartWindControllerDeps) {
   let destroyed = false;
   let fetchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -75,11 +77,11 @@ export function createChartWindController(deps: ChartWindControllerDeps) {
       bounds,
       {
         maxCells: MAX_WIND_CELLS,
-        forecastDays: 5,
+        forecastDays: 10,
         source,
         atmosphericFields: 'chart',
       },
-      { waves: false, radar: false },
+      { waves: deps.wantsMarine(), radar: false },
       force,
     );
   }

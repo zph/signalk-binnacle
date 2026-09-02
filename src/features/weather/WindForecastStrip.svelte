@@ -23,7 +23,7 @@ interface Props {
   weatherSource: PersistedValue<WeatherSourceId>;
   units: UnitsStore;
   clock: ReactiveClock;
-  kind: 'Wind and gusts' | 'Temperature' | 'UV index';
+  kind: 'Wind and gusts' | 'Ocean currents' | 'Temperature' | 'UV index';
   layerId: string;
   theme: Theme;
   onRetry?: () => void;
@@ -54,6 +54,11 @@ const uvUnavailable = $derived(
     store.grid !== undefined &&
     !store.grid.uvIndex?.some((step) => step.some(Number.isFinite)),
 );
+const currentUnavailable = $derived(
+  kind === 'Ocean currents' &&
+    store.grid !== undefined &&
+    !store.grid.oceanCurrentSpeed?.some((step) => step.some(Number.isFinite)),
+);
 const nowFrac = $derived.by<number | undefined>(() => {
   if (!range || range.end <= range.start) return undefined;
   const fraction = (clock.now - range.start) / (range.end - range.start);
@@ -66,6 +71,10 @@ const statusNote = $derived.by(() => {
   if (!store.grid) return `Waiting for ${kind.toLowerCase()} forecast`;
   if (uvUnavailable) {
     return `UV index is unavailable from ${sourceTitle}. Choose Automatic or NOAA for UV.`;
+  }
+  if (currentUnavailable) return 'Ocean-current forecast is unavailable for this area.';
+  if (kind === 'Ocean currents') {
+    return `Open-Meteo Marine · modeled surface-current speed in ${speedUnitLabel(units.speedUnit)}`;
   }
   return kind === 'Wind and gusts'
     ? `${sourceTitle} · sustained and gust speed in ${speedUnitLabel(units.speedUnit)}`
@@ -83,18 +92,22 @@ onDestroy(() => playback.destroy());
 <aside class="bottom-strip bottom-strip--accent wind-strip" aria-label={`${kind} forecast overlay`}>
   <div class="head">
     <span class="title">{kind}</span>
-    <label class="source-field">
-      <span class="visually-hidden">Weather forecast source</span>
-      <select
-        class="input source-select"
-        value={weatherSource.value}
-        onchange={(event) => weatherSource.set(event.currentTarget.value as WeatherSourceId)}
-      >
-        {#each WEATHER_SOURCE_OPTIONS as option (option.id)}
-          <option value={option.id}>{option.title} ({option.coverage})</option>
-        {/each}
-      </select>
-    </label>
+    {#if kind === 'Ocean currents'}
+      <span class="source-field current-source">Open-Meteo Marine</span>
+    {:else}
+      <label class="source-field">
+        <span class="visually-hidden">Weather forecast source</span>
+        <select
+          class="input source-select"
+          value={weatherSource.value}
+          onchange={(event) => weatherSource.set(event.currentTarget.value as WeatherSourceId)}
+        >
+          {#each WEATHER_SOURCE_OPTIONS as option (option.id)}
+            <option value={option.id}>{option.title} ({option.coverage})</option>
+          {/each}
+        </select>
+      </label>
+    {/if}
     <button type="button" class="ack" onclick={onHide}>Hide</button>
   </div>
 
@@ -184,6 +197,10 @@ onDestroy(() => playback.destroy());
   min-block-size: 2rem;
   block-size: 2rem;
   padding-block: 0;
+  font-size: var(--text-xs);
+}
+.current-source {
+  color: var(--text-muted);
   font-size: var(--text-xs);
 }
 .scrubber {

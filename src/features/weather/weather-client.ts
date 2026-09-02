@@ -20,7 +20,7 @@ const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 // Open-Meteo accepts many locations per request; keep batches well under its cap.
 const MAX_LOCS_PER_REQUEST = 200;
 const MAX_FORECAST_CELLS = 600;
-const MAX_FORECAST_DAYS = 7;
+const MAX_FORECAST_DAYS = 10;
 export const MAX_FORECAST_HOURLY_STEPS = 24 * MAX_FORECAST_DAYS;
 const MIN_MARINE_ALIGNMENT_TOLERANCE_M = 1_000;
 const MAX_MARINE_ALIGNMENT_TOLERANCE_M = 20_000;
@@ -328,9 +328,10 @@ function sourceMetadata(
   };
 }
 
-// Fetch Open-Meteo marine wave data for the same sampled grid as the forecast. Best-effort: returns
-// undefined on any failure so waves degrade without affecting wind or pressure. Direction is
-// converted from degrees to radians on parse; height stays in meters, period in seconds (SI).
+// Fetch Open-Meteo marine wave and current data for the same sampled grid as the forecast.
+// Best-effort: returns undefined on any failure so marine overlays degrade without affecting wind
+// or pressure. Direction is converted from degrees to radians on parse; height stays in meters,
+// velocity in meters per second, and period in seconds (SI).
 export async function fetchMarine(
   bbox: Bbox,
   opts: ForecastOptions,
@@ -341,7 +342,7 @@ export async function fetchMarine(
     MARINE_URL,
     'wave_height,wave_direction,wave_period,wind_wave_height,wind_wave_direction,wind_wave_period,wind_wave_peak_period,swell_wave_height,swell_wave_direction,swell_wave_period,swell_wave_peak_period,ocean_current_velocity,ocean_current_direction,sea_surface_temperature',
     // Marine data exists only at sea cells; the forecast above keeps the default land selection.
-    { cell_selection: 'sea', velocity_unit: 'ms', temperature_unit: 'kelvin' },
+    { cell_selection: 'sea', wind_speed_unit: 'ms', temperature_unit: 'kelvin' },
     bbox,
     opts,
     fetchFn,

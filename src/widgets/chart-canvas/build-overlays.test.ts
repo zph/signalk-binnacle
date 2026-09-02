@@ -45,6 +45,10 @@ const factories = vi.hoisted(() => {
       (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
         marker('weather-wind'),
     ),
+    createCurrentOverlay: vi.fn(
+      (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
+        marker('weather-current'),
+    ),
     createTemperatureOverlay: vi.fn(() => marker('weather-temperature')),
     createUvOverlay: vi.fn(() => marker('weather-uv')),
     createObservedWindOverlay: vi.fn(() => marker('weather-observed-wind')),
@@ -76,6 +80,7 @@ vi.mock('$features/track-layer', () => ({
 vi.mock('$features/vessel-layer', () => ({ createVesselOverlay: factories.createVesselOverlay }));
 vi.mock('$features/waypoints', () => ({ createWaypointOverlay: factories.createWaypointOverlay }));
 vi.mock('$features/weather', () => ({
+  createCurrentOverlay: factories.createCurrentOverlay,
   createTemperatureOverlay: factories.createTemperatureOverlay,
   createUvOverlay: factories.createUvOverlay,
   createWindOverlay: factories.createWindOverlay,
@@ -133,6 +138,7 @@ describe('buildDynamicOverlays', () => {
 
     expect(overlays.map(({ id }) => id)).toEqual([
       'weather-wind',
+      'weather-current',
       'weather-temperature',
       'weather-uv',
       'weather-observed-wind',
@@ -161,6 +167,7 @@ describe('buildDynamicOverlays', () => {
     const { overlays } = setup();
     expect(overlays.map(({ id }) => id)).toEqual([
       'weather-wind',
+      'weather-current',
       'weather-temperature',
       'weather-uv',
       'weather-observed-wind',
@@ -197,6 +204,11 @@ describe('buildDynamicOverlays', () => {
       undefined,
       expect.any(Function),
     );
+    expect(factories.createCurrentOverlay).toHaveBeenCalledWith(
+      deps.weather,
+      undefined,
+      expect.any(Function),
+    );
     expect(factories.createTemperatureOverlay).toHaveBeenCalledWith(deps.weather);
     expect(factories.createUvOverlay).toHaveBeenCalledWith(deps.weather);
     expect(factories.createObservedWindOverlay).toHaveBeenCalledWith(
@@ -205,9 +217,12 @@ describe('buildDynamicOverlays', () => {
       expect.any(Function),
     );
     const windSpeedUnit = factories.createWindOverlay.mock.calls[0]?.[2];
+    const currentSpeedUnit = factories.createCurrentOverlay.mock.calls[0]?.[2];
     expect(windSpeedUnit?.()).toBe('kn');
+    expect(currentSpeedUnit?.()).toBe('kn');
     deps.units.speedUnit = 'kmh';
     expect(windSpeedUnit?.()).toBe('kmh');
+    expect(currentSpeedUnit?.()).toBe('kmh');
     expect(factories.createAnchorOverlay).toHaveBeenCalledWith(
       deps.anchor,
       deps.vessel,

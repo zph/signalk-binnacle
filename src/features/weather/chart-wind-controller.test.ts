@@ -5,6 +5,7 @@ const bbox = { west: -123, south: 37, east: -122, north: 38 };
 
 function setup(visible = true, store: unknown = {}) {
   let shown = visible;
+  let marine = false;
   let source: 'automatic' | 'dwd' = 'automatic';
   let bounds = bbox;
   const load = vi.fn().mockResolvedValue(undefined);
@@ -14,6 +15,7 @@ function setup(visible = true, store: unknown = {}) {
     getBounds: () => bounds,
     getSource: () => source,
     isVisible: () => shown,
+    wantsMarine: () => marine,
   });
   return {
     controller,
@@ -23,6 +25,9 @@ function setup(visible = true, store: unknown = {}) {
     },
     setBounds(next: typeof bbox) {
       bounds = next;
+    },
+    setMarine(next: boolean) {
+      marine = next;
     },
     setVisible(next: boolean) {
       shown = next;
@@ -35,7 +40,7 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe('createChartWindController', () => {
-  it('debounces viewport loads and requests a padded five-day wind-only field', () => {
+  it('debounces viewport loads and requests a padded ten-day wind-only field', () => {
     const { controller, load } = setup();
     controller.schedule();
     controller.schedule();
@@ -47,11 +52,25 @@ describe('createChartWindController', () => {
       { west: -123.5, south: 36.5, east: -121.5, north: 38.5 },
       {
         maxCells: 120,
-        forecastDays: 5,
+        forecastDays: 10,
         source: 'automatic',
         atmosphericFields: 'chart',
       },
       { waves: false, radar: false },
+      false,
+    );
+  });
+
+  it('requests the marine grid when the current overlay is active', () => {
+    const { controller, load, setMarine } = setup();
+    setMarine(true);
+    controller.load();
+
+    expect(load).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ forecastDays: 10 }),
+      { waves: true, radar: false },
       false,
     );
   });

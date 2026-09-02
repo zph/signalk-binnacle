@@ -144,16 +144,17 @@ Binnacle ships its full feature set as a Signal K webapp:
   barometer, and speed over ground at 0.5x, 1x, or 2x. Full local dates identify day transitions,
   Now returns to the newest loaded sample without another query, and a failed range keeps the last
   accepted history visible.
-- **Weather:** a zoom-capped mini-map with animated WebGL wind, pressure isobars, waves,
-  precipitation, cloud, and radar, plus time-aware point readouts, marine forecasts, source and age
-  labels, deterministic risk cues, and official warnings when a Signal K weather provider supplies
-  them. Open-Meteo provides the key-free fallback, including wind waves, swell, currents, and sea
-  surface temperature, while cached forecasts remain available offline with explicit stale labeling.
+- **Weather:** a zoom-capped mini-map with animated WebGL wind, pressure isobars, ocean currents,
+  waves, precipitation, cloud, and radar, plus time-aware point readouts, marine forecasts, source
+  and age labels, deterministic risk cues, and official warnings when a Signal K weather provider
+  supplies them. Wind and current forecasts request up to ten days. Open-Meteo provides the key-free
+  fallback, including wind waves, swell, currents, and sea surface temperature, while cached
+  forecasts remain available offline with explicit stale labeling.
   The routes shown on the chart draw read-only over the forecast with their named waypoints, so a
   passage can be read against the weather without implying the forecast was routed along it.
 - **Tides:** independent tide-height and tidal-current station selection with automatic nearest
-  choices, exact manual NOAA CO-OPS choices, a 48-hour tide curve, and the next high, low, flood, ebb,
-  or slack. Filled tide markers, hollow current markers, and their loaded prediction labels are
+  choices, exact manual NOAA CO-OPS choices, a ten-day tide curve, and the next high, low, flood,
+  ebb, or slack. Filled tide markers, hollow current markers, and their loaded prediction labels are
   selectable on the chart. Manual choices survive chart pans for the session but reset on reload.
   NOAA CO-OPS covers US waters out of the box; automatic tide height prefers the signalk-tides plugin
   when the server runs it.
