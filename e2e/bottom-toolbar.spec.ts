@@ -37,13 +37,14 @@ test('the helm Menu button toggles the supermenu and keeps lock and full-screen 
   const helm = page.getByRole('group', { name: 'Helm actions' });
   await expect(helm.getByRole('button', { name: 'Lock Binnacle' })).toBeVisible();
   await expect(helm.getByRole('button', { name: 'Toggle full screen' })).toBeVisible();
-  await expect(helm.getByRole('button', { name: 'Center on boat and follow' })).toBeVisible();
+  await expect(helm.getByRole('button', { name: 'Home' })).toBeVisible();
 
   const menu = helm.getByRole('button', { name: 'Open supermenu' });
   await menu.click();
   const supermenu = page.getByRole('menu', { name: 'Supermenu' });
   await expect(supermenu).toBeVisible();
   await expect(supermenu.getByRole('menuitem', { name: 'Navigate' })).toBeVisible();
+  await expect(supermenu.getByRole('menuitem', { name: 'Chart' })).toBeVisible();
   await expect(supermenu.getByRole('menuitem', { name: 'Safety' })).toBeVisible();
   await supermenu.getByRole('menuitem', { name: 'Navigate' }).click();
   await expect(supermenu.getByRole('menuitem', { name: 'Back to menu categories' })).toBeVisible();
@@ -52,6 +53,36 @@ test('the helm Menu button toggles the supermenu and keeps lock and full-screen 
   await expect(supermenu.getByRole('menuitem', { name: 'Weather' })).toBeVisible();
   await helm.getByRole('button', { name: 'Close supermenu' }).click();
   await expect(supermenu).toHaveCount(0);
+});
+
+test('the Chart supermenu section shows and hides the instrument dock', async ({ page }) => {
+  await page.goto('/');
+  const helm = page.getByRole('group', { name: 'Helm actions' });
+  const supermenu = page.getByRole('menu', { name: 'Supermenu' });
+
+  await helm.getByRole('button', { name: 'Open supermenu' }).click();
+  await supermenu.getByRole('menuitem', { name: 'Chart' }).click();
+  await supermenu.getByRole('menuitem', { name: 'Show instruments' }).click();
+  await expect(page.getByRole('complementary', { name: 'Instruments' })).toBeVisible();
+
+  await helm.getByRole('button', { name: 'Open supermenu' }).click();
+  await supermenu.getByRole('menuitem', { name: 'Vessel' }).click();
+  await supermenu.getByRole('menuitem', { name: 'Hide instruments' }).click();
+  await expect(page.getByRole('complementary', { name: 'Instruments' })).not.toBeVisible();
+});
+
+test('Home returns from an open panel to the chart', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page
+    .locator('#app-menu-launcher')
+    .getByRole('button', { name: 'Anchor watch', exact: true })
+    .click();
+  await expect(page.getByRole('complementary', { name: 'Anchor watch' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Home' }).click();
+  await expect(page.getByRole('complementary', { name: 'Anchor watch' })).toHaveCount(0);
+  await expect(page.locator('#app-menu-launcher')).toHaveCount(0);
 });
 
 test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page }) => {

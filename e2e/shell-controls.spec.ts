@@ -87,24 +87,30 @@ test('an edge swipe retraces menu navigation to the chart', async ({ page }) => 
 
   const swipeBack = async () => {
     await page.evaluate(() => {
-      window.dispatchEvent(
-        new PointerEvent('pointerdown', {
-          bubbles: true,
-          clientX: 0,
+      const touch = (clientX: number) =>
+        new Touch({
+          identifier: 1,
+          target: document.body,
+          clientX,
           clientY: 160,
-          isPrimary: true,
-          pointerId: 1,
-          pointerType: 'touch',
+        });
+      window.dispatchEvent(
+        new TouchEvent('touchstart', {
+          bubbles: true,
+          changedTouches: [touch(0)],
         }),
       );
       window.dispatchEvent(
-        new PointerEvent('pointerup', {
+        new TouchEvent('touchmove', {
           bubbles: true,
-          clientX: 84,
-          clientY: 160,
-          isPrimary: true,
-          pointerId: 1,
-          pointerType: 'touch',
+          cancelable: true,
+          changedTouches: [touch(84)],
+        }),
+      );
+      window.dispatchEvent(
+        new TouchEvent('touchend', {
+          bubbles: true,
+          changedTouches: [touch(84)],
         }),
       );
     });

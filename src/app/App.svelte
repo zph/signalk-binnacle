@@ -11,6 +11,7 @@ import DownloadCloud from '@lucide/svelte/icons/download-cloud';
 import Expand from '@lucide/svelte/icons/expand';
 import Gauge from '@lucide/svelte/icons/gauge';
 import History from '@lucide/svelte/icons/history';
+import House from '@lucide/svelte/icons/house';
 import Layers from '@lucide/svelte/icons/layers';
 import LifeBuoy from '@lucide/svelte/icons/life-buoy';
 import LocateFixed from '@lucide/svelte/icons/locate-fixed';
@@ -630,6 +631,24 @@ const closePanel = (): void => {
   resetPanel();
   viewHistory.clear();
 };
+const goHome = (): void => {
+  // Home is a predictable escape hatch: it returns to the uncluttered chart without changing the
+  // chart's position, navigation plan, or any other operational data.
+  resetPanel();
+  selectedNote = undefined;
+  selectedAisId = undefined;
+  selectedWaypointId = undefined;
+  noteReturnsToPlaces = false;
+  weatherPanelOpen = false;
+  radarControlsOpen = false;
+  instrumentsFullScreenForced = false;
+  instruments.setOpen(false);
+  menuOpen = false;
+  actionDialOpen = false;
+  actionDialBucket = undefined;
+  actionDialContextPoint = undefined;
+  viewHistory.clear();
+};
 // All former "back to menu" routes now restore the actual preceding surface. It preserves the
 // function name at call sites while panels are migrated to the shared navigation contract.
 const backToMenu = (): void => {
@@ -759,20 +778,6 @@ function openTideStationSettings(): void {
   openPanel('tides');
   instruments.setOpen(false);
   loadTides();
-}
-
-function cycleInstruments(): void {
-  if (instruments.screenEditing) {
-    exitScreenInstrumentEditing();
-    instruments.setOpen(false);
-    instrumentsPanelRequested = false;
-    return;
-  }
-  if (instruments.open) {
-    startScreenInstrumentEditing();
-    return;
-  }
-  instruments.setOpen(true);
 }
 
 function openInstrumentsLayout(layout: 'full' | InstrumentDockLayout): void {
@@ -2209,13 +2214,20 @@ const menuItems = $derived<MenuItem[]>([
   },
   {
     id: 'instruments',
-    label: 'Instrument dock',
-    shortLabel: 'Instruments',
+    label: instruments.open ? 'Hide instruments' : 'Show instruments',
+    shortLabel: instruments.open ? 'Hide instruments' : 'Show instruments',
     icon: Gauge,
     group: 'Instruments',
     toolbarEligible: false,
     pressed: instruments.open,
-    onSelect: cycleInstruments,
+    onSelect: () => {
+      if (instruments.open) {
+        exitScreenInstrumentEditing();
+        instruments.setOpen(false);
+      } else {
+        finishOpeningInstrumentsPanel();
+      }
+    },
   },
   {
     id: 'customize-instruments',
@@ -2852,6 +2864,11 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
     alarms: 'safety',
   };
   for (const item of all) buckets[ids[item.id] ?? 'system'].push(item);
+  const instrumentsAction = all.find(({ id }) => id === 'instruments');
+  // Showing or hiding instruments changes the chart's working surface, while the instrument dock
+  // also belongs with vessel information. Keep the same toggle in both rings so either mental
+  // model reaches it without duplicating its state or behavior.
+  if (instrumentsAction) buckets.chart.push(instrumentsAction);
   if (actionDialContextActions.length > 0) {
     buckets.chart = uniqueActionIds([...actionDialContextActions, ...buckets.chart]);
   }
@@ -3443,9 +3460,53 @@ onMount(() => {
   const cancelBackSwipe = (): void => {
     backSwipe = undefined;
   };
-  window.addEventListener('pointerdown', beginBackSwipe, { passive: true });
-  window.addEventListener('pointerup', finishBackSwipe, { passive: true });
-  window.addEventListener('pointercancel', cancelBackSwipe, { passive: true });
+  // iPadOS cancels Pointer Events once Safari starts interpreting a horizontal pan. Touch Events
+  // stay available long enough to claim an intentional edge-back gesture, so use them whenever
+  // the platform provides them and retain Pointer Events for non-touch browsers.
+  const usesTouchEvents = typeof TouchEvent !== 'undefined';
+  let touchBackSwipe: { identifier: number; startX: number; startY: number } | undefined;
+  const beginTouchBackSwipe = (event: TouchEvent): void => {
+    const touch = event.changedTouches.item(0);
+    if (!touch || touch.clientX > BACK_SWIPE_EDGE_PX || !viewHistory.canGoBack) return;
+    touchBackSwipe = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY };
+  };
+  const moveTouchBackSwipe = (event: TouchEvent): void => {
+    if (!touchBackSwipe) return;
+    const touch = Array.from(event.changedTouches).find(
+      ({ identifier }) => identifier === touchBackSwipe?.identifier,
+    );
+    if (!touch) return;
+    const horizontal = touch.clientX - touchBackSwipe.startX;
+    const vertical = Math.abs(touch.clientY - touchBackSwipe.startY);
+    // Claim only a decisive rightward gesture. Vertical chart interaction and ordinary map pans
+    // remain untouched, while preventing Safari from cancelling the pending end event.
+    if (horizontal >= 12 && horizontal > vertical * 1.5) event.preventDefault();
+  };
+  const finishTouchBackSwipe = (event: TouchEvent): void => {
+    if (!touchBackSwipe) return;
+    const touch = Array.from(event.changedTouches).find(
+      ({ identifier }) => identifier === touchBackSwipe?.identifier,
+    );
+    const swipe = touchBackSwipe;
+    touchBackSwipe = undefined;
+    if (!touch) return;
+    const horizontal = touch.clientX - swipe.startX;
+    const vertical = Math.abs(touch.clientY - swipe.startY);
+    if (horizontal >= BACK_SWIPE_DISTANCE_PX && horizontal > vertical * 1.5) goBack();
+  };
+  const cancelTouchBackSwipe = (): void => {
+    touchBackSwipe = undefined;
+  };
+  if (usesTouchEvents) {
+    window.addEventListener('touchstart', beginTouchBackSwipe, { capture: true, passive: true });
+    window.addEventListener('touchmove', moveTouchBackSwipe, { capture: true, passive: false });
+    window.addEventListener('touchend', finishTouchBackSwipe, { capture: true, passive: true });
+    window.addEventListener('touchcancel', cancelTouchBackSwipe, { capture: true, passive: true });
+  } else {
+    window.addEventListener('pointerdown', beginBackSwipe, { passive: true });
+    window.addEventListener('pointerup', finishBackSwipe, { passive: true });
+    window.addEventListener('pointercancel', cancelBackSwipe, { passive: true });
+  }
   const onCommandPaletteShortcut = (event: KeyboardEvent): void => {
     if (event.key.toLocaleLowerCase() !== 'k' || (!event.metaKey && !event.ctrlKey)) return;
     event.preventDefault();
@@ -3546,9 +3607,16 @@ onMount(() => {
     clearTimeout(profileStartupFallback);
     removeBrowserZoomGuard();
     window.removeEventListener('keydown', onCommandPaletteShortcut);
-    window.removeEventListener('pointerdown', beginBackSwipe);
-    window.removeEventListener('pointerup', finishBackSwipe);
-    window.removeEventListener('pointercancel', cancelBackSwipe);
+    if (usesTouchEvents) {
+      window.removeEventListener('touchstart', beginTouchBackSwipe, true);
+      window.removeEventListener('touchmove', moveTouchBackSwipe, true);
+      window.removeEventListener('touchend', finishTouchBackSwipe, true);
+      window.removeEventListener('touchcancel', cancelTouchBackSwipe, true);
+    } else {
+      window.removeEventListener('pointerdown', beginBackSwipe);
+      window.removeEventListener('pointerup', finishBackSwipe);
+      window.removeEventListener('pointercancel', cancelBackSwipe);
+    }
     screenWakeLock.dispose();
   };
 });
@@ -4147,16 +4215,12 @@ const plotterActions = {
     <button
       type="button"
       class="btn btn-pill"
-      aria-label={follow.following ? 'Stop following boat' : 'Center on boat and follow'}
-      title={follow.following ? 'Stop following boat' : 'Center on boat and follow'}
-      disabled={!mapCommands || (!follow.following && (!vessel.position || vessel.positionStale))}
-      onclick={() => {
-        if (!follow.following) mapCommands?.centerOnVessel();
-        follow.toggle();
-      }}
+      aria-label="Home"
+      title="Return to chart"
+      onclick={goHome}
     >
-      <Navigation size={16} aria-hidden="true" />
-      <span>{follow.following ? 'Following' : 'Center'}</span>
+      <House size={16} aria-hidden="true" />
+      <span>Home</span>
     </button>
     <MobButton
       {mob}
