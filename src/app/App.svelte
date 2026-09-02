@@ -2195,14 +2195,6 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: () => togglePanel('handoff'),
   },
   {
-    id: 'forecast',
-    label: 'Forecast',
-    icon: CloudSun,
-    group: 'Weather',
-    pressed: weatherPanelOpen,
-    onSelect: toggleWeatherPanelFromMenu,
-  },
-  {
     id: 'observed-wind-stations',
     label: 'Observed wind stations',
     shortLabel: 'Observed wind',
@@ -4171,6 +4163,25 @@ const plotterActions = {
       onclick={goHome}
     >
       <House size={16} aria-hidden="true" />
+    </button>
+    <button
+      type="button"
+      class="btn btn-pill"
+      class:is-on={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
+      aria-label={
+        layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible
+          ? 'Hide wind layer'
+          : 'Show wind layer'
+      }
+      aria-pressed={layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false}
+      title="Toggle wind layer"
+      onclick={() =>
+        setLayerVisible(
+          WEATHER_LAYER_IDS.wind,
+          !(layerSettings.value[WEATHER_LAYER_IDS.wind]?.visible ?? false),
+        )}
+    >
+      <CloudSun size={16} aria-hidden="true" />
     </button>
     <button
       type="button"

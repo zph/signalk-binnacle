@@ -44,8 +44,6 @@ function visibleIndices(values: number[], low: number, high: number, target: num
 
 function barbLength(
   grid: WeatherGrid,
-  columnCount: number,
-  rowCount: number,
   view?: WindVectorView,
 ): number {
   const lonSpan = Math.abs(
@@ -54,7 +52,10 @@ function barbLength(
   const latSpan = Math.abs(
     (view?.north ?? grid.lats.at(-1) ?? 0) - (view?.south ?? grid.lats[0] ?? 0),
   );
-  const spacings = [lonSpan / Math.max(1, columnCount), latSpan / Math.max(1, rowCount)].filter(
+  // Symbol scale follows the intended screen density, not the number of source cells that happen
+  // to be visible. At high zoom a sparse forecast grid may contribute one or two cells; using that
+  // count made each barb expand across half the display and left it looking stale after zooming.
+  const spacings = [lonSpan / TARGET_COLUMNS, latSpan / TARGET_ROWS].filter(
     (value) => value > 0,
   );
   return (spacings.length > 0 ? Math.min(...spacings) : 0.02) * BARB_FRACTION;
@@ -79,7 +80,7 @@ export function windVectorFeatures(
   const rows = view
     ? visibleIndices(grid.lats, view.south, view.north, TARGET_ROWS)
     : evenIndices(grid.lats.length, TARGET_ROWS);
-  const length = barbLength(grid, columns.length, rows.length, view);
+  const length = barbLength(grid, view);
   const arrows: GeoJSON.Feature[] = [];
   const markers: GeoJSON.Feature[] = [];
 

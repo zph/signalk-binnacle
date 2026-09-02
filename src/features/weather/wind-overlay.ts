@@ -52,6 +52,7 @@ export function createWindOverlay(
   let visible = false;
   let lastSpeedUnit: SpeedUnit | undefined;
   let lastViewKey: string | undefined;
+  let zoomListener: (() => void) | undefined;
   const gate = gridTimeGate(store);
 
   function addBarbLayer(ctx: OverlayContext): void {
@@ -138,6 +139,18 @@ export function createWindOverlay(
     add(ctx) {
       void field.add(ctx);
       addBarbLayer(ctx);
+      // Geometry is expressed in chart coordinates, so refresh it after every zoom rather than
+      // waiting for the next weather frame or map move. This keeps the fixed visual density from
+      // looking stale while a navigator zooms in or out.
+      zoomListener = () => {
+        if (!visible) return;
+        const speedUnit = getSpeedUnit();
+        const view = viewFor(ctx);
+        syncBarbs(ctx, speedUnit, view);
+        lastSpeedUnit = speedUnit;
+        lastViewKey = `${view.west.toFixed(4)},${view.south.toFixed(4)},${view.east.toFixed(4)},${view.north.toFixed(4)}`;
+      };
+      ctx.map.on('zoomend', zoomListener);
     },
     reset() {
       gate.reset();
@@ -159,6 +172,8 @@ export function createWindOverlay(
     },
     remove(ctx) {
       visible = false;
+      if (zoomListener) ctx.map.off('zoomend', zoomListener);
+      zoomListener = undefined;
       removeLayersAndSources(
         ctx.map,
         [MARKER_LAYER_ID, LAYER_ID, CASING_LAYER_ID],
