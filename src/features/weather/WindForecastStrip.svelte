@@ -23,7 +23,7 @@ interface Props {
   weatherSource: PersistedValue<WeatherSourceId>;
   units: UnitsStore;
   clock: ReactiveClock;
-  kind: 'Wind and gusts' | 'Ocean currents' | 'Temperature' | 'UV index';
+  kind: 'Conditions' | 'Wind and gusts' | 'Ocean currents' | 'Temperature' | 'UV index';
   layerId: string;
   theme: Theme;
   onRetry?: () => void;
@@ -59,6 +59,12 @@ const currentUnavailable = $derived(
     store.grid !== undefined &&
     !store.grid.oceanCurrentSpeed?.some((step) => step.some(Number.isFinite)),
 );
+const conditionsUnavailable = $derived(
+  kind === 'Conditions' &&
+    store.grid !== undefined &&
+    !store.grid.waveHeight?.some((step) => step.some(Number.isFinite)) &&
+    !store.grid.oceanCurrentSpeed?.some((step) => step.some(Number.isFinite)),
+);
 const nowFrac = $derived.by<number | undefined>(() => {
   if (!range || range.end <= range.start) return undefined;
   const fraction = (clock.now - range.start) / (range.end - range.start);
@@ -73,8 +79,14 @@ const statusNote = $derived.by(() => {
     return `UV index is unavailable from ${sourceTitle}. Choose Automatic or NOAA for UV.`;
   }
   if (currentUnavailable) return 'Ocean-current forecast is unavailable for this area.';
+  if (conditionsUnavailable) {
+    return 'Marine forecast data is unavailable for combined conditions in this area.';
+  }
   if (kind === 'Ocean currents') {
     return `Open-Meteo Marine · modeled surface-current speed in ${speedUnitLabel(units.speedUnit)}`;
+  }
+  if (kind === 'Conditions') {
+    return `${sourceTitle} + Open-Meteo Marine · icons flag notable combined conditions; hover or tap for detail`;
   }
   return kind === 'Wind and gusts'
     ? `${sourceTitle} · color shows sustained wind; barbs show direction; labels show integer gust speed with units`
@@ -181,9 +193,18 @@ onDestroy(() => playback.destroy());
       <span class="legend-ramp" style:background={legend.gradient} aria-hidden="true"></span>
       <span class="legend-value num">{legend.highLabel}</span>
     </div>
-    {#if legend.note}
-      <p class="legend-note">{legend.note}</p>
-    {/if}
+  {:else if legend?.swatches}
+    <div class="condition-legend" role="group" aria-label={legend.title}>
+      {#each legend.swatches as swatch (swatch.label)}
+        <span class="condition-key">
+          <span class="condition-dot" style:background={swatch.color} aria-hidden="true"></span>
+          {swatch.label}
+        </span>
+      {/each}
+    </div>
+  {/if}
+  {#if legend?.note}
+    <p class="legend-note">{legend.note}</p>
   {/if}
 </aside>
 
@@ -271,6 +292,24 @@ onDestroy(() => playback.destroy());
   margin-block-start: var(--space-1);
   color: var(--text-muted);
   font-size: var(--text-xs);
+}
+.condition-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.condition-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.condition-dot {
+  inline-size: 0.6rem;
+  block-size: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
 }
 .status-row .note {
   flex: 1;

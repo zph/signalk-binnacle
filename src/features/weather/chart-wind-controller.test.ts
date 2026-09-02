@@ -75,6 +75,27 @@ describe('createChartWindController', () => {
     );
   });
 
+  it('does not reuse a fresh wind-only grid after switching to a marine overlay', () => {
+    const store = {
+      grid: {
+        lons: [-123.5, -121.5],
+        lats: [36.5, 38.5],
+        fetchedAt: Date.now(),
+        forecastSource: 'automatic',
+      },
+    };
+    const { controller, load, setMarine } = setup(true, store);
+    setMarine(true);
+    controller.load();
+    expect(load).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      { waves: true, radar: false },
+      false,
+    );
+  });
+
   it('loads after enabling and stops a queued load after disabling', () => {
     const { controller, load, setVisible } = setup(false);
     controller.schedule();

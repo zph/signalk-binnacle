@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { weatherLegend } from './legend';
 
 describe('weatherLegend', () => {
+  it('builds the three-level combined-conditions key', () => {
+    const legend = weatherLegend('weather-conditions', 'day', 'metric');
+    expect(legend?.title).toBe('Combined conditions');
+    expect(legend?.swatches?.map((swatch) => swatch.label)).toEqual([
+      'hazard',
+      'caution',
+      'context',
+    ]);
+    expect(legend?.note).toMatch(/not a safety statement/);
+  });
+
   it('builds a wind speed gradient with whole-knot end labels', () => {
     const legend = weatherLegend('weather-wind', 'day', 'metric');
     expect(legend?.title).toMatch(/wind/i);

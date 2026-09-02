@@ -1,5 +1,6 @@
 export { createChartWindController } from './chart-wind-controller.svelte';
 export { createCloudOverlay } from './cloud-overlay';
+export { createConditionsOverlay } from './conditions-overlay';
 export { createCurrentOverlay } from './current-overlay';
 export {
   CHART_FORECAST_LAYER_IDS,

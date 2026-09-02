@@ -72,6 +72,10 @@ describe('wind overlay', () => {
     const fc = markers.data as GeoJSON.FeatureCollection;
     expect(fc.features).toHaveLength(192);
     expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe('27 kn');
+    expect(map.layers.get('binnacle-weather-wind-marker-label')?.layout).toMatchObject({
+      'text-offset': [0, 1.25],
+      'text-anchor': 'top',
+    });
     overlay.sync(fakeOverlayContext(map));
     expect(markers.data).toBe(fc);
   });

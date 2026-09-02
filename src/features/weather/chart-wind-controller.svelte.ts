@@ -31,7 +31,7 @@ interface ChartWindControllerDeps {
 }
 
 // Loads the compact atmospheric grid required by the primary chart forecast overlays and adds the
-// marine grid only for ocean currents. View changes are debounced, and the shared loader handles
+// marine grid only for Conditions and ocean currents. View changes are debounced, and the shared loader handles
 // source-specific caching, stale fallback, and cooldowns.
 export function createChartWindController(deps: ChartWindControllerDeps) {
   let destroyed = false;
@@ -46,6 +46,19 @@ export function createChartWindController(deps: ChartWindControllerDeps) {
       grid.forecastSource !== source ||
       fetchedAt === undefined ||
       Date.now() - fetchedAt >= VIEWPORT_REUSE_MS
+    ) {
+      return false;
+    }
+    // A fresh wind-only grid covers the same geography but not the data Conditions and ocean
+    // currents need. Force the marine cache key when the user switches modes. A partialWaves grid
+    // records an attempted marine fetch and remains eligible until Retry or normal expiry, avoiding
+    // an automatic retry loop during a provider outage.
+    if (
+      deps.wantsMarine() &&
+      !grid.marineSource &&
+      !grid.partialWaves &&
+      !grid.waveHeight &&
+      !grid.oceanCurrentSpeed
     ) {
       return false;
     }

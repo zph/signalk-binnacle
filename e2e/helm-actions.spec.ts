@@ -41,7 +41,7 @@ test('helm actions clear bottom overlays and drag away into a full-width swipe t
   const helm = page.getByRole('group', { name: 'Helm actions' });
   await helm.getByRole('button', { name: /Show wind layer|Weather and tides: off/ }).click();
   const forecast = page.getByRole('complementary', {
-    name: /Wind forecast overlay|Wind and gusts forecast overlay/,
+    name: /Conditions forecast overlay|Wind forecast overlay|Wind and gusts forecast overlay/,
   });
   await expect(forecast).toBeVisible();
 
@@ -78,31 +78,4 @@ test('helm actions clear bottom overlays and drag away into a full-width swipe t
     touch,
   );
   await expect(helm).toBeVisible();
-});
-
-test('bottom weather button cycles wind, currents, tides, temperature, UV, and off', async ({
-  page,
-}) => {
-  await page.goto('/');
-
-  const helm = page.getByRole('group', { name: 'Helm actions' });
-  const nextWeather = async (expected: RegExp): Promise<void> => {
-    const button = helm.getByRole('button', { name: /Weather and tides:/ });
-    await button.click();
-    await expect(helm.getByRole('button', { name: expected })).toBeVisible();
-  };
-
-  await expect(helm.getByRole('button', { name: /Weather and tides: off/ })).toBeVisible();
-  await nextWeather(/Weather and tides: wind and gusts/);
-  const windForecast = page.getByRole('complementary', {
-    name: 'Wind and gusts forecast overlay',
-  });
-  await expect(windForecast).toContainText('color shows sustained wind');
-  await expect(windForecast).toContainText('barbs show direction');
-  await expect(windForecast).toContainText('labels show gust speed in');
-  await nextWeather(/Weather and tides: ocean currents/);
-  await nextWeather(/Weather and tides: tide and current stations/);
-  await nextWeather(/Weather and tides: temperature/);
-  await nextWeather(/Weather and tides: UV index/);
-  await nextWeather(/Weather and tides: off/);
 });

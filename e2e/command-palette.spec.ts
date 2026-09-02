@@ -225,6 +225,13 @@ test('Command K cycles weather forecasts and tide stations', async ({ page }) =>
   await search.fill('weather and tide overlay');
   await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
   await expect(
+    page.getByRole('complementary', { name: 'Conditions forecast overlay' }),
+  ).toBeVisible();
+
+  await page.keyboard.press('Control+K');
+  await search.fill('weather and tide overlay');
+  await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
+  await expect(
     page.getByRole('complementary', { name: 'Wind and gusts forecast overlay' }),
   ).toBeVisible();
 

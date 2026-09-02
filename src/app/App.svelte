@@ -1722,6 +1722,7 @@ function setLayerVisible(id: string, visible: boolean): void {
 }
 
 const HELM_WEATHER_LAYER_IDS = [
+  WEATHER_LAYER_IDS.conditions,
   WEATHER_LAYER_IDS.wind,
   WEATHER_LAYER_IDS.current,
   TIDES_OVERLAY_ID,
@@ -1735,6 +1736,7 @@ const helmWeatherLayer = $derived(
 );
 
 function helmWeatherLayerName(id: HelmWeatherLayerId | undefined): string {
+  if (id === WEATHER_LAYER_IDS.conditions) return 'conditions';
   if (id === WEATHER_LAYER_IDS.wind) return 'wind and gusts';
   if (id === WEATHER_LAYER_IDS.current) return 'ocean currents';
   if (id === TIDES_OVERLAY_ID) return 'tide and current stations';
@@ -2715,9 +2717,12 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       id: 'wind-forecast-overlay',
       label: `Cycle weather and tide overlay (${helmWeatherLayerName(helmWeatherLayer)})`,
       description:
-        'Cycle wind and gusts, ocean currents, tide and current stations, temperature, UV index, and off on the main chart',
+        'Cycle combined conditions, wind and gusts, ocean currents, tide and current stations, temperature, UV index, and off on the main chart',
       group: 'Weather',
       keywords: [
+        'conditions',
+        'sea state',
+        'waves',
         'wind',
         'gust',
         'ocean current',

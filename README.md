@@ -147,8 +147,10 @@ Binnacle ships its full feature set as a Signal K webapp:
 - **Weather:** a zoom-capped mini-map with animated WebGL wind, pressure isobars, ocean currents,
   waves, precipitation, cloud, and radar, plus time-aware point readouts, marine forecasts, source
   and age labels, deterministic risk cues, and official warnings when a Signal K weather provider
-  supplies them. Wind color shows sustained speed, directional barbs show where wind comes from, and
-  integer labels show gust speed with its unit. Wind and current forecasts request up to ten days.
+  supplies them. On the primary chart, a Conditions sequence combines waves, wind, gusts, modeled
+  currents, and station-local tide timing into advisory icons with hover and tap details at every
+  forecast time. Wind color shows sustained speed, directional barbs show where wind comes from, and
+  integer labels show gust speed with its unit. Conditions, wind, and current forecasts request up to ten days.
   Open-Meteo provides the key-free fallback, including wind waves, swell, currents, and sea surface
   temperature, while cached forecasts remain available offline with explicit stale labeling.
   The routes shown on the chart draw read-only over the forecast with their named waypoints, so a

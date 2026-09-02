@@ -218,15 +218,22 @@ source, and surrounding traffic before relying on it.
 
 ## Weather
 
-- **Wind and ocean-current forecast overlays** are available on the primary chart under **Layers and
-  charts**, **Overlays**, and **Ocean conditions**. The bottom weather button cycles wind, ocean
-  currents, tide and current stations, temperature, UV index, and off. Command K exposes the same
+- **Conditions, wind, and ocean-current forecast overlays** are available on the primary chart under
+  **Layers and charts**, **Overlays**, and **Ocean conditions**. The bottom weather button cycles
+  combined conditions, wind, ocean currents, tide and current stations, temperature, UV index, and
+  off. Command K exposes the same
   cycle. While an atmospheric forecast field is visible, a chart strip selects Automatic, NOAA GFS
   with U.S. HRRR coverage, DWD ICON with European regional coverage, or global ECMWF IFS. Every
   forecast strip provides earlier, later, playback, and up-to-ten-day time-scrubbing controls. Ocean
   currents use Open-Meteo Marine. The atmospheric source belongs to the active profile. Panning the
   primary chart loads the selected field for the settled chart viewport plus a padded margin for
-  nearby pans. In Wind and gusts, the continuous color field shows sustained wind, conventional
+  nearby pans. Conditions synthesizes the selected time's wind, gust, wave, swell, and modeled
+  current fields into sparse advisory icons for steep, opposing, crossing, aligned, following, and
+  gusty combinations. Hover an icon with a mouse, or tap it on any display, for the contributing
+  readings and explanation. High, low, maximum flood, maximum ebb, and slack windows appear only at
+  the loaded NOAA CO-OPS station, never as a falsely precise area field. One icon shows the
+  highest-priority condition at a sample, the popup lists the other conditions there, and no icon is
+  not a safety statement. In Wind and gusts, the continuous color field shows sustained wind, conventional
   barbs show the direction wind comes from, and each integer label shows forecast gust speed with
   its unit. Ocean currents use a speed color field plus arrows and preferred-unit speed labels.
   Wind adds motion when WebGL and reduced-motion preferences permit it.

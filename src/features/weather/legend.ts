@@ -11,6 +11,7 @@ import {
   temperatureUnit,
   type UnitsMode,
 } from '$shared/lib';
+import { mapThemePaint } from '$shared/map';
 import type { Theme } from '$shared/ui';
 import { cloudColor } from './cloud-colormap';
 import { type Rgba, tupleCss } from './color-ramp';
@@ -91,6 +92,19 @@ export function weatherLegend(
   speedUnit: SpeedUnit = 'kn',
 ): WeatherLegend | undefined {
   switch (layerId) {
+    case WEATHER_LAYER_IDS.conditions: {
+      const paint = mapThemePaint(theme);
+      return {
+        id: layerId,
+        title: 'Combined conditions',
+        swatches: [
+          { color: paint.danger, label: 'hazard' },
+          { color: paint.warning, label: 'caution' },
+          { color: paint.tide, label: 'context' },
+        ],
+        note: 'one icon shows the highest-priority condition at each point; no icon is not a safety statement',
+      };
+    }
     case WEATHER_LAYER_IDS.wind:
       return {
         ...rampLegend(

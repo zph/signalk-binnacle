@@ -77,6 +77,8 @@ export function createWindOverlay(
           'text-field': ['get', 'label'],
           'text-font': ['Noto Sans Regular'],
           'text-size': 11,
+          'text-offset': [0, 1.25],
+          'text-anchor': 'top',
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           visibility: visible ? 'visible' : 'none',

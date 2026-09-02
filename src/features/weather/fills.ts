@@ -2,6 +2,7 @@
 // grouping, and the mutually-exclusive fill set never drift. These strings are persisted in the
 // saved layer settings, so they must stay stable.
 export const WEATHER_LAYER_IDS = {
+  conditions: 'weather-conditions',
   wind: 'weather-wind',
   current: 'weather-current',
   temperature: 'weather-temperature',
@@ -17,6 +18,7 @@ export const WEATHER_LAYER_IDS = {
 // The primary chart's forecast button cycles these mutually exclusive visual modes. Keeping the
 // ordered cycle beside the stable ids makes the button, Layers panel, and map manager agree.
 export const CHART_FORECAST_LAYER_IDS = [
+  WEATHER_LAYER_IDS.conditions,
   WEATHER_LAYER_IDS.wind,
   WEATHER_LAYER_IDS.current,
   WEATHER_LAYER_IDS.temperature,
