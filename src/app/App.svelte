@@ -23,6 +23,7 @@ import MenuIcon from '@lucide/svelte/icons/menu';
 import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import Moon from '@lucide/svelte/icons/moon';
 import Navigation from '@lucide/svelte/icons/navigation';
+import Pencil from '@lucide/svelte/icons/pencil';
 import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
 import Ruler from '@lucide/svelte/icons/ruler';
@@ -688,6 +689,14 @@ const INSTRUMENTS_FULLSCREEN_BREAKPOINT_PX = PLATFORM_BREAKPOINTS.compactHelmMax
 // coexist, so this exclusion only applies while the phone query matches.
 const narrowQuery = createMediaQuery(`(max-width: ${NARROW_BREAKPOINT_PX}px)`);
 const narrow = $derived(narrowQuery.matches);
+const standaloneDisplayMode = createMediaQuery('(display-mode: standalone)');
+// iPadOS installed web apps use display-mode, while older Safari reports the legacy standalone
+// flag. Neither needs a browser full-screen control because the app already owns the display.
+const installedPwa = $derived(
+  standaloneDisplayMode.matches ||
+    (typeof navigator !== 'undefined' &&
+      (navigator as Navigator & { standalone?: boolean }).standalone === true),
+);
 let instrumentsViewportFullScreen = $state(false);
 let instrumentsFullScreenForced = $state(false);
 const instrumentsFullScreen = $derived(
@@ -2387,21 +2396,26 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       onSelect: () => runMenuCommand(item),
     }));
   return [
-    {
-      id: 'browser-fullscreen',
-      label: browserFullScreenNow ? 'Exit full screen' : 'Enter full screen',
-      description: browserFullScreenNow
-        ? 'Return Binnacle to its browser window'
-        : 'Use the entire display for Binnacle',
-      group: 'Display',
-      keywords: ['fullscreen', 'full-screen', 'screen', 'display'],
-      icon: browserFullScreenNow ? Minimize2 : Maximize2,
-      disabled:
-        typeof document === 'undefined' ||
-        (!browserFullScreenNow && typeof document.documentElement.requestFullscreen !== 'function'),
-      disabledReason: 'This browser does not offer full-screen mode.',
-      onSelect: () => void toggleBrowserFullScreen(),
-    },
+    ...(installedPwa
+      ? []
+      : [
+          {
+            id: 'browser-fullscreen',
+            label: browserFullScreenNow ? 'Exit full screen' : 'Enter full screen',
+            description: browserFullScreenNow
+              ? 'Return Binnacle to its browser window'
+              : 'Use the entire display for Binnacle',
+            group: 'Display',
+            keywords: ['fullscreen', 'full-screen', 'screen', 'display'],
+            icon: browserFullScreenNow ? Minimize2 : Maximize2,
+            disabled:
+              typeof document === 'undefined' ||
+              (!browserFullScreenNow &&
+                typeof document.documentElement.requestFullscreen !== 'function'),
+            disabledReason: 'This browser does not offer full-screen mode.',
+            onSelect: () => void toggleBrowserFullScreen(),
+          },
+        ]),
     {
       id: 'go-to',
       label: 'Go to',
@@ -4138,15 +4152,17 @@ const plotterActions = {
         <Lock size={16} aria-hidden="true" />
       {/if}
     </button>
-    <button
-      type="button"
-      class="btn btn-pill"
-      aria-label="Toggle full screen"
-      title="Toggle full screen"
-      onclick={() => void toggleBrowserFullScreen()}
-    >
-      <Maximize2 size={16} aria-hidden="true" />
-    </button>
+    {#if !installedPwa}
+      <button
+        type="button"
+        class="btn btn-pill"
+        aria-label="Toggle full screen"
+        title="Toggle full screen"
+        onclick={() => void toggleBrowserFullScreen()}
+      >
+        <Maximize2 size={16} aria-hidden="true" />
+      </button>
+    {/if}
     <button
       type="button"
       class="btn btn-pill"
@@ -4163,11 +4179,10 @@ const plotterActions = {
       title={instrumentsActionLabel()}
       onclick={cycleInstruments}
     >
-      <Gauge size={16} aria-hidden="true" />
       {#if instruments.screenEditing}
-        <LockOpen size={14} aria-hidden="true" />
+        <Pencil size={18} aria-hidden="true" />
       {:else}
-        <Lock size={14} aria-hidden="true" />
+        <Gauge size={18} aria-hidden="true" />
       {/if}
     </button>
     <MobButton
@@ -4189,7 +4204,6 @@ const plotterActions = {
         }}
       >
         <DownloadCloud size={16} aria-hidden="true" />
-        <span>Update ready</span>
       </button>
     {/if}
     <button
@@ -4405,13 +4419,18 @@ const plotterActions = {
 .helm-primary-actions :global(button) {
   pointer-events: auto;
 }
+.helm-primary-actions :global(.btn-pill) {
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  min-inline-size: var(--control-size);
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
 .helm-update-action {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: var(--text);
-}
-.helm-instruments-action {
-  gap: var(--space-1);
 }
 /* The update action is an explicit helm decision. On touch tablets, keep it at the leading edge
    of the persistent bottom bar instead of letting the normal control sequence hide it offscreen. */
