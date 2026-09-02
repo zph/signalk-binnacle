@@ -33,7 +33,7 @@ describe('windSpeedFieldRgba', () => {
     expect(late?.data.slice(0, 4)).not.toEqual(early?.data.slice(0, 4));
   });
 
-  it('colors by gust speed when the combined chart forecast carries gusts', () => {
+  it('keeps sustained-wind color when the forecast also carries stronger gusts', () => {
     const sustained = windSpeedFieldRgba(grid, { lo: 0, hi: 0, frac: 0 }, 'day');
     const gusts = windSpeedFieldRgba(
       {
@@ -46,6 +46,6 @@ describe('windSpeedFieldRgba', () => {
       { lo: 0, hi: 0, frac: 0 },
       'day',
     );
-    expect(gusts?.data.slice(0, 4)).not.toEqual(sustained?.data.slice(0, 4));
+    expect(gusts?.data).toEqual(sustained?.data);
   });
 });

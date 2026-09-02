@@ -77,7 +77,7 @@ const statusNote = $derived.by(() => {
     return `Open-Meteo Marine · modeled surface-current speed in ${speedUnitLabel(units.speedUnit)}`;
   }
   return kind === 'Wind and gusts'
-    ? `${sourceTitle} · sustained and gust speed in ${speedUnitLabel(units.speedUnit)}`
+    ? `${sourceTitle} · color shows sustained wind; barbs show direction; labels show integer gust speed with units`
     : `${sourceTitle} · ${kind.toLowerCase()} forecast`;
 });
 
@@ -181,6 +181,9 @@ onDestroy(() => playback.destroy());
       <span class="legend-ramp" style:background={legend.gradient} aria-hidden="true"></span>
       <span class="legend-value num">{legend.highLabel}</span>
     </div>
+    {#if legend.note}
+      <p class="legend-note">{legend.note}</p>
+    {/if}
   {/if}
 </aside>
 
@@ -263,6 +266,11 @@ onDestroy(() => playback.destroy());
   block-size: 0.45rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
+}
+.legend-note {
+  margin-block-start: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 .status-row .note {
   flex: 1;

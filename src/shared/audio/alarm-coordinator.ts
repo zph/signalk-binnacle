@@ -8,8 +8,8 @@
 // rank interleave burst by burst, so MOB and an escalating close-quarters contact both stay
 // audible. Lower-priority active channels stay visually present elsewhere and get a single-burst
 // audible reminder on a bounded interval. A courtesy channel (arrival) never sounds while any
-// safety channel is active. Silencing decisions (mute, acknowledge, boat-wide silence) stay at
-// the call sites; this never issues one.
+// safety channel is active. Per-alarm mute and acknowledge decisions stay at the call sites. A
+// timed whole-output silence is applied here so every current and future channel obeys it.
 import { Alarm, type AlarmControl, type AlarmTone } from './alarm';
 
 export interface AlarmChannelOptions {
@@ -39,6 +39,7 @@ export class AlarmCoordinator {
   #playingId: string | undefined;
   #rotation = 0;
   #now: () => number;
+  #silenced = false;
 
   constructor(output: AlarmControl = new Alarm(), now: () => number = () => Date.now()) {
     this.#output = output;
@@ -75,6 +76,20 @@ export class AlarmCoordinator {
     };
   }
 
+  setSilenced(silenced: boolean): void {
+    if (silenced === this.#silenced) return;
+    this.#silenced = silenced;
+    if (!silenced) {
+      const now = this.#now();
+      for (const state of this.#channels) {
+        if (!state.active) continue;
+        state.lastReminderAt = now;
+        state.needsArticulation = true;
+      }
+    }
+    this.#decide();
+  }
+
   dispose(): void {
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = undefined;
@@ -87,6 +102,12 @@ export class AlarmCoordinator {
   #decide(): void {
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = undefined;
+
+    if (this.#silenced) {
+      this.#output.stop();
+      this.#playingId = undefined;
+      return;
+    }
 
     const actives = this.#channels.filter((state) => state.active && state.tone !== undefined);
     if (actives.length === 0) {

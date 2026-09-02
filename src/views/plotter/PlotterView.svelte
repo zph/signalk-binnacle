@@ -30,7 +30,7 @@ import { loadChartsManagementPanel } from '$features/charts-management';
 import { loadHandoffPanel } from '$features/handoff';
 import { loadHelpPanel } from '$features/help';
 import { type LayersView, loadLayersPanel } from '$features/layers-panel';
-import type { ShallowMonitorSnapshot } from '$features/lookout';
+import type { AlarmSilenceController, ShallowMonitorSnapshot } from '$features/lookout';
 import { loadAlarmsPanel } from '$features/lookout';
 import {
   loadRadarControls,
@@ -237,6 +237,7 @@ interface FlatProps {
   weatherProvider: WeatherProvider | undefined;
   collisionMute: { active: boolean };
   collisionMuteRemainingMin: number | undefined;
+  alarmSilence: AlarmSilenceController;
   alarmActionError: string | undefined;
   genericAlarms: ActiveNotification[];
   genericSounding: boolean;
@@ -508,6 +509,7 @@ let {
   weatherProvider,
   collisionMute,
   collisionMuteRemainingMin,
+  alarmSilence,
   alarmActionError,
   genericAlarms,
   genericSounding,
@@ -1116,6 +1118,9 @@ $effect(() => {
       {collision}
       collisionMuted={collisionMute.active}
       onToggleCollisionMute={toggleCollisionMute}
+      alarmSilenced={alarmSilence.active}
+      alarmSilenceRemainingSeconds={alarmSilence.remainingSeconds}
+      onClearAlarmSilence={alarmSilence.clear}
       onSelectAisTarget={onAisSelect}
       {mob}
       onMobSteer={mobController.onSteer}
@@ -1730,6 +1735,10 @@ $effect(() => {
               collisionMuted={collisionMute.active}
               {collisionMuteRemainingMin}
               onToggleCollisionMute={toggleCollisionMute}
+              alarmSilenced={alarmSilence.active}
+              alarmSilenceRemainingSeconds={alarmSilence.remainingSeconds}
+              onSilenceAllAlarms={alarmSilence.silenceFor}
+              onClearAlarmSilence={alarmSilence.clear}
               arrivalMuted={arrivalMuted.value}
               onToggleArrivalMute={() => arrivalMuted.set(!arrivalMuted.value)}
               notifications={notificationsStore}

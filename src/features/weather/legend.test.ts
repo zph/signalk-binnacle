@@ -12,8 +12,11 @@ describe('weatherLegend', () => {
 
   it('uses the preferred Signal K speed unit independently of metric or imperial mode', () => {
     const legend = weatherLegend('weather-wind', 'day', 'imperial', 'km/h');
-    expect(legend?.title).toBe('Wind gusts (km/h)');
+    expect(legend?.title).toBe('Sustained wind (km/h)');
     expect(legend?.highLabel).toBe('93');
+    expect(legend?.note).toBe(
+      'color shows sustained wind; barbs show direction; labels show gust speed in km/h',
+    );
   });
 
   it('builds an ocean-current speed gradient in the preferred speed unit', () => {

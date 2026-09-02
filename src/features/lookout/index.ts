@@ -2,6 +2,12 @@ import { createRetryableLazyUiLoader } from '$shared/lib';
 
 export { default as AlarmStrip } from './AlarmStrip.svelte';
 export { createAlarmLocationSettingsSync } from './alarm-location-settings-sync';
+export {
+  ALARM_SILENCE_HOURS,
+  type AlarmSilenceController,
+  type AlarmSilenceHours,
+  createAlarmSilenceController,
+} from './alarm-silence.svelte';
 export { CollisionMute } from './collision-mute.svelte';
 export type { SkNotification } from './collision-notification';
 export { CollisionNotifier, NOTIFICATION_PATH } from './collision-notification';

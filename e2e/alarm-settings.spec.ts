@@ -88,3 +88,39 @@ test('alarm location survives cleared browser storage through plugin storage', a
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.safety-rail')).toHaveAttribute('data-location', 'center');
 });
+
+test('whole-display alarm silence survives reload and remains easy to clear', async ({ page }) => {
+  await stubVesselsSelf(page);
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('alarm-silence-test-initialized')) {
+      localStorage.clear();
+      sessionStorage.setItem('alarm-silence-test-initialized', 'true');
+    }
+    localStorage.setItem('binnacle-custom:help-orientation', 'true');
+  });
+
+  await page.goto('/');
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('alarm settings');
+  await palette.getByRole('option', { name: /Alarms/ }).click();
+  const panel = page.getByRole('complementary', { name: 'Alarms' });
+  const durations = panel.getByRole('group', { name: 'Silence all alarms for' });
+  for (const label of ['1 hour', '6 hours', '12 hours', '24 hours']) {
+    await expect(
+      durations.getByRole('button', { name: `Silence all alarms for ${label}` }),
+    ).toBeVisible();
+  }
+  await durations.getByRole('button', { name: 'Silence all alarms for 6 hours' }).click();
+  await expect(panel).toContainText('Sound returns in');
+  await expect(page.getByRole('complementary', { name: 'Alarm sound muted' })).toBeVisible();
+
+  await page.reload();
+  const reminder = page.getByRole('complementary', { name: 'Alarm sound muted' });
+  await expect(reminder).toContainText('Visual alarms stay active on this display.');
+  await reminder.getByRole('button', { name: 'Turn sound on' }).click();
+  await expect(reminder).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('binnacle-custom:alarm-silenced-until')))
+    .toBe('0');
+});

@@ -47,30 +47,31 @@ describe('wind overlay', () => {
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('weather');
-    expect(map.sources.size).toBe(2);
-    expect(map.layers.size).toBe(2);
+    expect(map.sources.size).toBe(3);
+    expect(map.layers.size).toBe(3);
 
     overlay.setVisible(fakeOverlayContext(map), true);
-    expect(map.sources.size).toBe(2);
-    expect(map.layers.size).toBe(2);
+    expect(map.sources.size).toBe(3);
+    expect(map.layers.size).toBe(3);
   });
 
-  it('syncs the arrow features from the grid', async () => {
+  it('syncs directional barbs and gust-only labels from the grid', async () => {
     const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     overlay.sync(fakeOverlayContext(map));
-    expect(map.sources.size).toBe(2);
+    expect(map.sources.size).toBe(3);
 
     overlay.setVisible(fakeOverlayContext(map), true);
+    const arrows = map.sources.get('binnacle-weather-wind-arrows');
     const markers = map.sources.get('binnacle-weather-wind-markers');
+    if (!arrows) throw new Error('wind arrow source was not added');
     if (!markers) throw new Error('wind marker source was not added');
+    expect((arrows.data as GeoJSON.FeatureCollection).features).toHaveLength(192);
     const fc = markers.data as GeoJSON.FeatureCollection;
     expect(fc.features).toHaveLength(192);
-    expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe(
-      '19 | 27 kn',
-    );
+    expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe('27 kn');
     overlay.sync(fakeOverlayContext(map));
     expect(markers.data).toBe(fc);
   });
@@ -104,6 +105,11 @@ describe('wind overlay', () => {
     await overlay.add(fakeOverlayContext(map));
     const paint = mapThemePaint('night-red');
     expect(() => overlay.applyTheme?.(fakeOverlayContext(map), paint)).not.toThrow();
+    expect(map.setPaintProperty).toHaveBeenCalledWith(
+      'binnacle-weather-wind-arrow-layer',
+      'line-color',
+      paint.label,
+    );
     expect(map.setPaintProperty).toHaveBeenCalledWith(
       'binnacle-weather-wind-marker-label',
       'text-color',

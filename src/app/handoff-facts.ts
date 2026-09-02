@@ -15,7 +15,12 @@ export interface HandoffFactDeps {
     ttgSeconds: number | undefined;
     ttgBasis: 'server' | 'vmg' | undefined;
   };
-  alarms: () => { raised: number; worst: string | undefined; collisionMutedUntilMs?: number };
+  alarms: () => {
+    raised: number;
+    worst: string | undefined;
+    alarmSilencedUntilMs?: number;
+    collisionMutedUntilMs?: number;
+  };
   collision: () => {
     worst: string;
     unassessed: number;
@@ -77,6 +82,12 @@ export function collectHandoffFacts(deps: HandoffFactDeps): HandoffFact[] {
   }
 
   const alarms = deps.alarms();
+  const silenced =
+    alarms.alarmSilencedUntilMs !== undefined && alarms.alarmSilencedUntilMs > now
+      ? `, all alarm sound muted another ${formatDuration(
+          (alarms.alarmSilencedUntilMs - now) / 1000,
+        )}`
+      : '';
   const muted =
     alarms.collisionMutedUntilMs !== undefined && alarms.collisionMutedUntilMs > now
       ? `, collision alarm muted another ${formatDuration(
@@ -87,8 +98,8 @@ export function collectHandoffFacts(deps: HandoffFactDeps): HandoffFact[] {
     label: 'Alarms',
     value:
       alarms.raised === 0
-        ? `none raised${muted}`
-        : `${alarms.raised} raised, worst ${alarms.worst ?? 'unknown'}${muted}`,
+        ? `none raised${silenced}${muted}`
+        : `${alarms.raised} raised, worst ${alarms.worst ?? 'unknown'}${silenced}${muted}`,
   });
 
   const collision = deps.collision();

@@ -147,9 +147,10 @@ Binnacle ships its full feature set as a Signal K webapp:
 - **Weather:** a zoom-capped mini-map with animated WebGL wind, pressure isobars, ocean currents,
   waves, precipitation, cloud, and radar, plus time-aware point readouts, marine forecasts, source
   and age labels, deterministic risk cues, and official warnings when a Signal K weather provider
-  supplies them. Wind and current forecasts request up to ten days. Open-Meteo provides the key-free
-  fallback, including wind waves, swell, currents, and sea surface temperature, while cached
-  forecasts remain available offline with explicit stale labeling.
+  supplies them. Wind color shows sustained speed, directional barbs show where wind comes from, and
+  integer labels show gust speed with its unit. Wind and current forecasts request up to ten days.
+  Open-Meteo provides the key-free fallback, including wind waves, swell, currents, and sea surface
+  temperature, while cached forecasts remain available offline with explicit stale labeling.
   The routes shown on the chart draw read-only over the forecast with their named waypoints, so a
   passage can be read against the weather without implying the forecast was routed along it.
 - **Tides:** independent tide-height and tidal-current station selection with automatic nearest
@@ -167,7 +168,9 @@ Binnacle ships its full feature set as a Signal K webapp:
   or emergency grade notification outside the dedicated hazards sounds its own tone and raises a
   strip with the count showing live on the Alarms menu entry, with one-tap Silence and Acknowledge
   that propagate to every station and a device-local mute when the server cannot silence it. One
-  alarm sounds at a time through a single audio authority: man overboard and an escalating
+  control can silence every Binnacle alarm sound on the current display for 1, 6, 12, or 24 hours
+  while visual alerts remain active, with a persistent reminder and immediate sound restoration.
+  One alarm sounds at a time through a single audio authority: man overboard and an escalating
   collision danger interleave at the top, lower alarms rotate with bounded reminders so none is
   hidden, courtesy tones like arrival yield to real alarms, and blocked or failed alarm audio is
   stated beside the alarms themselves, where any tap restores it.

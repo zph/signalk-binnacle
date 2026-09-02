@@ -94,6 +94,12 @@ test('bottom weather button cycles wind, currents, tides, temperature, UV, and o
 
   await expect(helm.getByRole('button', { name: /Weather and tides: off/ })).toBeVisible();
   await nextWeather(/Weather and tides: wind and gusts/);
+  const windForecast = page.getByRole('complementary', {
+    name: 'Wind and gusts forecast overlay',
+  });
+  await expect(windForecast).toContainText('color shows sustained wind');
+  await expect(windForecast).toContainText('barbs show direction');
+  await expect(windForecast).toContainText('labels show gust speed in');
   await nextWeather(/Weather and tides: ocean currents/);
   await nextWeather(/Weather and tides: tide and current stations/);
   await nextWeather(/Weather and tides: temperature/);

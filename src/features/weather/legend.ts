@@ -95,12 +95,12 @@ export function weatherLegend(
       return {
         ...rampLegend(
           layerId,
-          `Wind gusts (${speedUnit})`,
+          `Sustained wind (${speedUnit})`,
           WIND_STOPS,
           (s) => windColor(s, theme),
           (s) => formatSpeedOr(s, speedUnit, 0),
         ),
-        note: 'color shows gusts; labels show sustained | gust speed',
+        note: `color shows sustained wind; barbs show direction; labels show gust speed in ${speedUnit}`,
       };
     case WEATHER_LAYER_IDS.current:
       return {

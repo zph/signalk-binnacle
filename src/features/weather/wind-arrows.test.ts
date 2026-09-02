@@ -27,19 +27,19 @@ describe('windArrowFeatures', () => {
     expect((fc.features[0].properties as { speed: number }).speed).toBeCloseTo(10, 4);
   });
 
-  it('creates preferred-unit speed labels beside the arrows', () => {
+  it('keeps barbs but omits labels when gust data is unavailable', () => {
     const vectors = windVectorFeatures(grid, { lo: 0, hi: 0, frac: 0 }, 'kn');
-    expect(vectors.markers.features).toHaveLength(4);
-    expect(vectors.markers.features[0].properties?.label).toBe('19 kn');
+    expect(vectors.arrows.features).toHaveLength(4);
+    expect(vectors.markers.features).toHaveLength(0);
   });
 
-  it('shows sustained and gust speed in one compact label', () => {
+  it('shows only a rounded gust and its preferred unit beside each barb', () => {
     const vectors = windVectorFeatures(
       { ...grid, windGust: [[14, 14, 14, 14]] },
       { lo: 0, hi: 0, frac: 0 },
       'kn',
     );
-    expect(vectors.markers.features[0].properties?.label).toBe('19 | 27 kn');
+    expect(vectors.markers.features[0].properties?.label).toBe('27 kn');
     expect(vectors.markers.features[0].properties?.gust).toBe(14);
   });
 
@@ -53,6 +53,7 @@ describe('windArrowFeatures', () => {
       times: [1000],
       windU: [new Array(cells).fill(5)],
       windV: [new Array(cells).fill(0)],
+      windGust: [new Array(cells).fill(8)],
     };
     const vectors = windVectorFeatures(dense, { lo: 0, hi: 0, frac: 0 }, 'm/s');
     expect(vectors.arrows.features).toHaveLength(192);
@@ -74,6 +75,7 @@ describe('windArrowFeatures', () => {
       times: [1000],
       windU: [new Array(cells).fill(5)],
       windV: [new Array(cells).fill(0)],
+      windGust: [new Array(cells).fill(8)],
     };
     const wide = windVectorFeatures(dense, { lo: 0, hi: 0, frac: 0 }, 'm/s', {
       west: 2,

@@ -190,6 +190,9 @@ source, and surrounding traffic before relying on it.
   alarm state may be stale. Collision warnings publish as visual-only Signal K deltas, while danger
   alarms use the Notifications API with visual and sound methods. Collision and shallow-water
   settings stay in safe numeric bounds, in SI internally, with conversion only at display inputs.
+  The panel can silence every Binnacle alarm sound on this display for 1, 6, 12, or 24 hours. The
+  bounded safety timer survives reloads, visual alerts and acknowledgments remain active, the Alarms
+  menu entry names the running silence, and a persistent warning strip restores sound immediately.
   The shallow threshold merges the server's depth zones with the locally configured limit
   conservatively: whichever bound is deeper governs, so the server can tighten the alarm but never
   quietly loosen it. The panel names which one is in force and says when no depth source is
@@ -223,9 +226,10 @@ source, and surrounding traffic before relying on it.
   forecast strip provides earlier, later, playback, and up-to-ten-day time-scrubbing controls. Ocean
   currents use Open-Meteo Marine. The atmospheric source belongs to the active profile. Panning the
   primary chart loads the selected field for the settled chart viewport plus a padded margin for
-  nearby pans. A continuous color surface represents forecast intensity across the loaded area. A
-  sparse, evenly distributed set of high-contrast arrows includes arrowheads and preferred-unit
-  speed labels. Wind adds motion when WebGL and reduced-motion preferences permit it.
+  nearby pans. In Wind and gusts, the continuous color field shows sustained wind, conventional
+  barbs show the direction wind comes from, and each integer label shows forecast gust speed with
+  its unit. Ocean currents use a speed color field plus arrows and preferred-unit speed labels.
+  Wind adds motion when WebGL and reduced-motion preferences permit it.
 - **Forecast** opens a weather mini-map at the navigation chart view. Wind and waves start visible on
   a fresh install, and its weather layer menu uses the same forecast-source choice as the primary
   chart overlay. Ocean currents can be shown as a forecast field with set arrows. Wind, gust, and

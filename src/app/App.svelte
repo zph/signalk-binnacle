@@ -103,6 +103,7 @@ import type { LayersView } from '$features/layers-panel';
 import {
   CollisionMute,
   createAlarmLocationSettingsSync,
+  createAlarmSilenceController,
   createCollisionSettingsSync,
   createShallowController,
   GenericAlarm,
@@ -190,6 +191,7 @@ import {
   Clock,
   createMediaQuery,
   formatClockTime,
+  formatDuration,
   isRecord,
   PLATFORM_BREAKPOINTS,
   Toast,
@@ -345,8 +347,13 @@ const collision = new CollisionAssessment(vessel, aisTargets, thresholds, () => 
 // Every Binnacle-owned tone routes through one coordinator, so simultaneous alarms cannot sum at
 // the speaker and priority is deterministic: MOB and an escalating close-quarters collision are
 // co-equal and interleave; emergency outranks alarm; arrival is a courtesy that never preempts a
-// safety condition. Silencing stays at each call site.
+// safety condition. Per-alarm silencing stays at each call site, while the bounded whole-output
+// silence below applies once at this shared boundary.
 const alarmCoordinator = new AlarmCoordinator();
+const alarmSilence = createAlarmSilenceController(clock);
+$effect(() => {
+  alarmCoordinator.setSilenced(alarmSilence.active);
+});
 const lookoutAlarm = new LookoutAlarm(
   alarmCoordinator.channel({ id: 'collision', rank: () => (collision.escalating ? 0 : 1) }),
 );
@@ -1986,6 +1993,7 @@ const handoff = createHandoffController({
       alarms: () => ({
         raised: genericAlarms.filter(isRaisedNotification).length,
         worst: worstRaisedNotification(genericAlarms)?.state,
+        alarmSilencedUntilMs: alarmSilence.active ? alarmSilence.untilMs : undefined,
         collisionMutedUntilMs: collisionMute.active
           ? Date.now() + collisionMute.remainingMs
           : undefined,
@@ -2348,6 +2356,9 @@ const menuItems = $derived<MenuItem[]>([
   {
     id: 'alarms',
     label: 'Alarms',
+    sublabel: alarmSilence.active
+      ? `Sound muted, ${formatDuration(alarmSilence.remainingSeconds)} left`
+      : undefined,
     icon: Bell,
     group: 'Safety',
     pressed: activePanel === 'alarms',
@@ -4036,6 +4047,7 @@ const plotterActions = {
     {weatherProvider}
     {collisionMute}
     collisionMuteRemainingMin={collisionMute.active ? muteRemainingMin : undefined}
+    {alarmSilence}
     {alarmActionError}
     {genericAlarms}
     genericSounding={notificationsController.genericSounding}

@@ -57,6 +57,10 @@ function renderPanel(
         } as unknown as PersistedValue<AlarmLocation>,
         units: { mode: 'metric' } as UnitsStore,
         shallow,
+        alarmSilenced: false,
+        alarmSilenceRemainingSeconds: 0,
+        onSilenceAllAlarms: () => {},
+        onClearAlarmSilence: () => {},
         collisionMuted: mute.collisionMuted ?? false,
         collisionMuteRemainingMin: mute.collisionMuteRemainingMin,
         onToggleCollisionMute: () => {},
@@ -204,6 +208,15 @@ describe('AlarmsPanel shallow water section', () => {
 });
 
 describe('AlarmsPanel mutes', () => {
+  it('offers each bounded whole-app silence duration and explains its device scope', () => {
+    const body = renderPanel({});
+    for (const label of ['1 hour', '6 hours', '12 hours', '24 hours']) {
+      expect(body).toContain(`aria-label="Silence all alarms for ${label}"`);
+    }
+    expect(body).toContain('Visual alerts, alarm cards, and acknowledgments stay active.');
+    expect(body).toContain('The timer survives a reload.');
+  });
+
   it('announces the collision mute countdown as a status', () => {
     const body = renderPanel({}, undefined, {
       collisionMuted: true,

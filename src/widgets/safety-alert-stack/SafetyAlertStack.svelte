@@ -12,6 +12,7 @@ import {
   worstRaisedNotification,
 } from '$features/lookout';
 import { MobStrip } from '$features/mob';
+import { formatDuration } from '$shared/lib';
 import { type SafetyCondition, SafetyStack } from './safety-stack.svelte';
 
 interface ChipCondition extends SafetyCondition {
@@ -29,6 +30,9 @@ interface Props {
   collision: CollisionAssessment;
   collisionMuted: boolean;
   onToggleCollisionMute: () => void;
+  alarmSilenced: boolean;
+  alarmSilenceRemainingSeconds: number;
+  onClearAlarmSilence: () => void;
   // Open a named collision contact's AIS detail straight from the strip row.
   onSelectAisTarget?: (id: string) => void;
   mob: MobStore;
@@ -54,6 +58,9 @@ const {
   collision,
   collisionMuted,
   onToggleCollisionMute,
+  alarmSilenced,
+  alarmSilenceRemainingSeconds,
+  onClearAlarmSilence,
   onSelectAisTarget,
   mob,
   onMobSteer,
@@ -164,9 +171,22 @@ function chipDescription(condition: ChipCondition): string {
 }
 </script>
 
-{#if stack.shownId !== undefined}
+{#if alarmSilenced || stack.shownId !== undefined}
   <div class="rail" bind:this={railRoot}>
-    {#if chips.length > 0}
+    {#if alarmSilenced}
+      <aside
+        class="bottom-strip bottom-strip--warning alarm-silence-strip"
+        aria-label="Alarm sound muted"
+      >
+        <div class="head">
+          <span class="title">Alarm sound muted</span>
+          <span class="note num">{formatDuration(alarmSilenceRemainingSeconds)} left</span>
+          <button type="button" class="ack" onclick={onClearAlarmSilence}>Turn sound on</button>
+        </div>
+        <div class="row">Visual alarms stay active on this display.</div>
+      </aside>
+    {/if}
+    {#if stack.shownId !== undefined && chips.length > 0}
       <div class="chips" role="group" aria-label="Other active alerts">
         {#each chips as condition (condition.id)}
           <button
@@ -222,6 +242,9 @@ function chipDescription(condition: ChipCondition): string {
   align-items: center;
   gap: var(--space-2);
   inline-size: 100%;
+}
+.alarm-silence-strip .head {
+  margin-block-end: var(--space-1);
 }
 .chips {
   display: flex;

@@ -77,7 +77,7 @@ function barbLength(
   return (spacings.length > 0 ? Math.min(...spacings) : 0.02) * BARB_FRACTION;
 }
 
-// Build conventional wind barbs and point labels. The staff points into the wind, as it does on a
+// Build conventional wind barbs and gust labels. The staff points into the wind, as it does on a
 // paper weather chart; each short feather denotes five knots. Geometry, rather than a font glyph,
 // keeps the symbol crisp and consistent across devices.
 export function windVectorFeatures(
@@ -156,18 +156,17 @@ export function windVectorFeatures(
       geometry: { type: 'MultiLineString', coordinates },
       properties: { speed },
     });
-    markers.push({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [lon, lat] },
-      properties: {
-        label:
-          gust === undefined
-            ? `${formatSpeedOr(speed, speedUnit, 0)} ${speedUnitLabel(speedUnit)}`
-            : `${formatSpeedOr(speed, speedUnit, 0)} | ${formatSpeedOr(gust, speedUnit, 0)} ${speedUnitLabel(speedUnit)}`,
-        speed,
-        gust,
-      },
-    });
+    if (gust !== undefined) {
+      markers.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: {
+          label: `${formatSpeedOr(gust, speedUnit, 0)} ${speedUnitLabel(speedUnit)}`,
+          speed,
+          gust,
+        },
+      });
+    }
   }
   return { arrows: featureCollection(arrows), markers: featureCollection(markers) };
 }

@@ -84,7 +84,12 @@ describe('collectHandoffFacts', () => {
           ttgSeconds: 3_600,
           ttgBasis: 'vmg',
         }),
-        alarms: () => ({ raised: 2, worst: 'alarm', collisionMutedUntilMs: NOW + 300_000 }),
+        alarms: () => ({
+          raised: 2,
+          worst: 'alarm',
+          alarmSilencedUntilMs: NOW + 21_600_000,
+          collisionMutedUntilMs: NOW + 300_000,
+        }),
         collision: () => ({
           worst: 'warning',
           unassessed: 1,
@@ -97,7 +102,7 @@ describe('collectHandoffFacts', () => {
       'to Harbor Ledge, XTE 0.10 nm, time to go 1h 00m (VMG estimate)',
     );
     expect(fact(facts, 'Alarms')).toBe(
-      '2 raised, worst alarm, collision alarm muted another 5 min',
+      '2 raised, worst alarm, all alarm sound muted another 6h 00m, collision alarm muted another 5 min',
     );
     expect(fact(facts, 'Collision watch')).toBe(
       'warning, closest 0.50 nm in 10 min, 1 contact not assessable',

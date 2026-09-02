@@ -13,6 +13,7 @@ import { type AlarmAudioState, alarmAudioNote } from '$shared/audio';
 import {
   feetToMeters,
   formatClockTime,
+  formatDuration,
   formatLengthOr,
   lengthUnit,
   metersToFeet,
@@ -30,6 +31,7 @@ import {
 } from '$shared/settings';
 import { type AuthController, type ConnectionPhase, isConnectionDown } from '$shared/signalk';
 import { Disclosure, InlineConfirm, SlideOver, UnitField, WriteAccessNote } from '$shared/ui';
+import { ALARM_SILENCE_HOURS, type AlarmSilenceHours } from './alarm-silence.svelte';
 import {
   canAcknowledgeNotification,
   canSilenceNotification,
@@ -64,6 +66,10 @@ interface Props {
   // The shallow monitor's live state. Absent (an older caller, or SSR) leaves the section on the
   // locally configured threshold, which is what it did before the monitor existed.
   shallow?: ShallowMonitorSnapshot;
+  alarmSilenced: boolean;
+  alarmSilenceRemainingSeconds: number;
+  onSilenceAllAlarms: (hours: AlarmSilenceHours) => void;
+  onClearAlarmSilence: () => void;
   collisionMuted: boolean;
   collisionMuteRemainingMin: number | undefined;
   onToggleCollisionMute: () => void;
@@ -85,6 +91,10 @@ const {
   alarmLocation,
   units,
   shallow,
+  alarmSilenced,
+  alarmSilenceRemainingSeconds,
+  onSilenceAllAlarms,
+  onClearAlarmSilence,
   collisionMuted,
   collisionMuteRemainingMin,
   onToggleCollisionMute,
@@ -297,8 +307,36 @@ $effect(() => {
       <p class="muted-note" role="status">Updating alarm status…</p>
     {/if}
   </section>
-  <section class="panel-section" aria-label="Mutes">
-    <h3 class="caps-label">Mutes</h3>
+  <section class="panel-section" aria-label="Silence all alarms">
+    <h3 class="caps-label">Alarm sound</h3>
+    <p class="muted-note">
+      Silence every Binnacle alarm on this display for a fixed time. Visual alerts, alarm cards, and
+      acknowledgments stay active. The timer survives a reload.
+    </p>
+    <div class="panel-controls" role="group" aria-label="Silence all alarms for">
+      {#each ALARM_SILENCE_HOURS as hours (hours)}
+        <button
+          type="button"
+          class="btn btn-ghost"
+          aria-label={`Silence all alarms for ${hours === 1 ? '1 hour' : `${hours} hours`}`}
+          onclick={() => onSilenceAllAlarms(hours)}
+        >
+          {hours}
+          h
+        </button>
+      {/each}
+    </div>
+    {#if alarmSilenced}
+      <p class="muted-note action-note action-note--wrap" role="status">
+        Sound returns in <span class="num">{formatDuration(alarmSilenceRemainingSeconds)}</span>.
+        <button type="button" class="btn btn-ghost" onclick={onClearAlarmSilence}>
+          Turn sound on
+        </button>
+      </p>
+    {/if}
+  </section>
+  <section class="panel-section" aria-label="Individual alarm mutes">
+    <h3 class="caps-label">Individual mutes</h3>
     <button
       type="button"
       class="btn mute-row"

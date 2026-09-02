@@ -161,4 +161,21 @@ describe('AlarmCoordinator', () => {
     expect(output.start).toHaveBeenLastCalledWith(SHALLOW);
     coordinator.dispose();
   });
+
+  it('silences every channel and resumes the most urgent active alarm', () => {
+    const output = makeOutput();
+    const coordinator = new AlarmCoordinator(output);
+    const mob = coordinator.channel({ id: 'mob', rank: () => 0 });
+    const shallow = coordinator.channel({ id: 'shallow', rank: () => 2 });
+    shallow.start(SHALLOW);
+    coordinator.setSilenced(true);
+    expect(output.stop).toHaveBeenCalled();
+    output.start.mockClear();
+    mob.start(MOB);
+    vi.advanceTimersByTime(30_000);
+    expect(output.start).not.toHaveBeenCalled();
+    coordinator.setSilenced(false);
+    expect(output.start).toHaveBeenLastCalledWith(MOB);
+    coordinator.dispose();
+  });
 });

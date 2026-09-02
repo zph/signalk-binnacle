@@ -4,9 +4,8 @@ import type { Theme } from '$shared/ui';
 import type { FieldBitmap } from './field-rgba';
 import { windColor } from './wind-colormap';
 
-// Build the combined wind view's color surface from forecast gust speed, falling back to sustained
-// u/v speed for cached grids created before gusts joined the chart request. Barbs carry sustained
-// direction and speed above this field, so the two encodings answer both steering and reefing needs.
+// Build the combined wind view's color surface from sustained u/v speed. Directional barbs and gust
+// labels sit above it, so color answers sustained force while the integer labels answer peak force.
 export function windSpeedFieldRgba(
   grid: WeatherGrid,
   bracket: TimeBracket,
@@ -17,8 +16,6 @@ export function windSpeedFieldRgba(
   if (!uLo || !vLo || uLo.length === 0 || vLo.length === 0) return undefined;
   const uHi = grid.windU[bracket.hi] ?? uLo;
   const vHi = grid.windV[bracket.hi] ?? vLo;
-  const gustLo = grid.windGust?.[bracket.lo];
-  const gustHi = grid.windGust?.[bracket.hi] ?? gustLo;
   const cols = grid.lons.length;
   const rows = grid.lats.length;
   const data = new Uint8ClampedArray(cols * rows * 4);
@@ -34,11 +31,7 @@ export function windSpeedFieldRgba(
         data[offset + 3] = 0;
         continue;
       }
-      const gust = gustLo ? lerp(gustLo[i], gustHi?.[i] ?? gustLo[i], bracket.frac) : Number.NaN;
-      const [r, g, b, rampAlpha] = windColor(
-        Number.isFinite(gust) ? gust : Math.hypot(u, v),
-        theme,
-      );
+      const [r, g, b, rampAlpha] = windColor(Math.hypot(u, v), theme);
       data[offset] = Math.round(r * 255);
       data[offset + 1] = Math.round(g * 255);
       data[offset + 2] = Math.round(b * 255);
