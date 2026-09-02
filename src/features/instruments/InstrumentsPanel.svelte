@@ -83,9 +83,6 @@ interface Props {
   screenEditing?: boolean;
   overlayOpacity?: number;
   onOverlayOpacityChange?: (opacity: number) => void;
-  // Opens the chart-owned editor, where the selected dock instruments can be placed over the map.
-  // It is exposed here because a touch helm cannot depend on the keyboard Command K route.
-  onEditScreenInstruments?: () => void;
 }
 
 const {
@@ -125,7 +122,6 @@ const {
   screenEditing = false,
   overlayOpacity = 1,
   onOverlayOpacityChange = () => {},
-  onEditScreenInstruments = () => {},
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -527,7 +523,6 @@ $effect(() => {
     <InstrumentsCustomize {controller} {deps} {overlayOpacity} {onOverlayOpacityChange} />
   {:else}
     <div class="instrument-config-action">
-      <button type="button" class="btn" onclick={onEditScreenInstruments}>Place on chart</button>
       <button type="button" class="btn btn-ghost" onclick={toggleCustomizing}>
         Customize instruments
       </button>

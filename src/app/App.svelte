@@ -23,7 +23,6 @@ import MenuIcon from '@lucide/svelte/icons/menu';
 import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import Moon from '@lucide/svelte/icons/moon';
 import Navigation from '@lucide/svelte/icons/navigation';
-import PanelRight from '@lucide/svelte/icons/panel-right';
 import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
 import Ruler from '@lucide/svelte/icons/ruler';
@@ -87,9 +86,7 @@ import {
   DEFAULT_TILES,
   type FloatingInstrumentBox,
   floatingInstrumentBoxesCodec,
-  type InstrumentDockLayout,
   type InstrumentTileLayouts,
-  instrumentDockWidthForLayout,
   instrumentTileLayoutsCodec,
   isAisRadarRangeNm,
   loadInstrumentScreenLayer,
@@ -756,20 +753,9 @@ function openAisRadarInstrument(): void {
   openExpandedInstrument('ais-radar');
 }
 
-function openMapInstrument(): void {
-  openExpandedInstrument('map');
-}
-
 function openWindRoseSettings(): void {
   instrumentExpandedRequest = undefined;
   windRoseSettingsRequest = { sequence: ++instrumentOpenSequence };
-  finishOpeningInstrumentsPanel();
-}
-
-function openInstrumentCustomize(): void {
-  instrumentExpandedRequest = undefined;
-  windRoseSettingsRequest = undefined;
-  instrumentCustomizeRequest = { sequence: ++instrumentOpenSequence };
   finishOpeningInstrumentsPanel();
 }
 
@@ -788,17 +774,6 @@ function openTideStationSettings(): void {
   loadTides();
 }
 
-function openInstrumentsLayout(layout: 'full' | InstrumentDockLayout): void {
-  // Requesting the full-screen dock exits the chart-editing mode: a forced full-screen dock would
-  // cover the chart being edited.
-  if (layout === 'full' && instruments.screenEditing) exitScreenInstrumentEditing();
-  instrumentsFullScreenForced = layout === 'full';
-  if (layout !== 'full') {
-    commitInstrumentDockWidth(instrumentDockWidthForLayout(layout, window.innerWidth));
-  }
-  finishOpeningInstrumentsPanel();
-}
-
 // Screen edit mode frees the selected dock instruments onto the chart on first use. The chart
 // overlay remains visible after Done, under the same global Instruments show/hide control.
 function startScreenInstrumentEditing(): void {
@@ -811,6 +786,27 @@ function startScreenInstrumentEditing(): void {
 }
 function exitScreenInstrumentEditing(): void {
   instruments.setScreenEditing(false);
+}
+
+// The helm control intentionally cycles the entire chart-overlay workflow without reopening the
+// former side dock: show the saved overlay, unlock it for editing, then hide it.
+function cycleInstruments(): void {
+  if (instruments.screenEditing) {
+    exitScreenInstrumentEditing();
+    instruments.setOpen(false);
+  } else if (instruments.open) {
+    startScreenInstrumentEditing();
+  } else {
+    instruments.setOpen(true);
+  }
+}
+
+function instrumentsActionLabel(): string {
+  return instruments.screenEditing
+    ? 'Hide instruments'
+    : instruments.open
+      ? 'Edit instruments'
+      : 'Show instruments';
 }
 
 async function requestMobFromPalette(): Promise<void> {
@@ -2222,38 +2218,13 @@ const menuItems = $derived<MenuItem[]>([
   },
   {
     id: 'instruments',
-    label: instruments.open ? 'Hide instruments' : 'Show instruments',
-    shortLabel: instruments.open ? 'Hide instruments' : 'Show instruments',
+    label: 'Edit instruments',
+    shortLabel: 'Edit instruments',
     icon: Gauge,
     group: 'Instruments',
     toolbarEligible: false,
-    pressed: instruments.open,
-    onSelect: () => {
-      if (instruments.open) {
-        exitScreenInstrumentEditing();
-        instruments.setOpen(false);
-      } else {
-        finishOpeningInstrumentsPanel();
-      }
-    },
-  },
-  {
-    id: 'customize-instruments',
-    label: 'Customize instruments',
-    shortLabel: 'Edit instruments',
-    icon: Settings,
-    group: 'Instruments',
-    toolbarEligible: false,
-    onSelect: openInstrumentCustomize,
-  },
-  {
-    id: 'map-instrument',
-    label: 'Map instrument',
-    shortLabel: 'Map view',
-    icon: MapPin,
-    group: 'Instruments',
-    toolbarEligible: false,
-    onSelect: openMapInstrument,
+    pressed: instruments.screenEditing,
+    onSelect: startScreenInstrumentEditing,
   },
   {
     id: 'trends',
@@ -2415,7 +2386,6 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       disabledReason: blockedReason(item),
       onSelect: () => runMenuCommand(item),
     }));
-  const dockLayoutsBlocked = instrumentsViewportFullScreen;
   return [
     {
       id: 'browser-fullscreen',
@@ -2508,61 +2478,6 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         layersOpenRequest = { mode: 'charts', target: 'basemap' };
         openPanel('layers');
       },
-    },
-    {
-      id: 'instruments-layout',
-      label: 'Instruments',
-      description: instruments.open
-        ? 'Show or hide the chart instruments, or open a full-screen layout'
-        : 'Show the chart instruments',
-      group: 'Instruments',
-      keywords: ['settings', 'configuration', 'customize', 'layout'],
-      icon: Gauge,
-      children: [
-        {
-          id: 'instruments-full',
-          label: 'Full screen',
-          description: 'Cover the chart with instruments',
-          icon: Maximize2,
-          onSelect: () => openInstrumentsLayout('full'),
-        },
-        {
-          id: 'instruments-half',
-          label: 'Half screen',
-          description: 'Use half of a wide display',
-          icon: PanelRight,
-          disabled: dockLayoutsBlocked,
-          disabledReason: 'Dock layouts need a display wider than 900 pixels.',
-          onSelect: () => openInstrumentsLayout('half'),
-        },
-        {
-          id: 'instruments-quarter',
-          label: 'Quarter screen',
-          description: 'Use one quarter of a wide display',
-          icon: PanelRight,
-          disabled: dockLayoutsBlocked,
-          disabledReason: 'Dock layouts need a display wider than 900 pixels.',
-          onSelect: () => openInstrumentsLayout('quarter'),
-        },
-        {
-          id: 'instruments-close',
-          label: 'Hide instruments',
-          description: 'Hide all chart instruments',
-          icon: Gauge,
-          disabled: !instruments.open,
-          disabledReason: 'The instrument dock is already closed.',
-          onSelect: () => instruments.setOpen(false),
-        },
-      ],
-    },
-    {
-      id: 'instruments-customize',
-      label: 'Customize instruments',
-      description: 'Choose chart instruments and their overlay opacity',
-      group: 'Instruments',
-      keywords: ['instruments', 'web view', 'webview', 'configure', 'layout'],
-      icon: Gauge,
-      onSelect: openInstrumentCustomize,
     },
     {
       // A root entry, not a child of instruments-layout: placing instruments on the chart is its
@@ -3822,7 +3737,7 @@ const plotterActions = {
     });
     actionDialOpen = true;
   },
-  openInstrumentsPanel: finishOpeningInstrumentsPanel,
+  openInstrumentsPanel: startScreenInstrumentEditing,
   lockInterface: interfaceLock.lock,
 };
 </script>
@@ -3959,8 +3874,11 @@ const plotterActions = {
             onOpenTideSettings={openTideStationSettings}
             windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
             windRoseArcMarginRad={windRoseArcMarginRad.value}
+            onWindRoseNoGoAngleChange={(angleRad) => windRoseNoGoAngleRad.set(angleRad)}
+            onWindRoseArcMarginChange={(angleRad) => windRoseArcMarginRad.set(angleRad)}
             topBannerPresent={showHelpWelcome || showEncPrompt || arrivalBanner !== undefined}
             onDone={exitScreenInstrumentEditing}
+            onEdit={startScreenInstrumentEditing}
             overlayOpacity={instrumentOverlayOpacity.value}
           />
 
@@ -4180,7 +4098,6 @@ const plotterActions = {
           screenEditing={instruments.screenEditing}
           overlayOpacity={instrumentOverlayOpacity.value}
           onOverlayOpacityChange={(opacity) => instrumentOverlayOpacity.set(opacity)}
-          onEditScreenInstruments={startScreenInstrumentEditing}
         />
 
         {#snippet fallback(_error, reset)}
@@ -4220,7 +4137,6 @@ const plotterActions = {
       {:else}
         <Lock size={16} aria-hidden="true" />
       {/if}
-      <span>{interfaceLock.locked ? 'Unlock' : 'Lock'}</span>
     </button>
     <button
       type="button"
@@ -4230,7 +4146,6 @@ const plotterActions = {
       onclick={() => void toggleBrowserFullScreen()}
     >
       <Maximize2 size={16} aria-hidden="true" />
-      <span>Full screen</span>
     </button>
     <button
       type="button"
@@ -4240,10 +4155,24 @@ const plotterActions = {
       onclick={goHome}
     >
       <House size={16} aria-hidden="true" />
-      <span>Home</span>
+    </button>
+    <button
+      type="button"
+      class="btn btn-pill helm-instruments-action"
+      aria-label={instrumentsActionLabel()}
+      title={instrumentsActionLabel()}
+      onclick={cycleInstruments}
+    >
+      <Gauge size={16} aria-hidden="true" />
+      {#if instruments.screenEditing}
+        <LockOpen size={14} aria-hidden="true" />
+      {:else}
+        <Lock size={14} aria-hidden="true" />
+      {/if}
     </button>
     <MobButton
       {mob}
+      showLabel={false}
       onTrigger={mobController.onTrigger}
       onLocate={flyToPosition}
       writeBlocked={auth.writeBlocked}
@@ -4277,7 +4206,6 @@ const plotterActions = {
       }}
     >
       <MenuIcon size={16} aria-hidden="true" />
-      <span>Menu</span>
     </button>
   </div>
 </main>
@@ -4481,6 +4409,9 @@ const plotterActions = {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: var(--text);
+}
+.helm-instruments-action {
+  gap: var(--space-1);
 }
 /* The update action is an explicit helm decision. On touch tablets, keep it at the leading edge
    of the persistent bottom bar instead of letting the normal control sequence hide it offscreen. */

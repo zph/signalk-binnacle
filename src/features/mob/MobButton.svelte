@@ -17,6 +17,8 @@ interface Props {
   requestOpen?: number;
   // The radial dial can own the visible trigger while this component retains the shared confirm flow.
   showButton?: boolean;
+  // The persistent helm bar uses icon-only controls, while modal and panel copies retain MOB text.
+  showLabel?: boolean;
 }
 
 const {
@@ -26,6 +28,7 @@ const {
   onLocate,
   requestOpen = 0,
   showButton = true,
+  showLabel = true,
 }: Props = $props();
 
 // The MOB button must never trigger on a stray tap, so marking takes two: the button opens a
@@ -95,7 +98,9 @@ function onTimeout(): void {
     onclick={onButton}
   >
     <LifeBuoy size={16} aria-hidden="true" />
-    <span class="mob-label">MOB</span>
+    {#if showLabel}
+      <span class="mob-label">MOB</span>
+    {/if}
   </button>
 {/if}
 {#if confirming}

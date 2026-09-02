@@ -172,7 +172,6 @@ describe('InstrumentsPanel', () => {
       },
     });
     expect(body).not.toContain('Unlock instrument arrangement');
-    expect(body).toContain('Place on chart');
     expect(body).toContain('Customize instruments');
   });
 

@@ -2,6 +2,7 @@
 import Expand from '@lucide/svelte/icons/expand';
 import GripVertical from '@lucide/svelte/icons/grip-vertical';
 import Plus from '@lucide/svelte/icons/plus';
+import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import X from '@lucide/svelte/icons/x';
 import { type Snippet, untrack } from 'svelte';
 import type { AisTargets } from '$entities/ais';
@@ -24,6 +25,7 @@ import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { instrumentOptionLabels, staleAgeText, type TileDeps } from './tile-catalog';
 import { createTileHistory } from './tile-history.svelte';
+import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
   controller: InstrumentsController;
@@ -38,12 +40,16 @@ interface Props {
   mapInstrument?: Snippet<[boolean, string, () => void]>;
   windRoseNoGoAngleRad?: number;
   windRoseArcMarginRad?: number;
+  onWindRoseNoGoAngleChange?: (angleRad: number) => void;
+  onWindRoseArcMarginChange?: (angleRad: number) => void;
   onOpenTideSettings?: () => void;
   // The chart's centered welcome, arrival, or chart-setup banner is visible. Keep the editing
   // toolbar below it so the first-run path never hides the only way to finish the layout.
   topBannerPresent?: boolean;
   // Called when the helm presses Done, so the shell can clear any edit-mode side effects.
   onDone?: () => void;
+  // A long press on a locked chart instrument is the touch shortcut back into this same editor.
+  onEdit?: () => void;
   overlayOpacity?: number;
 }
 
@@ -60,9 +66,12 @@ const {
   mapInstrument,
   windRoseNoGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   windRoseArcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  onWindRoseNoGoAngleChange = () => {},
+  onWindRoseArcMarginChange = () => {},
   onOpenTideSettings,
   topBannerPresent = false,
   onDone = () => {},
+  onEdit = () => {},
   overlayOpacity = 1,
 }: Props = $props();
 
@@ -70,6 +79,7 @@ const DRAG_MIME = 'text/x-binnacle-instrument';
 const NUDGE_STEP = 0.02;
 const DRAG_THRESHOLD_PX = 6;
 const ALIGNMENT_TOLERANCE = 0.015;
+const EDIT_LONG_PRESS_MS = 600;
 
 const depthDef = $derived(controller.resolve('depth'));
 const aisRadar = $derived(
@@ -90,6 +100,7 @@ const aisRadar = $derived(
 let layerEl = $state<HTMLElement | undefined>();
 let layerSize = $state<{ width: number; height: number } | undefined>();
 let addMenuOpen = $state(false);
+let windRoseSettingsOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
 let expandedId = $state<string | undefined>();
 
@@ -98,10 +109,13 @@ let expandedId = $state<string | undefined>();
 let dragBox = $state<FloatingInstrumentBox | undefined>();
 let dropPreview = $state<FloatingInstrumentBox | undefined>();
 let alignmentAnnouncement = $state('');
+let longPressTimer: ReturnType<typeof setTimeout> | undefined;
+let longPressStart = $state<{ pointerId: number; x: number; y: number } | undefined>();
 
 const floatingTiles = $derived(controller.floatingTiles);
 const editing = $derived(controller.screenEditing);
 const atFloatingCap = $derived(floatingTiles.length >= MAX_FLOATING_INSTRUMENTS);
+const hasWindRose = $derived(floatingTiles.some(({ def }) => def.id === 'wind-rose'));
 
 function observeLayer(node: HTMLElement): { destroy(): void } {
   const updateSize = (): void => {
@@ -379,6 +393,37 @@ function toggleAddMenu(): void {
   addMenuOpen = !addMenuOpen;
 }
 
+function clearLongPress(): void {
+  if (longPressTimer !== undefined) clearTimeout(longPressTimer);
+  longPressTimer = undefined;
+  longPressStart = undefined;
+}
+
+function beginLongPress(event: PointerEvent): void {
+  if (event.button !== 0) return;
+  clearLongPress();
+  longPressStart = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+  longPressTimer = setTimeout(() => {
+    longPressTimer = undefined;
+    longPressStart = undefined;
+    onEdit();
+  }, EDIT_LONG_PRESS_MS);
+}
+
+function moveLongPress(event: PointerEvent): void {
+  if (!longPressStart || event.pointerId !== longPressStart.pointerId) return;
+  if (
+    Math.hypot(event.clientX - longPressStart.x, event.clientY - longPressStart.y) >
+    DRAG_THRESHOLD_PX
+  ) {
+    clearLongPress();
+  }
+}
+
+function endLongPress(event: PointerEvent): void {
+  if (event.pointerId === longPressStart?.pointerId) clearLongPress();
+}
+
 function handleDragOver(event: DragEvent): void {
   if (!editing || !event.dataTransfer) return;
   event.preventDefault();
@@ -495,25 +540,43 @@ function finishEditing(): void {
   role={editing ? 'group' : undefined}
 >
   {#if editing}
-    <div class="screen-edit-chrome" class:screen-edit-chrome--below-banner={topBannerPresent}>
-      <p id="screen-edit-note" class="muted-note screen-edit-note" role="status">
-        Drag any instrument to place it. Use the corner handle to resize, then select Done to lock
-        the layout.
-      </p>
-      <div class="screen-edit-actions">
-        <button
-          type="button"
-          class="btn"
-          bind:this={addMenuTrigger}
-          aria-expanded={addMenuOpen}
-          onclick={toggleAddMenu}
-        >
-          <Plus size={16} aria-hidden="true" />
-          Add instrument
-        </button>
-        <button type="button" class="btn btn-primary" onclick={finishEditing}>Done</button>
+    {#if windRoseSettingsOpen}
+      <div class="screen-edit-settings">
+        <WindRoseSettings
+          noGoAngleRad={windRoseNoGoAngleRad}
+          arcMarginRad={windRoseArcMarginRad}
+          onChange={onWindRoseNoGoAngleChange}
+          onArcMarginChange={onWindRoseArcMarginChange}
+          onBack={() => (windRoseSettingsOpen = false)}
+        />
       </div>
-    </div>
+    {:else}
+      <div class="screen-edit-chrome" class:screen-edit-chrome--below-banner={topBannerPresent}>
+        <p id="screen-edit-note" class="muted-note screen-edit-note" role="status">
+          Drag any instrument to place it. Use the corner handle to resize, then select Done to lock
+          the layout.
+        </p>
+        <div class="screen-edit-actions">
+          <button
+            type="button"
+            class="btn"
+            bind:this={addMenuTrigger}
+            aria-expanded={addMenuOpen}
+            onclick={toggleAddMenu}
+          >
+            <Plus size={16} aria-hidden="true" />
+            Add instrument
+          </button>
+          {#if hasWindRose}
+            <button type="button" class="btn" onclick={() => (windRoseSettingsOpen = true)}>
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              Wind rose settings
+            </button>
+          {/if}
+          <button type="button" class="btn btn-primary" onclick={finishEditing}>Done</button>
+        </div>
+      </div>
+    {/if}
     {#if addMenuOpen}
       <AnchoredMenu
         open={true}
@@ -526,7 +589,7 @@ function finishEditing(): void {
         anchor={addMenuTrigger}
         preferredPlacement="below"
         anchorAlign="end"
-        surfaceStyle="inline-size: 16.25rem; max-block-size: min(20rem, calc(100dvh - 2 * var(--space-3)));"
+        surfaceStyle="inline-size: min(16.25rem, calc(100vw - 2 * var(--space-3))); max-block-size: calc(100dvh - 2 * var(--space-3)); overflow: hidden;"
         onFocusLeft={() => (addMenuOpen = false)}
       >
         <div class="add-menu-scroll" use:rovingFocus={'[role="menuitem"]'}>
@@ -592,7 +655,13 @@ function finishEditing(): void {
       aria-label={editing
         ? `Arrange ${controller.resolvedLabel(entry.def)}`
         : controller.resolvedLabel(entry.def)}
-      onpointerdown={(event) => editing && beginBodyDrag(entry.def.id, box, event)}
+      onpointerdown={(event) => {
+        if (editing) beginBodyDrag(entry.def.id, box, event);
+        else beginLongPress(event);
+      }}
+      onpointermove={(event) => !editing && moveLongPress(event)}
+      onpointerup={(event) => !editing && endLongPress(event)}
+      onpointercancel={() => clearLongPress()}
     >
       <InstrumentTile
         def={entry.def}
@@ -738,6 +807,17 @@ function finishEditing(): void {
   display: flex;
   gap: var(--space-2);
 }
+.screen-edit-settings {
+  position: absolute;
+  z-index: calc(var(--z-menu) + 1);
+  inset: var(--space-3);
+  max-inline-size: 28rem;
+  margin-inline: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-lg);
+}
 .floating-frame {
   position: absolute;
   display: flex;
@@ -827,7 +907,9 @@ function finishEditing(): void {
 .add-menu-scroll {
   display: flex;
   flex-direction: column;
-  max-block-size: inherit;
+  max-block-size: calc(100dvh - 3 * var(--space-3));
+  min-block-size: 0;
   overflow-block: auto;
+  overscroll-behavior-block: contain;
 }
 </style>

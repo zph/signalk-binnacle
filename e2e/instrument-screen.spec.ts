@@ -15,6 +15,11 @@ test.beforeEach(async ({ page }) => {
 
 const FLOATING_FRAME = '.instrument-screen-layer .floating-frame';
 
+async function dismissOrientation(page: Page): Promise<void> {
+  const gotIt = page.getByRole('button', { name: 'Got it' });
+  if (await gotIt.isVisible()) await gotIt.click();
+}
+
 async function runScreenEditCommand(page: Page): Promise<void> {
   await page.keyboard.press('Control+K');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
@@ -62,22 +67,41 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
     .toBe(true);
 });
 
-test('the persistent Menu opens the radial instrument control cycle', async ({ page }) => {
+test('the radial menu opens the direct instrument editor', async ({ page }) => {
   await page.goto('/');
+  await dismissOrientation(page);
 
-  const helmControl = page.getByRole('button', { name: 'Open quick actions' });
+  const helmControl = page.getByRole('button', { name: 'Open supermenu', exact: true });
   await expect(helmControl).toBeVisible();
   await expectInsideViewport(helmControl, page);
   await helmControl.click();
-  await page.getByRole('menuitem', { name: 'Instrument dock' }).click();
-  await helmControl.click();
-  await page.getByRole('menuitem', { name: 'Instrument dock' }).click();
+  await page.getByRole('menuitem', { name: 'Vessel' }).click();
+  await page.getByRole('menuitem', { name: 'Edit instruments' }).click();
   const done = page.getByRole('button', { name: 'Done', exact: true });
   await expect(done).toBeVisible();
   await expectInsideViewport(done, page);
-  await helmControl.click();
-  await page.getByRole('menuitem', { name: 'Instrument dock' }).click();
-  await expect(done).toHaveCount(0);
+});
+
+test('the helm instruments control advances from Show to Edit and opens a bounded picker', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await dismissOrientation(page);
+
+  const instruments = page.getByRole('button', { name: 'Show instruments', exact: true });
+  await expect(instruments).toBeVisible();
+  await expectInsideViewport(instruments, page);
+  await instruments.click();
+  await page.getByRole('button', { name: 'Edit instruments', exact: true }).click();
+
+  const layer = page.locator('.instrument-screen-layer');
+  await expect(layer.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+  await layer.getByRole('button', { name: 'Add instrument', exact: true }).click();
+
+  const picker = page.getByRole('menu', { name: 'Add instrument to chart' });
+  await expect(picker).toBeVisible();
+  await expectInsideViewport(picker, page);
+  await expect(picker.locator('.add-menu-scroll')).toHaveCSS('overflow-y', 'auto');
 });
 
 test('screen edit mode drags an instrument from its face on the chart', async ({ page }) => {
