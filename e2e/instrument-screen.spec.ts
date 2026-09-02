@@ -104,23 +104,32 @@ test('the helm instruments control advances from Show to Edit and opens a bounde
   await expect(picker.locator('.add-menu-scroll')).toHaveCSS('overflow-y', 'auto');
 });
 
-test('iPad helm keeps MOB centered with double-size controls', async ({ page }) => {
+test('iPad helm keeps double-size MOB and chart controls on one unobscured row', async ({
+  page,
+}) => {
   await page.goto('/');
   await dismissOrientation(page);
 
   const helm = page.getByRole('group', { name: 'Helm actions' });
   const mob = helm.getByRole('button', { name: 'Mark man overboard here' });
-  const [helmBox, mobBox, lockBox] = await Promise.all([
-    helm.boundingBox(),
-    mob.boundingBox(),
-    helm.getByRole('button', { name: 'Lock Binnacle' }).boundingBox(),
-  ]);
-  if (!helmBox || !mobBox || !lockBox) throw new Error('The iPad helm controls did not lay out.');
+  const controls = helm.getByRole('button');
+  const boxes = await controls.evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const box = button.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    }),
+  );
+  const mobBox = await mob.boundingBox();
+  const lockBox = await helm.getByRole('button', { name: 'Lock Binnacle' }).boundingBox();
+  if (!mobBox || !lockBox || boxes.length < 2)
+    throw new Error('The iPad helm controls did not lay out.');
 
-  const viewportCenter = await page.evaluate(() => window.innerWidth / 2);
-  expect(mobBox.x + mobBox.width / 2).toBeCloseTo(viewportCenter, 0);
   expect(lockBox.width).toBeCloseTo(88, 0);
   expect(mobBox.width).toBeCloseTo(88, 0);
+  for (const box of boxes) expect(box.y).toBeCloseTo(mobBox.y, 0);
+  for (let index = 1; index < boxes.length; index += 1) {
+    expect(boxes[index - 1].x + boxes[index - 1].width).toBeLessThanOrEqual(boxes[index].x);
+  }
 });
 
 test('screen edit mode drags an instrument from its face on the chart', async ({ page }) => {

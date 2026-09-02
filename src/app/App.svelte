@@ -4415,8 +4415,7 @@ const plotterActions = {
 }
 .helm-primary-actions {
   --helm-action-size: var(--control-size);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  display: flex;
   /* This fixed rail is still a shell grid child. Span the shell explicitly so its center is the
      viewport center, not an auto-placement cell beside the chart. */
   grid-row: 1 / -1;
@@ -4428,23 +4427,14 @@ const plotterActions = {
   inset-inline-start: 0;
   inline-size: 100dvw;
   inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  justify-content: center;
+  gap: var(--space-2);
   pointer-events: none;
 }
 .helm-actions-start,
 .helm-actions-end {
   display: flex;
   gap: var(--space-2);
-}
-.helm-actions-start {
-  justify-self: end;
-}
-.helm-actions-end {
-  justify-self: start;
-}
-.helm-mob-action {
-  position: absolute;
-  inset-inline-start: 50%;
-  transform: translateX(-50%);
 }
 .helm-primary-actions :global(button) {
   pointer-events: auto;
@@ -4462,8 +4452,8 @@ const plotterActions = {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: var(--text);
 }
-/* iPad helm chrome favors deliberate, gloved-hand operation. Keep MOB exactly centered while the
-   navigation and chart controls occupy balanced rails to either side. */
+/* iPad helm chrome favors deliberate, gloved-hand operation. Every control, including MOB,
+   stays in one row so emergency access never obscures another action. */
 @media (pointer: coarse) and (min-width: 601px) and (max-width: 1200px) {
   .helm-primary-actions {
     --helm-action-size: calc(2 * var(--control-size));
