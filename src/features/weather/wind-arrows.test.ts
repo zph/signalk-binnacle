@@ -39,7 +39,7 @@ describe('windArrowFeatures', () => {
       { lo: 0, hi: 0, frac: 0 },
       'kn',
     );
-    expect(vectors.markers.features[0].properties?.label).toBe('19 G27 kn');
+    expect(vectors.markers.features[0].properties?.label).toBe('19 | 27 kn');
     expect(vectors.markers.features[0].properties?.gust).toBe(14);
   });
 

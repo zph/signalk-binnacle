@@ -98,7 +98,7 @@ export function weatherLegend(
           (s) => windColor(s, theme),
           (s) => formatSpeedOr(s, speedUnit, 0),
         ),
-        note: 'color shows gusts; barbs and first label value show sustained wind',
+        note: 'color shows gusts; labels show sustained | gust speed',
       };
     case WEATHER_LAYER_IDS.temperature:
       return rampLegend(

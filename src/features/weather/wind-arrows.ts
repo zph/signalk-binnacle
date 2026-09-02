@@ -160,7 +160,10 @@ export function windVectorFeatures(
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [lon, lat] },
       properties: {
-        label: `${formatSpeedOr(speed, speedUnit, 0)}${gust === undefined ? '' : ` G${formatSpeedOr(gust, speedUnit, 0)}`} ${speedUnitLabel(speedUnit)}`,
+        label:
+          gust === undefined
+            ? `${formatSpeedOr(speed, speedUnit, 0)} ${speedUnitLabel(speedUnit)}`
+            : `${formatSpeedOr(speed, speedUnit, 0)} | ${formatSpeedOr(gust, speedUnit, 0)} ${speedUnitLabel(speedUnit)}`,
         speed,
         gust,
       },

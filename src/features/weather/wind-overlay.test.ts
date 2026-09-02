@@ -47,12 +47,12 @@ describe('wind overlay', () => {
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('weather');
-    expect(map.sources.size).toBe(3);
-    expect(map.layers.size).toBe(4);
+    expect(map.sources.size).toBe(2);
+    expect(map.layers.size).toBe(2);
 
     overlay.setVisible(fakeOverlayContext(map), true);
-    expect(map.sources.size).toBe(3);
-    expect(map.layers.size).toBeGreaterThanOrEqual(4);
+    expect(map.sources.size).toBe(2);
+    expect(map.layers.size).toBe(2);
   });
 
   it('syncs the arrow features from the grid', async () => {
@@ -61,34 +61,32 @@ describe('wind overlay', () => {
     Object.assign(map, { triggerRepaint: vi.fn() });
     await overlay.add(fakeOverlayContext(map));
     overlay.sync(fakeOverlayContext(map));
-    expect(map.sources.size).toBe(3);
+    expect(map.sources.size).toBe(2);
 
     overlay.setVisible(fakeOverlayContext(map), true);
-    const source = map.sources.get('binnacle-weather-wind');
-    if (!source) throw new Error('wind arrow source was not added');
-    const fc = source.data as GeoJSON.FeatureCollection;
-    expect(fc.features).toHaveLength(192);
     const markers = map.sources.get('binnacle-weather-wind-markers');
     if (!markers) throw new Error('wind marker source was not added');
+    const fc = markers.data as GeoJSON.FeatureCollection;
+    expect(fc.features).toHaveLength(192);
     expect((markers.data as GeoJSON.FeatureCollection).features[0].properties?.label).toBe(
-      '19 G27 kn',
+      '19 | 27 kn',
     );
     overlay.sync(fakeOverlayContext(map));
-    expect(source.data).toBe(fc);
+    expect(markers.data).toBe(fc);
   });
 
-  it('rebuilds the screen-space barbs after every completed zoom', async () => {
+  it('rebuilds the screen-space labels after every completed zoom', async () => {
     const overlay = createWindOverlay(storeWithGrid(), makeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     overlay.setVisible(fakeOverlayContext(map), true);
-    const source = map.sources.get('binnacle-weather-wind');
-    if (!source) throw new Error('wind arrow source was not added');
-    const before = source.data;
+    const markers = map.sources.get('binnacle-weather-wind-markers');
+    if (!markers) throw new Error('wind marker source was not added');
+    const before = markers.data;
 
     map.emit('zoomend', {});
 
-    expect(source.data).not.toBe(before);
+    expect(markers.data).not.toBe(before);
   });
 
   it('removes its layer and source', async () => {
@@ -111,10 +109,10 @@ describe('wind overlay', () => {
       'text-color',
       paint.label,
     );
-    expect(map.setPaintProperty).toHaveBeenCalledWith(
+    expect(map.setPaintProperty).not.toHaveBeenCalledWith(
       'binnacle-weather-wind-marker-label',
       'text-halo-color',
-      paint.background,
+      expect.anything(),
     );
   });
 });
