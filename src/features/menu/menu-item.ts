@@ -50,6 +50,10 @@ export interface MenuItem {
   // rather than a bare "3 active". Pluralized with a trailing "s" when the count is not 1. Only
   // meaningful alongside `count`.
   countNoun?: string;
+  // By default a dial selection completes a command and dismisses the dial. Navigation entries
+  // such as a Supermenu category and its Back action set this false so the next ring replaces the
+  // current one in place.
+  closeMenu?: boolean;
   onSelect: () => void;
 }
 

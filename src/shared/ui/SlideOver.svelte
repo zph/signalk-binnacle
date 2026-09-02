@@ -61,13 +61,6 @@ const {
 // Two panels can be open at once (a note detail beside a docked panel), so the body id is generated
 // per instance rather than fixed, and the header's minimize control points aria-controls at it.
 const bodyId = $props.id();
-let swipeStartX = 0;
-
-function onPointerUp(event: PointerEvent): void {
-  const delta = event.clientX - swipeStartX;
-  const returns = dock === 'left' ? delta > 72 : delta < -72;
-  if (returns) (onBack ?? onClose)();
-}
 </script>
 
 <!-- biome-ignore lint/a11y/useAriaPropsSupportedByRole: the dynamic role is dialog exactly when aria-modal is defined. -->
@@ -79,8 +72,6 @@ function onPointerUp(event: PointerEvent): void {
   tabindex="-1"
   use:dialog={onClose}
   use:trapFocus={focusTrap}
-  onpointerdown={(event) => (swipeStartX = event.clientX)}
-  onpointerup={onPointerUp}
   transition:fly={{
     x: dock === 'right' ? 24 : -24,
     duration: reduceMotion ? 0 : PANEL_TRANSITION_MS,

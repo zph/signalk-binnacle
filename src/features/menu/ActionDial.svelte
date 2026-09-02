@@ -71,7 +71,7 @@ function cancelMove(): void {
 function run(action: MenuItem): void {
   if (itemBlocked(action)) return;
   action.onSelect();
-  onOpenChange(false);
+  if (action.closeMenu !== false) onOpenChange(false);
 }
 
 function begin(event: PointerEvent): void {

@@ -654,8 +654,7 @@ function closeWeatherPanel(): void {
 }
 
 function backFromWeatherPanel(): void {
-  weatherPanelOpen = false;
-  menuOpen = true;
+  backToMenu();
 }
 
 // Retry a lazy panel import when the navigator taps Retry. The bare read of lazyPanelAttempt is

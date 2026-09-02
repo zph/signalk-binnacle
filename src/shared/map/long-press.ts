@@ -49,6 +49,9 @@ export function installContextMenu(
     // Android Chrome fires the native contextmenu for a long press too; cancel the synthesized
     // timer so a single press cannot emit twice.
     cancel();
+    // MapLibre forwards the DOM event but does not guarantee that a consumer suppresses the
+    // browser menu. Prevent it here so desktop right-click always opens the chart action ring.
+    e.originalEvent.preventDefault();
     emit({ lng: e.lngLat.lng, lat: e.lngLat.lat, x: e.point.x, y: e.point.y });
   };
   map.on('contextmenu', onContextMenu);

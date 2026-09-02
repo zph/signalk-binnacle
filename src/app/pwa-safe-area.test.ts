@@ -8,6 +8,11 @@ describe('installed PWA system-bar clearance', () => {
     expect(INDEX_HTML).toContain('viewport-fit=cover');
   });
 
+  it('locks mobile browser scale so the chartplotter layout remains reachable', () => {
+    expect(INDEX_HTML).toContain('maximum-scale=1.0');
+    expect(INDEX_HTML).toContain('user-scalable=no');
+  });
+
   it('keeps a fallback clearance for installed touch PWAs', () => {
     expect(TOKENS_CSS).toContain('--system-bar-clearance: env(safe-area-inset-bottom, 0px)');
     expect(TOKENS_CSS).toMatch(

@@ -37,12 +37,21 @@ test('the helm Menu button toggles the supermenu and keeps lock and full-screen 
   const helm = page.getByRole('group', { name: 'Helm actions' });
   await expect(helm.getByRole('button', { name: 'Lock Binnacle' })).toBeVisible();
   await expect(helm.getByRole('button', { name: 'Toggle full screen' })).toBeVisible();
+  await expect(helm.getByRole('button', { name: 'Center on boat and follow' })).toBeVisible();
 
   const menu = helm.getByRole('button', { name: 'Open supermenu' });
   await menu.click();
-  await expect(page.getByRole('menu', { name: 'Supermenu' })).toBeVisible();
+  const supermenu = page.getByRole('menu', { name: 'Supermenu' });
+  await expect(supermenu).toBeVisible();
+  await expect(supermenu.getByRole('menuitem', { name: 'Navigate' })).toBeVisible();
+  await expect(supermenu.getByRole('menuitem', { name: 'Safety' })).toBeVisible();
+  await supermenu.getByRole('menuitem', { name: 'Navigate' }).click();
+  await expect(supermenu.getByRole('menuitem', { name: 'Back to menu categories' })).toBeVisible();
+  await expect(supermenu.getByRole('menuitem', { name: /Center on boat/ })).toBeVisible();
+  await supermenu.getByRole('menuitem', { name: 'Back to menu categories' }).click();
+  await expect(supermenu.getByRole('menuitem', { name: 'Weather' })).toBeVisible();
   await helm.getByRole('button', { name: 'Close supermenu' }).click();
-  await expect(page.getByRole('menu', { name: 'Supermenu' })).toHaveCount(0);
+  await expect(supermenu).toHaveCount(0);
 });
 
 test('the fixed bottom-toolbar controls fit a 320-pixel phone', async ({ page }) => {

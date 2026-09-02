@@ -1,5 +1,6 @@
 <script lang="ts">
 import Anchor from '@lucide/svelte/icons/anchor';
+import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 import Bell from '@lucide/svelte/icons/bell';
 import ChartLine from '@lucide/svelte/icons/chart-line';
 import CircleHelp from '@lucide/svelte/icons/circle-help';
@@ -268,6 +269,7 @@ import {
 } from '$shared/ui';
 import { loadInstrumentChart, type MapCommands } from '$widgets/chart-canvas';
 import { PlotterView } from '../views';
+import { installBrowserZoomGuard } from './browser-zoom-guard';
 import { resolveOrientation } from './chart-orientation';
 import { createFollowController } from './follow-controller.svelte';
 import { collectHandoffFacts } from './handoff-facts';
@@ -276,6 +278,7 @@ import { layerSettingsCodec } from './layer-settings-codec';
 import { createNotificationsController } from './notifications-controller.svelte';
 import { createSafetyAnnunciator } from './safety-annunciator.svelte';
 import { createStreamController } from './stream-controller.svelte';
+import { createViewHistory } from './view-history';
 
 // serverOrigin reads location, fixed for the page lifetime: capture once, not at every call site.
 const origin = serverOrigin();
@@ -541,7 +544,66 @@ let menuEditing = $state(false);
 let commandPaletteOpen = $state(false);
 let actionDialOpen = $state(false);
 let actionDialContextPoint = $state<LatLon | undefined>();
+type SupermenuBucketId = 'navigate' | 'chart' | 'vessel' | 'weather' | 'system' | 'safety';
+let actionDialBucket = $state<SupermenuBucketId | undefined>();
 type ActionDialPosition = { x: number; y: number };
+
+// A chartplotter's Back action must mean the view the navigator just left, not an approximation
+// such as "the menu". This history is deliberately display-local and bounded: it restores only
+// transient UI surfaces, never chart data, edits, or actions with safety consequences.
+type ViewSnapshot = {
+  menuOpen: boolean;
+  activePanel: PanelId | null;
+  selectedNote: NoteSelection | undefined;
+  selectedAisId: string | undefined;
+  selectedWaypointId: string | undefined;
+  trendFocusedId: string | undefined;
+  weatherPanelOpen: boolean;
+  radarControlsOpen: boolean;
+  instrumentsOpen: boolean;
+};
+const viewHistory = createViewHistory<ViewSnapshot>(12);
+
+function captureView(): ViewSnapshot {
+  return {
+    menuOpen,
+    activePanel,
+    selectedNote,
+    selectedAisId,
+    selectedWaypointId,
+    trendFocusedId: trends.focusedId,
+    weatherPanelOpen,
+    radarControlsOpen,
+    instrumentsOpen: instruments.open,
+  };
+}
+
+function restoreView(view: ViewSnapshot): void {
+  menuOpen = view.menuOpen;
+  activePanel = view.activePanel;
+  selectedNote = view.selectedNote;
+  selectedAisId = view.selectedAisId;
+  selectedWaypointId = view.selectedWaypointId;
+  trends.setFocus(view.trendFocusedId);
+  weatherPanelOpen = view.weatherPanelOpen;
+  radarControlsOpen = view.radarControlsOpen;
+  instruments.setOpen(view.instrumentsOpen);
+}
+
+function rememberCurrentView(): void {
+  // The base chart is a valid return point, including the first navigation away from it.
+  viewHistory.push(captureView());
+}
+
+function setMenuOpen(next: boolean): void {
+  if (next && !menuOpen) rememberCurrentView();
+  menuOpen = next;
+}
+
+const goBack = (): void => {
+  const previous = viewHistory.back();
+  if (previous) restoreView(previous);
+};
 
 function openCommandPalette(): void {
   commandPaletteOpen = true;
@@ -550,7 +612,7 @@ let mobCommandRequest = $state(0);
 // Closing a panel drops everything that panel put on the chart or armed inside it, so nothing it
 // owned outlives it: a dismissed confirm cannot come back armed, and a hover ring cannot strand on
 // the chart with no panel to clear it.
-const closePanel = (): void => {
+const resetPanel = (): void => {
   if (activePanel === 'trends') {
     trends.setOpen(false);
     trends.setFocus(undefined);
@@ -564,12 +626,14 @@ const closePanel = (): void => {
   if (activePanel === 'poi-search') hoveredPoi = undefined;
   activePanel = null;
 };
-// Back returns to the menu: close the panel and expand the dock in one update, so the navigator
-// can move menu to panel to back to another panel without reopening the menu by hand. It delegates
-// the teardown rather than restating it, so the two paths cannot drift.
+const closePanel = (): void => {
+  resetPanel();
+  viewHistory.clear();
+};
+// All former "back to menu" routes now restore the actual preceding surface. It preserves the
+// function name at call sites while panels are migrated to the shared navigation contract.
 const backToMenu = (): void => {
-  closePanel();
-  menuOpen = true;
+  goBack();
 };
 function profilesPanelForAttempt() {
   void profilesPanelAttempt;
@@ -588,7 +652,7 @@ function instrumentScreenLayerForAttempt() {
   return loadInstrumentScreenLayer();
 }
 const openInstalledCharts = (): void => openPanel('charts-management');
-const backToOfflineCharts = (): void => openPanel('regions');
+const backToOfflineCharts = (): void => goBack();
 // The phone breakpoint, in CSS pixels. A media query cannot reference this constant, so the same
 // 600px literal is mirrored in the `@media (max-width: 600px)` blocks in styles/panels.css and the
 // scoped styles of WeatherMap, AppMenu, WeatherConditions, and the
@@ -609,6 +673,7 @@ const instrumentsFullScreen = $derived(
 // full-screen dock) can reserve the space the rail floats over.
 let safetyRailClearance = $state('0px');
 const openPanel = (panel: PanelId): void => {
+  if (activePanel !== panel) rememberCurrentView();
   if (instrumentsFullScreen && instruments.open) instruments.setOpen(false);
   if (activePanel === 'trends' && panel !== 'trends') {
     trends.setOpen(false);
@@ -637,11 +702,12 @@ const togglePanel = (panel: PanelId, onOpen?: () => void): void => {
 };
 
 function finishOpeningInstrumentsPanel(): void {
+  if (!instruments.open) rememberCurrentView();
   instrumentsPanelRequested = true;
   if (instrumentsFullScreen) {
     radarControlsOpen = false;
     weatherPanelOpen = false;
-    closePanel();
+    resetPanel();
     selectedNote = undefined;
     noteReturnsToPlaces = false;
   }
@@ -689,9 +755,9 @@ function openTideInstrument(): void {
 function openTideStationSettings(): void {
   tideInstrumentRequested = false;
   instrumentExpandedRequest = undefined;
-  instruments.setOpen(false);
   tidesOpenedFrom = 'menu';
   openPanel('tides');
+  instruments.setOpen(false);
   loadTides();
 }
 
@@ -929,13 +995,16 @@ const instrumentsOpen = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
-const interfaceLocked = new PersistedValue<boolean>(
+// Retire the former persistent lock state. A forced service-worker update reloads the page, and a
+// lock is never allowed to survive that automated transition.
+const legacyInterfaceLocked = new PersistedValue<boolean>(
   binnacleStorageKey('interfaceLocked'),
   false,
   undefined,
   booleanPersistedCodec,
 );
-const interfaceLock = createInterfaceLockController(interfaceLocked);
+legacyInterfaceLocked.set(false);
+const interfaceLock = createInterfaceLockController();
 const instrumentDockWidthStore = new PersistedValue<number>(
   binnacleStorageKey('instrumentDockWidth'),
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
@@ -1007,8 +1076,8 @@ let trendReturnInstrumentId = $state<string | undefined>();
 function openFocusedTrend(id: string): void {
   if (!trends.setFocus(id)) return;
   trendReturnInstrumentId = id;
-  instruments.setOpen(false);
   openPanel('trends');
+  instruments.setOpen(false);
 }
 
 function closeTrendsPanel(): void {
@@ -1018,16 +1087,7 @@ function closeTrendsPanel(): void {
 }
 
 function backFromTrendsPanel(): void {
-  const returnId = trends.focusedId ?? trendReturnInstrumentId;
-  if (!returnId) {
-    backToMenu();
-    return;
-  }
-  trends.setOpen(false);
-  trends.setFocus(undefined);
-  activePanel = null;
-  trendReturnInstrumentId = returnId;
-  instruments.setOpen(true);
+  goBack();
 }
 const onTogglePin = (id: string): void => {
   pinnedActions.set(togglePinned(pinnedActions.value, id));
@@ -1590,6 +1650,33 @@ let radarControlsOpen = $state(false);
 let radarOpenedFrom = $state<'menu' | 'layers'>('menu');
 let radarDraftDirty = $state(false);
 let radarPanelRequest = $state<'close' | 'instruments' | undefined>();
+
+function toggleRadarControlsFromMenu(): void {
+  radarOpenedFrom = 'menu';
+  if (radarControlsOpen && radarDraftDirty) {
+    radarPanelRequest = 'close';
+    return;
+  }
+  if (radarControlsOpen) {
+    radarControlsOpen = false;
+    viewHistory.clear();
+    return;
+  }
+  rememberCurrentView();
+  if (instrumentsFullScreen) instruments.setOpen(false);
+  radarControlsOpen = true;
+}
+
+function toggleWeatherPanelFromMenu(): void {
+  if (weatherPanelOpen) {
+    weatherPanelOpen = false;
+    viewHistory.clear();
+    return;
+  }
+  rememberCurrentView();
+  if (instrumentsFullScreen) instruments.setOpen(false);
+  weatherPanelOpen = true;
+}
 const bottomTabObscured = $derived(
   activePanel !== null ||
     weatherPanelOpen ||
@@ -2059,17 +2146,7 @@ const menuItems = $derived<MenuItem[]>([
     available: marineRadar.store.hasRadar,
     unavailableHint: marineRadar.store.unavailableHint,
     pressed: radarControlsOpen,
-    onSelect: () => {
-      radarOpenedFrom = 'menu';
-      // The echo reveals on first radar discovery and when transmit is keyed up, so opening the
-      // panel must not force the layer back on: that would override an explicit toggle-off.
-      if (radarControlsOpen && radarDraftDirty) {
-        radarPanelRequest = 'close';
-      } else {
-        if (!radarControlsOpen && instrumentsFullScreen) instruments.setOpen(false);
-        radarControlsOpen = !radarControlsOpen;
-      }
-    },
+    onSelect: toggleRadarControlsFromMenu,
   },
   {
     id: 'anchor',
@@ -2105,10 +2182,7 @@ const menuItems = $derived<MenuItem[]>([
     icon: CloudSun,
     group: 'Weather',
     pressed: weatherPanelOpen,
-    onSelect: () => {
-      if (!weatherPanelOpen && instrumentsFullScreen) instruments.setOpen(false);
-      weatherPanelOpen = !weatherPanelOpen;
-    },
+    onSelect: toggleWeatherPanelFromMenu,
   },
   {
     id: 'observed-wind-stations',
@@ -2264,8 +2338,8 @@ const commandPlaces = $derived.by<PlaceSearchItem[]>(() => {
 });
 
 function runMenuCommand(item: MenuItem): void {
-  menuOpen = false;
   item.onSelect();
+  menuOpen = false;
 }
 
 // These menu destinations contain persisted preferences, live controls, or both. They remain root
@@ -2672,7 +2746,7 @@ function mobAction(): MenuItem {
   };
 }
 
-const actionDialActions = $derived.by<MenuItem[]>(() => {
+const actionDialContextActions = $derived.by<MenuItem[]>(() => {
   if (actionDialContextPoint) {
     const point = actionDialContextPoint;
     const chartActions: MenuItem[] = [
@@ -2727,12 +2801,13 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
         onSelect: interfaceLock.lock,
       },
     ];
-    // The chart right-click is the supermenu: location-specific actions first, then every action
-    // available from the app Menu. The bottom Menu button opens this same surface without a chart
-    // point, so there is one complete action vocabulary at the helm.
-    return uniqueActionIds([...chartActions, ...menuItems, mobAction()]);
+    return chartActions;
   }
-  return uniqueActionIds([
+  return [];
+});
+
+const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() => {
+  const all = uniqueActionIds([
     ...menuItems,
     {
       id: 'lock-interface',
@@ -2744,6 +2819,78 @@ const actionDialActions = $derived.by<MenuItem[]>(() => {
     },
     mobAction(),
   ]);
+  const buckets: Record<SupermenuBucketId, MenuItem[]> = {
+    navigate: [],
+    chart: [],
+    vessel: [],
+    weather: [],
+    system: [],
+    safety: [],
+  };
+  const ids: Partial<Record<string, SupermenuBucketId>> = {
+    center: 'navigate',
+    follow: 'navigate',
+    orientation: 'navigate',
+    routes: 'navigate',
+    waypoints: 'navigate',
+    layers: 'chart',
+    'charts-management': 'chart',
+    measure: 'chart',
+    'find-places': 'chart',
+    instruments: 'vessel',
+    ais: 'vessel',
+    radar: 'vessel',
+    anchor: 'vessel',
+    tracks: 'vessel',
+    forecast: 'weather',
+    tides: 'weather',
+    trends: 'weather',
+    weather: 'weather',
+    profiles: 'system',
+    help: 'system',
+    settings: 'system',
+    'browser-fullscreen': 'system',
+    mob: 'safety',
+    'lock-interface': 'safety',
+    alarms: 'safety',
+  };
+  for (const item of all) buckets[ids[item.id] ?? 'system'].push(item);
+  if (actionDialContextActions.length > 0) {
+    buckets.chart = uniqueActionIds([...actionDialContextActions, ...buckets.chart]);
+  }
+  return buckets;
+});
+
+const actionDialActions = $derived.by<MenuItem[]>(() => {
+  if (actionDialBucket) {
+    return [
+      {
+        id: 'supermenu-back',
+        label: 'Back to menu categories',
+        shortLabel: 'Back',
+        icon: ArrowLeft,
+        closeMenu: false,
+        onSelect: () => (actionDialBucket = undefined),
+      },
+      ...actionDialBuckets[actionDialBucket],
+    ];
+  }
+  const categories: Array<{ id: SupermenuBucketId; label: string; icon: MenuItem['icon'] }> = [
+    { id: 'navigate', label: 'Navigate', icon: Navigation },
+    { id: 'chart', label: 'Chart', icon: Layers },
+    { id: 'vessel', label: 'Vessel', icon: Ship },
+    { id: 'weather', label: 'Weather', icon: CloudSun },
+    { id: 'system', label: 'System', icon: Settings },
+    { id: 'safety', label: 'Safety', icon: LifeBuoy },
+  ];
+  return categories.map((category) => ({
+    id: `supermenu:${category.id}`,
+    label: category.label,
+    shortLabel: category.label,
+    icon: category.icon,
+    closeMenu: false,
+    onSelect: () => (actionDialBucket = category.id),
+  }));
 });
 
 // AIS staleness pruning, tied to the app lifecycle; the entity owns the TTL and cadence policy.
@@ -3053,8 +3200,10 @@ function closeNote(): void {
   personalNotesController.clearError();
   selectedNote = undefined;
   noteReturnsToPlaces = false;
+  viewHistory.clear();
 }
 function selectNote(selection: NoteSelection | undefined, fromPlaces = false): void {
+  if (selection && selectedNote === undefined) rememberCurrentView();
   personalNotesController.clearError();
   selectedNote = selection;
   noteReturnsToPlaces = Boolean(selection && fromPlaces && narrow);
@@ -3066,10 +3215,7 @@ function selectNote(selection: NoteSelection | undefined, fromPlaces = false): v
   }
 }
 function backFromNote(): void {
-  selectedNote = undefined;
-  noteReturnsToPlaces = false;
-  openPanel('poi-search');
-  setLayerVisible('notes', true);
+  goBack();
 }
 // Close the POI search: clear the hovered POI and any open note so the highlight effect drops the
 // chart ring and the trailing-edge detail closes with the list, then close the pane.
@@ -3084,7 +3230,7 @@ function backFromPoiSearch(): void {
   hoveredPoi = undefined;
   selectedNote = undefined;
   noteReturnsToPlaces = false;
-  backToMenu();
+  goBack();
 }
 
 // Browsers block audio until a user gesture; prime the shared alarm context on gestures so every
@@ -3258,6 +3404,8 @@ $effect(() => {
 });
 
 const PROFILE_LOCAL_STARTUP_FALLBACK_MS = 8_000;
+const BACK_SWIPE_EDGE_PX = 32;
+const BACK_SWIPE_DISTANCE_PX = 72;
 
 onMount(() => {
   // A chartplotter can remain open on deck all day. Poll for a newer service worker so the Update
@@ -3268,9 +3416,39 @@ onMount(() => {
   const pwaUpdateCheck = window.setInterval(() => pwa.checkForUpdate(), PWA_UPDATE_CHECK_MS);
   refreshCompanionProbe();
   companionStatus.start();
+  const removeBrowserZoomGuard = installBrowserZoomGuard();
   window.addEventListener('pointerdown', primeAudio);
   window.addEventListener('pointerup', primeAudio);
   window.addEventListener('keydown', primeAudio);
+  // Safari reserves the extreme edge for browser navigation in a tab. In the installed standalone
+  // app it reaches us, and this recognition turns it into display-local view history. It never
+  // intercepts a map drag on the base chart because there is no previous Binnacle view to restore.
+  let backSwipe: { pointerId: number; startX: number; startY: number } | undefined;
+  const beginBackSwipe = (event: PointerEvent): void => {
+    if (
+      event.pointerType === 'mouse' ||
+      !event.isPrimary ||
+      event.clientX > BACK_SWIPE_EDGE_PX ||
+      !viewHistory.canGoBack
+    ) {
+      return;
+    }
+    backSwipe = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
+  };
+  const finishBackSwipe = (event: PointerEvent): void => {
+    if (!backSwipe || backSwipe.pointerId !== event.pointerId) return;
+    const { startX, startY } = backSwipe;
+    backSwipe = undefined;
+    const horizontal = event.clientX - startX;
+    const vertical = Math.abs(event.clientY - startY);
+    if (horizontal >= BACK_SWIPE_DISTANCE_PX && horizontal > vertical * 1.5) goBack();
+  };
+  const cancelBackSwipe = (): void => {
+    backSwipe = undefined;
+  };
+  window.addEventListener('pointerdown', beginBackSwipe, { passive: true });
+  window.addEventListener('pointerup', finishBackSwipe, { passive: true });
+  window.addEventListener('pointercancel', cancelBackSwipe, { passive: true });
   const onCommandPaletteShortcut = (event: KeyboardEvent): void => {
     if (event.key.toLocaleLowerCase() !== 'k' || (!event.metaKey && !event.ctrlKey)) return;
     event.preventDefault();
@@ -3369,7 +3547,11 @@ onMount(() => {
     window.removeEventListener('storage', onProfileStorage);
     privacyChannel?.close();
     clearTimeout(profileStartupFallback);
+    removeBrowserZoomGuard();
     window.removeEventListener('keydown', onCommandPaletteShortcut);
+    window.removeEventListener('pointerdown', beginBackSwipe);
+    window.removeEventListener('pointerup', finishBackSwipe);
+    window.removeEventListener('pointercancel', cancelBackSwipe);
     screenWakeLock.dispose();
   };
 });
@@ -3536,6 +3718,10 @@ const plotterActions = {
   onSetRadarPower,
   onQuickActions: (position: { x: number; y: number; latitude: number; longitude: number }) => {
     actionDialContextPoint = { latitude: position.latitude, longitude: position.longitude };
+    // A chart press already identifies the user's intent. Enter the Chart sub-ring directly so
+    // its location-specific actions are immediately reachable, with Back available for the
+    // primary category ring.
+    actionDialBucket = 'chart';
     // The supermenu grows additional rings as actions are added. Keep its hub clear of the chart
     // edge by its actual outer radius, not a fixed two-ring estimate.
     const rings = Math.ceil(actionDialActions.length / 8);
@@ -3569,7 +3755,7 @@ const plotterActions = {
     items={menuItems}
     open={menuOpen}
     panelOpen={bottomTabObscured}
-    onOpenChange={(next) => (menuOpen = next)}
+    onOpenChange={setMenuOpen}
     pinnedIds={pinnedActions.value}
     editing={menuEditing}
     onEditingChange={(next) => (menuEditing = next)}
@@ -3649,7 +3835,10 @@ const plotterActions = {
     open={actionDialOpen}
     onOpenChange={(next) => {
       actionDialOpen = next;
-      if (!next) actionDialContextPoint = undefined;
+      if (!next) {
+        actionDialContextPoint = undefined;
+        actionDialBucket = undefined;
+      }
     }}
     position={actionDialPosition.value}
     onPositionChange={(position) => actionDialPosition.set(position)}
@@ -3953,6 +4142,20 @@ const plotterActions = {
       <Maximize2 size={16} aria-hidden="true" />
       <span>Full screen</span>
     </button>
+    <button
+      type="button"
+      class="btn btn-pill"
+      aria-label={follow.following ? 'Stop following boat' : 'Center on boat and follow'}
+      title={follow.following ? 'Stop following boat' : 'Center on boat and follow'}
+      disabled={!mapCommands || (!follow.following && (!vessel.position || vessel.positionStale))}
+      onclick={() => {
+        if (!follow.following) mapCommands?.centerOnVessel();
+        follow.toggle();
+      }}
+    >
+      <Navigation size={16} aria-hidden="true" />
+      <span>{follow.following ? 'Following' : 'Center'}</span>
+    </button>
     <MobButton
       {mob}
       onTrigger={mobController.onTrigger}
@@ -3984,6 +4187,7 @@ const plotterActions = {
       onclick={() => {
         actionDialContextPoint = undefined;
         actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        if (actionDialOpen) actionDialBucket = undefined;
         actionDialOpen = !actionDialOpen;
       }}
     >

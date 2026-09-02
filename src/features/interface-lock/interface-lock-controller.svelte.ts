@@ -1,23 +1,23 @@
-import type { PersistedValue } from '$shared/settings';
-
 export interface InterfaceLockController {
   readonly locked: boolean;
   lock(): void;
   unlock(): void;
 }
 
-export function createInterfaceLockController(
-  persisted: PersistedValue<boolean>,
-): InterfaceLockController {
+// A helm lock protects the currently attended screen. It deliberately lives only for this page
+// session: an automatic service-worker activation or a recovered browser tab must never strand a
+// navigator behind a five-second hold control.
+export function createInterfaceLockController(): InterfaceLockController {
+  let locked = $state(false);
   return {
     get locked() {
-      return persisted.value;
+      return locked;
     },
     lock(): void {
-      persisted.set(true);
+      locked = true;
     },
     unlock(): void {
-      persisted.set(false);
+      locked = false;
     },
   };
 }

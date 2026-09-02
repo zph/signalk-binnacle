@@ -76,6 +76,47 @@ test('the attached left tab expands and collapses the app-menu dock', async ({ p
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 });
 
+test('an edge swipe retraces menu navigation to the chart', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Menu', exact: true }).click();
+  await page
+    .locator('#app-menu-launcher')
+    .getByRole('button', { name: 'Anchor watch', exact: true })
+    .click();
+  await expect(page.getByRole('complementary', { name: 'Anchor watch' })).toBeVisible();
+
+  const swipeBack = async () => {
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          clientX: 0,
+          clientY: 160,
+          isPrimary: true,
+          pointerId: 1,
+          pointerType: 'touch',
+        }),
+      );
+      window.dispatchEvent(
+        new PointerEvent('pointerup', {
+          bubbles: true,
+          clientX: 84,
+          clientY: 160,
+          isPrimary: true,
+          pointerId: 1,
+          pointerType: 'touch',
+        }),
+      );
+    });
+  };
+
+  await swipeBack();
+  await expect(page.locator('#app-menu-launcher')).toBeVisible();
+  await swipeBack();
+  await expect(page.locator('#app-menu-launcher')).toHaveCount(0);
+  await expect(page.getByRole('complementary', { name: 'Anchor watch' })).toHaveCount(0);
+});
+
 test('bottom Menu quick actions request browser fullscreen', async ({ page }) => {
   await page.addInitScript(() => {
     HTMLElement.prototype.requestFullscreen = async function () {
@@ -89,50 +130,6 @@ test('bottom Menu quick actions request browser fullscreen', async ({ page }) =>
   await page.getByRole('menuitem', { name: 'Maximize Binnacle' }).click();
 
   await expect(page.locator('html')).toHaveAttribute('data-fullscreen-requested', 'true');
-});
-
-test('interface lock covers every view and persists until explicitly unlocked', async ({
-  page,
-}) => {
-  await page.goto('/');
-
-  await page.getByRole('button', { name: 'Lock Binnacle' }).click();
-  const lockLayer = page.getByRole('dialog', { name: 'Binnacle controls locked' });
-  const unlock = lockLayer.getByRole('button', { name: 'Unlock Binnacle' });
-  await expect(lockLayer).toBeVisible();
-  await expect(unlock).toBeFocused();
-  await expect(lockLayer).toHaveJSProperty('open', true);
-  expect(await lockLayer.evaluate((layer) => layer.matches(':modal'))).toBe(true);
-  await page.keyboard.press('Escape');
-  await expect(lockLayer).toBeVisible();
-  const menuButton = page.getByRole('button', { name: 'Menu', exact: true });
-  const menuHitIsIntercepted = await menuButton.evaluate((control) => {
-    const bounds = control.getBoundingClientRect();
-    const hit = document.elementFromPoint(
-      bounds.left + bounds.width / 2,
-      bounds.top + bounds.height / 2,
-    );
-    return hit?.closest('.interface-lock-layer') !== null;
-  });
-  expect(menuHitIsIntercepted).toBe(true);
-
-  const coversViewport = await lockLayer.evaluate((layer) => {
-    const bounds = layer.getBoundingClientRect();
-    return (
-      bounds.left === 0 &&
-      bounds.top === 0 &&
-      bounds.right === window.innerWidth &&
-      bounds.bottom === window.innerHeight
-    );
-  });
-  expect(coversViewport).toBe(true);
-
-  await page.reload();
-  await expect(unlock).toBeVisible();
-  await unlock.click();
-
-  await expect(lockLayer).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Menu', exact: true })).toBeVisible();
 });
 
 test('chart quick actions can lock the entire interface', async ({ page }) => {

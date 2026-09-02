@@ -45,7 +45,6 @@ const {
 const pinnedSet = $derived(new Set<string>());
 
 let card = $state<HTMLElement>();
-let swipeStartX = 0;
 
 // A tap or click on a blocked tile explains itself via Toast's timed-message primitive instead of
 // silently doing nothing, since the title tooltip it also carries is mouse-hover-only. Sized
@@ -156,10 +155,6 @@ function onWindowPointerDown(event: PointerEvent): void {
       aria-label={label}
       bind:this={card}
       use:onKeydownAction={onCardKeydown}
-      onpointerdown={(event) => (swipeStartX = event.clientX)}
-      onpointerup={(event) => {
-        if (event.clientX - swipeStartX > 72) closeMenu();
-      }}
     >
       {#if items.length === 0}
         <span class="muted-note">No options</span>
