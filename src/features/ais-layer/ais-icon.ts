@@ -26,9 +26,14 @@ export function aisIconId(kind: AisVesselKind, severity: Severity): string {
   return severity === 'clear' ? baseId : `${baseId}-${severity}`;
 }
 
-export const AIS_ICON_IMAGE_IDS = AIS_ICON_KINDS.flatMap((kind) =>
-  AIS_ICON_SEVERITIES.map((severity) => aisIconId(kind, severity)),
-);
+export function aisStaleIconId(kind: AisVesselKind): string {
+  return `${AIS_ICON_IDS[kind]}-stale`;
+}
+
+export const AIS_ICON_IMAGE_IDS = AIS_ICON_KINDS.flatMap((kind) => [
+  ...AIS_ICON_SEVERITIES.map((severity) => aisIconId(kind, severity)),
+  aisStaleIconId(kind),
+]);
 
 export const AIS_ICON_PIXEL_RATIO = 4;
 

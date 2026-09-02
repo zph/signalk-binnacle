@@ -70,7 +70,7 @@ describe('AppMenu group order', () => {
 });
 
 describe('AppMenu edge dock', () => {
-  it('keeps an attached visibility tab rendered while the dock is collapsed', () => {
+  it('keeps the launcher unmounted while the shell-owned menu control has it collapsed', () => {
     const collapsed = render(AppMenu, {
       props: { items: [], open: false, onOpenChange: () => {} },
     }).body;
@@ -78,19 +78,17 @@ describe('AppMenu edge dock', () => {
       props: { items: [], open: true, onOpenChange: () => {} },
     }).body;
 
-    expect(collapsed).toContain('aria-label="App menu visibility"');
-    expect(collapsed).toContain('aria-expanded="false"');
-    expect(collapsed).toContain('title="Show menu"');
+    expect(collapsed).toContain('class="app-menu-dock');
     expect(collapsed).not.toContain('id="app-menu-launcher"');
-    expect(expanded).toContain('aria-expanded="true"');
-    expect(expanded).toContain('title="Hide menu"');
     expect(expanded).toContain('id="app-menu-launcher"');
   });
 
-  it('is an in-flow edge dock rather than an anchored popover', () => {
+  it('is an in-flow edge dock rather than an anchored popover or self-owned trigger', () => {
     expect(APP_MENU_SOURCE).toContain('class="app-menu-dock"');
-    expect(APP_MENU_SOURCE).toContain('inset-inline-start: 100%');
+    expect(APP_MENU_SOURCE).toContain('position: relative');
+    expect(APP_MENU_SOURCE).toContain('inline-size: 0');
     expect(APP_MENU_SOURCE).not.toContain('AnchoredMenu');
+    expect(APP_MENU_SOURCE).not.toContain('App menu visibility');
   });
 });
 
@@ -109,7 +107,6 @@ describe('AppMenu fixed bottom-bar actions', () => {
       },
     }).body;
 
-    expect(body).toContain('Fixed actions stay shown.');
     expect(body).toMatch(/aria-pressed="true"[^>]*>[\s\S]*instruments/);
     expect(body.match(/Move instruments/g)).toBeNull();
   });

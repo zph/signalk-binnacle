@@ -136,6 +136,57 @@ describe('SignalKStore', () => {
     expect(store.aisVersion).toBe(after + 1);
   });
 
+  it('does not let a late AIS snapshot overwrite a newer stream report', () => {
+    const store = new SignalKStore();
+    store.applyFrame({
+      self: new Map(),
+      ais: aisMap({ 'vessels.zalophus': { 'navigation.speedOverGround': 18.5 } }),
+      aisEpochs: new Map([['vessels.zalophus', new Map([['navigation.speedOverGround', 2_000]])]]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: 2_000,
+      generation: 1,
+    });
+    const version = store.aisVersion;
+    store.applyFrame({
+      self: new Map(),
+      ais: aisMap({ 'vessels.zalophus': { 'navigation.speedOverGround': 10 } }),
+      aisEpochs: new Map([['vessels.zalophus', new Map([['navigation.speedOverGround', 1_000]])]]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: 3_000,
+      generation: 1,
+    });
+
+    const target = store.aisTargets.get('vessels.zalophus');
+    expect(target?.values.get('navigation.speedOverGround')).toBe(18.5);
+    expect(target?.epochs.get('navigation.speedOverGround')).toBe(2_000);
+    expect(store.aisVersion).toBe(version);
+  });
+
+  it('accepts the first AIS sample from a new connection generation despite an older timestamp', () => {
+    const store = new SignalKStore();
+    store.applyFrame({
+      self: new Map(),
+      ais: aisMap({ 'vessels.a': { 'navigation.speedOverGround': 8 } }),
+      aisEpochs: new Map([['vessels.a', new Map([['navigation.speedOverGround', 2_000]])]]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: 2_000,
+      generation: 1,
+    });
+    store.applyFrame({
+      self: new Map(),
+      ais: aisMap({ 'vessels.a': { 'navigation.speedOverGround': 7 } }),
+      aisEpochs: new Map([['vessels.a', new Map([['navigation.speedOverGround', 1_000]])]]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: 3_000,
+      generation: 2,
+    });
+
+    expect(store.aisTargets.get('vessels.a')?.values.get('navigation.speedOverGround')).toBe(7);
+    expect(store.aisTargets.get('vessels.a')?.generations.get('navigation.speedOverGround')).toBe(
+      2,
+    );
+  });
+
   it('updates connection state reactively', () => {
     const store = new SignalKStore();
     store.applyFrame(frame({}));

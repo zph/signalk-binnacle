@@ -57,6 +57,8 @@ export interface AisTargetView {
   // Signal K's enum: underway, anchored, moored, not under command, aground, and similar. Undefined
   // when the target has never reported it, which most Class B AIS transponders do not.
   navigationState?: string;
+  lastReportAtMs?: number;
+  stale?: boolean;
 }
 
 // One memoized view plus what it was derived from, so an unchanged vessel keeps its object
@@ -73,6 +75,7 @@ interface CachedView {
   // When the next clock-driven staleness boundary makes this view wrong, independent of any new
   // data: a motion field aging out changes the view with no update to trigger it.
   expiresAt: number;
+  retentionMs: number;
 }
 
 export class AisTargets {
@@ -80,6 +83,7 @@ export class AisTargets {
   #cache: AisTargetView[] | undefined;
   #cacheVersion = -1;
   #cacheExpiresAt = 0;
+  #cacheRetentionMs = -1;
   // Long-lived and mutated in place: rebuilding it per pass allocated a whole Map, plus one set
   // per unchanged vessel, on every AIS change. Entries for vessels the store dropped are pruned
   // below, only when the sizes disagree.
@@ -89,11 +93,18 @@ export class AisTargets {
   #index = new Map<string, AisTargetView>();
   #now: () => number;
   #nameCache: AisNameCache | undefined;
+  #retentionMs: () => number;
 
-  constructor(store: SignalKStore, now: () => number = Date.now, nameCache?: AisNameCache) {
+  constructor(
+    store: SignalKStore,
+    now: () => number = Date.now,
+    nameCache?: AisNameCache,
+    retentionMs: () => number = () => AIS_STALE_TTL_MS,
+  ) {
     this.#store = store;
     this.#now = now;
     this.#nameCache = nameCache;
+    this.#retentionMs = retentionMs;
   }
 
   // Start the staleness prune timer; returns the disposer. The entity owns the policy (TTL and
@@ -101,7 +112,7 @@ export class AisTargets {
   startPruning(): () => void {
     const id = setInterval(() => {
       const now = this.#now();
-      this.#store.pruneAis(now, AIS_STALE_TTL_MS);
+      this.#store.pruneAis(now, this.retentionMs);
       this.#store.pruneAisPaths([SK_PATHS.closestApproach], now, AIS_APPROACH_STALE_TTL_MS);
       this.#store.pruneAisPaths(
         [SK_PATHS.courseOverGroundTrue, SK_PATHS.headingTrue, SK_PATHS.speedOverGround],
@@ -119,12 +130,25 @@ export class AisTargets {
     return this.#store.aisVersion;
   }
 
+  get retentionMs(): number {
+    const configured = this.#retentionMs();
+    return Number.isFinite(configured) && configured > AIS_MOTION_STALE_TTL_MS
+      ? configured
+      : AIS_STALE_TTL_MS;
+  }
+
   list(): AisTargetView[] {
     // Rebuild only when AIS data changed. With aisVersion bumped only on real AIS
     // updates, own-vessel motion no longer forces a full list rebuild on consumers.
     const version = this.#store.aisVersion;
     const now = this.#now();
-    if (this.#cache && this.#cacheVersion === version && now < this.#cacheExpiresAt) {
+    const retentionMs = this.retentionMs;
+    if (
+      this.#cache &&
+      this.#cacheVersion === version &&
+      this.#cacheRetentionMs === retentionMs &&
+      now < this.#cacheExpiresAt
+    ) {
       return this.#cache;
     }
     const out: AisTargetView[] = [];
@@ -138,6 +162,7 @@ export class AisTargets {
         cached &&
         cached.generation === this.#store.generation &&
         cached.revision === target.revision &&
+        cached.retentionMs === retentionMs &&
         now < cached.expiresAt
       ) {
         out.push(cached.view);
@@ -159,11 +184,17 @@ export class AisTargets {
         }
         return target.values.get(path);
       };
-      const position = current(SK_PATHS.position, AIS_STALE_TTL_MS);
+      const position = current(SK_PATHS.position, retentionMs);
       if (!isLatLon(position)) {
         // No renderable position, so no view: drop any memo from when it had one.
         this.#views.delete(id);
         continue;
+      }
+      const positionEpoch = target.epochs.get(SK_PATHS.position);
+      if (positionEpoch === undefined) continue;
+      const stale = now - positionEpoch > AIS_MOTION_STALE_TTL_MS;
+      if (!stale) {
+        vesselExpiresAt = Math.min(vesselExpiresAt, positionEpoch + AIS_MOTION_STALE_TTL_MS + 1);
       }
       const reportedName = current(SK_PATHS.name);
       const mmsi = shortVesselId(id);
@@ -202,6 +233,8 @@ export class AisTargets {
         cpaMeters: approach?.cpa,
         tcpaSeconds: approach?.tcpa,
         navigationState: typeof navState === 'string' ? navState : undefined,
+        lastReportAtMs: positionEpoch,
+        stale,
       };
       out.push(view);
       this.#index.set(id, view);
@@ -210,6 +243,7 @@ export class AisTargets {
         generation: this.#store.generation,
         revision: target.revision,
         expiresAt: vesselExpiresAt,
+        retentionMs,
       });
       expiresAt = Math.min(expiresAt, vesselExpiresAt);
     }
@@ -223,6 +257,7 @@ export class AisTargets {
     this.#cache = out;
     this.#cacheVersion = version;
     this.#cacheExpiresAt = expiresAt;
+    this.#cacheRetentionMs = retentionMs;
     return out;
   }
 

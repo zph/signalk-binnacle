@@ -37,6 +37,7 @@ import Waves from '@lucide/svelte/icons/waves';
 import Wind from '@lucide/svelte/icons/wind';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { onDestroy, onMount, untrack } from 'svelte';
+import { SvelteSet } from 'svelte/reactivity';
 import { AisNameCache, AisTargets } from '$entities/ais';
 import { AnchorWatch } from '$entities/anchor';
 import { CollisionAssessment } from '$entities/collision';
@@ -247,6 +248,7 @@ import {
   fetchHistoryProviders,
   fetchServerFeatures,
   fetchSymbols,
+  hydrateAisSnapshot,
   isConnectionOpen,
   recentSourceRefs,
   SELF_CONTEXT,
@@ -299,10 +301,21 @@ const alarmAudioGate = new AlarmAudioGate(clock);
 const audioState = $derived(alarmAudioGate.state);
 const audioBlocked = $derived(alarmAudioGate.blocked);
 const vessel = new OwnVessel(store, clock);
+const aisRetentionMinutes = new PersistedValue<number>(
+  binnacleStorageKey('aisRetentionMinutes'),
+  60,
+  undefined,
+  boundedNumberPersistedCodec(15, 1440),
+);
 // Remember slow-reporting AIS static names across target pruning and reconnects. The cache is
 // display-local, bounded, and expires each name 24 hours after it was last heard over AIS.
 const aisNameCache = new AisNameCache();
-const aisTargets = new AisTargets(store, Date.now, aisNameCache);
+const aisTargets = new AisTargets(
+  store,
+  Date.now,
+  aisNameCache,
+  () => aisRetentionMinutes.value * 60_000,
+);
 // A worker that dies after connect fires no Comlink settle; the failure callback routes it into
 // the stream controller's error state, whose retry restarts the worker. Deferred through a closure
 // because the controller is constructed further down; the callback can only fire after connect.
@@ -537,6 +550,7 @@ let layersOpenRequest = $state<{
   mode: 'charts' | 'overlays';
   target?: 'basemap';
 }>({ mode: 'charts' });
+let aisDisplaySettingsRequest = $state(0);
 // The left dock's open state is owned here, not inside AppMenu, so a panel's back action can expand
 // the menu after it collapsed on selection.
 let menuOpen = $state(false);
@@ -1322,6 +1336,7 @@ const profileBindings = createProfileBindings({
   weatherLayers: weatherLayerSettings,
   weatherSource,
   aisIconMode,
+  aisRetentionMinutes,
   thresholds,
   trackSettings,
   planningSpeedMps,
@@ -2513,6 +2528,21 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       },
     },
     {
+      id: 'ais-display-settings',
+      label: 'AIS display',
+      description: 'Set vessel symbols and stale-target retention',
+      group: 'Chart',
+      keywords: ['targets', 'traffic', 'stale', 'fade', 'expiry', 'retention', 'fishing'],
+      icon: Layers,
+      disabled: !layersView,
+      disabledReason: 'AIS display settings need the chart to finish loading.',
+      onSelect: () => {
+        layersOpenRequest = { mode: 'overlays' };
+        openPanel('layers');
+        aisDisplaySettingsRequest += 1;
+      },
+    },
+    {
       // A root entry, not a child of instruments-layout: placing instruments on the chart is its
       // own surface. The label deliberately does not begin with "Instruments", so the "adjustable
       // surfaces" palette case still matches exactly one /^Instruments / option.
@@ -2693,8 +2723,8 @@ function uniqueActionIds(actions: MenuItem[]): MenuItem[] {
 }
 
 function uniqueRingActions(actions: MenuItem[]): MenuItem[] {
-  const seenIds = new Set<string>();
-  const seenLabels = new Set<string>();
+  const seenIds = new SvelteSet<string>();
+  const seenLabels = new SvelteSet<string>();
   return actions.filter((action) => {
     // The ring renders shortLabel when present, so that is the visible intent a navigator sees.
     // A context action, such as Measure from here, therefore replaces its generic Measure sibling.
@@ -3311,6 +3341,7 @@ const streamController = createStreamController({
   // the reconnect refresh chain, whose notification reconcile replays MOB after the mirror
   // settles.
   onOpen: (firstOpen, token) => {
+    void hydrateAisSnapshot(store, origin, token);
     void routeController.hydrateAndSeedCourse();
     if (firstOpen) mobController.onStreamReconnect();
     else refreshAfterStreamReconnect(token);
@@ -3642,6 +3673,7 @@ const plotterServices = {
   alarmLocation,
   trackSettings,
   aisIconMode,
+  aisRetentionMinutes,
   categoriesOpen: layerCategoriesOpen,
   mapRenderingQuality,
   arrivalMuted,
@@ -3807,6 +3839,7 @@ const plotterActions = {
     layerSettings={layerSettings.value}
     layerOrder={layerOrder.value}
     {layersOpenRequest}
+    {aisDisplaySettingsRequest}
     weatherLayerSettings={weatherLayerSettings.value}
     {trackPersistenceDegraded}
     {activePanel}

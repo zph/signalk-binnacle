@@ -291,10 +291,23 @@ export class SignalKStore {
         const contextEpochs = frame.aisEpochs?.get(context);
         for (const [path, value] of incoming) {
           const receivedAt = contextEpochs?.get(path) ?? frame.epoch;
+          const previousGeneration = target.generations.get(path);
+          const previousEpoch = target.epochs.get(path);
+          // A REST snapshot requested on the open edge can finish after a newer stream delta. Merge
+          // by provider time within one connection generation so that late hydration cannot move a
+          // vessel backward or revive older motion. A new generation still accepts its first sample
+          // even when the server clock moved backward across a restart.
+          if (
+            previousGeneration === generation &&
+            previousEpoch !== undefined &&
+            receivedAt < previousEpoch
+          ) {
+            continue;
+          }
           const previous = target.values.get(path);
           targetChanged ||=
             (previous === undefined && !target.values.has(path)) ||
-            target.generations.get(path) !== generation ||
+            previousGeneration !== generation ||
             !sameJsonValue(previous, value);
           target.values.set(path, value);
           target.epochs.set(path, receivedAt);

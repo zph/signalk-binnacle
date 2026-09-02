@@ -5,6 +5,7 @@ export {
   AIS_PRUNE_INTERVAL_MS,
   AIS_REFRESH_MIN_MS,
   AIS_STALE_TTL_MS,
+  aisTargetAgeOpacity,
 } from './ais-staleness';
 export type { AisTargetView } from './ais-targets.svelte';
 export { AisTargets } from './ais-targets.svelte';

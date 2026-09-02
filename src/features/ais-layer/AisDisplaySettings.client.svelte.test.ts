@@ -14,11 +14,17 @@ describe('AisDisplaySettings', () => {
     const target = document.createElement('div');
     document.body.append(target);
     const onModeChange = vi.fn();
+    const onRetentionMinutesChange = vi.fn();
     let component!: ReturnType<typeof mount>;
     flushSync(() => {
       component = mount(AisDisplaySettings, {
         target,
-        props: { mode: 'type-specific', onModeChange },
+        props: {
+          mode: 'type-specific',
+          onModeChange,
+          retentionMinutes: 60,
+          onRetentionMinutesChange,
+        },
       });
     });
     dispose = () => {
@@ -39,5 +45,12 @@ describe('AisDisplaySettings', () => {
 
     buttons[1].click();
     expect(onModeChange).toHaveBeenCalledWith('generic');
+
+    const retention = target.querySelector<HTMLSelectElement>('select');
+    expect(retention?.value).toBe('60');
+    if (!retention) throw new Error('Expected the AIS retention control');
+    retention.value = '360';
+    retention.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(onRetentionMinutesChange).toHaveBeenCalledWith(360);
   });
 });

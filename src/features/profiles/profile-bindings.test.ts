@@ -31,6 +31,7 @@ function makeDeps(): ProfileBindingDeps {
     weatherLayers: pv({}),
     weatherSource: pv('automatic'),
     aisIconMode: pv('type-specific'),
+    aisRetentionMinutes: pv(60),
     thresholds: pv({
       dangerCpaMeters: 1,
       dangerTcpaSeconds: 1,
@@ -93,20 +94,24 @@ describe('createProfileBindings', () => {
     deps.layers.set(layers);
     deps.layerOrder.set(['ais', 'chart:server:noaa', 'radar']);
     deps.aisIconMode.set('generic');
+    deps.aisRetentionMinutes.set(360);
     const bindings = createProfileBindings(deps);
 
     const captured = bindings.capture();
     expect(captured.layers).toEqual(layers);
     expect(captured.layerOrder).toEqual(['ais', 'chart:server:noaa', 'radar']);
     expect(captured.aisIconMode).toBe('generic');
+    expect(captured.aisRetentionMinutes).toBe(360);
 
     deps.layers.set({});
     deps.layerOrder.set([]);
     deps.aisIconMode.set('type-specific');
+    deps.aisRetentionMinutes.set(60);
     bindings.apply(captured);
     expect(deps.layers.value).toEqual(layers);
     expect(deps.layerOrder.value).toEqual(['ais', 'chart:server:noaa', 'radar']);
     expect(deps.aisIconMode.value).toBe('generic');
+    expect(deps.aisRetentionMinutes.value).toBe(360);
   });
 
   it('applies the type-specific AIS default for a legacy profile', () => {
@@ -119,6 +124,18 @@ describe('createProfileBindings', () => {
     bindings.apply(legacy);
 
     expect(deps.aisIconMode.value).toBe('type-specific');
+  });
+
+  it('applies the 60-minute AIS retention default for a legacy profile', () => {
+    const deps = makeDeps();
+    const bindings = createProfileBindings(deps);
+    deps.aisRetentionMinutes.set(360);
+    const legacy = bindings.capture();
+    legacy.aisRetentionMinutes = undefined;
+
+    bindings.apply(legacy);
+
+    expect(deps.aisRetentionMinutes.value).toBe(60);
   });
 
   it('applies a bundle back to every store', () => {

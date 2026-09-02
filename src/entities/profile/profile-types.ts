@@ -14,6 +14,9 @@ export interface ProfileSettings {
   // AIS target portrayal. Optional so profiles saved before vessel-kind symbols existed remain
   // valid; the read edge applies the original type-specific default.
   aisIconMode?: 'type-specific' | 'generic';
+  // Minutes to retain and fade a stale AIS position. Optional for profiles saved before stale
+  // target retention was configurable; the read edge applies the 60-minute default.
+  aisRetentionMinutes?: number;
   thresholds: Thresholds;
   trackSettings: TrackSettings;
   // Route planning speed in m/s. SI like every other persisted measure; the route plan converts to
@@ -62,6 +65,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'weatherLayers',
   'weatherSource',
   'aisIconMode',
+  'aisRetentionMinutes',
   'thresholds',
   'trackSettings',
   'planningSpeedMps',

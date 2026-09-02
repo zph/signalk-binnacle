@@ -83,6 +83,7 @@ describe('isProfileSettings', () => {
           layers,
           layerOrder: ['ais', 'chart:server:noaa'],
           aisIconMode: 'generic',
+          aisRetentionMinutes: 360,
         }),
       ),
     );
@@ -90,10 +91,17 @@ describe('isProfileSettings', () => {
     expect(out[0].settings.layers).toEqual(layers);
     expect(out[0].settings.layerOrder).toEqual(['ais', 'chart:server:noaa']);
     expect(out[0].settings.aisIconMode).toBe('generic');
+    expect(out[0].settings.aisRetentionMinutes).toBe(360);
   });
 
   it('rejects an unknown AIS symbol mode', () => {
     expect(isProfileSettings(settings({ aisIconMode: 'silhouettes' as never }))).toBe(false);
+  });
+
+  it('rejects AIS retention outside the supported range', () => {
+    expect(isProfileSettings(settings({ aisRetentionMinutes: 60 }))).toBe(true);
+    expect(isProfileSettings(settings({ aisRetentionMinutes: 5 }))).toBe(false);
+    expect(isProfileSettings(settings({ aisRetentionMinutes: 1441 }))).toBe(false);
   });
 
   it('accepts known weather sources and rejects unknown ones', () => {

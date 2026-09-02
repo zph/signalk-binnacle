@@ -73,6 +73,7 @@ interface BuildAisRadarContactsOptions {
 const METERS_PER_NAUTICAL_MILE = 1852;
 const VECTOR_SECONDS = 360;
 const DEFAULT_MAX_CONTACTS = 96;
+const NEAR_CONTACT_PRIORITY_NM = 2;
 
 function contactName(target: AisTargetView): string {
   const name = target.name?.trim();
@@ -142,5 +143,24 @@ export function buildAisRadarContacts({
   contacts.sort(
     (a, b) => riskRank(a.severity) - riskRank(b.severity) || a.rangeMeters - b.rangeMeters,
   );
-  return contacts.slice(0, maxContacts);
+  if (contacts.length <= maxContacts) return contacts;
+
+  // The plot cap protects instrument rendering in dense traffic, but distant risk-ranked contacts
+  // must never evict a nearby vessel. Admit every contact in the near ring first, then fill the
+  // remaining capacity in the existing risk-first order. If the near ring alone exceeds the cap,
+  // the closest contacts win.
+  const nearRangeMeters = Math.min(rangeNm, NEAR_CONTACT_PRIORITY_NM) * METERS_PER_NAUTICAL_MILE;
+  const near = contacts
+    .filter((contact) => contact.rangeMeters <= nearRangeMeters)
+    .sort((a, b) => a.rangeMeters - b.rangeMeters);
+  if (near.length >= maxContacts) return near.slice(0, maxContacts);
+
+  const selected = new Set(near.map((contact) => contact.id));
+  const admitted = [...near];
+  for (const contact of contacts) {
+    if (selected.has(contact.id)) continue;
+    admitted.push(contact);
+    if (admitted.length === maxContacts) break;
+  }
+  return admitted;
 }

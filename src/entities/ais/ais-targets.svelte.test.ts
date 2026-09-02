@@ -206,12 +206,13 @@ describe('AisTargets', () => {
       ),
     );
     expect(ais.list()[0]).toMatchObject({ cogRad: 1, sogMps: 4 });
-    now += 30_001;
+    now += 4 * 60_000 + 1;
     expect(ais.list()[0]).toMatchObject({ cogRad: 1, sogMps: 4 });
-    now += 30_000;
+    now += 60_000;
     expect(ais.list()).toHaveLength(1);
     expect(ais.list()[0].cogRad).toBeUndefined();
     expect(ais.list()[0].sogMps).toBeUndefined();
+    expect(ais.list()[0].stale).toBe(true);
   });
 
   it('hides telemetry from a previous connection generation', () => {
@@ -300,8 +301,31 @@ describe('AisTargets', () => {
       frame({ 'vessels.old-fix': { 'navigation.position': { latitude: 0, longitude: 0 } } }, now),
     );
     expect(ais.list()).toHaveLength(1);
-    now += 7 * 60_000 + 1;
+    now += 60 * 60_000 + 1;
     store.applyFrame(frame({ 'vessels.old-fix': { name: 'Still transmitting' } }, now));
+    expect(ais.list()).toHaveLength(0);
+  });
+
+  it('applies a changed configured retention without waiting for another AIS update', () => {
+    let now = 1_000;
+    let retentionMs = 120 * 60_000;
+    const store = new SignalKStore();
+    const ais = new AisTargets(
+      store,
+      () => now,
+      undefined,
+      () => retentionMs,
+    );
+    store.applyFrame(
+      frame(
+        { 'vessels.configured': { 'navigation.position': { latitude: 0, longitude: 0 } } },
+        now,
+      ),
+    );
+    now += 31 * 60_000;
+    expect(ais.list()).toHaveLength(1);
+
+    retentionMs = 30 * 60_000;
     expect(ais.list()).toHaveLength(0);
   });
 });

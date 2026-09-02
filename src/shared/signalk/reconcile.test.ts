@@ -8,13 +8,18 @@ interface Collected {
   value: Value;
   source?: { label?: string; ref?: string };
   state?: PathValueState;
+  reportedAtMs?: number;
 }
 
 function collect(delta: Delta): Collected[] {
   const out: Collected[] = [];
-  reconcileDelta(delta, (context, path, value, source, state) =>
-    out.push({ context, path, value, source, state }),
-  );
+  reconcileDelta(delta, (context, path, value, source, state, reportedAtMs) => {
+    const collected: Collected = { context, path, value };
+    if (source !== undefined) collected.source = source;
+    if (state !== undefined) collected.state = state;
+    if (reportedAtMs !== undefined) collected.reportedAtMs = reportedAtMs;
+    out.push(collected);
+  });
   return out;
 }
 
@@ -114,6 +119,41 @@ describe('reconcileDelta', () => {
     // A plain delta with no $source and no state carries neither field, byte-identical to before.
     expect(writes[0].source?.ref).toBeUndefined();
     expect(writes[0].state).toBeUndefined();
+  });
+
+  it('passes a valid provider timestamp to every value in an update', () => {
+    const timestamp = '2026-09-02T14:39:01Z';
+    const writes = collect({
+      context: 'vessels.other',
+      updates: [
+        {
+          timestamp,
+          values: [
+            { path: 'navigation.position', value: { latitude: 1, longitude: 2 } },
+            { path: 'navigation.speedOverGround', value: 4 },
+          ],
+        },
+      ],
+    } as unknown as Delta);
+
+    expect(writes.map((write) => write.reportedAtMs)).toEqual([
+      Date.parse(timestamp),
+      Date.parse(timestamp),
+    ]);
+  });
+
+  it('ignores an invalid provider timestamp', () => {
+    const writes = collect({
+      context: 'vessels.other',
+      updates: [
+        {
+          timestamp: 'not-a-date',
+          values: [{ path: 'navigation.speedOverGround', value: 4 }],
+        },
+      ],
+    } as unknown as Delta);
+
+    expect(writes[0]?.reportedAtMs).toBeUndefined();
   });
 
   it('rejects unsafe contexts and paths', () => {

@@ -84,6 +84,41 @@ describe('AIS radar model', () => {
     expect(contacts[0]?.cpaText).toBe('CPA 0.20 nm / 10 min');
   });
 
+  it('never lets distant traffic evict a nearby contact at the plot cap', () => {
+    const farTargets = Array.from({ length: 6 }, (_, index) =>
+      target({
+        id: `far-${index}`,
+        position: { latitude: 0.05 + index * 0.001, longitude: 0 },
+      }),
+    );
+    const assessment: Assessment = {
+      worst: 'warning',
+      unassessed: [],
+      contacts: farTargets.map((contact) => ({
+        id: contact.id,
+        position: contact.position,
+        cpaMeters: 500,
+        tcpaSeconds: 600,
+        severity: 'warning',
+        source: 'computed',
+      })),
+    };
+
+    const contacts = buildAisRadarContacts({
+      ownPosition: { latitude: 0, longitude: 0 },
+      targets: [
+        ...farTargets,
+        target({ id: 'zalophus', name: 'ZALOPHUS', position: { latitude: 0.005, longitude: 0 } }),
+      ],
+      assessment,
+      rangeNm: 6,
+      maxContacts: 3,
+    });
+
+    expect(contacts.map((contact) => contact.id)).toContain('zalophus');
+    expect(contacts).toHaveLength(3);
+  });
+
   it('accepts only supported persisted ranges', () => {
     expect(isAisRadarRangeNm(6)).toBe(true);
     expect(isAisRadarRangeNm(5)).toBe(false);

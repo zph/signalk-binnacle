@@ -265,6 +265,14 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   ) {
     return false;
   }
+  if (
+    value.aisRetentionMinutes !== undefined &&
+    (!isFiniteNumber(value.aisRetentionMinutes) ||
+      value.aisRetentionMinutes < 15 ||
+      value.aisRetentionMinutes > 1440)
+  ) {
+    return false;
+  }
   if (value.layerCategories !== undefined && !validCategorySettings(value.layerCategories))
     return false;
   if (!validStringList(value.layerOrder, MAX_LIST_ENTRIES)) return false;

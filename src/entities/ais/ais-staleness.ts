@@ -1,10 +1,8 @@
 import { MINUTE_MS } from '$shared/lib';
 
-// How long an AIS target may go without an update before it is pruned from the store
-// (store.pruneAis). Anchored Class A and slow Class B vessels nominally report every 3 minutes,
-// so a TTL at that interval flaps anchored traffic off and on; 7 minutes tolerates two missed
-// slow-rate reports before a target is treated as gone.
-export const AIS_STALE_TTL_MS = 7 * MINUTE_MS;
+// Default retention for a target's last reported position. The user can tune this, but an hour
+// keeps intermittent fishing and aggregated AIS traffic available without presenting it as live.
+export const AIS_STALE_TTL_MS = 60 * MINUTE_MS;
 
 // Staleness changes on a minutes scale, so prune on this coarse cadence, and from a timer rather
 // than the render path: rendering pauses in a hidden tab while the collision math keeps consuming
@@ -17,9 +15,16 @@ export const AIS_PRUNE_INTERVAL_MS = 5_000;
 export const AIS_APPROACH_STALE_TTL_MS = 30_000;
 
 // Motion drives local CPA projection and must age out much sooner than the target's slow-reporting
-// position. Class B targets can report at 30-second intervals, so leave one interval of margin for
-// delivery jitter without retaining a velocity vector through multiple missed reports.
-export const AIS_MOTION_STALE_TTL_MS = 60_000;
+// position. Aggregated feeds may deliver only once per minute, and slow AIS classes can be quieter,
+// so retain five minutes. A TTL equal to a nominal interval makes independent clients flap at
+// slightly different moments as network delivery and prune timers drift.
+export const AIS_MOTION_STALE_TTL_MS = 5 * MINUTE_MS;
+
+export function aisTargetAgeOpacity(ageMs: number, retentionMs: number): number {
+  if (ageMs <= AIS_MOTION_STALE_TTL_MS) return 1;
+  if (retentionMs <= AIS_MOTION_STALE_TTL_MS || ageMs >= retentionMs) return 0;
+  return 1 - (ageMs - AIS_MOTION_STALE_TTL_MS) / (retentionMs - AIS_MOTION_STALE_TTL_MS);
+}
 
 // The floor for how often a rendered view of the traffic is rebuilt. A rendered position does not
 // need better than about 1 Hz, and a glanceable list needs it less. Declared here with the other

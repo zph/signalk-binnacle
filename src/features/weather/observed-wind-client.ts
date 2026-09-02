@@ -1,4 +1,4 @@
-import { SignalKResourceClient } from '$shared/signalk/resource';
+import { SignalKResourceClient } from '$shared/signalk';
 
 export interface ObservedWindStation {
   id: string;

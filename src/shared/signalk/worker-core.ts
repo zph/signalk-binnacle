@@ -140,6 +140,7 @@ export class WorkerCore {
     value: Value,
     source?: PathSource,
     state?: PathValueState,
+    reportedAtMs?: number,
   ): void => {
     if (this.#isSelf(context)) {
       // A server stale declaration routes to its own channel and the wire null is suppressed, so
@@ -153,7 +154,12 @@ export class WorkerCore {
       }
       this.#batcher.put(path, value, source, this.#receivedAt);
     } else {
-      this.#batcher.putVessel(context, path, value, this.#receivedAt);
+      // Fixed-period subscriptions may replay an unchanged AIS value long after the provider's
+      // report. Preserve the report time so reconnects and independent clients agree on freshness.
+      // Clamp future provider clocks to receipt time, matching self-vessel stale-value handling.
+      const epoch =
+        reportedAtMs === undefined ? this.#receivedAt : Math.min(reportedAtMs, this.#receivedAt);
+      this.#batcher.putVessel(context, path, value, epoch);
     }
   };
 

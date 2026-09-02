@@ -77,6 +77,7 @@ export function reconcileDelta(
     value: Value,
     source?: PathSource,
     state?: PathValueState,
+    reportedAtMs?: number,
   ) => void,
 ): void {
   if (!isRecord(delta)) return;
@@ -93,6 +94,10 @@ export function reconcileDelta(
     const ref = boundedText(update.$source, MAX_SOURCE_LABEL_LENGTH);
     const label = sourceLabel(update.source) ?? ref;
     const source: PathSource | undefined = label ? { label, ref } : undefined;
+    const timestamp = boundedText(update.timestamp, 64);
+    const parsedTimestamp = timestamp === undefined ? Number.NaN : Date.parse(timestamp);
+    const reportedAtMs =
+      Number.isFinite(parsedTimestamp) && parsedTimestamp > 0 ? parsedTimestamp : undefined;
     for (const pv of values) {
       // A malformed element (null, or a missing or non-string path) would key the frame Map with a
       // non-string and throw in applyFrame's path.startsWith, aborting the whole frame's update.
@@ -102,7 +107,7 @@ export function reconcileDelta(
       if (accepted >= MAX_VALUES_PER_DELTA) return;
       accepted += 1;
       const state = pv.state === undefined ? undefined : parseValueState(pv.state);
-      onLeaf(context, path, pv.value as Value, source, state);
+      onLeaf(context, path, pv.value as Value, source, state, reportedAtMs);
     }
   }
 }

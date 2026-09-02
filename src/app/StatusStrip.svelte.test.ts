@@ -32,6 +32,7 @@ function baseProps() {
     shallowAlarming: false,
     onEnableSound: () => {},
     pinnedActions: [],
+    showReadouts: true,
     clock,
     onReconnect: () => {},
   };

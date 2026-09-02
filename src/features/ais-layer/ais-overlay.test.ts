@@ -9,7 +9,7 @@ import {
   fakeOverlayContext,
   sourceFeatures,
 } from '$shared/testing';
-import { AIS_ICON_IDS, AIS_ICON_IMAGE_IDS, aisIconId } from './ais-icon';
+import { AIS_ICON_IDS, AIS_ICON_IMAGE_IDS, aisIconId, aisStaleIconId } from './ais-icon';
 import { createAisOverlay } from './ais-overlay';
 
 // Seeded from the wall clock: AIS freshness is judged against real time, so a tiny epoch would
@@ -45,7 +45,7 @@ describe('ais overlay', () => {
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('traffic');
     expect(overlay.manageable).toBe(true);
-    expect(map.images.size).toBe(27);
+    expect(map.images.size).toBe(AIS_ICON_IMAGE_IDS.length);
     expect(map.sources.size).toBe(2);
     expect(map.layers.size).toBe(5);
     expect(map.layers.get('binnacle-ais-position-projection-connector')).toMatchObject({
@@ -244,6 +244,41 @@ describe('ais overlay', () => {
     });
   });
 
+  it('renders an old retained target with a gray stale icon and reduced opacity', async () => {
+    const now = 60 * 60_000;
+    const store = new SignalKStore();
+    store.applyFrame({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.zalophus',
+          new Map<string, unknown>([
+            ['navigation.position', { latitude: 38.04, longitude: -122.31 }],
+            ['design.aisShipType', { id: 30 }],
+          ]),
+        ],
+      ]),
+      aisEpochs: new Map([
+        [
+          'vessels.zalophus',
+          new Map([
+            ['navigation.position', now - 30 * 60_000],
+            ['design.aisShipType', now - 30 * 60_000],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: now,
+    });
+    const targets = new AisTargets(store, () => now);
+    const map = createFakeMap();
+    await createAisOverlay(targets, { now: () => now }).add(fakeOverlayContext(map));
+
+    const feature = sourceFeatures(map, 'binnacle-ais')[0];
+    expect(feature.properties?.iconImage).toBe(aisStaleIconId('fishing'));
+    expect(feature.properties?.ageOpacity).toBeCloseTo(6 / 11);
+  });
+
   it('projects between fixes and reconciles immediately to a new reported position', async () => {
     let now = 10_000;
     const store = new SignalKStore();
@@ -420,9 +455,9 @@ describe('ais overlay', () => {
     expect((source.data as GeoJSON.FeatureCollection).features).toHaveLength(1);
     const spy = vi.spyOn(source, 'setData');
 
-    // Positions remain current for seven minutes. Crossing that boundary changes the entity's
-    // clock-derived list without mutating the underlying Signal K store or its AIS version.
-    now += 7 * 60_000 + 1;
+    // Positions remain visible for the default 60 minutes. Crossing that boundary changes the
+    // entity's clock-derived list without mutating the underlying Signal K store or its AIS version.
+    now += 60 * 60_000 + 1;
     overlay.sync(ctx);
 
     expect(targets.version).toBe(version);
@@ -538,7 +573,7 @@ describe('ais overlay', () => {
         ],
       ]),
       aisEpochs: new Map([
-        ['vessels.expiring', new Map([['navigation.position', now - 7 * 60_000 + 500]])],
+        ['vessels.expiring', new Map([['navigation.position', now - 60 * 60_000 + 500]])],
       ]),
       connection: { phase: 'open', attempt: 0 },
       epoch: now,

@@ -161,6 +161,7 @@ interface FlatProps {
     import('$shared/settings').AlarmLocation
   >;
   aisIconMode: import('$shared/settings').PersistedValue<AisVesselKindMode>;
+  aisRetentionMinutes: import('$shared/settings').PersistedValue<number>;
   routeDistanceToGoMeters: number | undefined;
 
   // Chart state
@@ -170,6 +171,7 @@ interface FlatProps {
   layerSettings: LayerSettings;
   layerOrder: string[];
   layersOpenRequest: { mode: 'charts' | 'overlays'; target?: 'basemap' };
+  aisDisplaySettingsRequest: number;
   weatherLayerSettings: LayerSettings;
   trackSettings: import('$shared/settings').PersistedValue<
     import('$shared/settings').TrackSettings
@@ -333,6 +335,7 @@ type ServiceKey =
   | 'thresholds'
   | 'alarmLocation'
   | 'aisIconMode'
+  | 'aisRetentionMinutes'
   | 'trackSettings'
   | 'categoriesOpen'
   | 'mapRenderingQuality'
@@ -448,6 +451,7 @@ let {
   layerSettings,
   layerOrder,
   layersOpenRequest,
+  aisDisplaySettingsRequest,
   weatherLayerSettings,
   trackPersistenceDegraded,
   activePanel,
@@ -517,12 +521,19 @@ const {
   thresholds,
   alarmLocation,
   aisIconMode,
+  aisRetentionMinutes,
   trackSettings,
   categoriesOpen,
   mapRenderingQuality,
   arrivalMuted,
 } = $derived(services);
 let aisDisplaySettingsOpen = $state(false);
+let handledAisDisplaySettingsRequest = 0;
+$effect(() => {
+  if (aisDisplaySettingsRequest <= handledAisDisplaySettingsRequest) return;
+  handledAisDisplaySettingsRequest = aisDisplaySettingsRequest;
+  aisDisplaySettingsOpen = true;
+});
 let aisMotionById = $state<ReadonlyMap<string, AisMotionSelection>>(new Map());
 const insecureTransport = $derived(isInsecureTransportOrigin(origin));
 const {
@@ -1894,6 +1905,8 @@ $effect(() => {
             <module.default
               mode={aisIconMode.value}
               onModeChange={(mode) => aisIconMode.set(mode)}
+              retentionMinutes={aisRetentionMinutes.value}
+              onRetentionMinutesChange={(minutes) => aisRetentionMinutes.set(minutes)}
             />
 
             {#snippet fallback(_error, reset)}

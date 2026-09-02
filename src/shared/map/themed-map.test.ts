@@ -553,8 +553,14 @@ describe('createThemedMap long-press', () => {
     const map = await lastMap();
     map.canvas.dispatch('pointerdown', { pointerType: 'touch', clientX: 10, clientY: 20 });
     // Android Chrome fires the native contextmenu mid-press; the synthesized timer must die.
-    map.fire('contextmenu', { lngLat: { lng: 1, lat: 2 }, point: { x: 3, y: 4 } });
+    const preventDefault = vi.fn();
+    map.fire('contextmenu', {
+      lngLat: { lng: 1, lat: 2 },
+      point: { x: 3, y: 4 },
+      originalEvent: { preventDefault },
+    });
     vi.advanceTimersByTime(600);
+    expect(preventDefault).toHaveBeenCalledOnce();
     expect(onContextMenu).toHaveBeenCalledTimes(1);
     expect(onContextMenu).toHaveBeenCalledWith({ lng: 1, lat: 2, x: 3, y: 4 });
   });

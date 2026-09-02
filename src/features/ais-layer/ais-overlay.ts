@@ -5,7 +5,12 @@ import type {
   LineLayerSpecification,
   SymbolLayerSpecification,
 } from 'maplibre-gl';
-import { type AisTargets, type AisVesselKind, aisVesselKind } from '$entities/ais';
+import {
+  type AisTargets,
+  type AisVesselKind,
+  aisTargetAgeOpacity,
+  aisVesselKind,
+} from '$entities/ais';
 import type { Assessment, Severity } from '$entities/collision';
 import { latLonToLonLat } from '$shared/geo';
 import { headingDegrees } from '$shared/lib';
@@ -32,6 +37,7 @@ import {
   AIS_ICON_PIXEL_RATIO,
   AIS_ICON_SEVERITIES,
   aisIconId,
+  aisStaleIconId,
   aisVesselIconScale,
   loadAisIconArtwork,
 } from './ais-icon';
@@ -56,6 +62,7 @@ const PROJECTION_CONFIDENCE: ExpressionSpecification = ['coalesce', ['get', 'con
 const PROJECTION_REFRESH_MS = 1_000;
 const PROJECTION_GHOST_OPACITY = 0.3;
 const PROJECTION_CONNECTOR_OPACITY = 0.22;
+const STALE_REPAINT_MS = 60_000;
 
 // Stale-target expiry lives on an app-level timer (store.pruneAis with the entities/ais TTL), never
 // in this render path, which pauses in a hidden tab while the collision math keeps consuming the
@@ -85,6 +92,7 @@ export function createAisOverlay(
   let lastProjectionVersion = -1;
   let lastProjectionRefreshAt = Number.NEGATIVE_INFINITY;
   let lastContacts: Assessment['contacts'] | undefined;
+  let lastStaleRepaintAt = Number.NEGATIVE_INFINITY;
   const severityById = new Map<string, Severity>();
   let paint = mapThemePaint('day');
   let artwork: Awaited<ReturnType<typeof loadAisIconArtwork>> | undefined;
@@ -100,6 +108,12 @@ export function createAisOverlay(
     if (severity === 'danger') return paint.aisDanger;
     if (severity === 'warning') return paint.aisWarning;
     return paint.aisTarget;
+  }
+
+  function staleColor(): Rgba {
+    if (paint.theme === 'night-red') return { r: 0x70, g: 0x1c, b: 0, a: 0xff };
+    if (paint.theme === 'dusk') return { r: 0x75, g: 0x7d, b: 0x84, a: 0xff };
+    return { r: 0x78, g: 0x80, b: 0x86, a: 0xff };
   }
 
   function refreshSeverities(): boolean {
@@ -135,8 +149,12 @@ export function createAisOverlay(
             id: target.id,
             name: target.name ?? '',
             heading: headingDegrees(target.headingRad, target.cogRad),
-            iconImage: aisIconId(kind, severity),
+            iconImage: target.stale ? aisStaleIconId(kind) : aisIconId(kind, severity),
             iconScale: aisVesselIconScale(target.lengthMeters),
+            ageOpacity: aisTargetAgeOpacity(
+              now() - (target.lastReportAtMs ?? now()),
+              targets.retentionMs,
+            ),
             severity,
             selected: target.id === selectedId,
           },
@@ -217,11 +235,18 @@ export function createAisOverlay(
       const kindMode = options.kindMode?.() ?? 'type-specific';
       const kindModeChanged = kindMode !== lastKindMode;
       const severitiesChanged = refreshSeverities();
+      const staleRepaintDue =
+        targets.list().some((target) => target.stale) &&
+        now() - lastStaleRepaintAt >= STALE_REPAINT_MS;
       lastSelectedId = selectedId;
       lastKindMode = kindMode;
       // A selection change rebuilds the same source as an AIS update. Force the shared gate to
       // record that painted target list, or its stale count can throttle the next real count change.
-      return gate.shouldRefresh(selectionChanged || kindModeChanged || severitiesChanged);
+      const refresh = gate.shouldRefresh(
+        selectionChanged || kindModeChanged || severitiesChanged || staleRepaintDue,
+      );
+      if (refresh && staleRepaintDue) lastStaleRepaintAt = now();
+      return refresh;
     },
   });
 
@@ -258,6 +283,12 @@ export function createAisOverlay(
             AIS_ICON_PIXEL_RATIO,
           );
         }
+        setMapImage(
+          ctx.map,
+          aisStaleIconId(kind),
+          renderIcon(kind, staleColor()),
+          AIS_ICON_PIXEL_RATIO,
+        );
       }
       if (!ctx.map.getSource(PROJECTION_SOURCE_ID)) {
         const source: GeoJSONSourceSpecification = {
@@ -270,6 +301,11 @@ export function createAisOverlay(
       if (ctx.map.getLayer(LAYER_ID)) {
         ctx.map.setLayoutProperty(LAYER_ID, 'icon-image', ['get', 'iconImage']);
         ctx.map.setLayoutProperty(LAYER_ID, 'icon-size', ICON_SCALE);
+        ctx.map.setPaintProperty(LAYER_ID, 'icon-opacity', [
+          '*',
+          opacity,
+          ['coalesce', ['get', 'ageOpacity'], 1],
+        ]);
       }
       if (!ctx.map.getLayer(PROJECTION_CONNECTOR_LAYER_ID)) {
         const connectorLayer: LineLayerSpecification = {
@@ -355,6 +391,12 @@ export function createAisOverlay(
             AIS_ICON_PIXEL_RATIO,
           );
         }
+        setMapImage(
+          ctx.map,
+          aisStaleIconId(kind),
+          renderIcon(kind, staleColor()),
+          AIS_ICON_PIXEL_RATIO,
+        );
       }
       if (ctx.map.getLayer(PROJECTION_CONNECTOR_LAYER_ID)) {
         ctx.map.setPaintProperty(
@@ -375,6 +417,13 @@ export function createAisOverlay(
     setOpacity(ctx, nextOpacity) {
       opacity = nextOpacity;
       base.setOpacity?.(ctx, nextOpacity);
+      if (ctx.map.getLayer(LAYER_ID)) {
+        ctx.map.setPaintProperty(LAYER_ID, 'icon-opacity', [
+          '*',
+          opacity,
+          ['coalesce', ['get', 'ageOpacity'], 1],
+        ]);
+      }
       if (ctx.map.getLayer(PROJECTION_CONNECTOR_LAYER_ID)) {
         ctx.map.setPaintProperty(
           PROJECTION_CONNECTOR_LAYER_ID,

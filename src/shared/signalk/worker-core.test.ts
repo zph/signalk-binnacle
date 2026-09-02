@@ -84,6 +84,60 @@ describe('WorkerCore', () => {
     expect(frame?.ais?.get('vessels.self-urn')).toBeUndefined();
   });
 
+  it('uses the provider timestamp for AIS freshness instead of replay receipt time', () => {
+    vi.setSystemTime(new Date('2026-09-02T15:23:00Z'));
+    const frames: SKFrame[] = [];
+    const core = new WorkerCore();
+    core.connect('ws://test', (frame) => frames.push(frame));
+    const ws = FakeWebSocket.instances[0];
+    ws.onopen?.();
+    ws.onmessage?.({
+      data: JSON.stringify({ name: 'sk', version: '1.0.0', self: 'vessels.self-urn' }),
+    });
+    ws.onmessage?.({
+      data: JSON.stringify({
+        context: 'vessels.zalophus',
+        updates: [
+          {
+            timestamp: '2026-09-02T14:39:01Z',
+            values: [{ path: 'navigation.speedOverGround', value: 18.5 }],
+          },
+        ],
+      }),
+    });
+    vi.runAllTimers();
+
+    expect(
+      frames.at(-1)?.aisEpochs?.get('vessels.zalophus')?.get('navigation.speedOverGround'),
+    ).toBe(Date.parse('2026-09-02T14:39:01Z'));
+  });
+
+  it('clamps a future AIS provider timestamp to receipt time', () => {
+    const receivedAt = Date.parse('2026-09-02T15:23:00Z');
+    vi.setSystemTime(receivedAt);
+    const frames: SKFrame[] = [];
+    const core = new WorkerCore();
+    core.connect('ws://test', (frame) => frames.push(frame));
+    const ws = FakeWebSocket.instances[0];
+    ws.onopen?.();
+    ws.onmessage?.({
+      data: JSON.stringify({
+        context: 'vessels.clock-ahead',
+        updates: [
+          {
+            timestamp: '2026-09-02T16:23:00Z',
+            values: [{ path: 'navigation.speedOverGround', value: 4 }],
+          },
+        ],
+      }),
+    });
+    vi.runAllTimers();
+
+    expect(
+      frames.at(-1)?.aisEpochs?.get('vessels.clock-ahead')?.get('navigation.speedOverGround'),
+    ).toBe(receivedAt);
+  });
+
   it('delivers a connection-only frame on each phase change, even without data', () => {
     const frames: SKFrame[] = [];
     const core = new WorkerCore();

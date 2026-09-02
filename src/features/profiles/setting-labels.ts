@@ -10,6 +10,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   weatherLayers: 'Weather layers',
   weatherSource: 'Weather source',
   aisIconMode: 'AIS symbols',
+  aisRetentionMinutes: 'AIS target retention',
   thresholds: 'Collision thresholds',
   trackSettings: 'Track recording',
   planningSpeedMps: 'Planning speed',

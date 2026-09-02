@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AisTargetView } from '$entities/ais';
+import { AIS_MOTION_STALE_TTL_MS, type AisTargetView } from '$entities/ais';
 import { AIS_ICON_IDS } from './ais-icon';
 import { buildAisPositionProjectionFeatures } from './ais-position-projection';
 
@@ -70,6 +70,6 @@ describe('AIS between-fix position projection', () => {
     expect(build(movingTarget({ sogMps: 0.2 }))).toEqual([]);
     expect(build(movingTarget(), { epoch: undefined })).toEqual([]);
     expect(build(movingTarget(), { ageMs: -1 })).toEqual([]);
-    expect(build(movingTarget(), { ageMs: 60_001 })).toEqual([]);
+    expect(build(movingTarget(), { ageMs: AIS_MOTION_STALE_TTL_MS + 1 })).toEqual([]);
   });
 });

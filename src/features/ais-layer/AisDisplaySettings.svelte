@@ -4,9 +4,13 @@ import type { AisVesselKindMode } from './ais-overlay';
 interface Props {
   mode: AisVesselKindMode;
   onModeChange: (mode: AisVesselKindMode) => void;
+  retentionMinutes: number;
+  onRetentionMinutesChange: (minutes: number) => void;
 }
 
-const { mode, onModeChange }: Props = $props();
+const { mode, onModeChange, retentionMinutes, onRetentionMinutesChange }: Props = $props();
+
+const RETENTION_OPTIONS = [15, 30, 60, 120, 360, 720, 1440] as const;
 </script>
 
 <p class="muted-note">
@@ -39,5 +43,27 @@ const { mode, onModeChange }: Props = $props();
   <p class="muted-note">
     Vessel types distinguish cargo ships, tankers, passenger vessels, fishing boats, tugs, service
     vessels, motorboats, and sailboats when the target reports its type.
+  </p>
+</section>
+
+<section class="panel-section" aria-label="AIS target retention">
+  <h3 class="caps-label">Stale targets</h3>
+  <label>
+    Keep last known position
+    <select
+      class="input"
+      value={retentionMinutes}
+      onchange={(event) => onRetentionMinutesChange(Number(event.currentTarget.value))}
+    >
+      {#each RETENTION_OPTIONS as minutes (minutes)}
+        <option value={minutes}>
+          {minutes < 60 ? `${minutes} minutes` : `${minutes / 60} ${minutes === 60 ? 'hour' : 'hours'}`}
+        </option>
+      {/each}
+    </select>
+  </label>
+  <p class="muted-note">
+    Motion is considered stale after 5 minutes. The last known vessel position then turns gray and
+    fades until this retention limit. Stale motion is not used as current collision data.
   </p>
 </section>

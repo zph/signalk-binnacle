@@ -1,4 +1,10 @@
 export { adminLoginUrl, fetchAdminSessionState } from './admin-session';
+export {
+  type AisSnapshot,
+  fetchAisSnapshot,
+  hydrateAisSnapshot,
+  parseAisSnapshot,
+} from './ais-snapshot';
 export type { UpgradeOutcome } from './auth.svelte';
 export { AuthController } from './auth.svelte';
 export { fullJitterDelay } from './backoff';
@@ -61,6 +67,7 @@ export {
   putResource,
   putResourceOutcome,
   type ResourceMutationResult,
+  SignalKResourceClient,
   sendJson,
   setWriteOutcomeListener,
   str,

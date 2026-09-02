@@ -37,12 +37,15 @@ const {
   open,
   onOpenChange,
   panelOpen = false,
+  pinnedIds = [],
   editing = false,
   onEditingChange,
   onTogglePin,
 }: Props = $props();
 
-const pinnedSet = $derived(new Set<string>());
+const pinnedSet = $derived(
+  new Set([...pinnedIds, ...items.filter((item) => item.fixedToBar).map((item) => item.id)]),
+);
 
 let card = $state<HTMLElement>();
 
