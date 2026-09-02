@@ -28,6 +28,43 @@ async function runScreenEditCommand(page: Page): Promise<void> {
   await expect(palette).toHaveCount(0);
 }
 
+async function expectFloatingInstrumentContentContained(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      page.locator(FLOATING_FRAME).evaluateAll((frames) => {
+        const selectors = [
+          '.tile',
+          '.rose-layout',
+          '.rose-face',
+          '.radar-stage',
+          '.compass',
+          '.heel',
+          '.attitude-readout',
+        ].join(',');
+        return frames.flatMap((frame) => {
+          const frameBox = frame.getBoundingClientRect();
+          return [...frame.querySelectorAll<HTMLElement>(selectors)].flatMap((content) => {
+            const box = content.getBoundingClientRect();
+            if (box.width === 0 || box.height === 0) return [];
+            const contained =
+              box.left >= frameBox.left - 0.5 &&
+              box.top >= frameBox.top - 0.5 &&
+              box.right <= frameBox.right + 0.5 &&
+              box.bottom <= frameBox.bottom + 0.5;
+            return contained
+              ? []
+              : [
+                  `${frame.getAttribute('data-instrument-id') ?? 'unknown'} ${content.className}: ` +
+                    `${Math.round(box.width)}x${Math.round(box.height)} inside ` +
+                    `${Math.round(frameBox.width)}x${Math.round(frameBox.height)}`,
+                ];
+          });
+        });
+      }),
+    )
+    .toEqual([]);
+}
+
 test('screen edit mode places an instrument on the chart and locks it with Done', async ({
   page,
 }) => {
@@ -80,6 +117,29 @@ test('the radial menu opens the direct instrument editor', async ({ page }) => {
   const done = page.getByRole('button', { name: 'Done', exact: true });
   await expect(done).toBeVisible();
   await expectInsideViewport(done, page);
+});
+
+test('desktop instrument settings open as a side dock instead of covering the chart', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('Wind rose settings');
+  await palette.getByRole('option', { name: 'Wind rose settings' }).click();
+
+  const dock = page.getByRole('complementary', { name: 'Instruments' });
+  await expect(dock.getByRole('slider', { name: 'Resize instruments dock' })).toBeVisible();
+  await expect(dock).toHaveCSS('position', 'relative');
+  const [dockBox, viewportWidth] = await Promise.all([
+    dock.boundingBox(),
+    page.evaluate(() => document.documentElement.clientWidth),
+  ]);
+  if (!dockBox) throw new Error('Instrument dock did not lay out.');
+  expect(dockBox.width).toBeLessThan(viewportWidth / 2);
+  expect(dockBox.x + dockBox.width).toBeCloseTo(viewportWidth, 0);
 });
 
 test('the helm instruments control advances from Show to Edit and opens a bounded picker', async ({
@@ -225,6 +285,34 @@ test('iPad portrait-to-landscape rotation redraws a top and bottom instrument wi
   expect(landscapeFrame.y + landscapeFrame.height).toBeLessThanOrEqual(
     landscapeLayer.y + landscapeLayer.height,
   );
+});
+
+test('desktop window resizing keeps dense instrument content inside every floating frame', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  for (const name of ['Wind rose', 'AIS radar']) {
+    await page.getByRole('button', { name: 'Add instrument', exact: true }).click();
+    await page.getByRole('menuitem', { name, exact: true }).click();
+  }
+
+  const windRose = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
+  const aisRadar = page.locator(`${FLOATING_FRAME}[data-instrument-id="ais-radar"]`);
+  await expect(windRose).toBeVisible();
+  await expect(aisRadar).toBeVisible();
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1000, height: 700 },
+    { width: 1600, height: 600 },
+    { width: 1200, height: 1000 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectFloatingInstrumentContentContained(page);
+  }
 });
 
 test('touch drag from the instrument body keeps the edit toolbar reachable', async ({

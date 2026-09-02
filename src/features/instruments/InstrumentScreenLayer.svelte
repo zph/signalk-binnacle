@@ -829,6 +829,7 @@ function finishEditing(): void {
   display: flex;
   min-inline-size: 6rem;
   min-block-size: 4rem;
+  overflow: hidden;
   /* The layer itself is click-through to preserve chart gestures, but each placed instrument is
      a real control: open it, use its built-in controls, and click it again to restore its size. */
   pointer-events: auto;
@@ -840,6 +841,11 @@ function finishEditing(): void {
 .floating-frame :global(.tile) {
   flex: 1;
   inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  overflow: hidden;
 }
 .floating-frame--dragging :global(.tile) {
   outline: 2px solid var(--accent);

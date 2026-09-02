@@ -4463,11 +4463,15 @@ const plotterActions = {
     block-size: calc(var(--control-size) * 0.73);
   }
 }
-.binnacle-shell > :global(.instruments) {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-panel);
-  inline-size: auto;
-  background: var(--surface);
+/* PLATFORM_BREAKPOINTS.compactHelmMaxPx. Keep this CSS breakpoint aligned with the matchMedia
+   state that supplies the panel's dialog behavior. */
+@media (max-width: 900px) {
+  .binnacle-shell > :global(.instruments) {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-panel);
+    inline-size: auto;
+    background: var(--surface);
+  }
 }
 </style>

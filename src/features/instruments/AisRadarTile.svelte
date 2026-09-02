@@ -295,8 +295,12 @@ function closeTargetDetails(): void {
 .face {
   position: relative;
   display: grid;
+  flex: 1 1 auto;
   inline-size: 100%;
+  block-size: 100%;
   min-inline-size: 0;
+  min-block-size: 0;
+  container-type: size;
   place-items: center;
   pointer-events: none;
 }
@@ -324,7 +328,9 @@ function closeTargetDetails(): void {
 .radar-stage {
   position: relative;
   display: grid;
-  inline-size: min(100%, 28rem);
+  inline-size: min(100cqi, 100cqb, 28rem);
+  block-size: min(100cqi, 100cqb, 28rem);
+  max-inline-size: 100%;
   max-block-size: 100%;
   aspect-ratio: 1;
 }
@@ -540,7 +546,6 @@ function closeTargetDetails(): void {
 .face--expanded {
   flex: 1 1 auto;
   min-block-size: 0;
-  container-type: size;
 }
 .face--expanded .radar-stage {
   inline-size: min(100cqi, 100cqb);

@@ -354,7 +354,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   --wind-pointer-label: #170b00;
   --wind-dial: color-mix(in srgb, var(--text) 12%, var(--surface-raised));
   position: relative;
-  container-type: inline-size;
+  container-type: size;
   grid-column: 1 / -1;
 }
 :global(:root[data-theme="dusk"]) .tile--wind-rose {
@@ -375,11 +375,14 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
 }
 .rose-layout {
   inline-size: min(100%, 26rem);
+  block-size: 100%;
+  min-block-size: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: clamp(var(--space-2), 3cqi, var(--space-4));
-  container-type: inline-size;
+  container-type: size;
 }
 .tile--expanded .rose-layout {
   /* Bound the compass by viewport block size while the readouts use the full tile as their
@@ -388,7 +391,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
 }
 .rose-face {
   position: relative;
-  inline-size: 90%;
+  inline-size: min(90cqi, 100cqb);
   aspect-ratio: 1;
   container-type: inline-size;
   flex: 0 0 auto;
