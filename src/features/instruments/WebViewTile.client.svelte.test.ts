@@ -103,8 +103,8 @@ describe('WebViewTile', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('carries the collapse label when expanded', () => {
+  it('shows a top-right close control when expanded', () => {
     const host = mountTile('app', () => {}, true);
-    expect(host.querySelector('button[aria-label="Collapse instrument"]')).not.toBeNull();
+    expect(host.querySelector('button[aria-label="Close Tides and currents"]')).not.toBeNull();
   });
 });

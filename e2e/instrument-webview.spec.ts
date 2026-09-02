@@ -64,7 +64,7 @@ test('a launcher app becomes a web view instrument tile, expandable full screen'
   const dialog = page.getByRole('dialog', { name: 'Fixture app full-screen instrument' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('iframe[title="Fixture app"]')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Collapse instrument' }).click();
+  await dialog.getByRole('button', { name: `Close ${APP_TITLE}` }).click();
   await expect(dialog).toHaveCount(0);
 });
 

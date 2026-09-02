@@ -1,7 +1,7 @@
 <script lang="ts">
 import Maximize2 from '@lucide/svelte/icons/maximize-2';
-import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import RotateCw from '@lucide/svelte/icons/rotate-cw';
+import X from '@lucide/svelte/icons/x';
 import type { TileDef, TileReading } from './tile-catalog';
 
 interface Props {
@@ -60,12 +60,12 @@ function reload(): void {
     <button
       type="button"
       class="icon-btn"
-      aria-label={actionLabel}
-      title={actionLabel}
+      aria-label={expanded ? `Close ${label}` : actionLabel}
+      title={expanded ? `Close ${label}` : actionLabel}
       onclick={onOpen}
     >
       {#if expanded}
-        <Minimize2 size={18} aria-hidden="true" />
+        <X size={18} aria-hidden="true" />
       {:else}
         <Maximize2 size={18} aria-hidden="true" />
       {/if}
