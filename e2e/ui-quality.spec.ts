@@ -78,6 +78,35 @@ test('keeps a scrolled layer opacity popover inside a narrow viewport', async ({
   await expectInsideViewport(page.locator('.tune-pop'), page);
 });
 
+test('keeps AIS name controls reachable and persists the adaptive choice', async ({ page }) => {
+  await page.addInitScript(() => localStorage.clear());
+  await page.goto('/');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('AIS vessel names');
+  const command = palette.getByRole('option', { name: /AIS display/ });
+  await expect(command).toBeEnabled();
+  await command.click();
+
+  const panel = page.getByRole('complementary', { name: 'AIS display' });
+  const names = panel.getByRole('group', { name: 'AIS vessel name labels' });
+  await expect(names.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await names.getByRole('button', { name: 'Adaptive', exact: true }).click();
+  await expect(names.getByRole('button', { name: 'Adaptive', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('binnacle-custom:ais-name-mode')))
+    .toBe('"adaptive"');
+  await expectInsideViewport(panel, page);
+  await expectNoHorizontalOverflow(panel);
+});
+
 test('constrains a long toolbar More menu on a short display', async ({ page }) => {
   await page.setViewportSize({ width: 600, height: 320 });
   await page.addInitScript(() => {

@@ -48,6 +48,7 @@ const SOURCE_ID = 'binnacle-ais';
 const PROJECTION_SOURCE_ID = 'binnacle-ais-position-projection';
 export const AIS_OVERLAY_ID = 'ais';
 const LAYER_ID = 'binnacle-ais-symbol';
+const NAME_LAYER_ID = 'binnacle-ais-name';
 const PROJECTION_CONNECTOR_LAYER_ID = 'binnacle-ais-position-projection-connector';
 const PROJECTION_GHOST_LAYER_ID = 'binnacle-ais-position-projection-ghost';
 const SELECTED_LAYER_ID = 'binnacle-ais-selected';
@@ -63,6 +64,13 @@ const PROJECTION_REFRESH_MS = 1_000;
 const PROJECTION_GHOST_OPACITY = 0.3;
 const PROJECTION_CONNECTOR_OPACITY = 0.22;
 const STALE_REPAINT_MS = 60_000;
+const ADAPTIVE_NAME_MIN_ZOOM = 13;
+const ADAPTIVE_NAME_NEIGHBOR_WIDTH_PX = 180;
+const ADAPTIVE_NAME_NEIGHBOR_HEIGHT_PX = 64;
+const ADAPTIVE_NAME_MAX_NEIGHBORS = 3;
+const ADAPTIVE_NAME_AREA_PER_LABEL_PX = 24_000;
+const ADAPTIVE_NAME_MIN_LABELS = 8;
+const ADAPTIVE_NAME_MAX_LABELS = 40;
 
 // Stale-target expiry lives on an app-level timer (store.pruneAis with the entities/ais TTL), never
 // in this render path, which pauses in a hidden tab while the collision math keeps consuming the
@@ -72,11 +80,13 @@ export interface AisOverlayOptions {
   onSelect?: (id: string) => void;
   selectedId?: () => string | undefined;
   kindMode?: () => AisVesselKindMode;
+  nameMode?: () => AisNameMode;
   now?: () => number;
   interactionsAllowed?: () => boolean;
 }
 
 export type AisVesselKindMode = 'type-specific' | 'generic';
+export type AisNameMode = 'off' | 'adaptive' | 'on';
 
 export function createAisOverlay(
   targets: AisTargets,
@@ -88,6 +98,9 @@ export function createAisOverlay(
   let opacity = 1;
   let lastSelectedId = options.selectedId?.();
   let lastKindMode = options.kindMode?.() ?? 'type-specific';
+  let lastNameLayoutMode = options.nameMode?.() ?? 'off';
+  let visibleNameIds = new Set<string>();
+  let nameEligibilityChanged = false;
   let lastProjectionKindMode = lastKindMode;
   let lastProjectionVersion = -1;
   let lastProjectionRefreshAt = Number.NEGATIVE_INFINITY;
@@ -98,6 +111,69 @@ export function createAisOverlay(
   let artwork: Awaited<ReturnType<typeof loadAisIconArtwork>> | undefined;
   const interactionsAllowed = (): boolean =>
     overlayInteractive(visible, opacity, options.interactionsAllowed);
+
+  function sameIds(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+    return left.size === right.size && [...left].every((id) => right.has(id));
+  }
+
+  function adaptiveNameIds(ctx: OverlayContext): Set<string> {
+    if (ctx.map.getZoom() < ADAPTIVE_NAME_MIN_ZOOM) return new Set();
+    const { width, height } = ctx.map.getCanvas().getBoundingClientRect();
+    if (width <= 0 || height <= 0) return new Set();
+
+    const projected = targets
+      .list()
+      .map((target) => ({ target, point: ctx.map.project(latLonToLonLat(target.position)) }))
+      .filter(({ point }) => point.x >= 0 && point.x <= width && point.y >= 0 && point.y <= height);
+    const candidates = projected
+      .filter(({ target }) => Boolean(target.name?.trim()))
+      .map(({ target, point }) => ({
+        id: target.id,
+        selected: target.id === options.selectedId?.(),
+        severity: severityById.get(target.id) ?? 'clear',
+        neighbors: projected.filter(
+          ({ point: other }) =>
+            Math.abs(other.x - point.x) <= ADAPTIVE_NAME_NEIGHBOR_WIDTH_PX / 2 &&
+            Math.abs(other.y - point.y) <= ADAPTIVE_NAME_NEIGHBOR_HEIGHT_PX / 2,
+        ).length,
+      }))
+      .filter(({ selected, neighbors }) => selected || neighbors <= ADAPTIVE_NAME_MAX_NEIGHBORS)
+      .sort((left, right) => {
+        if (left.selected !== right.selected) return left.selected ? -1 : 1;
+        const severityRank = { danger: 0, warning: 1, clear: 2 } as const;
+        return (
+          severityRank[left.severity] - severityRank[right.severity] ||
+          left.neighbors - right.neighbors ||
+          left.id.localeCompare(right.id)
+        );
+      });
+    const capacity = Math.max(
+      ADAPTIVE_NAME_MIN_LABELS,
+      Math.min(
+        ADAPTIVE_NAME_MAX_LABELS,
+        Math.floor((width * height) / ADAPTIVE_NAME_AREA_PER_LABEL_PX),
+      ),
+    );
+    return new Set(candidates.slice(0, capacity).map(({ id }) => id));
+  }
+
+  function refreshNameEligibility(ctx: OverlayContext): void {
+    const mode = options.nameMode?.() ?? 'off';
+    const next =
+      mode === 'off'
+        ? new Set<string>()
+        : mode === 'on'
+          ? new Set(
+              targets
+                .list()
+                .filter((target) => Boolean(target.name?.trim()))
+                .map((target) => target.id),
+            )
+          : adaptiveNameIds(ctx);
+    if (sameIds(visibleNameIds, next)) return;
+    visibleNameIds = next;
+    nameEligibilityChanged = true;
+  }
 
   function renderIcon(kind: AisVesselKind, color: Rgba): ImageData {
     if (!artwork) throw new Error('AIS icon artwork was not loaded');
@@ -157,6 +233,7 @@ export function createAisOverlay(
             ),
             severity,
             selected: target.id === selectedId,
+            showName: visibleNameIds.has(target.id),
           },
         } satisfies GeoJSON.Feature<GeoJSON.Point>;
       }),
@@ -235,6 +312,8 @@ export function createAisOverlay(
       const kindMode = options.kindMode?.() ?? 'type-specific';
       const kindModeChanged = kindMode !== lastKindMode;
       const severitiesChanged = refreshSeverities();
+      const namesChanged = nameEligibilityChanged;
+      nameEligibilityChanged = false;
       const staleRepaintDue =
         targets.list().some((target) => target.stale) &&
         now() - lastStaleRepaintAt >= STALE_REPAINT_MS;
@@ -243,7 +322,7 @@ export function createAisOverlay(
       // A selection change rebuilds the same source as an AIS update. Force the shared gate to
       // record that painted target list, or its stale count can throttle the next real count change.
       const refresh = gate.shouldRefresh(
-        selectionChanged || kindModeChanged || severitiesChanged || staleRepaintDue,
+        selectionChanged || kindModeChanged || severitiesChanged || staleRepaintDue || namesChanged,
       );
       if (refresh && staleRepaintDue) lastStaleRepaintAt = now();
       return refresh;
@@ -255,6 +334,11 @@ export function createAisOverlay(
       ctx.map,
       [PROJECTION_CONNECTOR_LAYER_ID, PROJECTION_GHOST_LAYER_ID, SELECTED_LAYER_ID],
       visible,
+    );
+    setLayersVisibility(
+      ctx.map,
+      [NAME_LAYER_ID],
+      visible && (options.nameMode?.() ?? 'off') !== 'off',
     );
     setLayersVisibility(ctx.map, [HIT_LAYER_ID], visible && opacity > 0);
     hit.refreshInteractionState();
@@ -268,11 +352,14 @@ export function createAisOverlay(
       PROJECTION_GHOST_LAYER_ID,
       SELECTED_LAYER_ID,
       LAYER_ID,
+      NAME_LAYER_ID,
       HIT_LAYER_ID,
     ],
     async add(ctx) {
       artwork = await loadAisIconArtwork();
+      refreshNameEligibility(ctx);
       await base.add(ctx);
+      nameEligibilityChanged = false;
       for (const kind of AIS_ICON_KINDS) {
         for (const severity of AIS_ICON_SEVERITIES) {
           if (kind === 'ship' && severity === 'clear') continue;
@@ -359,6 +446,32 @@ export function createAisOverlay(
         };
         ctx.map.addLayer(selectedLayer, LAYER_ID);
       }
+      if (!ctx.map.getLayer(NAME_LAYER_ID)) {
+        const namesLayer: SymbolLayerSpecification = {
+          id: NAME_LAYER_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['==', ['get', 'showName'], true],
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 11,
+            'text-offset': [1.1, 0],
+            'text-anchor': 'left',
+            'text-optional': true,
+            'text-max-width': 12,
+            'text-allow-overlap': lastNameLayoutMode === 'on',
+            'text-ignore-placement': lastNameLayoutMode === 'on',
+          },
+          paint: {
+            'text-color': paint.label,
+            'text-halo-color': paint.background,
+            'text-halo-width': 1.5,
+            'text-opacity': ['*', opacity, ['coalesce', ['get', 'ageOpacity'], 1]],
+          },
+        };
+        ctx.map.addLayer(namesLayer, before);
+      }
       if (!ctx.map.getLayer(HIT_LAYER_ID)) {
         const hitLayer: CircleLayerSpecification = {
           id: HIT_LAYER_ID,
@@ -375,6 +488,15 @@ export function createAisOverlay(
       syncVisibility(ctx);
     },
     sync(ctx) {
+      const nameMode = options.nameMode?.() ?? 'off';
+      if (nameMode !== lastNameLayoutMode && ctx.map.getLayer(NAME_LAYER_ID)) {
+        const forceAllNames = nameMode === 'on';
+        ctx.map.setLayoutProperty(NAME_LAYER_ID, 'text-allow-overlap', forceAllNames);
+        ctx.map.setLayoutProperty(NAME_LAYER_ID, 'text-ignore-placement', forceAllNames);
+        lastNameLayoutMode = nameMode;
+        syncVisibility(ctx);
+      }
+      refreshNameEligibility(ctx);
       base.sync(ctx);
       if (visible && projectionRefreshDue()) refreshProjection(ctx);
     },
@@ -407,6 +529,10 @@ export function createAisOverlay(
       }
       if (ctx.map.getLayer(SELECTED_LAYER_ID)) {
         ctx.map.setPaintProperty(SELECTED_LAYER_ID, 'circle-stroke-color', nextPaint.select);
+      }
+      if (ctx.map.getLayer(NAME_LAYER_ID)) {
+        ctx.map.setPaintProperty(NAME_LAYER_ID, 'text-color', nextPaint.label);
+        ctx.map.setPaintProperty(NAME_LAYER_ID, 'text-halo-color', nextPaint.background);
       }
     },
     setVisible(ctx, nextVisible) {
@@ -441,13 +567,26 @@ export function createAisOverlay(
       if (ctx.map.getLayer(SELECTED_LAYER_ID)) {
         ctx.map.setPaintProperty(SELECTED_LAYER_ID, 'circle-stroke-opacity', nextOpacity);
       }
+      if (ctx.map.getLayer(NAME_LAYER_ID)) {
+        ctx.map.setPaintProperty(NAME_LAYER_ID, 'text-opacity', [
+          '*',
+          nextOpacity,
+          ['coalesce', ['get', 'ageOpacity'], 1],
+        ]);
+      }
       syncVisibility(ctx);
     },
     remove(ctx) {
       hit.detach(ctx);
       removeLayersAndSources(
         ctx.map,
-        [HIT_LAYER_ID, SELECTED_LAYER_ID, PROJECTION_GHOST_LAYER_ID, PROJECTION_CONNECTOR_LAYER_ID],
+        [
+          HIT_LAYER_ID,
+          NAME_LAYER_ID,
+          SELECTED_LAYER_ID,
+          PROJECTION_GHOST_LAYER_ID,
+          PROJECTION_CONNECTOR_LAYER_ID,
+        ],
         [PROJECTION_SOURCE_ID],
       );
       for (const imageId of AIS_ICON_IMAGE_IDS) {

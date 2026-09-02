@@ -66,7 +66,7 @@ import { cleanUserChartSource, type UserChartSource, UserCharts } from '$entitie
 import { OwnVessel } from '$entities/vessel';
 import { WaypointsStore } from '$entities/waypoint';
 import { WeatherStore } from '$entities/weather';
-import { AIS_OVERLAY_ID, type AisVesselKindMode } from '$features/ais-layer';
+import { AIS_OVERLAY_ID, type AisNameMode, type AisVesselKindMode } from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
 import { ANCHOR_TONE, createAnchorController } from '$features/anchor-watch';
 import { createUserChartsController } from '$features/charts';
@@ -1032,6 +1032,12 @@ const aisIconMode = new PersistedValue<AisVesselKindMode>(
   undefined,
   enumPersistedCodec(['type-specific', 'generic'] as const),
 );
+const aisNameMode = new PersistedValue<AisNameMode>(
+  binnacleStorageKey('aisNameMode'),
+  'off',
+  undefined,
+  enumPersistedCodec(['off', 'adaptive', 'on'] as const),
+);
 // A one-shot, device-local latch: the first time a radar is discovered, the echo layer is turned on so
 // "if they have radar, the radar layer is enabled". Latched so a later explicit toggle-off is never
 // overridden. Not part of a profile: it is local device state, not portable layer configuration.
@@ -1447,6 +1453,7 @@ const profileBindings = createProfileBindings({
   weatherLayers: weatherLayerSettings,
   weatherSource,
   aisIconMode,
+  aisNameMode,
   aisRetentionMinutes,
   thresholds,
   trackSettings,
@@ -2669,9 +2676,19 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     {
       id: 'ais-display-settings',
       label: 'AIS display',
-      description: 'Set vessel symbols and stale-target retention',
+      description: 'Set vessel symbols, name labels, and stale-target retention',
       group: 'Chart',
-      keywords: ['targets', 'traffic', 'stale', 'fade', 'expiry', 'retention', 'fishing'],
+      keywords: [
+        'targets',
+        'traffic',
+        'names',
+        'labels',
+        'stale',
+        'fade',
+        'expiry',
+        'retention',
+        'fishing',
+      ],
       icon: Layers,
       disabled: !layersView,
       disabledReason: 'AIS display settings need the chart to finish loading.',
@@ -3830,6 +3847,7 @@ const plotterServices = {
   alarmLocation,
   trackSettings,
   aisIconMode,
+  aisNameMode,
   aisRetentionMinutes,
   categoriesOpen: layerCategoriesOpen,
   mapRenderingQuality,
@@ -4246,6 +4264,7 @@ const plotterActions = {
         {aisTargets}
         aisAssessment={() => collision.assessment}
         aisKindMode={aisIconMode.value}
+        aisNameMode={aisNameMode.value}
         {units}
         {thresholds}
         {userCharts}

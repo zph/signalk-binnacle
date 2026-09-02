@@ -1,14 +1,23 @@
 <script lang="ts">
-import type { AisVesselKindMode } from './ais-overlay';
+import type { AisNameMode, AisVesselKindMode } from './ais-overlay';
 
 interface Props {
   mode: AisVesselKindMode;
   onModeChange: (mode: AisVesselKindMode) => void;
+  nameMode: AisNameMode;
+  onNameModeChange: (mode: AisNameMode) => void;
   retentionMinutes: number;
   onRetentionMinutesChange: (minutes: number) => void;
 }
 
-const { mode, onModeChange, retentionMinutes, onRetentionMinutesChange }: Props = $props();
+const {
+  mode,
+  onModeChange,
+  nameMode,
+  onNameModeChange,
+  retentionMinutes,
+  onRetentionMinutesChange,
+}: Props = $props();
 
 const RETENTION_OPTIONS = [15, 30, 60, 120, 360, 720, 1440] as const;
 </script>
@@ -43,6 +52,43 @@ const RETENTION_OPTIONS = [15, 30, 60, 120, 360, 720, 1440] as const;
   <p class="muted-note">
     Vessel types distinguish cargo ships, tankers, passenger vessels, fishing boats, tugs, service
     vessels, motorboats, and sailboats when the target reports its type.
+  </p>
+</section>
+
+<section class="panel-section" aria-label="AIS vessel names">
+  <h3 class="caps-label">Vessel names</h3>
+  <div class="segmented" role="group" aria-label="AIS vessel name labels">
+    <button
+      type="button"
+      class="btn"
+      class:is-on={nameMode === 'off'}
+      aria-pressed={nameMode === 'off'}
+      onclick={() => onNameModeChange('off')}
+    >
+      Off
+    </button>
+    <button
+      type="button"
+      class="btn"
+      class:is-on={nameMode === 'adaptive'}
+      aria-pressed={nameMode === 'adaptive'}
+      onclick={() => onNameModeChange('adaptive')}
+    >
+      Adaptive
+    </button>
+    <button
+      type="button"
+      class="btn"
+      class:is-on={nameMode === 'on'}
+      aria-pressed={nameMode === 'on'}
+      onclick={() => onNameModeChange('on')}
+    >
+      On
+    </button>
+  </div>
+  <p class="muted-note">
+    Adaptive shows names from harbor-level zoom and suppresses them in crowded screen areas. On
+    shows every available name, even when labels overlap.
   </p>
 </section>
 

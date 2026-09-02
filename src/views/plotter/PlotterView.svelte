@@ -20,6 +20,7 @@ import type { WeatherStore } from '$entities/weather';
 import {
   AIS_OVERLAY_ID,
   type AisMotionSelection,
+  type AisNameMode,
   type AisVesselKindMode,
   loadAisDisplaySettings,
 } from '$features/ais-layer';
@@ -162,6 +163,7 @@ interface FlatProps {
     import('$shared/settings').AlarmLocation
   >;
   aisIconMode: import('$shared/settings').PersistedValue<AisVesselKindMode>;
+  aisNameMode: import('$shared/settings').PersistedValue<AisNameMode>;
   aisRetentionMinutes: import('$shared/settings').PersistedValue<number>;
   routeDistanceToGoMeters: number | undefined;
 
@@ -343,6 +345,7 @@ type ServiceKey =
   | 'thresholds'
   | 'alarmLocation'
   | 'aisIconMode'
+  | 'aisNameMode'
   | 'aisRetentionMinutes'
   | 'trackSettings'
   | 'categoriesOpen'
@@ -536,6 +539,7 @@ const {
   thresholds,
   alarmLocation,
   aisIconMode,
+  aisNameMode,
   aisRetentionMinutes,
   trackSettings,
   categoriesOpen,
@@ -888,6 +892,7 @@ $effect(() => {
     {aisTargets}
     {selectedAisId}
     aisKindMode={() => aisIconMode.value}
+    aisNameMode={() => aisNameMode.value}
     onAisMotionUpdate={(motionById) => (aisMotionById = motionById)}
     onAisSelect={(id) => onAisSelect(id)}
     onWaypointSelect={(id) => onWaypointSelect(id)}
@@ -1986,6 +1991,8 @@ $effect(() => {
             <module.default
               mode={aisIconMode.value}
               onModeChange={(mode) => aisIconMode.set(mode)}
+              nameMode={aisNameMode.value}
+              onNameModeChange={(mode) => aisNameMode.set(mode)}
               retentionMinutes={aisRetentionMinutes.value}
               onRetentionMinutesChange={(minutes) => aisRetentionMinutes.set(minutes)}
             />

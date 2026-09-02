@@ -3,7 +3,7 @@ export type {
   AisMotionSelection,
   AisPositionSample,
 } from './ais-motion-estimator';
-export type { AisOverlayOptions, AisVesselKindMode } from './ais-overlay';
+export type { AisNameMode, AisOverlayOptions, AisVesselKindMode } from './ais-overlay';
 export { AIS_OVERLAY_ID, createAisOverlay } from './ais-overlay';
 export { createAisTrailsOverlay } from './ais-trails-overlay';
 export {

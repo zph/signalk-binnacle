@@ -266,6 +266,14 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
     return false;
   }
   if (
+    value.aisNameMode !== undefined &&
+    value.aisNameMode !== 'off' &&
+    value.aisNameMode !== 'adaptive' &&
+    value.aisNameMode !== 'on'
+  ) {
+    return false;
+  }
+  if (
     value.aisRetentionMinutes !== undefined &&
     (!isFiniteNumber(value.aisRetentionMinutes) ||
       value.aisRetentionMinutes < 15 ||

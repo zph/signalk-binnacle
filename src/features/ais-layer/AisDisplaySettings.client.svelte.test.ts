@@ -14,6 +14,7 @@ describe('AisDisplaySettings', () => {
     const target = document.createElement('div');
     document.body.append(target);
     const onModeChange = vi.fn();
+    const onNameModeChange = vi.fn();
     const onRetentionMinutesChange = vi.fn();
     let component!: ReturnType<typeof mount>;
     flushSync(() => {
@@ -22,6 +23,8 @@ describe('AisDisplaySettings', () => {
         props: {
           mode: 'type-specific',
           onModeChange,
+          nameMode: 'off',
+          onNameModeChange,
           retentionMinutes: 60,
           onRetentionMinutesChange,
         },
@@ -32,10 +35,9 @@ describe('AisDisplaySettings', () => {
       target.remove();
     };
 
-    const buttons = [...target.querySelectorAll<HTMLButtonElement>('button')];
-    expect(target.querySelector('[role="group"]')?.getAttribute('aria-label')).toBe(
-      'AIS vessel symbol style',
-    );
+    const groups = [...target.querySelectorAll<HTMLElement>('[role="group"]')];
+    const buttons = [...groups[0].querySelectorAll<HTMLButtonElement>('button')];
+    expect(groups[0].getAttribute('aria-label')).toBe('AIS vessel symbol style');
     expect(buttons.map((button) => button.textContent?.trim())).toEqual([
       'Vessel types',
       'Generic ship',
@@ -45,6 +47,21 @@ describe('AisDisplaySettings', () => {
 
     buttons[1].click();
     expect(onModeChange).toHaveBeenCalledWith('generic');
+
+    const nameButtons = [...groups[1].querySelectorAll<HTMLButtonElement>('button')];
+    expect(groups[1].getAttribute('aria-label')).toBe('AIS vessel name labels');
+    expect(nameButtons.map((button) => button.textContent?.trim())).toEqual([
+      'Off',
+      'Adaptive',
+      'On',
+    ]);
+    expect(nameButtons.map((button) => button.getAttribute('aria-pressed'))).toEqual([
+      'true',
+      'false',
+      'false',
+    ]);
+    nameButtons[1].click();
+    expect(onNameModeChange).toHaveBeenCalledWith('adaptive');
 
     const retention = target.querySelector<HTMLSelectElement>('select');
     expect(retention?.value).toBe('60');

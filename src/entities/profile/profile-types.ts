@@ -14,6 +14,9 @@ export interface ProfileSettings {
   // AIS target portrayal. Optional so profiles saved before vessel-kind symbols existed remain
   // valid; the read edge applies the original type-specific default.
   aisIconMode?: 'type-specific' | 'generic';
+  // AIS vessel-name labels. Optional for profiles saved before label controls existed; the read
+  // edge applies the original off default.
+  aisNameMode?: 'off' | 'adaptive' | 'on';
   // Minutes to retain and fade a stale AIS position. Optional for profiles saved before stale
   // target retention was configurable; the read edge applies the 60-minute default.
   aisRetentionMinutes?: number;
@@ -65,6 +68,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'weatherLayers',
   'weatherSource',
   'aisIconMode',
+  'aisNameMode',
   'aisRetentionMinutes',
   'thresholds',
   'trackSettings',

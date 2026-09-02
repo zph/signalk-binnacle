@@ -98,6 +98,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     onAisSelect: vi.fn(),
     selectedAisId: vi.fn(() => 'vessels.selected'),
     aisKindMode: vi.fn(() => 'generic' as const),
+    aisNameMode: vi.fn(() => 'adaptive' as const),
     onWaypointSelect: vi.fn(),
     anchor: { name: 'anchor' },
     mob: { name: 'mob' },
@@ -264,6 +265,7 @@ describe('buildDynamicOverlays', () => {
       onSelect: deps.onAisSelect,
       selectedId: deps.selectedAisId,
       kindMode: deps.aisKindMode,
+      nameMode: deps.aisNameMode,
       interactionsAllowed: deps.interactionsAllowed,
     });
     const iconAssessment = factories.createAisOverlay.mock.calls[0]?.[1]?.assessment;
@@ -310,6 +312,7 @@ describe('buildDynamicOverlays', () => {
       onSelect: deps.onAisSelect,
       selectedId: deps.selectedAisId,
       kindMode: deps.aisKindMode,
+      nameMode: deps.aisNameMode,
       interactionsAllowed,
     });
   });

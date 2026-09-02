@@ -47,7 +47,7 @@ describe('ais overlay', () => {
     expect(overlay.manageable).toBe(true);
     expect(map.images.size).toBe(AIS_ICON_IMAGE_IDS.length);
     expect(map.sources.size).toBe(2);
-    expect(map.layers.size).toBe(5);
+    expect(map.layers.size).toBe(6);
     expect(map.layers.get('binnacle-ais-position-projection-connector')).toMatchObject({
       type: 'line',
       paint: {
@@ -70,6 +70,14 @@ describe('ais overlay', () => {
     });
     expect(map.layers.get('binnacle-ais-hit')?.paint).toMatchObject({
       'circle-radius': ['max', 22, ['*', 16, ['coalesce', ['get', 'iconScale'], 1]]],
+    });
+    expect(map.layers.get('binnacle-ais-name')).toMatchObject({
+      type: 'symbol',
+      filter: ['==', ['get', 'showName'], true],
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-allow-overlap': false,
+      },
     });
     expect(map.setLayoutProperty).toHaveBeenCalledWith('binnacle-ais-symbol', 'icon-image', [
       'get',
@@ -180,6 +188,90 @@ describe('ais overlay', () => {
     kindMode = 'type-specific';
     overlay.sync(ctx);
     expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.iconImage).toBe(AIS_ICON_IDS.tanker);
+  });
+
+  it('keeps vessel names off by default and supports an explicit all-names mode', async () => {
+    let nameMode: 'off' | 'adaptive' | 'on' = 'off';
+    const store = new SignalKStore();
+    store.applyFrame(
+      frameFactory(
+        {},
+        {
+          'vessels.named': {
+            name: 'WANDERER',
+            'navigation.position': { latitude: 1, longitude: 1 },
+          },
+        },
+      ),
+    );
+    const overlay = createAisOverlay(new AisTargets(store), { nameMode: () => nameMode });
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+
+    expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.showName).toBe(false);
+
+    nameMode = 'on';
+    overlay.sync(ctx);
+    expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.showName).toBe(true);
+    expect(map.setLayoutProperty).toHaveBeenCalledWith(
+      'binnacle-ais-name',
+      'text-allow-overlap',
+      true,
+    );
+    expect(map.setLayoutProperty).toHaveBeenCalledWith(
+      'binnacle-ais-name',
+      'text-ignore-placement',
+      true,
+    );
+  });
+
+  it('shows adaptive names only when zoomed in and suppresses a crowded screen area', async () => {
+    const store = new SignalKStore();
+    store.applyFrame(
+      frameFactory(
+        {},
+        Object.fromEntries(
+          [
+            ['isolated', 10, 10],
+            ['crowded-a', 30, 30],
+            ['crowded-b', 31, 30],
+            ['crowded-c', 32, 30],
+            ['crowded-d', 33, 30],
+          ].map(([id, longitude, latitude]) => [
+            `vessels.${id}`,
+            {
+              name: String(id).toUpperCase(),
+              'navigation.position': { latitude, longitude },
+            },
+          ]),
+        ),
+      ),
+    );
+    const overlay = createAisOverlay(new AisTargets(store), { nameMode: () => 'adaptive' });
+    const map = createFakeMap();
+    let zoom = 12;
+    map.getZoom = () => zoom;
+    map.getCanvas().getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 800, height: 600 }) as DOMRect;
+    map.project = (coordinate) => {
+      const [longitude, latitude] = Array.isArray(coordinate)
+        ? coordinate
+        : [coordinate.lng, coordinate.lat];
+      return { x: longitude * 10, y: latitude * 10 };
+    };
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    const shownIds = () =>
+      sourceFeatures(map, 'binnacle-ais')
+        .filter((feature) => feature.properties?.showName)
+        .map((feature) => feature.properties?.id);
+
+    expect(shownIds()).toEqual([]);
+
+    zoom = 14;
+    overlay.sync(ctx);
+    expect(shownIds()).toEqual(['vessels.isolated']);
   });
 
   it('colors target icons from the live CPA assessment and refreshes when a grade changes', async () => {

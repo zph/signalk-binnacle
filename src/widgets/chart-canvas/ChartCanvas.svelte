@@ -17,7 +17,7 @@ import type { UserCharts } from '$entities/user-charts';
 import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
 import { boundsToBbox, type WeatherStore } from '$entities/weather';
-import type { AisMotionUpdate, AisVesselKindMode } from '$features/ais-layer';
+import type { AisMotionUpdate, AisNameMode, AisVesselKindMode } from '$features/ais-layer';
 import { fetchCharts } from '$features/charts';
 import { LayersView } from '$features/layers-panel';
 import { COLLISION_OVERLAY_ID } from '$features/lookout';
@@ -96,6 +96,7 @@ interface Props {
   selectedAisId?: string;
   onAisSelect?: (id: string) => void;
   aisKindMode?: () => AisVesselKindMode;
+  aisNameMode?: () => AisNameMode;
   onAisMotionUpdate?: AisMotionUpdate;
   // A waypoint marker tapped on the chart, by resource id.
   onWaypointSelect?: (id: string) => void;
@@ -216,6 +217,7 @@ const {
   selectedAisId,
   onAisSelect,
   aisKindMode,
+  aisNameMode,
   onAisMotionUpdate,
   onWaypointSelect,
   anchor,
@@ -635,6 +637,7 @@ onMount(async () => {
         aisTargets,
         selectedAisId: () => selectedAisId,
         aisKindMode,
+        aisNameMode,
         onAisMotionUpdate,
         onAisSelect: (id) => {
           if (markerInteractionsAllowed()) onAisSelect?.(id);

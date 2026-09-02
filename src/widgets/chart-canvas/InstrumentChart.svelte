@@ -13,7 +13,12 @@ import type { Assessment } from '$entities/collision';
 import type { UnitsStore } from '$entities/units';
 import { type UserCharts, userChartToSignalK } from '$entities/user-charts';
 import type { OwnVessel } from '$entities/vessel';
-import { AIS_OVERLAY_ID, type AisVesselKindMode, createAisOverlay } from '$features/ais-layer';
+import {
+  AIS_OVERLAY_ID,
+  type AisNameMode,
+  type AisVesselKindMode,
+  createAisOverlay,
+} from '$features/ais-layer';
 import { fetchCharts } from '$features/charts';
 import { createVesselOverlay, OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import {
@@ -42,6 +47,7 @@ interface Props {
   aisTargets: AisTargets;
   aisAssessment: () => Assessment;
   aisKindMode: AisVesselKindMode;
+  aisNameMode: AisNameMode;
   units: UnitsStore;
   thresholds: PersistedValue<Thresholds>;
   userCharts: UserCharts;
@@ -72,6 +78,7 @@ const {
   aisTargets,
   aisAssessment,
   aisKindMode,
+  aisNameMode,
   units,
   thresholds,
   userCharts,
@@ -209,6 +216,7 @@ onMount(() => {
       const aisOverlay = createAisOverlay(aisTargets, {
         assessment: aisAssessment,
         kindMode: () => aisKindMode,
+        nameMode: () => aisNameMode,
         interactionsAllowed: () => false,
       });
       const [vesselResult, aisResult] = await api.manager.registerBatch([

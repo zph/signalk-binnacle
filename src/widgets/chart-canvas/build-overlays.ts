@@ -14,6 +14,7 @@ import type { WaypointsStore } from '$entities/waypoint';
 import type { WeatherStore } from '$entities/weather';
 import {
   type AisMotionUpdate,
+  type AisNameMode,
   type AisVesselKindMode,
   createAisOverlay,
   createAisTrailsOverlay,
@@ -65,6 +66,7 @@ export interface DynamicOverlaysDeps {
   onAisSelect?: (id: string) => void;
   selectedAisId?: () => string | undefined;
   aisKindMode?: () => AisVesselKindMode;
+  aisNameMode?: () => AisNameMode;
   onAisMotionUpdate?: AisMotionUpdate;
   // A waypoint marker tapped on the chart, by resource id.
   onWaypointSelect?: (id: string) => void;
@@ -112,6 +114,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     onAisSelect,
     selectedAisId,
     aisKindMode,
+    aisNameMode,
     onAisMotionUpdate,
     onWaypointSelect,
     anchor,
@@ -170,6 +173,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
       onSelect: onAisSelect,
       selectedId: selectedAisId,
       kindMode: aisKindMode,
+      nameMode: aisNameMode,
       interactionsAllowed,
     }),
     createCollisionOverlay(collision),

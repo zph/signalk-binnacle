@@ -31,6 +31,7 @@ function makeDeps(): ProfileBindingDeps {
     weatherLayers: pv({}),
     weatherSource: pv('automatic'),
     aisIconMode: pv('type-specific'),
+    aisNameMode: pv('off'),
     aisRetentionMinutes: pv(60),
     thresholds: pv({
       dangerCpaMeters: 1,
@@ -94,6 +95,7 @@ describe('createProfileBindings', () => {
     deps.layers.set(layers);
     deps.layerOrder.set(['ais', 'chart:server:noaa', 'radar']);
     deps.aisIconMode.set('generic');
+    deps.aisNameMode.set('adaptive');
     deps.aisRetentionMinutes.set(360);
     const bindings = createProfileBindings(deps);
 
@@ -101,16 +103,19 @@ describe('createProfileBindings', () => {
     expect(captured.layers).toEqual(layers);
     expect(captured.layerOrder).toEqual(['ais', 'chart:server:noaa', 'radar']);
     expect(captured.aisIconMode).toBe('generic');
+    expect(captured.aisNameMode).toBe('adaptive');
     expect(captured.aisRetentionMinutes).toBe(360);
 
     deps.layers.set({});
     deps.layerOrder.set([]);
     deps.aisIconMode.set('type-specific');
+    deps.aisNameMode.set('off');
     deps.aisRetentionMinutes.set(60);
     bindings.apply(captured);
     expect(deps.layers.value).toEqual(layers);
     expect(deps.layerOrder.value).toEqual(['ais', 'chart:server:noaa', 'radar']);
     expect(deps.aisIconMode.value).toBe('generic');
+    expect(deps.aisNameMode.value).toBe('adaptive');
     expect(deps.aisRetentionMinutes.value).toBe(360);
   });
 
@@ -124,6 +129,18 @@ describe('createProfileBindings', () => {
     bindings.apply(legacy);
 
     expect(deps.aisIconMode.value).toBe('type-specific');
+  });
+
+  it('applies the disabled AIS name default for a legacy profile', () => {
+    const deps = makeDeps();
+    const bindings = createProfileBindings(deps);
+    deps.aisNameMode.set('on');
+    const legacy = bindings.capture();
+    legacy.aisNameMode = undefined;
+
+    bindings.apply(legacy);
+
+    expect(deps.aisNameMode.value).toBe('off');
   });
 
   it('applies the 60-minute AIS retention default for a legacy profile', () => {
