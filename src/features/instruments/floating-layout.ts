@@ -19,6 +19,12 @@ export const DEFAULT_FLOATING_HEIGHT = 0.2;
 export const MIN_FLOATING_WIDTH = 0.08;
 export const MIN_FLOATING_HEIGHT = 0.08;
 
+/** The tile frame's CSS minimum, kept here so a narrow chart can still fit its saved layout. */
+export const MIN_FLOATING_WIDTH_PX = 96;
+export const MIN_FLOATING_HEIGHT_PX = 64;
+
+const EDGE_PIN_TOLERANCE = 0.02;
+
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
 // The JSON shape of a box, before range checks. A structurally valid but drifted box (a position
@@ -76,6 +82,34 @@ export const floatingInstrumentBoxesCodec = arrayPersistedCodec(
 
 export function clampFloatingBox(box: FloatingInstrumentBox): FloatingInstrumentBox {
   return sanitizeFloatingInstrumentBox(box) ?? box;
+}
+
+/**
+ * Resolves a saved box for the chart's current pixel size without changing the saved layout.
+ *
+ * A tile's CSS readability floor can be wider than its fractional width after a rotation. Make
+ * room for that floor and retain any edge that was already pinned, so right- and bottom-mounted
+ * instruments stay on the chart instead of extending past it. Keeping this display-only means a
+ * return rotation restores the user's original proportional layout.
+ */
+export function fitFloatingBoxToViewport(
+  box: FloatingInstrumentBox,
+  viewport: { width: number; height: number },
+): FloatingInstrumentBox {
+  if (viewport.width <= 0 || viewport.height <= 0) return clampFloatingBox(box);
+  const width = Math.min(1, Math.max(box.width, MIN_FLOATING_WIDTH_PX / viewport.width));
+  const height = Math.min(1, Math.max(box.height, MIN_FLOATING_HEIGHT_PX / viewport.height));
+  const pinnedLeft = box.x <= EDGE_PIN_TOLERANCE;
+  const pinnedRight = 1 - (box.x + box.width) <= EDGE_PIN_TOLERANCE;
+  const pinnedTop = box.y <= EDGE_PIN_TOLERANCE;
+  const pinnedBottom = 1 - (box.y + box.height) <= EDGE_PIN_TOLERANCE;
+  return clampFloatingBox({
+    ...box,
+    width,
+    height,
+    x: pinnedLeft ? 0 : pinnedRight ? 1 - width : box.x,
+    y: pinnedTop ? 0 : pinnedBottom ? 1 - height : box.y,
+  });
 }
 
 export function defaultFloatingBox(

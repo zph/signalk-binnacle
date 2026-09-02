@@ -17,6 +17,7 @@ import {
   DEFAULT_FLOATING_HEIGHT,
   DEFAULT_FLOATING_WIDTH,
   type FloatingInstrumentBox,
+  fitFloatingBoxToViewport,
   MAX_FLOATING_INSTRUMENTS,
 } from './floating-layout';
 import InstrumentTile from './InstrumentTile.svelte';
@@ -87,6 +88,7 @@ const aisRadar = $derived(
 );
 
 let layerEl = $state<HTMLElement | undefined>();
+let layerSize = $state<{ width: number; height: number } | undefined>();
 let addMenuOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
 let expandedId = $state<string | undefined>();
@@ -100,6 +102,25 @@ let alignmentAnnouncement = $state('');
 const floatingTiles = $derived(controller.floatingTiles);
 const editing = $derived(controller.screenEditing);
 const atFloatingCap = $derived(floatingTiles.length >= MAX_FLOATING_INSTRUMENTS);
+
+function observeLayer(node: HTMLElement): { destroy(): void } {
+  const updateSize = (): void => {
+    const { width, height } = node.getBoundingClientRect();
+    layerSize = { width, height };
+  };
+  updateSize();
+  if (typeof ResizeObserver === 'undefined') {
+    window.addEventListener('resize', updateSize);
+    return { destroy: () => window.removeEventListener('resize', updateSize) };
+  }
+  const observer = new ResizeObserver(updateSize);
+  observer.observe(node);
+  return { destroy: () => observer.disconnect() };
+}
+
+function displayedBox(box: FloatingInstrumentBox): FloatingInstrumentBox {
+  return layerSize ? fitFloatingBoxToViewport(box, layerSize) : box;
+}
 
 type AlignmentGuide = { axis: 'x' | 'y'; value: number };
 type AlignmentEdge = 'start' | 'center' | 'end';
@@ -467,6 +488,7 @@ function finishEditing(): void {
   class="instrument-screen-layer"
   class:instrument-screen-layer--editing={editing}
   bind:this={layerEl}
+  use:observeLayer
   ondragover={handleDragOver}
   ondrop={handleDrop}
   aria-label={editing ? 'Instrument screen layout editing' : undefined}
@@ -539,6 +561,7 @@ function finishEditing(): void {
 
   {#each floatingTiles as entry (entry.def.id)}
     {@const box = dragBox && dragBox.id === entry.def.id ? dragBox : entry.box}
+    {@const visibleBox = displayedBox(box)}
     {@const expanded = expandedId === entry.def.id}
     {@const reading = entry.def.read(deps)}
     {@const zone = controller.zoneState(entry.def, reading.siValue)}
@@ -558,10 +581,10 @@ function finishEditing(): void {
       class="floating-frame"
       class:floating-frame--dragging={dragBox?.id === entry.def.id}
       class:floating-frame--expanded={expanded}
-      style:left={expanded ? '0' : `${box.x * 100}%`}
-      style:top={expanded ? '0' : `${box.y * 100}%`}
-      style:width={expanded ? '100%' : `${box.width * 100}%`}
-      style:height={expanded ? '100%' : `${box.height * 100}%`}
+      style:left={expanded ? '0' : `${visibleBox.x * 100}%`}
+      style:top={expanded ? '0' : `${visibleBox.y * 100}%`}
+      style:width={expanded ? '100%' : `${visibleBox.width * 100}%`}
+      style:height={expanded ? '100%' : `${visibleBox.height * 100}%`}
       style:opacity={overlayOpacity}
       data-instrument-id={entry.def.id}
       data-instrument-label={controller.resolvedLabel(entry.def)}

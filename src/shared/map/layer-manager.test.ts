@@ -198,17 +198,17 @@ describe('LayerManager', () => {
       setCellPortrayal: vi.fn(),
       setBathymetryColorScheme: vi.fn(),
     };
-    // No saved settings: the safe defaults hydrate the module and the panel row.
+    // No saved settings: the configured defaults hydrate the module and the panel row.
     const fresh = new LayerManager(fakeCtx(), { onChange });
     await fresh.register(overlay);
-    expect(overlay.setDisplayDepth).toHaveBeenCalledWith(expect.anything(), 'conservative');
-    expect(overlay.setCellPortrayal).toHaveBeenCalledWith(expect.anything(), 'shaded');
-    expect(overlay.setBathymetryColorScheme).toHaveBeenCalledWith(expect.anything(), 'safety');
+    expect(overlay.setDisplayDepth).toHaveBeenCalledWith(expect.anything(), 'predicted');
+    expect(overlay.setCellPortrayal).toHaveBeenCalledWith(expect.anything(), 'text');
+    expect(overlay.setBathymetryColorScheme).toHaveBeenCalledWith(expect.anything(), 'noaa-chart');
     expect(fresh.layers().find((layer) => layer.id === 'cells')).toMatchObject({
       depthDisplayControl: true,
-      displayDepth: 'conservative',
-      cellPortrayal: 'shaded',
-      bathymetryColorScheme: 'safety',
+      displayDepth: 'predicted',
+      cellPortrayal: 'text',
+      bathymetryColorScheme: 'noaa-chart',
     });
 
     // Saved settings restore both choices, persisted entries stay coherent, and the setters
@@ -253,7 +253,7 @@ describe('LayerManager', () => {
     });
   });
 
-  it('coerces corrupted or legacy depth-display settings back to the safe defaults', async () => {
+  it('coerces corrupted or legacy depth-display settings back to the configured defaults', async () => {
     const overlay = {
       ...fakeOverlay('cells', 'bathymetry'),
       depthDisplayControl: true,
@@ -273,12 +273,12 @@ describe('LayerManager', () => {
     });
     await manager.register(overlay);
 
-    expect(overlay.setDisplayDepth).toHaveBeenCalledWith(expect.anything(), 'conservative');
-    expect(overlay.setCellPortrayal).toHaveBeenCalledWith(expect.anything(), 'shaded');
+    expect(overlay.setDisplayDepth).toHaveBeenCalledWith(expect.anything(), 'predicted');
+    expect(overlay.setCellPortrayal).toHaveBeenCalledWith(expect.anything(), 'text');
     expect(manager.layers().find((layer) => layer.id === 'cells')).toMatchObject({
-      displayDepth: 'conservative',
-      cellPortrayal: 'shaded',
-      bathymetryColorScheme: 'safety',
+      displayDepth: 'predicted',
+      cellPortrayal: 'text',
+      bathymetryColorScheme: 'noaa-chart',
     });
   });
 

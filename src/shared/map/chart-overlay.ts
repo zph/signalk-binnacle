@@ -262,12 +262,12 @@ export function createChartOverlay(
   // Portrayal choices for interactive bathymetry cells; only meaningful when the chart carries
   // bathymetry-cell feature info. displayDepth rides the tile URL; cellPortrayal repaints.
   const depthDisplayControl = chart.featureInfo === 'bathymetry-cell';
-  let displayDepth: DepthDisplayMode = 'conservative';
+  let displayDepth: DepthDisplayMode = 'predicted';
   // Both portrayals keep the depth-shaded fill and the cell outline; the choice is about the
   // depth labels: 'shaded' keeps the bright halo for contrast, 'text' drops it so the numbers
   // render as plain theme text (near-black in day, red in night-red) over the shading.
-  let cellPortrayal: CellPortrayalMode = 'shaded';
-  let bathymetryColorScheme: BathymetryColorScheme = 'safety';
+  let cellPortrayal: CellPortrayalMode = 'text';
+  let bathymetryColorScheme: BathymetryColorScheme = 'noaa-chart';
   let theme: Theme = 'day';
   // The halo width the shaded portrayal shows; the text portrayal hides it entirely.
   const BATHYMETRY_LABEL_HALO_WIDTH = 2.25;

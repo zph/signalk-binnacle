@@ -108,6 +108,43 @@ test('screen edit mode drags an instrument from its face on the chart', async ({
   await expect(frame).not.toHaveClass(/floating-frame--dragging/);
 });
 
+test('iPad rotation keeps an edge-mounted instrument inside the chart and restores it', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  const layer = page.locator('.instrument-screen-layer');
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const [source, target] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
+  if (!source || !target) throw new Error('Instrument or chart target missing.');
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width - 2, target.y + target.height - 2, { steps: 12 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+
+  await page.setViewportSize({ width: 834, height: 1194 });
+  await expectInsideViewport(frame, page);
+  const [portraitFrame, portraitLayer] = await Promise.all([
+    frame.boundingBox(),
+    layer.boundingBox(),
+  ]);
+  if (!portraitFrame || !portraitLayer) throw new Error('Instrument or chart target missing.');
+  expect(portraitFrame.x + portraitFrame.width).toBeCloseTo(
+    portraitLayer.x + portraitLayer.width,
+    0,
+  );
+  expect(portraitFrame.y + portraitFrame.height).toBeCloseTo(
+    portraitLayer.y + portraitLayer.height,
+    0,
+  );
+
+  await page.setViewportSize({ width: 1194, height: 834 });
+  await expectInsideViewport(frame, page);
+});
+
 test('touch drag from the instrument body keeps the edit toolbar reachable', async ({
   page,
 }, testInfo) => {

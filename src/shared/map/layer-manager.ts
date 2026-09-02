@@ -349,9 +349,9 @@ export class LayerManager {
           ...(module.labelSizeControl ? { labelSizeScale: module.labelSizeControl.default } : {}),
           ...(module.depthDisplayControl
             ? {
-                displayDepth: 'conservative' as DepthDisplayMode,
-                cellPortrayal: 'shaded' as CellPortrayalMode,
-                bathymetryColorScheme: 'safety' as BathymetryColorScheme,
+                displayDepth: 'predicted' as DepthDisplayMode,
+                cellPortrayal: 'text' as CellPortrayalMode,
+                bathymetryColorScheme: 'noaa-chart' as BathymetryColorScheme,
               }
             : {}),
         };
@@ -849,18 +849,18 @@ export class LayerManager {
     return Math.min(control.maximum, control.minimum + steps * control.step);
   }
 
-  // A missing or unrecognized depth-display or portrayal value falls back to the safe default, so
+  // A missing or unrecognized depth-display or portrayal value falls back to the configured default, so
   // settings saved by an older build (or a corrupted write) still restore a coherent portrayal.
   #coerceDepthDisplay(value: unknown): DepthDisplayMode {
-    return value === 'predicted' ? 'predicted' : 'conservative';
+    return value === 'conservative' ? 'conservative' : 'predicted';
   }
 
   #coerceCellPortrayal(value: unknown): CellPortrayalMode {
-    return value === 'text' ? 'text' : 'shaded';
+    return value === 'shaded' ? 'shaded' : 'text';
   }
 
   #coerceBathymetryColorScheme(value: unknown): BathymetryColorScheme {
-    return value === 'noaa-chart' ? 'noaa-chart' : 'safety';
+    return value === 'safety' ? 'safety' : 'noaa-chart';
   }
 
   // The pinned safety floor: no door lowers a pinned overlay's visibility. Not the panel toggle,

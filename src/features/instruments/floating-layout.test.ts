@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clampFloatingBox,
   defaultFloatingBox,
+  fitFloatingBoxToViewport,
   type FloatingInstrumentBox,
   floatingInstrumentBoxesCodec,
   MAX_FLOATING_INSTRUMENTS,
@@ -99,6 +100,28 @@ describe('defaultFloatingBox', () => {
   it('falls back to its default position without a point', () => {
     expect(defaultFloatingBox(undefined, 'depth').x).toBeGreaterThan(0);
     expect(defaultFloatingBox(undefined, 'depth').y).toBeGreaterThan(0);
+  });
+});
+
+describe('fitFloatingBoxToViewport', () => {
+  it('keeps a right and bottom mounted tile inside a narrow rotated chart', () => {
+    const result = fitFloatingBoxToViewport(
+      { id: 'depth', x: 0.74, y: 0.8, width: 0.26, height: 0.2 },
+      { width: 300, height: 200 },
+    );
+
+    expect(result.x).toBeCloseTo(0.68);
+    expect(result.y).toBeCloseTo(0.68);
+    expect(result.width).toBe(0.32);
+    expect(result.height).toBe(0.32);
+    expect(result.x + result.width).toBe(1);
+    expect(result.y + result.height).toBe(1);
+  });
+
+  it('leaves an interior tile unchanged after rotating back to a wide chart', () => {
+    const saved = { id: 'depth', x: 0.2, y: 0.3, width: 0.26, height: 0.2 };
+
+    expect(fitFloatingBoxToViewport(saved, { width: 1024, height: 768 })).toEqual(saved);
   });
 });
 

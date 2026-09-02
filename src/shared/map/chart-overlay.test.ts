@@ -99,12 +99,12 @@ describe('chart overlay', () => {
     await overlay.add(ctx);
 
     expect(map.declaredSources.get('chart-bathymetry')?.tiles).toEqual([
-      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=2&displayDepth=conservative',
+      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=2&displayDepth=predicted',
     ]);
 
     overlay.setCellSizeScale?.(ctx, 0.75);
     expect(map.sources.get('chart-bathymetry')?.setTiles).toHaveBeenLastCalledWith([
-      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=0.75&displayDepth=conservative',
+      'http://pi.local/plugins/signalk-bathymetry/tiles/{z}/{x}/{y}.pbf?mode=datum&cellScale=0.75&displayDepth=predicted',
     ]);
 
     expect(overlay.labelSizeControl).toEqual({
@@ -184,7 +184,7 @@ describe('chart overlay', () => {
       return setTiles?.mock?.lastCall?.[0] as string[] | undefined;
     };
 
-    expect(declaredTiles()).toContain('displayDepth=conservative');
+    expect(declaredTiles()).toContain('displayDepth=predicted');
 
     overlay.setDisplayDepth?.(ctx, 'predicted');
     expect(lastSetTiles()?.[0]).toContain('displayDepth=predicted');
