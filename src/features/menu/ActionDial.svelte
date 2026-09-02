@@ -125,16 +125,8 @@ function end(event: PointerEvent): void {
   dragPointerId = undefined;
 }
 
-const AUTO_CLOSE_MS = 10_000;
-$effect(() => {
-  if (!open) return;
-  const timer = setTimeout(() => onOpenChange(false), AUTO_CLOSE_MS);
-  return () => clearTimeout(timer);
-});
-
-// The dial is a transient menu, so it must never trap a navigator behind an empty part of the
-// chart. Pointer dismissal also covers touch, while Escape gives desktop and keyboard users the
-// same immediate exit.
+// The dial stays available until the navigator dismisses it. Pointer dismissal also covers touch,
+// while Escape gives desktop and keyboard users the same immediate exit.
 $effect(() => {
   if (!open) return;
   const dismissOutside = (event: PointerEvent) => {
