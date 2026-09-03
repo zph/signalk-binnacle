@@ -18,6 +18,7 @@ const factories = vi.hoisted(() => {
     createAisVectorsOverlay: vi.fn((_targets: unknown, _assessment: () => unknown) =>
       marker('ais-vectors'),
     ),
+    createViewportAisOverlay: vi.fn(() => marker('viewport-ais')),
     createAnchorOverlay: vi.fn(() => marker('anchor')),
     createCollisionOverlay: vi.fn(() => marker('collision')),
     createCourseOverlay: vi.fn(() => marker('course')),
@@ -60,6 +61,7 @@ vi.mock('$features/ais-layer', () => ({
   createAisOverlay: factories.createAisOverlay,
   createAisTrailsOverlay: factories.createAisTrailsOverlay,
   createAisVectorsOverlay: factories.createAisVectorsOverlay,
+  createViewportAisOverlay: factories.createViewportAisOverlay,
 }));
 vi.mock('$features/anchor-watch', () => ({ createAnchorOverlay: factories.createAnchorOverlay }));
 vi.mock('$features/lookout', () => ({ createCollisionOverlay: factories.createCollisionOverlay }));
@@ -97,6 +99,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     store: { selfContext: 'vessels.self' },
     vessel: { name: 'vessel' },
     aisTargets: { name: 'ais-targets' },
+    destinationAisAvailable: vi.fn(() => true),
     onAisSelect: vi.fn(),
     selectedAisId: vi.fn(() => 'vessels.selected'),
     aisKindMode: vi.fn(() => 'generic' as const),
@@ -155,6 +158,7 @@ describe('buildDynamicOverlays', () => {
       'notes',
       'ais-trails',
       'ais-vectors',
+      'viewport-ais',
       'ais',
       'collision',
       'mob',
@@ -185,6 +189,7 @@ describe('buildDynamicOverlays', () => {
       'notes',
       'ais-trails',
       'ais-vectors',
+      'viewport-ais',
       'ais',
       'collision',
       'mob',
@@ -271,6 +276,11 @@ describe('buildDynamicOverlays', () => {
     );
     const collisionAssessment = factories.createAisVectorsOverlay.mock.calls[0]?.[1];
     expect(collisionAssessment?.()).toBe(deps.collision.assessment);
+    expect(factories.createViewportAisOverlay).toHaveBeenCalledWith({
+      origin: deps.origin,
+      getToken: deps.getToken,
+      available: deps.destinationAisAvailable,
+    });
     expect(factories.createAisOverlay).toHaveBeenCalledWith(deps.aisTargets, {
       assessment: expect.any(Function),
       onSelect: deps.onAisSelect,

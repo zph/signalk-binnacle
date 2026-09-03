@@ -635,6 +635,7 @@ onMount(async () => {
         store,
         vessel,
         aisTargets,
+        destinationAisAvailable: destinationAisAvailable ?? (() => false),
         selectedAisId: () => selectedAisId,
         aisKindMode,
         aisNameMode,

@@ -19,6 +19,7 @@ import {
   createAisOverlay,
   createAisTrailsOverlay,
   createAisVectorsOverlay,
+  createViewportAisOverlay,
 } from '$features/ais-layer';
 import { createAnchorOverlay } from '$features/anchor-watch';
 import { createCollisionOverlay } from '$features/lookout';
@@ -64,6 +65,7 @@ export interface DynamicOverlaysDeps {
   store: SignalKStore;
   vessel: OwnVessel;
   aisTargets: AisTargets;
+  destinationAisAvailable: () => boolean;
   onAisSelect?: (id: string) => void;
   selectedAisId?: () => string | undefined;
   aisKindMode?: () => AisVesselKindMode;
@@ -112,6 +114,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     store,
     vessel,
     aisTargets,
+    destinationAisAvailable,
     onAisSelect,
     selectedAisId,
     aisKindMode,
@@ -170,6 +173,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
       providers: historyProviders,
       selectedId: selectedAisId ?? (() => undefined),
     }),
+    createViewportAisOverlay({ origin, getToken, available: destinationAisAvailable }),
     createAisOverlay(aisTargets, {
       assessment: () => collision.assessment,
       onSelect: onAisSelect,

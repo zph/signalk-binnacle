@@ -11,6 +11,7 @@ export {
   type AisMotionUpdate,
   createAisVectorsOverlay,
 } from './ais-vectors-overlay';
+export { createViewportAisOverlay } from './viewport-ais-overlay';
 
 import { createRetryableLazyUiLoader } from '$shared/lib';
 
