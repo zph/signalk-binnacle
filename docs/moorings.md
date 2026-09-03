@@ -30,9 +30,12 @@ For the area around the boat, Binnacle uses AIS targets already present in Signa
 open another AIS connection for that case.
 
 Remote-area review is owned by the extended `signalk-aisstream` plugin. A dedicated second upstream
-WebSocket follows the chart viewport after it remains stable for 1.5 seconds. The plugin retains a
-bounded 30-minute history, shares one destination request among clients, rate-limits subscription
-replacements, and stops requesting the destination area after five minutes without a request.
+WebSocket follows the chart viewport after it remains stable for 1.5 seconds. The request is a
+padded viewport-sized area, capped at ten degrees, and remains in place through small pans that it
+still covers. Once the chart leaves that area, the plugin replaces it and keeps the prior snapshot
+visible until AISStream confirms the new subscription. The plugin retains a bounded 30-minute
+history, shares one destination request among clients, rate-limits subscription replacements, and
+stops requesting the destination area after five minutes without a request.
 Remote targets appear on the chart independently of the Moorings layer and also inform mooring
 occupancy when that layer is active. The AISStream key stays in that plugin and is never sent to
 Binnacle.

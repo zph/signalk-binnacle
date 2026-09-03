@@ -2,7 +2,7 @@ import type { AisTargets } from '$entities/ais';
 import {
   bboxContains,
   bboxContainsPoint,
-  centeredBbox,
+  boundedViewportBbox,
   lngLatBoundsToBbox4,
   padBbox,
   splitAtAntimeridian,
@@ -42,7 +42,7 @@ import type {
 
 const AIS_POLL_MS = 5_000;
 const AIS_VIEWPORT_QUIESCENCE_MS = 1_500;
-const AIS_BBOX_SPAN = 10;
+const AIS_MAX_BBOX_SPAN = 10;
 
 export interface MooringsOverlay extends OverlayModule, Syncable {}
 
@@ -188,6 +188,8 @@ export function createMooringsOverlay(
       report('error');
       return;
     }
+    const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
+    if (!bboxContains(bbox, viewport)) return;
     fetchBbox = bbox;
     rawMoorings = result;
     mooringVersion += 1;
@@ -224,9 +226,11 @@ export function createMooringsOverlay(
     if (!mounted || generation !== lifecycle) return;
     aisLoading = false;
     destinationAis = snapshot.state;
-    destinationTargets = snapshot.targets;
-    lastRenderKey = '';
-    updateRender(ctx, now);
+    if (snapshot.state === 'live' || snapshot.state === 'unavailable') {
+      destinationTargets = snapshot.targets;
+      lastRenderKey = '';
+      updateRender(ctx, now);
+    }
     report(lastStatus?.phase ?? 'idle');
   }
 
@@ -234,10 +238,11 @@ export function createMooringsOverlay(
     viewport: ReturnType<typeof lngLatBoundsToBbox4>,
     now: number,
   ): ReturnType<typeof lngLatBoundsToBbox4> | undefined {
-    const desired = centeredBbox(viewport, AIS_BBOX_SPAN);
+    const desired = boundedViewportBbox(viewport, AIS_MAX_BBOX_SPAN);
     if (
-      destinationFetchBbox?.every((coordinate, index) => coordinate === desired[index]) ??
-      false
+      destinationFetchBbox &&
+      (bboxContains(destinationFetchBbox, viewport) ||
+        destinationFetchBbox.every((coordinate, index) => coordinate === desired[index]))
     ) {
       pendingDestinationViewport = undefined;
       return destinationFetchBbox;
@@ -289,6 +294,9 @@ export function createMooringsOverlay(
       destinationFetchBbox = undefined;
       pendingDestinationViewport = undefined;
       pendingDestinationSince = 0;
+      loading = false;
+      aisLoading = false;
+      lastAisPollAt = 0;
       lastRenderKey = '';
     },
     sync(ctx) {

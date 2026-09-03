@@ -72,4 +72,22 @@ describe('mooring client', () => {
       .filter((url) => url.hostname === 'encdirect.noaa.gov');
     expect(noaaRequests).toHaveLength(6);
   });
+
+  it('does not accept a partial direct NOAA scale snapshot as complete', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        if (url.hostname === 'signal-k.test') return new Response('', { status: 502 });
+        if (url.pathname.includes('/enc_harbour/')) return new Response('', { status: 503 });
+        return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+          status: 200,
+        });
+      }),
+    );
+
+    await expect(
+      fetchMoorings('https://signal-k.test', undefined, [-71, 41, -70, 42]),
+    ).resolves.toBeUndefined();
+  });
 });

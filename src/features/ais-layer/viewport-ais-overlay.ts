@@ -1,5 +1,5 @@
 import type { AisTargets, AisTargetView } from '$entities/ais';
-import { type Bbox4, centeredBbox, lngLatBoundsToBbox4 } from '$shared/geo';
+import { type Bbox4, bboxContains, boundedViewportBbox, lngLatBoundsToBbox4 } from '$shared/geo';
 import { isRecord, readBoundedJson, withTimeout } from '$shared/lib';
 import type { OverlayContext } from '$shared/map';
 import { authInit } from '$shared/signalk';
@@ -7,7 +7,7 @@ import { authInit } from '$shared/signalk';
 const SETTLE_MS = 1_500;
 const POLL_MS = 1_000;
 const MAX_TARGETS = 10_000;
-const BBOX_SPAN = 10;
+const MAX_BBOX_SPAN = 10;
 
 interface DestinationSnapshot {
   state: 'connecting' | 'live' | 'disconnected' | 'error' | 'unavailable';
@@ -102,15 +102,15 @@ function sameBbox(left: Bbox4 | undefined, right: Bbox4): boolean {
 }
 
 function requestBbox(viewport: Bbox4): Bbox4 {
-  return centeredBbox(viewport, BBOX_SPAN);
+  return boundedViewportBbox(viewport, MAX_BBOX_SPAN);
 }
 
 export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
   const now = options.now ?? Date.now;
   let mounted = false;
   let loading = false;
-  let fetchedBbox: Bbox4 | undefined;
-  let pendingViewport: Bbox4 | undefined;
+  let requestedBbox: Bbox4 | undefined;
+  let pendingBbox: Bbox4 | undefined;
   let pendingSince = 0;
   let nextFetchAt = 0;
   let generation = 0;
@@ -120,7 +120,8 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
       generation += 1;
       loading = false;
     }
-    fetchedBbox = undefined;
+    requestedBbox = undefined;
+    pendingBbox = undefined;
     options.targets.clearViewportTargets();
   }
 
@@ -130,8 +131,9 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
     const snapshot = await fetchTargets(options.origin, options.getToken(), bbox);
     if (!mounted || requestGeneration !== generation) return;
     loading = false;
-    fetchedBbox = bbox;
-    options.targets.replaceViewportTargets(snapshot.targets);
+    requestedBbox = bbox;
+    if (snapshot.state === 'live') options.targets.replaceViewportTargets(snapshot.targets);
+    else if (snapshot.state === 'unavailable') clear();
     nextFetchAt = now() + POLL_MS;
   }
 
@@ -152,15 +154,22 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
         return;
       }
       const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
-      if (!pendingViewport || !sameBbox(pendingViewport, viewport)) {
-        pendingViewport = viewport;
+      const desired = requestBbox(viewport);
+      if (
+        requestedBbox &&
+        (bboxContains(requestedBbox, viewport) || sameBbox(requestedBbox, desired))
+      ) {
+        pendingBbox = undefined;
+        if (!loading && now() >= nextFetchAt) void load(requestedBbox);
+        return;
+      }
+      if (!pendingBbox || !sameBbox(pendingBbox, desired)) {
+        pendingBbox = desired;
         pendingSince = now();
         return;
       }
       if (loading || now() - pendingSince < SETTLE_MS) return;
-      const bbox = requestBbox(viewport);
-      if (fetchedBbox && sameBbox(fetchedBbox, bbox) && now() < nextFetchAt) return;
-      void load(bbox);
+      void load(pendingBbox);
     },
     setVisible(_ctx: OverlayContext, _visible: boolean) {},
     setOpacity(_ctx: OverlayContext, _opacity: number) {},

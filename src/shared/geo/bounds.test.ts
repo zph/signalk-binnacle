@@ -4,6 +4,7 @@ import {
   bboxCenter,
   bboxContains,
   bboxContainsPoint,
+  boundedViewportBbox,
   boundsOfPoints,
   centeredBbox,
   fetchAcrossSeam,
@@ -19,6 +20,20 @@ describe('centeredBbox', () => {
 
   it('shifts the square inside coordinate limits', () => {
     expect(centeredBbox([177, 80, 181, 86], 10)).toEqual([170, 78, 180, 88]);
+  });
+});
+
+describe('boundedViewportBbox', () => {
+  it('pads a harbor viewport instead of expanding every request to the maximum', () => {
+    expect(boundedViewportBbox([-71.4, 41.4, -71.2, 41.6], 10)).toEqual([-71.5, 41.3, -71.1, 41.7]);
+  });
+
+  it('uses the viewport when padding would exceed the limit', () => {
+    expect(boundedViewportBbox([0, 0, 8, 8], 10)).toEqual([0, 0, 8, 8]);
+  });
+
+  it('centers a maximum-size request when the viewport itself is wider', () => {
+    expect(boundedViewportBbox([-130, 40, -110, 50], 10)).toEqual([-125, 40, -115, 50]);
   });
 });
 

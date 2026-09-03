@@ -76,7 +76,7 @@ describe('viewport AIS overlay', () => {
     await flush();
     expect(requested).toHaveLength(1);
     expect(JSON.parse(new URL(requested[0]).searchParams.get('bbox') ?? '')).toEqual([
-      -76.3, 36.5, -66.3, 46.5,
+      -71.5, 41.3, -71.1, 41.7,
     ]);
     expect(received).toEqual([expect.objectContaining({ id: 'first', name: 'first' })]);
 
@@ -96,9 +96,66 @@ describe('viewport AIS overlay', () => {
     await flush();
     expect(requested).toHaveLength(3);
     expect(JSON.parse(new URL(requested[2]).searchParams.get('bbox') ?? '')).toEqual([
-      -75.3, 36.5, -65.3, 46.5,
+      -70.5, 41.3, -70.1, 41.7,
     ]);
     expect(received).toEqual([expect.objectContaining({ id: 'second', name: 'second' })]);
+  });
+
+  it('keeps the last good targets while a replacement subscription is connecting or errors', async () => {
+    const responses = [
+      {
+        state: 'live',
+        targets: [
+          {
+            id: 'first',
+            mmsi: '111111111',
+            position: { latitude: 41.5, longitude: -71.3 },
+            lastReportAtMs: 10_000,
+          },
+        ],
+      },
+      { state: 'connecting', targets: [] },
+      { state: 'error', targets: [] },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(200, responses.shift() ?? { state: 'live', targets: [] })),
+    );
+    const view = { west: -71.4, south: 41.4, east: -71.2, north: 41.6 };
+    let received: AisTargetView[] = [];
+    const overlay = createViewportAisOverlay({
+      origin: 'http://pi',
+      getToken: () => undefined,
+      available: () => true,
+      targets: {
+        replaceViewportTargets(next: readonly AisTargetView[]) {
+          received = [...next];
+        },
+        clearViewportTargets() {
+          received = [];
+        },
+      } as AisTargets,
+    });
+    const ctx = fakeOverlayContext(viewMap(view));
+    overlay.add(ctx);
+    overlay.sync(ctx);
+    vi.advanceTimersByTime(1_500);
+    overlay.sync(ctx);
+    await flush();
+    expect(received.map((item) => item.id)).toEqual(['first']);
+
+    view.west = -70.4;
+    view.east = -70.2;
+    overlay.sync(ctx);
+    vi.advanceTimersByTime(1_500);
+    overlay.sync(ctx);
+    await flush();
+    expect(received.map((item) => item.id)).toEqual(['first']);
+
+    vi.advanceTimersByTime(1_000);
+    overlay.sync(ctx);
+    await flush();
+    expect(received.map((item) => item.id)).toEqual(['first']);
   });
 
   it('requests a fixed ten-degree area for a viewport wider than ten degrees', async () => {

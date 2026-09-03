@@ -261,7 +261,7 @@ describe('Binnacle server settings plugin', () => {
     vi.unstubAllGlobals();
   });
 
-  it('retains NOAA results when one scale service fails', async () => {
+  it('rejects an incomplete NOAA scale snapshot instead of caching it as empty', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: string | URL | Request) => {
@@ -279,8 +279,8 @@ describe('Binnacle server settings plugin', () => {
       response,
     );
 
-    expect(response.code).toBe(200);
-    expect(response.body).toEqual({ type: 'FeatureCollection', features: [] });
+    expect(response.code).toBe(502);
+    expect(response.body).toEqual({ error: 'Unable to load NOAA ENC moorings.' });
     vi.unstubAllGlobals();
   });
 

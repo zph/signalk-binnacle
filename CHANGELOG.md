@@ -32,6 +32,10 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Fixed
 
+- AISStream viewport targets now stay visible while a replacement area connects, small chart pans
+  reuse the current padded subscription, and ordinary harbor views no longer request a fixed
+  ten-degree square. NOAA moorings also keep the last complete result when any compilation-scale
+  request fails instead of accepting a partial empty snapshot.
 - Escape in a name form, such as renaming a route, track, or profile, now cancels only the form
   instead of also closing the panel behind it in the same keystroke.
 - Reopening Layers and charts to a requested tab from the app menu no longer resets to Charts once

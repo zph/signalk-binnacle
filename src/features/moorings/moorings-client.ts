@@ -86,17 +86,18 @@ async function fetchNoaaSource(
 }
 
 function mergeScaleBands(results: readonly PromiseSettledResult<MooringPoint[] | undefined>[]) {
+  if (results.some((result) => result.status !== 'fulfilled' || result.value === undefined)) {
+    return undefined;
+  }
   const byPosition = new Map<string, MooringPoint>();
-  let sourceAnswered = false;
   for (const result of results) {
     if (result.status !== 'fulfilled' || !result.value) continue;
-    sourceAnswered = true;
     for (const mooring of result.value) {
       const positionKey = `${mooring.position.longitude.toFixed(6)},${mooring.position.latitude.toFixed(6)}`;
       byPosition.set(positionKey, mooring);
     }
   }
-  return sourceAnswered ? [...byPosition.values()].slice(0, MAX_MOORINGS) : undefined;
+  return [...byPosition.values()].slice(0, MAX_MOORINGS);
 }
 
 async function fetchNoaaDirect(bbox: Bbox4): Promise<MooringPoint[] | undefined> {

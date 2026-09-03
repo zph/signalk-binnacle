@@ -168,17 +168,17 @@ async function fetchNoaaMoorings(bbox) {
   const results = await Promise.allSettled(
     NOAA_MOORING_SOURCES.map((source) => fetchNoaaMooringSource(source, bbox)),
   );
+  if (results.some((result) => result.status !== 'fulfilled')) {
+    throw new Error('One or more NOAA ENC mooring services were unavailable');
+  }
   const byPosition = new Map();
-  let sourceAnswered = false;
   for (const result of results) {
     if (result.status !== 'fulfilled') continue;
-    sourceAnswered = true;
     for (const feature of result.value) {
       const [longitude, latitude] = feature.geometry.coordinates;
       byPosition.set(`${longitude.toFixed(6)},${latitude.toFixed(6)}`, feature);
     }
   }
-  if (!sourceAnswered) throw new Error('NOAA ENC mooring services were unavailable');
   return { type: 'FeatureCollection', features: [...byPosition.values()].slice(0, MAX_MOORINGS) };
 }
 
