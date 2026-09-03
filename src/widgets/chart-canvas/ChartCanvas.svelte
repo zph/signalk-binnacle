@@ -18,7 +18,7 @@ import type { OwnVessel } from '$entities/vessel';
 import type { WaypointsStore } from '$entities/waypoint';
 import { boundsToBbox, type WeatherStore } from '$entities/weather';
 import type { AisMotionUpdate, AisNameMode, AisVesselKindMode } from '$features/ais-layer';
-import { fetchCharts } from '$features/charts';
+import { fetchChartsSnapshot } from '$features/charts';
 import { LayersView } from '$features/layers-panel';
 import { COLLISION_OVERLAY_ID } from '$features/lookout';
 import type { PpiLayer } from '$features/marine-radar';
@@ -59,6 +59,7 @@ import {
   detectCompanion,
   type LayerSettings,
   type MapTapEvent,
+  type SignalKChart,
   type ThemedMapHandle,
 } from '$shared/map';
 import { binnacleStorageKey } from '$shared/persistence';
@@ -811,14 +812,32 @@ onMount(async () => {
       let serverChartsGeneration = 0;
       let serverChartsQueue = Promise.resolve();
       let registeredServerChartsSignature: string | undefined;
+      let registeredServerChartsPartial = false;
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- replaced after discovery; no template reads this map directly
+      let retainedServerCharts = new Map<string, SignalKChart>();
 
       async function loadServerCharts(generation: number): Promise<void> {
-        const next = await fetchCharts(origin, chartsToken);
+        const discovery = await fetchChartsSnapshot(origin, chartsToken);
         if (isDestroyed() || generation !== serverChartsGeneration) return;
-        if (next === undefined) {
+        if (discovery === undefined) {
           emitChartsStatus('error');
           return;
         }
+        if (discovery.complete) {
+          retainedServerCharts = new Map(
+            discovery.charts.map((chart) => [chart.identifier, chart]),
+          );
+        } else {
+          // v1 is a compatibility view and may contain only provider-native charts. If v2 times
+          // out, fill only missing entries from v1 instead of replacing richer v2 descriptors or
+          // unregistering every v2-only source until the next successful refresh.
+          for (const chart of discovery.charts) {
+            if (!retainedServerCharts.has(chart.identifier)) {
+              retainedServerCharts.set(chart.identifier, chart);
+            }
+          }
+        }
+        const next = [...retainedServerCharts.values()];
         // A URL chart synced by this device can also be returned by the server. Keep the local,
         // manageable descriptor and omit its duplicate server entry.
         const localIds = new Set((userCharts?.sources ?? []).map((source) => source.id));
@@ -828,7 +847,8 @@ onMount(async () => {
           registeredServerChartsSignature === wantedSignature &&
           serverChartIds.size === wanted.length
         ) {
-          emitChartsStatus('ready');
+          registeredServerChartsPartial = !discovery.complete;
+          emitChartsStatus(registeredServerChartsPartial ? 'partial' : 'ready');
           return;
         }
         for (const id of serverChartIds) {
@@ -875,9 +895,10 @@ onMount(async () => {
           }
         }
         view.refresh();
-        const partial = results.some((result) => result.status === 'failed');
-        if (!partial) registeredServerChartsSignature = wantedSignature;
-        emitChartsStatus(partial ? 'partial' : 'ready');
+        const registrationFailed = results.some((result) => result.status === 'failed');
+        registeredServerChartsPartial = !discovery.complete || registrationFailed;
+        if (!registrationFailed) registeredServerChartsSignature = wantedSignature;
+        emitChartsStatus(registeredServerChartsPartial ? 'partial' : 'ready');
       }
 
       function retryServerCharts(): Promise<void> {

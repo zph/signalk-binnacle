@@ -57,6 +57,7 @@ export {
   fetchAuthedJson,
   fetchAuthedJsonOutcome,
   fetchKeyedResource,
+  fetchKeyedResourceSnapshot,
   mutationResultFor,
   postResource,
   putResource,

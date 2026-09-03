@@ -249,6 +249,34 @@ export async function fetchKeyedResource<T>(
   return sawNotFound ? [] : undefined;
 }
 
+interface KeyedResourceSnapshot<T> {
+  items: T[];
+  // False means a later compatibility endpoint answered only after an earlier endpoint failed.
+  // Callers may merge these items into their last complete snapshot, but must not treat omissions
+  // as deletions.
+  complete: boolean;
+}
+
+// The completeness-aware counterpart used by resources whose compatibility endpoint is only a
+// subset of the current collection. A 404 is an authoritative "unsupported" response and makes
+// the next endpoint a complete fallback; a timeout or error makes a later success partial.
+export async function fetchKeyedResourceSnapshot<T>(
+  base: string,
+  paths: readonly string[],
+  token: string | undefined,
+  mapEntry: (id: string, raw: unknown) => T | undefined,
+  onError?: (url: string, status: number) => void,
+): Promise<KeyedResourceSnapshot<T> | undefined> {
+  let earlierFailed = false;
+  for (const path of paths) {
+    const out = await tryKeyedResource(`${base}${path}`, token, mapEntry, onError);
+    if (out === 'not-found') continue;
+    if (out) return { items: out, complete: !earlierFailed };
+    earlierFailed = true;
+  }
+  return earlierFailed ? undefined : { items: [], complete: true };
+}
+
 async function tryKeyedResource<T>(
   url: string,
   token: string | undefined,

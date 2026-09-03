@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse } from '$shared/testing';
-import { fetchCharts } from './charts-client';
+import { fetchCharts, fetchChartsSnapshot } from './charts-client';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -42,9 +42,24 @@ describe('fetchCharts', () => {
         jsonResponse(200, { noaa: { identifier: 'noaa', name: 'NOAA', type: 'tilelayer' } }),
       );
     vi.stubGlobal('fetch', fetchMock);
-    const charts = (await fetchCharts('http://pi.local')) ?? [];
-    expect(charts).toHaveLength(1);
+    const snapshot = await fetchChartsSnapshot('http://pi.local');
+    expect(snapshot?.charts).toHaveLength(1);
+    expect(snapshot?.complete).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks a successful v1 fallback partial when v2 fails transiently', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(jsonResponse(500, {}))
+      .mockReturnValueOnce(
+        jsonResponse(200, { noaa: { identifier: 'noaa', name: 'NOAA', type: 'tilelayer' } }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await fetchChartsSnapshot('http://pi.local')).toEqual({
+      complete: false,
+      charts: [{ identifier: 'noaa', name: 'NOAA', type: 'tilelayer' }],
+    });
   });
 
   it('returns undefined when both endpoints fail so a caller keeps its charts', async () => {

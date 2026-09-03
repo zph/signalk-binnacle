@@ -1,7 +1,7 @@
 import { type Bbox4, isBbox4, isLatitude, isLongitude } from '$shared/geo';
 import { cleanBoundedText, isFiniteNumber, isRecord } from '$shared/lib';
 import type { ChartCellSizeControl, SignalKChart } from '$shared/map';
-import { deleteResource, fetchKeyedResource, putResource } from '$shared/signalk';
+import { deleteResource, fetchKeyedResourceSnapshot, putResource } from '$shared/signalk';
 
 const V2 = '/signalk/v2/api/resources/charts';
 const V1 = '/signalk/v1/api/resources/charts';
@@ -115,12 +115,17 @@ function chartFromEntry(id: string, raw: unknown): SignalKChart | undefined {
 // Returns undefined when every endpoint is unreachable (so a caller can keep an existing list rather
 // than blank it on a transient failure, matching fetchRoutes and fetchNotes), and [] for a reachable
 // server with no charts. A reachable error status is surfaced via onError rather than swallowed.
-export function fetchCharts(
+export interface ChartDiscoverySnapshot {
+  charts: SignalKChart[];
+  complete: boolean;
+}
+
+export async function fetchChartsSnapshot(
   serverBase: string,
   token?: string,
-): Promise<SignalKChart[] | undefined> {
+): Promise<ChartDiscoverySnapshot | undefined> {
   let accepted = 0;
-  return fetchKeyedResource<SignalKChart>(
+  const snapshot = await fetchKeyedResourceSnapshot<SignalKChart>(
     serverBase,
     [V2, V1],
     token,
@@ -132,6 +137,14 @@ export function fetchCharts(
     },
     (url, status) => console.warn(`[charts] ${url} returned ${status}`),
   );
+  return snapshot ? { charts: snapshot.items, complete: snapshot.complete } : undefined;
+}
+
+export async function fetchCharts(
+  serverBase: string,
+  token?: string,
+): Promise<SignalKChart[] | undefined> {
+  return (await fetchChartsSnapshot(serverBase, token))?.charts;
 }
 
 // Register a chart as a v2 resource on the server so other Signal K clients and devices discover it.
