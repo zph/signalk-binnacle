@@ -106,6 +106,19 @@ for (const viewport of viewports) {
 
     await page.goto('/');
     await expect.poll(() => destinationCenters.length, { timeout: 15_000 }).toBeGreaterThan(0);
+    const canvas = page.locator('canvas.maplibregl-canvas');
+    const targetPosition = await canvas.boundingBox();
+    if (!targetPosition) throw new Error('map canvas did not lay out');
+    await page.waitForTimeout(500);
+    await page.mouse.click(
+      targetPosition.x + targetPosition.width / 2,
+      targetPosition.y + targetPosition.height / 2,
+    );
+    const aisPanel = page.getByRole('complementary', { name: 'Nearby vessels (AIS)' });
+    await expect(aisPanel).toBeVisible();
+    await expect(aisPanel.getByText('Visitor', { exact: true })).toBeVisible();
+    await aisPanel.getByRole('button', { name: 'Close nearby vessels' }).click();
+
     const helm = page.getByRole('group', { name: 'Helm actions' });
     await helm.getByRole('button', { name: 'Open supermenu' }).click();
     const supermenu = page.getByRole('menu', { name: 'Supermenu' });
@@ -130,7 +143,6 @@ for (const viewport of viewports) {
 
     if (viewport.name === 'desktop') {
       await panel.getByRole('button', { name: 'Close moorings' }).click();
-      const canvas = page.locator('canvas.maplibregl-canvas');
       const box = await canvas.boundingBox();
       if (!box) throw new Error('map canvas did not lay out');
       const y = box.y + box.height * 0.45;

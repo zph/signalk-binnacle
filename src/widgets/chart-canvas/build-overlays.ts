@@ -173,7 +173,12 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
       providers: historyProviders,
       selectedId: selectedAisId ?? (() => undefined),
     }),
-    createViewportAisOverlay({ origin, getToken, available: destinationAisAvailable }),
+    createViewportAisOverlay({
+      origin,
+      getToken,
+      available: destinationAisAvailable,
+      targets: aisTargets,
+    }),
     createAisOverlay(aisTargets, {
       assessment: () => collision.assessment,
       onSelect: onAisSelect,

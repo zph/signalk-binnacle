@@ -61,6 +61,71 @@ describe('AisTargets', () => {
     expect(ais.find('vessels.missing')).toBeUndefined();
   });
 
+  it('merges viewport targets into the normal AIS list and selection index', () => {
+    const store = new SignalKStore();
+    const ais = new AisTargets(store, () => 10_000);
+    store.applyFrame(
+      frame(
+        {
+          'vessels.urn:mrn:imo:mmsi:111111111': {
+            'navigation.position': { latitude: 36, longitude: -121 },
+          },
+        },
+        10_000,
+      ),
+    );
+
+    ais.replaceViewportTargets([
+      {
+        id: 'aisstream:222222222',
+        name: 'REMOTE',
+        position: { latitude: 37, longitude: -122 },
+        cogRad: 1,
+        lastReportAtMs: 10_000,
+      },
+    ]);
+
+    expect(ais.list()).toHaveLength(2);
+    expect(ais.find('aisstream:222222222')).toMatchObject({
+      name: 'REMOTE',
+      cogRad: 1,
+      stale: false,
+    });
+    expect(ais.positionEpochMs('aisstream:222222222')).toBe(10_000);
+    expect(ais.revision('aisstream:222222222')).toBeDefined();
+
+    ais.clearViewportTargets();
+    expect(ais.find('aisstream:222222222')).toBeUndefined();
+    expect(ais.list()).toHaveLength(1);
+  });
+
+  it('prefers a local Signal K target over the viewport copy of the same MMSI', () => {
+    const store = new SignalKStore();
+    const ais = new AisTargets(store, () => 10_000);
+    store.applyFrame(
+      frame(
+        {
+          'vessels.urn:mrn:imo:mmsi:111111111': {
+            'navigation.position': { latitude: 36, longitude: -121 },
+            name: 'LOCAL',
+          },
+        },
+        10_000,
+      ),
+    );
+    ais.replaceViewportTargets([
+      {
+        id: 'aisstream:111111111',
+        name: 'REMOTE COPY',
+        position: { latitude: 37, longitude: -122 },
+        lastReportAtMs: 10_000,
+      },
+    ]);
+
+    expect(ais.list()).toHaveLength(1);
+    expect(ais.list()[0].name).toBe('LOCAL');
+  });
+
   // find() indexes the memoized list, so it must hand back the very object the list holds and it
   // must follow a rebuild rather than answer from a stale index.
   it('returns the listed view object and tracks it across a rebuild', () => {

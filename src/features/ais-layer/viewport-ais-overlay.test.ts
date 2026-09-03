@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFakeMap, fakeOverlayContext, jsonResponse, sourceFeatures } from '$shared/testing';
+import type { AisTargets, AisTargetView } from '$entities/ais';
+import { createFakeMap, fakeOverlayContext, jsonResponse } from '$shared/testing';
 import { createViewportAisOverlay } from './viewport-ais-overlay';
 
 function viewMap(view: { west: number; south: number; east: number; north: number }) {
@@ -49,10 +50,20 @@ describe('viewport AIS overlay', () => {
     const view = { west: -71.4, south: 41.4, east: -71.2, north: 41.6 };
     const map = viewMap(view);
     const ctx = fakeOverlayContext(map);
+    let received: AisTargetView[] = [];
+    const targets = {
+      replaceViewportTargets(next: readonly AisTargetView[]) {
+        received = [...next];
+      },
+      clearViewportTargets() {
+        received = [];
+      },
+    } as AisTargets;
     const overlay = createViewportAisOverlay({
       origin: 'http://pi',
       getToken: () => 'token',
       available: () => true,
+      targets,
     });
     overlay.add(ctx);
 
@@ -64,9 +75,7 @@ describe('viewport AIS overlay', () => {
     overlay.sync(ctx);
     await flush();
     expect(requested).toHaveLength(1);
-    expect(sourceFeatures(map, 'binnacle-viewport-ais-source')).toEqual([
-      expect.objectContaining({ properties: expect.objectContaining({ id: 'first' }) }),
-    ]);
+    expect(received).toEqual([expect.objectContaining({ id: 'first', name: 'first' })]);
 
     view.west = -70.4;
     view.east = -70.2;
@@ -78,8 +87,6 @@ describe('viewport AIS overlay', () => {
     expect(JSON.parse(new URL(requested[1]).searchParams.get('bbox') ?? '')).toEqual([
       -70.5, 41.3, -70.1, 41.7,
     ]);
-    expect(sourceFeatures(map, 'binnacle-viewport-ais-source')).toEqual([
-      expect.objectContaining({ properties: expect.objectContaining({ id: 'second' }) }),
-    ]);
+    expect(received).toEqual([expect.objectContaining({ id: 'second', name: 'second' })]);
   });
 });

@@ -280,6 +280,7 @@ describe('buildDynamicOverlays', () => {
       origin: deps.origin,
       getToken: deps.getToken,
       available: deps.destinationAisAvailable,
+      targets: deps.aisTargets,
     });
     expect(factories.createAisOverlay).toHaveBeenCalledWith(deps.aisTargets, {
       assessment: expect.any(Function),
