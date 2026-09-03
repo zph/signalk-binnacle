@@ -23,6 +23,9 @@ import { fetchDestinationAis, fetchMoorings } from './moorings-client';
 import {
   addMooringLayers,
   applyMooringTheme,
+  MOORINGS_AIS_LABEL_LAYER_ID,
+  MOORINGS_AIS_LAYER_ID,
+  MOORINGS_AIS_SOURCE_ID,
   MOORINGS_LABEL_LAYER_ID,
   MOORINGS_LAYER_ID,
   MOORINGS_LAYERS,
@@ -40,6 +43,7 @@ import type {
 } from './moorings-types';
 
 const AIS_POLL_MS = 5_000;
+const AIS_VIEWPORT_QUIESCENCE_MS = 1_500;
 
 export interface MooringsOverlay extends OverlayModule, Syncable {}
 
@@ -72,6 +76,24 @@ function renderFeatures(moorings: readonly MooringPoint[]): GeoJSON.FeatureColle
   );
 }
 
+function renderDestinationTargets(targets: readonly MooringAisTarget[]): GeoJSON.FeatureCollection {
+  return featureCollection(
+    targets.map(
+      (target): GeoJSON.Feature => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [target.position.longitude, target.position.latitude],
+        },
+        properties: {
+          id: target.id,
+          label: target.name ?? target.mmsi ?? 'AIS target',
+        },
+      }),
+    ),
+  );
+}
+
 export function createMooringsOverlay(
   origin: string,
   getToken: () => string | undefined,
@@ -93,6 +115,9 @@ export function createMooringsOverlay(
   let loading = false;
   let aisLoading = false;
   let lastAisPollAt = 0;
+  let destinationFetchBbox: ReturnType<typeof lngLatBoundsToBbox4> | undefined;
+  let pendingDestinationViewport: ReturnType<typeof lngLatBoundsToBbox4> | undefined;
+  let pendingDestinationSince = 0;
   let lastRenderKey = '';
   let mooringVersion = 0;
   let themePaint = mapThemePaint('day');
@@ -126,6 +151,7 @@ export function createMooringsOverlay(
     lastRenderKey = '';
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, emptyFeatureCollection());
     setSourceData(ctx.map, MOORINGS_SELECTED_SOURCE_ID, emptyFeatureCollection());
+    setSourceData(ctx.map, MOORINGS_AIS_SOURCE_ID, emptyFeatureCollection());
     options.onMoorings?.([]);
   }
 
@@ -144,6 +170,7 @@ export function createMooringsOverlay(
     lastRenderKey = key;
     rendered = assessMoorings(rawMoorings, onboard, destinationTargets, now);
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, renderFeatures(rendered));
+    setSourceData(ctx.map, MOORINGS_AIS_SOURCE_ID, renderDestinationTargets(destinationTargets));
     const selected = rendered.find((mooring) => mooring.id === options.selectedId());
     setSourceData(
       ctx.map,
@@ -198,6 +225,8 @@ export function createMooringsOverlay(
     if (!options.destinationAisAvailable()) {
       destinationAis = 'unavailable';
       destinationTargets = [];
+      lastRenderKey = '';
+      updateRender(ctx, now);
       report(lastStatus?.phase ?? 'idle');
       return;
     }
@@ -205,6 +234,8 @@ export function createMooringsOverlay(
     if (boxes.length !== 1) {
       destinationAis = 'error';
       destinationTargets = [];
+      lastRenderKey = '';
+      updateRender(ctx, now);
       report(lastStatus?.phase ?? 'idle');
       return;
     }
@@ -218,6 +249,28 @@ export function createMooringsOverlay(
     lastRenderKey = '';
     updateRender(ctx, now);
     report(lastStatus?.phase ?? 'idle');
+  }
+
+  function destinationRequestBbox(
+    viewport: ReturnType<typeof lngLatBoundsToBbox4>,
+    now: number,
+  ): ReturnType<typeof lngLatBoundsToBbox4> | undefined {
+    if (destinationFetchBbox && bboxContains(destinationFetchBbox, viewport)) {
+      pendingDestinationViewport = undefined;
+      return destinationFetchBbox;
+    }
+    const viewportChanged =
+      !pendingDestinationViewport ||
+      pendingDestinationViewport.some((value, index) => value !== viewport[index]);
+    if (viewportChanged) {
+      pendingDestinationViewport = viewport;
+      pendingDestinationSince = now;
+      return undefined;
+    }
+    if (now - pendingDestinationSince < AIS_VIEWPORT_QUIESCENCE_MS) return undefined;
+    destinationFetchBbox = padBbox(viewport);
+    pendingDestinationViewport = undefined;
+    return destinationFetchBbox;
   }
 
   return {
@@ -250,6 +303,9 @@ export function createMooringsOverlay(
       rendered = [];
       mooringVersion += 1;
       destinationTargets = [];
+      destinationFetchBbox = undefined;
+      pendingDestinationViewport = undefined;
+      pendingDestinationSince = 0;
       lastRenderKey = '';
     },
     sync(ctx) {
@@ -269,8 +325,11 @@ export function createMooringsOverlay(
         report('ready');
       }
       if (!aisLoading && now - lastAisPollAt >= AIS_POLL_MS) {
-        lastAisPollAt = now;
-        void pollDestinationAis(ctx, viewport, now);
+        const requestBbox = destinationRequestBbox(viewport, now);
+        if (requestBbox) {
+          lastAisPollAt = now;
+          void pollDestinationAis(ctx, requestBbox, now);
+        }
       }
     },
     setVisible(ctx, next) {
@@ -289,6 +348,12 @@ export function createMooringsOverlay(
       }
       if (ctx.map.getLayer(MOORINGS_LABEL_LAYER_ID)) {
         ctx.map.setPaintProperty(MOORINGS_LABEL_LAYER_ID, 'text-opacity', next);
+      }
+      if (ctx.map.getLayer(MOORINGS_AIS_LAYER_ID)) {
+        ctx.map.setPaintProperty(MOORINGS_AIS_LAYER_ID, 'circle-opacity', next * 0.95);
+      }
+      if (ctx.map.getLayer(MOORINGS_AIS_LABEL_LAYER_ID)) {
+        ctx.map.setPaintProperty(MOORINGS_AIS_LABEL_LAYER_ID, 'text-opacity', next);
       }
       hit.refreshInteractionState();
     },

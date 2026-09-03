@@ -29,11 +29,12 @@ falls back to NOAA ENC Direct in the browser when the companion route is absent.
 For the area around the boat, Binnacle uses AIS targets already present in Signal K. It does not
 open another AIS connection for that case.
 
-Remote-area review is owned by the extended `signalk-aisstream` plugin. Its primary WebSocket remains
-centered on `vessels.self`. A second temporary WebSocket follows the chart area requested through its
-read-only destination API, retains a bounded 30-minute history, shares one subscription among
-clients, rate-limits subscription replacements, and closes after five minutes without a request.
-The AISStream key stays in that plugin and is never sent to Binnacle.
+Remote-area review is owned by the extended `signalk-aisstream` plugin. One upstream WebSocket
+subscribes to both the area around `vessels.self` and the settled chart area requested through its
+read-only destination API. The plugin retains a bounded 30-minute history, shares one destination
+request among clients, rate-limits subscription replacements, and stops requesting the destination
+area after five minutes without a request. Remote targets appear on the chart while Moorings is
+active. The AISStream key stays in that plugin and is never sent to Binnacle.
 
 If the extension is absent or disconnected, NOAA mooring positions and onboard Signal K AIS remain
 available. The panel explains the degraded state, and unobserved facilities stay unknown.

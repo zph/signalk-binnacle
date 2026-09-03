@@ -15,10 +15,15 @@ export const MOORINGS_LAYER_ID = 'binnacle-moorings-points';
 export const MOORINGS_LABEL_LAYER_ID = 'binnacle-moorings-labels';
 export const MOORINGS_SELECTED_SOURCE_ID = 'binnacle-moorings-selected-source';
 export const MOORINGS_SELECTED_LAYER_ID = 'binnacle-moorings-selected';
+export const MOORINGS_AIS_SOURCE_ID = 'binnacle-moorings-destination-ais-source';
+export const MOORINGS_AIS_LAYER_ID = 'binnacle-moorings-destination-ais';
+export const MOORINGS_AIS_LABEL_LAYER_ID = 'binnacle-moorings-destination-ais-labels';
 export const MOORINGS_LAYERS = [
+  MOORINGS_AIS_LAYER_ID,
   MOORINGS_SELECTED_LAYER_ID,
   MOORINGS_LAYER_ID,
   MOORINGS_LABEL_LAYER_ID,
+  MOORINGS_AIS_LABEL_LAYER_ID,
 ];
 export const MOORINGS_MIN_ZOOM = 11;
 
@@ -41,6 +46,23 @@ export function addMooringLayers(
 ): void {
   ensureGeoJsonSource(map, MOORINGS_SOURCE_ID);
   ensureGeoJsonSource(map, MOORINGS_SELECTED_SOURCE_ID);
+  ensureGeoJsonSource(map, MOORINGS_AIS_SOURCE_ID);
+  if (!map.getLayer(MOORINGS_AIS_LAYER_ID)) {
+    const targets: CircleLayerSpecification = {
+      id: MOORINGS_AIS_LAYER_ID,
+      type: 'circle',
+      source: MOORINGS_AIS_SOURCE_ID,
+      minzoom: MOORINGS_MIN_ZOOM,
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 5, 15, 7],
+        'circle-color': rgbaCss(paint.aisTarget),
+        'circle-stroke-color': paint.markerGlyph,
+        'circle-stroke-width': 2,
+        'circle-opacity': 0.95,
+      },
+    };
+    map.addLayer(targets, before);
+  }
   if (!map.getLayer(MOORINGS_SELECTED_LAYER_ID)) {
     const selected: CircleLayerSpecification = {
       id: MOORINGS_SELECTED_LAYER_ID,
@@ -95,6 +117,29 @@ export function addMooringLayers(
     };
     map.addLayer(labels, before);
   }
+  if (!map.getLayer(MOORINGS_AIS_LABEL_LAYER_ID)) {
+    const targetLabels: SymbolLayerSpecification = {
+      id: MOORINGS_AIS_LABEL_LAYER_ID,
+      type: 'symbol',
+      source: MOORINGS_AIS_SOURCE_ID,
+      minzoom: 13,
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-font': ['Noto Sans Regular'],
+        'text-size': 11,
+        'text-offset': [0, 1.25],
+        'text-anchor': 'top',
+        'text-optional': true,
+        'text-max-width': 10,
+      },
+      paint: {
+        'text-color': rgbaCss(paint.aisTarget),
+        'text-halo-color': paint.background,
+        'text-halo-width': 1.2,
+      },
+    };
+    map.addLayer(targetLabels, before);
+  }
 }
 
 export function applyMooringTheme(map: import('maplibre-gl').Map, paint: MapThemePaint): void {
@@ -109,8 +154,20 @@ export function applyMooringTheme(map: import('maplibre-gl').Map, paint: MapThem
     map.setPaintProperty(MOORINGS_LABEL_LAYER_ID, 'text-color', paint.label);
     map.setPaintProperty(MOORINGS_LABEL_LAYER_ID, 'text-halo-color', paint.background);
   }
+  if (map.getLayer(MOORINGS_AIS_LAYER_ID)) {
+    map.setPaintProperty(MOORINGS_AIS_LAYER_ID, 'circle-color', rgbaCss(paint.aisTarget));
+    map.setPaintProperty(MOORINGS_AIS_LAYER_ID, 'circle-stroke-color', paint.markerGlyph);
+  }
+  if (map.getLayer(MOORINGS_AIS_LABEL_LAYER_ID)) {
+    map.setPaintProperty(MOORINGS_AIS_LABEL_LAYER_ID, 'text-color', rgbaCss(paint.aisTarget));
+    map.setPaintProperty(MOORINGS_AIS_LABEL_LAYER_ID, 'text-halo-color', paint.background);
+  }
 }
 
 export function removeMooringLayers(map: import('maplibre-gl').Map): void {
-  removeLayersAndSources(map, MOORINGS_LAYERS, [MOORINGS_SOURCE_ID, MOORINGS_SELECTED_SOURCE_ID]);
+  removeLayersAndSources(map, MOORINGS_LAYERS, [
+    MOORINGS_SOURCE_ID,
+    MOORINGS_SELECTED_SOURCE_ID,
+    MOORINGS_AIS_SOURCE_ID,
+  ]);
 }

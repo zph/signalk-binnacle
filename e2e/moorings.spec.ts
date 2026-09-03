@@ -11,6 +11,7 @@ const viewports = [
 
 for (const viewport of viewports) {
   test(`moorings searches destination AIS on ${viewport.name}`, async ({ page }) => {
+    const destinationCenters: number[] = [];
     await page.setViewportSize(viewport);
     await page.addInitScript(() => {
       localStorage.clear();
@@ -72,6 +73,7 @@ for (const viewport of viewports) {
       ];
       const longitude = (bbox[0] + bbox[2]) / 2;
       const latitude = (bbox[1] + bbox[3]) / 2;
+      destinationCenters.push(longitude);
       const now = Date.now();
       await route.fulfill({
         status: 200,
@@ -122,5 +124,23 @@ for (const viewport of viewports) {
     await expect(panel.getByRole('button', { name: 'Locate' })).toBeVisible();
     await expectNoHorizontalOverflow(panel);
     await expectInsideViewport(panel, page);
+
+    if (viewport.name === 'desktop') {
+      await panel.getByRole('button', { name: 'Close moorings' }).click();
+      const canvas = page.locator('canvas.maplibregl-canvas');
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('map canvas did not lay out');
+      const y = box.y + box.height * 0.45;
+      await page.mouse.move(box.x + box.width * 0.85, y);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.15, y, { steps: 12 });
+      await page.mouse.up();
+
+      await expect
+        .poll(() => new Set(destinationCenters.map((center) => center.toFixed(4))).size, {
+          timeout: 15_000,
+        })
+        .toBeGreaterThan(1);
+    }
   });
 }

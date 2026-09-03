@@ -140,8 +140,9 @@ source, and surrounding traffic before relying on it.
   list selection share one highlighted mooring and detail view. AIS observations are classified as
   likely occupied, possible occupancy, or unknown. Unknown does not mean vacant. Onboard Signal K
   AIS contributes near the boat. When the extended signalk-aisstream plugin is installed, Binnacle
-  can review a different chart area through its separate destination subscription without moving
-  the primary vessel-centered stream. See [Moorings](moorings.md).
+  can review a settled chart area through the same upstream connection without moving the primary
+  vessel-centered stream. Those remote targets appear on the chart while Moorings is active. See
+  [Moorings](moorings.md).
 - **Measure** arms chart taps for rhumb-line distance and true bearing. Points can be selected through
   a 44 px chart target or the strip, moved deliberately by drag, chart tap, or chart-center keyboard
   workflow, deleted, and restored through operation-based Undo. The strip shows both legs adjacent to
