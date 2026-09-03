@@ -303,7 +303,7 @@ let routeEditor: RouteEditor | undefined;
 const SERVER_CHART_DISCOVERY_RETRY_MS = [
   1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000,
 ] as const;
-const SERVER_CHART_DISCOVERY_REFRESH_MS = 5 * 60_000;
+const SERVER_CHART_DISCOVERY_REFRESH_MS = 10 * 60_000;
 let serverChartDiscoveryTimer: ReturnType<typeof setTimeout> | undefined;
 // Stays true through MapLibre dispatch and the shared queued marker-hit routing for a radar placement
 // tap. The general map listener runs before layer delegates, and the final or failed placement tap
