@@ -88,10 +88,10 @@ describe('moorings destination AIS viewport', () => {
     const firstRequest = fetchDestinationAisMock.mock.calls[0];
     expect(firstRequest?.slice(0, 2)).toEqual(['http://pi', undefined]);
     expect(firstRequest?.[2]).toEqual([
-      expect.closeTo(-71.34),
-      expect.closeTo(41.47),
-      expect.closeTo(-71.3),
-      expect.closeTo(41.51),
+      expect.closeTo(-76.32),
+      expect.closeTo(36.49),
+      expect.closeTo(-66.32),
+      expect.closeTo(46.49),
     ]);
     expect(map.getSource('binnacle-moorings-destination-ais-source')).toBeUndefined();
     expect(map.getLayer('binnacle-moorings-destination-ais')).toBeUndefined();
@@ -108,10 +108,10 @@ describe('moorings destination AIS viewport', () => {
     const secondRequest = fetchDestinationAisMock.mock.calls[1];
     expect(secondRequest?.slice(0, 2)).toEqual(['http://pi', undefined]);
     expect(secondRequest?.[2]).toEqual([
-      expect.closeTo(-70.34),
-      expect.closeTo(41.47),
-      expect.closeTo(-70.3),
-      expect.closeTo(41.51),
+      expect.closeTo(-75.32),
+      expect.closeTo(36.49),
+      expect.closeTo(-65.32),
+      expect.closeTo(46.49),
     ]);
     expect(map.getSource('binnacle-moorings-destination-ais-source')).toBeUndefined();
   });

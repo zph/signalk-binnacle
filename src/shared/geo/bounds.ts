@@ -70,6 +70,33 @@ export function bboxCenter(bbox: readonly [number, number, number, number]): Lat
   return { latitude: (south + north) / 2, longitude };
 }
 
+function fixedSpan(
+  center: number,
+  span: number,
+  minimum: number,
+  maximum: number,
+): [number, number] {
+  let lower = center - span / 2;
+  let upper = center + span / 2;
+  if (lower < minimum) {
+    lower = minimum;
+    upper = minimum + span;
+  } else if (upper > maximum) {
+    upper = maximum;
+    lower = maximum - span;
+  }
+  return [Number(lower.toFixed(6)), Number(upper.toFixed(6))];
+}
+
+// Return a fixed square in degrees around a viewport center. Near a coordinate-system edge the
+// square shifts inward so the wire representation remains a conventional non-wrapping bbox.
+export function centeredBbox(viewport: Bbox4, span: number): Bbox4 {
+  const center = bboxCenter(viewport);
+  const [west, east] = fixedSpan(center.longitude, span, -180, 180);
+  const [south, north] = fixedSpan(center.latitude, span, -90, 90);
+  return [west, south, east, north];
+}
+
 // The Web Mercator projection is undefined toward the poles, so a padded box stops at the standard
 // latitude limit on both sides.
 const WEB_MERCATOR_MAX_LAT = 85;

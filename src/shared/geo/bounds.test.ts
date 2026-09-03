@@ -5,11 +5,22 @@ import {
   bboxContains,
   bboxContainsPoint,
   boundsOfPoints,
+  centeredBbox,
   fetchAcrossSeam,
   normalizeBounds,
   padBbox,
   splitAtAntimeridian,
 } from './bounds';
+
+describe('centeredBbox', () => {
+  it('creates a fixed square around a viewport center', () => {
+    expect(centeredBbox([-71.4, 41.4, -71.2, 41.6], 10)).toEqual([-76.3, 36.5, -66.3, 46.5]);
+  });
+
+  it('shifts the square inside coordinate limits', () => {
+    expect(centeredBbox([177, 80, 181, 86], 10)).toEqual([170, 78, 180, 88]);
+  });
+});
 
 describe('bboxContainsPoint', () => {
   const box: [number, number, number, number] = [-10, -5, 10, 5];

@@ -2,6 +2,7 @@ import type { AisTargets } from '$entities/ais';
 import {
   bboxContains,
   bboxContainsPoint,
+  centeredBbox,
   lngLatBoundsToBbox4,
   padBbox,
   splitAtAntimeridian,
@@ -41,6 +42,7 @@ import type {
 
 const AIS_POLL_MS = 5_000;
 const AIS_VIEWPORT_QUIESCENCE_MS = 1_500;
+const AIS_BBOX_SPAN = 10;
 
 export interface MooringsOverlay extends OverlayModule, Syncable {}
 
@@ -232,20 +234,24 @@ export function createMooringsOverlay(
     viewport: ReturnType<typeof lngLatBoundsToBbox4>,
     now: number,
   ): ReturnType<typeof lngLatBoundsToBbox4> | undefined {
-    if (destinationFetchBbox && bboxContains(destinationFetchBbox, viewport)) {
+    const desired = centeredBbox(viewport, AIS_BBOX_SPAN);
+    if (
+      destinationFetchBbox?.every((coordinate, index) => coordinate === desired[index]) ??
+      false
+    ) {
       pendingDestinationViewport = undefined;
       return destinationFetchBbox;
     }
     const viewportChanged =
       !pendingDestinationViewport ||
-      pendingDestinationViewport.some((value, index) => value !== viewport[index]);
+      pendingDestinationViewport.some((value, index) => value !== desired[index]);
     if (viewportChanged) {
-      pendingDestinationViewport = viewport;
+      pendingDestinationViewport = desired;
       pendingDestinationSince = now;
       return undefined;
     }
     if (now - pendingDestinationSince < AIS_VIEWPORT_QUIESCENCE_MS) return undefined;
-    destinationFetchBbox = padBbox(viewport);
+    destinationFetchBbox = desired;
     pendingDestinationViewport = undefined;
     return destinationFetchBbox;
   }

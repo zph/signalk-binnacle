@@ -1,13 +1,13 @@
 import type { AisTargets, AisTargetView } from '$entities/ais';
-import { type Bbox4, bboxContains, lngLatBoundsToBbox4, padBbox } from '$shared/geo';
+import { type Bbox4, centeredBbox, lngLatBoundsToBbox4 } from '$shared/geo';
 import { isRecord, readBoundedJson, withTimeout } from '$shared/lib';
 import type { OverlayContext } from '$shared/map';
 import { authInit } from '$shared/signalk';
 
 const SETTLE_MS = 1_500;
 const POLL_MS = 1_000;
-const MAX_TARGETS = 1_000;
-const MAX_BBOX_SPAN = 5;
+const MAX_TARGETS = 10_000;
+const BBOX_SPAN = 10;
 
 interface DestinationSnapshot {
   state: 'connecting' | 'live' | 'disconnected' | 'error' | 'unavailable';
@@ -101,14 +101,8 @@ function sameBbox(left: Bbox4 | undefined, right: Bbox4): boolean {
   return left?.every((coordinate, index) => coordinate === right[index]) ?? false;
 }
 
-function requestBbox(viewport: Bbox4): Bbox4 | undefined {
-  const [west, south, east, north] = viewport;
-  if (west >= east || east - west > MAX_BBOX_SPAN || north - south > MAX_BBOX_SPAN)
-    return undefined;
-  const padded = padBbox(viewport);
-  return padded[2] - padded[0] <= MAX_BBOX_SPAN && padded[3] - padded[1] <= MAX_BBOX_SPAN
-    ? padded
-    : viewport;
+function requestBbox(viewport: Bbox4): Bbox4 {
+  return centeredBbox(viewport, BBOX_SPAN);
 }
 
 export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
@@ -158,7 +152,6 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
         return;
       }
       const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
-      if (fetchedBbox && bboxContains(fetchedBbox, viewport) && now() < nextFetchAt) return;
       if (!pendingViewport || !sameBbox(pendingViewport, viewport)) {
         pendingViewport = viewport;
         pendingSince = now();
@@ -166,10 +159,7 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
       }
       if (loading || now() - pendingSince < SETTLE_MS) return;
       const bbox = requestBbox(viewport);
-      if (!bbox) {
-        clear();
-        return;
-      }
+      if (fetchedBbox && sameBbox(fetchedBbox, bbox) && now() < nextFetchAt) return;
       void load(bbox);
     },
     setVisible(_ctx: OverlayContext, _visible: boolean) {},
