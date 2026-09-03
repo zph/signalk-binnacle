@@ -429,36 +429,47 @@ export function mergeMarine(grid: WeatherGrid, marine: MarineFields): WeatherGri
   // cell-count guard in parseMarine.
   if (marine.waveHeight.length !== grid.windU.length) return grid;
   const maxTimeMismatchMs = maxTimeMismatch(grid.times, marine.source.times);
-  const maxDisplacementM = maxSourceDisplacement(grid.atmosphericSource, marine.source);
+  const displacementsM = marineSourceDisplacements(grid, marine.source);
+  const maxDisplacementM =
+    displacementsM.length > 0 ? Math.max(...displacementsM) : Number.POSITIVE_INFINITY;
   const displacementToleranceM = marineAlignmentToleranceM(grid);
   const qualified = {
     ...grid,
     marineSource: marine.source,
     marineAlignment: { maxDisplacementM, maxTimeMismatchMs },
   };
-  if (maxTimeMismatchMs !== 0 || maxDisplacementM > displacementToleranceM) return qualified;
+  if (maxTimeMismatchMs !== 0 || displacementsM.length === 0) return qualified;
+  const aligned = displacementsM.map((distance) => distance <= displacementToleranceM);
+  if (!aligned.some(Boolean)) return qualified;
   return {
     ...qualified,
-    waveHeight: marine.waveHeight,
-    waveDirection: marine.waveDirection,
-    wavePeriod: marine.wavePeriod,
-    windWaveHeight: marine.windWaveHeight,
-    windWaveDirection: marine.windWaveDirection,
-    windWavePeriod: marine.windWavePeriod,
-    windWavePeakPeriod: marine.windWavePeakPeriod,
-    swellWaveHeight: marine.swellWaveHeight,
-    swellWaveDirection: marine.swellWaveDirection,
-    swellWavePeriod: marine.swellWavePeriod,
-    swellWavePeakPeriod: marine.swellWavePeakPeriod,
-    oceanCurrentSpeed: marine.oceanCurrentSpeed,
-    oceanCurrentDirection: marine.oceanCurrentDirection,
-    seaSurfaceTemperature: marine.seaSurfaceTemperature,
+    waveHeight: maskMisalignedCells(marine.waveHeight, aligned),
+    waveDirection: maskMisalignedCells(marine.waveDirection, aligned),
+    wavePeriod: maskMisalignedCells(marine.wavePeriod, aligned),
+    windWaveHeight: maskMisalignedCells(marine.windWaveHeight, aligned),
+    windWaveDirection: maskMisalignedCells(marine.windWaveDirection, aligned),
+    windWavePeriod: maskMisalignedCells(marine.windWavePeriod, aligned),
+    windWavePeakPeriod: maskMisalignedCells(marine.windWavePeakPeriod, aligned),
+    swellWaveHeight: maskMisalignedCells(marine.swellWaveHeight, aligned),
+    swellWaveDirection: maskMisalignedCells(marine.swellWaveDirection, aligned),
+    swellWavePeriod: maskMisalignedCells(marine.swellWavePeriod, aligned),
+    swellWavePeakPeriod: maskMisalignedCells(marine.swellWavePeakPeriod, aligned),
+    oceanCurrentSpeed: maskMisalignedCells(marine.oceanCurrentSpeed, aligned),
+    oceanCurrentDirection: maskMisalignedCells(marine.oceanCurrentDirection, aligned),
+    seaSurfaceTemperature: maskMisalignedCells(marine.seaSurfaceTemperature, aligned),
   };
 }
 
-// Marine cells are snapped to sea while atmospheric cells may be snapped to land. Permit a small
-// fraction of the requested grid spacing so ordinary coastal snapping still works, but cap the
-// tolerance well below the old 100 km ceiling so distant offshore values are never painted locally.
+function maskMisalignedCells(
+  values: number[][] | undefined,
+  aligned: readonly boolean[],
+): number[][] | undefined {
+  return values?.map((step) => step.map((value, index) => (aligned[index] ? value : Number.NaN)));
+}
+
+// Marine cells are snapped to sea. Permit a small fraction of the requested grid spacing so
+// ordinary coastal snapping still works, but cap the tolerance well below the old 100 km ceiling
+// so distant offshore values are never painted locally.
 function marineAlignmentToleranceM(grid: WeatherGrid): number {
   const centerLat = (grid.lats[0] + grid.lats[grid.lats.length - 1]) / 2;
   const centerLon = (grid.lons[0] + grid.lons[grid.lons.length - 1]) / 2;
@@ -492,17 +503,21 @@ function maxTimeMismatch(a: number[], b: number[]): number {
   return a.reduce((max, time, index) => Math.max(max, Math.abs(time - b[index])), 0);
 }
 
-function maxSourceDisplacement(
-  atmospheric: WeatherSourceMetadata | undefined,
-  marine: WeatherSourceMetadata,
-): number {
-  if (!atmospheric || atmospheric.coordinates.length !== marine.coordinates.length) {
-    return Number.POSITIVE_INFINITY;
+// Compare each returned marine cell with the requested grid coordinate where it will be painted.
+// The atmospheric endpoint deliberately prefers land cells and the marine endpoint prefers sea
+// cells, so comparing their returned coordinates can reject an otherwise valid offshore sample.
+// Alignment is cell-local: coastal or inland requests that snap too far are blanked without hiding
+// valid current and wave cells elsewhere in the viewport.
+function marineSourceDisplacements(grid: WeatherGrid, marine: WeatherSourceMetadata): number[] {
+  const cells = grid.lats.length * grid.lons.length;
+  if (marine.coordinates.length !== cells) return [];
+  const distances: number[] = [];
+  for (const latitude of grid.lats) {
+    for (const longitude of grid.lons) {
+      distances.push(distanceMeters({ latitude, longitude }, marine.coordinates[distances.length]));
+    }
   }
-  return atmospheric.coordinates.reduce(
-    (max, point, index) => Math.max(max, distanceMeters(point, marine.coordinates[index])),
-    0,
-  );
+  return distances;
 }
 
 // The shared haversine, given a seam-normalized east longitude so a provider point across the
