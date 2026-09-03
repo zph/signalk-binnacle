@@ -7,6 +7,7 @@ import X from '@lucide/svelte/icons/x';
 import { onDestroy, onMount, untrack } from 'svelte';
 import { fly } from 'svelte/transition';
 import type { RouteStore } from '$entities/route';
+import type { TidesStore } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
 import { type Bbox, boundsToBbox, type WeatherStore } from '$entities/weather';
 import { LayersView } from '$features/layers-panel';
@@ -70,6 +71,7 @@ import WeatherScrubber from './WeatherScrubber.svelte';
 
 interface Props {
   store: WeatherStore;
+  tides: TidesStore;
   origin: string;
   // The shared, cached weather loader (Open-Meteo plus RainViewer), constructed in App.
   loader: WeatherLoader;
@@ -108,6 +110,7 @@ interface Props {
 
 const {
   store,
+  tides,
   origin,
   loader,
   weatherSource,
@@ -410,7 +413,7 @@ onMount(() => {
       // fields; unlisted, so route context is not a weather layer to toggle or persist here.
       const overlays = [
         createWavesOverlay(store),
-        createCurrentOverlay(store, undefined, () => units.speedUnit),
+        createCurrentOverlay(store, tides, undefined, () => units.speedUnit),
         createPrecipOverlay(store),
         createCloudOverlay(store),
         createRadarOverlay(store, undefined, undefined, (t) => (radarFrameTime = t)),

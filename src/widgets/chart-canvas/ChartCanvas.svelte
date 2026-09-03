@@ -371,11 +371,7 @@ let mapRef = $state<MapLibreMap | undefined>();
 let forecastVisible = untrack(() =>
   CHART_FORECAST_LAYER_IDS.some((id) => savedLayers?.[id]?.visible ?? false),
 );
-let forecastMarine = untrack(
-  () =>
-    (savedLayers?.[WEATHER_LAYER_IDS.conditions]?.visible ?? false) ||
-    (savedLayers?.[WEATHER_LAYER_IDS.current]?.visible ?? false),
-);
+let forecastMarine = untrack(() => savedLayers?.[WEATHER_LAYER_IDS.conditions]?.visible ?? false);
 const chartWind = createChartWindController({
   store: untrack(() => weather),
   loader: untrack(() => weatherLoader),
@@ -495,9 +491,7 @@ onMount(async () => {
         const nextForecastVisible = CHART_FORECAST_LAYER_IDS.some(
           (id) => settings[id]?.visible ?? false,
         );
-        const nextForecastMarine =
-          (settings[WEATHER_LAYER_IDS.conditions]?.visible ?? false) ||
-          (settings[WEATHER_LAYER_IDS.current]?.visible ?? false);
+        const nextForecastMarine = settings[WEATHER_LAYER_IDS.conditions]?.visible ?? false;
         const marineChanged = nextForecastMarine !== forecastMarine;
         forecastMarine = nextForecastMarine;
         if (nextForecastVisible === forecastVisible) {
@@ -798,9 +792,7 @@ onMount(async () => {
         (item) => CHART_FORECAST_LAYER_IDS.some((id) => id === item.id) && item.visible,
       );
       forecastMarine = view.items.some(
-        (item) =>
-          (item.id === WEATHER_LAYER_IDS.conditions || item.id === WEATHER_LAYER_IDS.current) &&
-          item.visible,
+        (item) => item.id === WEATHER_LAYER_IDS.conditions && item.visible,
       );
       if (forecastVisible) chartWind.schedule();
       onWindRetryReady?.(() => chartWind.load(true));

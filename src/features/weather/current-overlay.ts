@@ -1,17 +1,16 @@
-import type { LineLayerSpecification, SymbolLayerSpecification } from 'maplibre-gl';
+import type { SymbolLayerSpecification } from 'maplibre-gl';
+import type { TidesStore } from '$entities/tides';
 import type { WeatherStore } from '$entities/weather';
 import type { SpeedUnit } from '$shared/lib';
 import {
-  emptyFeatureCollection,
   ensureGeoJsonSource,
   removeLayersAndSources,
   setLayersVisibility,
   setSourceData,
 } from '$shared/map';
 import type { Theme } from '$shared/ui';
-import { currentVectorFeatures } from './current-arrows';
+import { noaaCurrentVectorFeatures } from './current-arrows';
 import { currentArrowColor } from './current-colormap';
-import { currentFieldRgba } from './current-field';
 import { type CanvasFactory, createFieldOverlay, type FieldOverlay } from './field-overlay';
 import { WEATHER_LAYER_IDS } from './fills';
 import { gridTimeGate } from './grid-time-gate';
@@ -28,6 +27,7 @@ type CurrentOverlay = FieldOverlay;
 
 export function createCurrentOverlay(
   store: WeatherStore,
+  tides: TidesStore,
   makeCanvas?: CanvasFactory,
   getSpeedUnit: () => SpeedUnit = () => 'kn',
 ): CurrentOverlay {
@@ -37,17 +37,18 @@ export function createCurrentOverlay(
       id: WEATHER_LAYER_IDS.current,
       title: 'Ocean currents',
       description:
-        'Modeled surface-current speed and direction. Coastal accuracy is limited, so do not use it as a substitute for local tide and current information.',
+        'Nearest local NOAA CO-OPS tidal-current prediction, estimated between published maximum and slack events.',
       sourceId: FIELD_SOURCE,
       layerId: FIELD_LAYER,
       defaultOpacity: 0.72,
-      fieldRgba: currentFieldRgba,
+      fieldRgba: () => undefined,
     },
     makeCanvas,
   );
   let theme: Theme = 'day';
   let visible = false;
   let lastSpeedUnit: SpeedUnit | undefined;
+  let lastCurrent: unknown;
   const gate = gridTimeGate(store);
 
   return {
@@ -58,12 +59,18 @@ export function createCurrentOverlay(
       ensureGeoJsonSource(ctx.map, ARROW_SOURCE);
       ensureGeoJsonSource(ctx.map, LABEL_SOURCE);
       if (!ctx.map.getLayer(ARROW_LAYER)) {
-        const layer: LineLayerSpecification = {
+        const layer: SymbolLayerSpecification = {
           id: ARROW_LAYER,
-          type: 'line',
+          type: 'symbol',
           source: ARROW_SOURCE,
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': currentArrowColor(theme), 'line-width': 1.7 },
+          layout: {
+            'text-field': '↑',
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 28,
+            'text-rotate': ['get', 'bearing'],
+            'text-allow-overlap': true,
+          },
+          paint: { 'text-color': currentArrowColor(theme) },
         };
         ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
       }
@@ -88,19 +95,19 @@ export function createCurrentOverlay(
       field.reset?.();
       gate.reset();
       lastSpeedUnit = undefined;
+      lastCurrent = undefined;
     },
     sync(ctx) {
       if (!visible) return;
       field.sync(ctx);
       const speedUnit = getSpeedUnit();
-      if (!gate.changed() && speedUnit === lastSpeedUnit) return;
-      const grid = store.grid;
-      const vectors = grid
-        ? currentVectorFeatures(grid, store.bracket, speedUnit)
-        : { arrows: emptyFeatureCollection(), markers: emptyFeatureCollection() };
+      const current = tides.current;
+      if (!gate.changed() && speedUnit === lastSpeedUnit && current === lastCurrent) return;
+      const vectors = noaaCurrentVectorFeatures(current, store.selectedTime, speedUnit);
       setSourceData(ctx.map, ARROW_SOURCE, vectors.arrows);
       setSourceData(ctx.map, LABEL_SOURCE, vectors.markers);
       lastSpeedUnit = speedUnit;
+      lastCurrent = current;
     },
     remove(ctx) {
       visible = false;
@@ -120,7 +127,7 @@ export function createCurrentOverlay(
     setOpacity(ctx, opacity) {
       field.setOpacity?.(ctx, opacity);
       if (ctx.map.getLayer(ARROW_LAYER)) {
-        ctx.map.setPaintProperty(ARROW_LAYER, 'line-opacity', opacity);
+        ctx.map.setPaintProperty(ARROW_LAYER, 'text-opacity', opacity);
       }
       if (ctx.map.getLayer(LABEL_LAYER)) {
         ctx.map.setPaintProperty(LABEL_LAYER, 'text-opacity', opacity);
@@ -130,7 +137,7 @@ export function createCurrentOverlay(
       theme = paint.theme;
       field.applyTheme?.(ctx, paint);
       if (ctx.map.getLayer(ARROW_LAYER)) {
-        ctx.map.setPaintProperty(ARROW_LAYER, 'line-color', currentArrowColor(theme));
+        ctx.map.setPaintProperty(ARROW_LAYER, 'text-color', currentArrowColor(theme));
       }
       if (ctx.map.getLayer(LABEL_LAYER)) {
         ctx.map.setPaintProperty(LABEL_LAYER, 'text-color', currentArrowColor(theme));

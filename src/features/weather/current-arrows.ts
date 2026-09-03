@@ -1,3 +1,4 @@
+import type { CurrentEvent, CurrentReading } from '$entities/tides';
 import type { TimeBracket, WeatherGrid } from '$entities/weather';
 import { formatSpeedOr, lerp, lerpAngle, type SpeedUnit, speedUnitLabel } from '$shared/lib';
 import { emptyFeatureCollection, featureCollection } from '$shared/map';
@@ -8,6 +9,61 @@ const ARROW_FRACTION = 0.56;
 export interface CurrentVectorFeatures {
   arrows: GeoJSON.FeatureCollection;
   markers: GeoJSON.FeatureCollection;
+}
+
+function currentAt(events: CurrentEvent[], timeMs: number): CurrentEvent | undefined {
+  if (events.length === 0) return undefined;
+  if (timeMs <= events[0].timeMs) return events[0];
+  for (let index = 1; index < events.length; index += 1) {
+    const before = events[index - 1];
+    const after = events[index];
+    if (timeMs > after.timeMs) continue;
+    const fraction = (timeMs - before.timeMs) / (after.timeMs - before.timeMs || 1);
+    const beforeDirection = before.directionRad ?? after.directionRad;
+    const afterDirection = after.directionRad ?? before.directionRad;
+    return {
+      timeMs,
+      velocityMps: lerp(before.velocityMps, after.velocityMps, fraction),
+      directionRad:
+        beforeDirection === undefined || afterDirection === undefined
+          ? undefined
+          : lerpAngle(beforeDirection, afterDirection, fraction),
+      kind: fraction < 0.5 ? before.kind : after.kind,
+    };
+  }
+  return events.at(-1);
+}
+
+export function noaaCurrentVectorFeatures(
+  reading: CurrentReading | undefined,
+  timeMs: number,
+  speedUnit: SpeedUnit,
+): CurrentVectorFeatures {
+  const prediction = reading ? currentAt(reading.events, timeMs) : undefined;
+  if (!reading || !prediction || prediction.directionRad === undefined) {
+    return { arrows: emptyFeatureCollection(), markers: emptyFeatureCollection() };
+  }
+  const coordinates: GeoJSON.Position = [reading.station.longitude, reading.station.latitude];
+  const properties = {
+    bearing: (prediction.directionRad * 180) / Math.PI,
+    speed: prediction.velocityMps,
+    station: reading.station.name,
+  };
+  return {
+    arrows: featureCollection([
+      { type: 'Feature', geometry: { type: 'Point', coordinates }, properties },
+    ]),
+    markers: featureCollection([
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates },
+        properties: {
+          ...properties,
+          label: `${formatSpeedOr(prediction.velocityMps, speedUnit, 1)} ${speedUnitLabel(speedUnit)}\n${reading.station.name}`,
+        },
+      },
+    ]),
+  };
 }
 
 export function currentVectorFeatures(

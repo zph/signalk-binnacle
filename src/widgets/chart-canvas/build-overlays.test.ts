@@ -47,7 +47,7 @@ const factories = vi.hoisted(() => {
         marker('weather-wind'),
     ),
     createCurrentOverlay: vi.fn(
-      (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
+      (_weather: unknown, _tides: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
         marker('weather-current'),
     ),
     createTemperatureOverlay: vi.fn(() => marker('weather-temperature')),
@@ -217,6 +217,7 @@ describe('buildDynamicOverlays', () => {
     );
     expect(factories.createCurrentOverlay).toHaveBeenCalledWith(
       deps.weather,
+      deps.tides,
       undefined,
       expect.any(Function),
     );
@@ -228,7 +229,7 @@ describe('buildDynamicOverlays', () => {
       expect.any(Function),
     );
     const windSpeedUnit = factories.createWindOverlay.mock.calls[0]?.[2];
-    const currentSpeedUnit = factories.createCurrentOverlay.mock.calls[0]?.[2];
+    const currentSpeedUnit = factories.createCurrentOverlay.mock.calls[0]?.[3];
     expect(windSpeedUnit?.()).toBe('kn');
     expect(currentSpeedUnit?.()).toBe('kn');
     deps.units.speedUnit = 'kmh';

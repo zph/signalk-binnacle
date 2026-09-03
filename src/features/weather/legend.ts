@@ -15,7 +15,7 @@ import { mapThemePaint } from '$shared/map';
 import type { Theme } from '$shared/ui';
 import { cloudColor } from './cloud-colormap';
 import { type Rgba, tupleCss } from './color-ramp';
-import { currentColor } from './current-colormap';
+import { currentArrowColor } from './current-colormap';
 import { WEATHER_LAYER_IDS } from './fills';
 import { precipColor } from './precip-colormap';
 import { isobarColors } from './pressure-colors';
@@ -46,7 +46,6 @@ export interface WeatherLegend {
 // Whole-knot stops (in m/s): sailors think in 10-knot bands, and the old m/s stops rendered as
 // "0.0" and "50.5" kn, false precision on model wind.
 const WIND_STOPS = [0, 10, 20, 30, 40, 50].map(knotsToMetersPerSecond);
-const CURRENT_STOPS = [0, 0.5, 1, 2, 3, 4].map(knotsToMetersPerSecond);
 const WAVE_STOPS = [0.5, 1, 2, 4, 6, 9]; // m
 const PRECIP_STOPS = [0.2, 1, 2.5, 10, 25, 40]; // mm/h, tops out where the precip colormap does
 const CLOUD_STOPS = [0.25, 0.5, 0.75, 1]; // fraction
@@ -118,14 +117,10 @@ export function weatherLegend(
       };
     case WEATHER_LAYER_IDS.current:
       return {
-        ...rampLegend(
-          layerId,
-          `Ocean currents (${speedUnit})`,
-          CURRENT_STOPS,
-          (speed) => currentColor(speed, theme),
-          (speed) => formatSpeedOr(speed, speedUnit, 1),
-        ),
-        note: 'modeled surface current; arrows point toward the set',
+        id: layerId,
+        title: `Local tidal current (${speedUnit})`,
+        swatches: [{ color: currentArrowColor(theme), label: 'predicted set and speed' }],
+        note: 'nearest NOAA CO-OPS station; arrow points toward the set',
       };
     case WEATHER_LAYER_IDS.temperature:
       return rampLegend(

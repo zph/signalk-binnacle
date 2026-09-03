@@ -1605,6 +1605,10 @@ const userCharts = new UserCharts(
 // nothing renders.
 const tidesWanted = $derived(
   (layerSettings.value[TIDES_OVERLAY_ID]?.visible ?? false) ||
+    (layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? false) ||
+    (layerSettings.value[WEATHER_LAYER_IDS.conditions]?.visible ?? false) ||
+    (weatherPanelOpen &&
+      (weatherLayerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? false)) ||
     activePanel === 'tides' ||
     tideInstrumentRequested ||
     (instruments.open && instruments.tiles.some((def) => def.id === 'tides')),

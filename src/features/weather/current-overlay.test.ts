@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TidesStore } from '$entities/tides';
 import { WeatherStore } from '$entities/weather';
 import { mapThemePaint } from '$shared/map';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
@@ -23,9 +24,19 @@ function storeWithGrid(): WeatherStore {
   return store;
 }
 
+function tidesWithCurrent(): TidesStore {
+  const tides = new TidesStore();
+  tides.setReadings(undefined, {
+    station: { id: 'C1', name: 'Local channel', latitude: 0.5, longitude: 0.5 },
+    distanceMeters: 0,
+    events: [{ timeMs: 1_000, velocityMps: 1, directionRad: Math.PI / 2, kind: 'flood' }],
+  });
+  return tides;
+}
+
 describe('current overlay', () => {
   it('adds the field, arrow, and speed-label layers in the weather band', async () => {
-    const overlay = createCurrentOverlay(storeWithGrid(), fakeCanvas);
+    const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent(), fakeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     expect(overlay.band).toBe('weather');
@@ -34,7 +45,7 @@ describe('current overlay', () => {
   });
 
   it('syncs current arrows and labels when visible', async () => {
-    const overlay = createCurrentOverlay(storeWithGrid(), fakeCanvas);
+    const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent(), fakeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     overlay.setVisible(fakeOverlayContext(map), true);
@@ -43,22 +54,17 @@ describe('current overlay', () => {
     const labels = map.sources.get('binnacle-weather-current-labels')
       ?.data as GeoJSON.FeatureCollection;
     expect(arrows.features.length).toBeGreaterThan(0);
-    expect(labels.features[0].properties?.label).toBe('1.9 kn');
+    expect(labels.features[0].properties?.label).toBe('1.9 kn\nLocal channel');
   });
 
   it('clears vector sources when a refreshed grid has no currents', async () => {
     const store = storeWithGrid();
-    const overlay = createCurrentOverlay(store, fakeCanvas);
+    const tides = tidesWithCurrent();
+    const overlay = createCurrentOverlay(store, tides, fakeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     overlay.setVisible(fakeOverlayContext(map), true);
-    store.setGrid({
-      lats: [0, 1],
-      lons: [0, 1],
-      times: [1_000],
-      windU: [[0, 0, 0, 0]],
-      windV: [[0, 0, 0, 0]],
-    });
+    tides.setNoCoverage();
     overlay.sync(fakeOverlayContext(map));
     const arrows = map.sources.get('binnacle-weather-current-arrows')
       ?.data as GeoJSON.FeatureCollection;
@@ -66,7 +72,7 @@ describe('current overlay', () => {
   });
 
   it('removes all layers and sources and recolors safely', async () => {
-    const overlay = createCurrentOverlay(storeWithGrid(), fakeCanvas);
+    const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent(), fakeCanvas);
     const map = createFakeMap();
     await overlay.add(fakeOverlayContext(map));
     expect(() =>

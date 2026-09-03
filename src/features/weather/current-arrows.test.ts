@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WeatherGrid } from '$entities/weather';
-import { currentVectorFeatures } from './current-arrows';
+import { currentVectorFeatures, noaaCurrentVectorFeatures } from './current-arrows';
 
 function gridWithCurrents(): WeatherGrid {
   return {
@@ -21,6 +21,27 @@ function gridWithCurrents(): WeatherGrid {
 }
 
 describe('currentVectorFeatures', () => {
+  it('renders the local NOAA prediction at the selected forecast time', () => {
+    const result = noaaCurrentVectorFeatures(
+      {
+        station: { id: 'C1', name: 'Carquinez Strait', latitude: 38.06, longitude: -122.22 },
+        distanceMeters: 500,
+        events: [
+          { timeMs: 1_000, velocityMps: 1, directionRad: Math.PI / 2, kind: 'flood' },
+          { timeMs: 2_000, velocityMps: 0, directionRad: undefined, kind: 'slack' },
+        ],
+      },
+      1_500,
+      'kn',
+    );
+    expect(result.arrows.features[0].geometry).toEqual({
+      type: 'Point',
+      coordinates: [-122.22, 38.06],
+    });
+    expect(result.arrows.features[0].properties?.bearing).toBeCloseTo(90);
+    expect(result.markers.features[0].properties?.label).toBe('1.0 kn\nCarquinez Strait');
+  });
+
   it('draws sparse arrows toward the current set and labels speed', () => {
     const result = currentVectorFeatures(gridWithCurrents(), { lo: 0, hi: 0, frac: 0 }, 'kn');
     expect(result.arrows.features).toHaveLength(1);

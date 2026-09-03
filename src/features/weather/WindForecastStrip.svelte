@@ -5,6 +5,7 @@ import Pause from '@lucide/svelte/icons/pause';
 import Play from '@lucide/svelte/icons/play';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onDestroy } from 'svelte';
+import type { TidesStore } from '$entities/tides';
 import type { UnitsStore } from '$entities/units';
 import type { WeatherStore } from '$entities/weather';
 import { formatDayClock, HOUR_MS, type ReactiveClock, speedUnitLabel } from '$shared/lib';
@@ -20,6 +21,7 @@ import type { TimeRange } from './time-scrub';
 
 interface Props {
   store: WeatherStore;
+  tides: TidesStore;
   weatherSource: PersistedValue<WeatherSourceId>;
   units: UnitsStore;
   clock: ReactiveClock;
@@ -30,7 +32,7 @@ interface Props {
   onHide: () => void;
 }
 
-const { store, weatherSource, units, clock, kind, layerId, theme, onRetry, onHide }: Props =
+const { store, tides, weatherSource, units, clock, kind, layerId, theme, onRetry, onHide }: Props =
   $props();
 const STEP_MS = 3 * HOUR_MS;
 
@@ -55,9 +57,7 @@ const uvUnavailable = $derived(
     !store.grid.uvIndex?.some((step) => step.some(Number.isFinite)),
 );
 const currentUnavailable = $derived(
-  kind === 'Ocean currents' &&
-    store.grid !== undefined &&
-    !store.grid.oceanCurrentSpeed?.some((step) => step.some(Number.isFinite)),
+  kind === 'Ocean currents' && tides.status !== 'loading' && tides.current === undefined,
 );
 const conditionsUnavailable = $derived(
   kind === 'Conditions' &&
@@ -71,6 +71,12 @@ const nowFrac = $derived.by<number | undefined>(() => {
   return fraction >= 0 && fraction <= 1 ? fraction : undefined;
 });
 const statusNote = $derived.by(() => {
+  if (kind === 'Ocean currents' && tides.status === 'loading') {
+    return 'Loading local NOAA current predictions';
+  }
+  if (kind === 'Ocean currents' && tides.failure('current')) {
+    return 'NOAA current predictions are temporarily unavailable.';
+  }
   if (store.status === 'loading' && !store.grid) return `Loading ${kind.toLowerCase()} forecast`;
   if (store.status === 'loading') {
     return `Updating ${kind.toLowerCase()} forecast for this chart view`;
@@ -81,12 +87,12 @@ const statusNote = $derived.by(() => {
   if (uvUnavailable) {
     return `UV index is unavailable from ${sourceTitle}. Choose Automatic or NOAA for UV.`;
   }
-  if (currentUnavailable) return 'Ocean-current forecast is unavailable for this area.';
+  if (currentUnavailable) return 'No NOAA current-prediction station is available for this area.';
   if (conditionsUnavailable) {
     return 'Marine forecast data is unavailable for combined conditions in this area.';
   }
   if (kind === 'Ocean currents') {
-    return `Open-Meteo Marine · modeled surface-current speed in ${speedUnitLabel(units.speedUnit)}`;
+    return `NOAA CO-OPS · ${tides.current?.station.name ?? 'nearest local station'} · predicted tidal-current speed in ${speedUnitLabel(units.speedUnit)}`;
   }
   if (kind === 'Conditions') {
     return `${sourceTitle} + Open-Meteo Marine · icons flag notable combined conditions; hover or tap for detail`;
@@ -108,7 +114,7 @@ onDestroy(() => playback.destroy());
   <div class="head">
     <span class="title">{kind}</span>
     {#if kind === 'Ocean currents'}
-      <span class="source-field current-source">Open-Meteo Marine</span>
+      <span class="source-field current-source">NOAA CO-OPS</span>
     {:else}
       <label class="source-field">
         <span class="visually-hidden">Weather forecast source</span>

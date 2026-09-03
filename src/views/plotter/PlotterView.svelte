@@ -1044,13 +1044,17 @@ $effect(() => {
       {#if chartForecastLayer}
         <WindForecastStrip
           store={chartWeather}
+          tides={tidesStore}
           {weatherSource}
           {units}
           {clock}
           kind={chartForecastKind}
           layerId={chartForecastLayer}
           theme={theme.theme}
-          onRetry={retryWindForecast}
+          onRetry={() => {
+            retryWindForecast?.();
+            if (chartForecastLayer === WEATHER_LAYER_IDS.current) void tidesController.retry();
+          }}
           onHide={() => setLayerVisible(chartForecastLayer, false)}
         />
       {/if}
@@ -2087,6 +2091,7 @@ $effect(() => {
       <ErrorBoundary>
         <module.default
           store={weather}
+          tides={tidesStore}
           {origin}
           {units}
           loader={weatherLoader}
