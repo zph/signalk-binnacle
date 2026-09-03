@@ -163,7 +163,7 @@ export function createConditionsOverlay(
   let hoverKey = '';
   let hoverPopup: Popup | undefined;
   let tapPopup: Popup | undefined;
-  let zoomListener: (() => void) | undefined;
+  let moveListener: (() => void) | undefined;
   const gate = gridTimeGate(store);
   const canInteract = () => overlayInteractive(visible, opacity, interactionsAllowed);
 
@@ -292,13 +292,16 @@ export function createConditionsOverlay(
       hitHandlers.attach(ctx);
       ctx.map.on('mousemove', HIT_LAYER_ID, onHover);
       ctx.map.on('mouseleave', HIT_LAYER_ID, onLeave);
-      zoomListener = () => {
+      moveListener = () => {
         if (!visible) return;
         const view = viewFor(ctx);
         syncFeatures(ctx, view);
         lastViewKey = viewKey(view);
+        clearHover();
       };
-      ctx.map.on('zoomend', zoomListener);
+      // A single moveend covers drag pans, wheel or control zooms, rotations, and programmatic
+      // camera changes without rebuilding GeoJSON during the gesture.
+      ctx.map.on('moveend', moveListener);
       setLayersVisibility(ctx.map, LAYER_IDS, visible);
     },
     reset() {
@@ -339,8 +342,8 @@ export function createConditionsOverlay(
       hitHandlers.detach(ctx);
       ctx.map.off('mousemove', HIT_LAYER_ID, onHover);
       ctx.map.off('mouseleave', HIT_LAYER_ID, onLeave);
-      if (zoomListener) ctx.map.off('zoomend', zoomListener);
-      zoomListener = undefined;
+      if (moveListener) ctx.map.off('moveend', moveListener);
+      moveListener = undefined;
       attachedContext = undefined;
       removeLayersAndSources(ctx.map, LAYER_IDS, [SOURCE_ID]);
     },

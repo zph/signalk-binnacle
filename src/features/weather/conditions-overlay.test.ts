@@ -28,13 +28,14 @@ function storeWithGrid(): WeatherStore {
 }
 
 describe('conditions overlay', () => {
-  it('adds stable icon and hit layers and recalculates when forecast time changes', async () => {
+  it('adds stable icon and hit layers and recalculates after pans, zooms, and time changes', async () => {
     const store = storeWithGrid();
     const overlay = createConditionsOverlay(store, new TidesStore(), {
       speedUnit: 'kn',
       mode: 'metric',
     } as never);
     const baseMap = createFakeMap();
+    let bounds = { west: 0, south: 0, east: 1, north: 1 };
     const map = {
       ...baseMap,
       getCanvas: () => ({
@@ -42,10 +43,10 @@ describe('conditions overlay', () => {
         getBoundingClientRect: () => ({ left: 0, top: 0, width: 300, height: 300 }),
       }),
       getBounds: () => ({
-        getWest: () => 0,
-        getSouth: () => 0,
-        getEast: () => 1,
-        getNorth: () => 1,
+        getWest: () => bounds.west,
+        getSouth: () => bounds.south,
+        getEast: () => bounds.east,
+        getNorth: () => bounds.north,
       }),
     };
     const ctx = fakeOverlayContext(map);
@@ -57,6 +58,17 @@ describe('conditions overlay', () => {
       'binnacle-weather-conditions-hits',
     ]);
     expect(sourceFeatures(baseMap, 'binnacle-weather-conditions')).toHaveLength(4);
+
+    const source = baseMap.sources.get('binnacle-weather-conditions');
+    const beforePan = source?.data;
+    bounds = { west: 0.1, south: 0, east: 0.9, north: 1 };
+    baseMap.emit('moveend', {});
+    expect(source?.data).not.toBe(beforePan);
+
+    const beforeZoom = source?.data;
+    bounds = { west: 0.25, south: 0.25, east: 0.75, north: 0.75 };
+    baseMap.emit('moveend', {});
+    expect(source?.data).not.toBe(beforeZoom);
 
     store.setSelectedTime(2_000);
     overlay.sync(ctx);
@@ -73,8 +85,10 @@ describe('conditions overlay', () => {
     await overlay.add(ctx);
     expect(() => overlay.applyTheme?.(ctx, mapThemePaint('night-red'))).not.toThrow();
     expect(map.handlerCount('mousemove', 'binnacle-weather-conditions-hits')).toBe(1);
+    expect(map.handlerCount('moveend')).toBe(1);
     overlay.remove(ctx);
     expect(map.handlerCount('mousemove', 'binnacle-weather-conditions-hits')).toBe(0);
+    expect(map.handlerCount('moveend')).toBe(0);
     expect(map.layers.size).toBe(0);
     expect(map.sources.size).toBe(0);
   });

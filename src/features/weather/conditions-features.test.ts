@@ -42,6 +42,44 @@ describe('conditionFeatures', () => {
     expect(features.features[0]?.properties?.current).toMatch(/kn/);
   });
 
+  it('keeps overlapping samples geographically anchored while the chart pans', () => {
+    const extended = grid();
+    extended.lons = [0, 1, 2];
+    extended.windU = [[0, 0, 0, 0, 0, 0]];
+    extended.windV = [[-6, -6, -6, -6, -6, -6]];
+    extended.windGust = [[13, 13, 13, 13, 13, 13]];
+    extended.waveHeight = [[1, 1, 1, 1, 1, 1]];
+    extended.wavePeriod = [[8, 8, 8, 8, 8, 8]];
+    extended.waveDirection = [[0, 0, 0, 0, 0, 0]];
+    extended.oceanCurrentSpeed = [[0.6, 0.6, 0.6, 0.6, 0.6, 0.6]];
+    extended.oceanCurrentDirection = [[0, 0, 0, 0, 0, 0]];
+    const tides = new TidesStore();
+    const before = conditionFeatures(
+      extended,
+      { lo: 0, hi: 0, frac: 0 },
+      view,
+      tides,
+      selectedTime,
+      'kn',
+      'metric',
+    );
+    const after = conditionFeatures(
+      extended,
+      { lo: 0, hi: 0, frac: 0 },
+      { ...view, west: 0.5, east: 1.5 },
+      tides,
+      selectedTime,
+      'kn',
+      'metric',
+    );
+
+    const longitudes = (features: typeof before) => [
+      ...new Set(features.features.map((feature) => feature.geometry.coordinates[0])),
+    ];
+    expect(longitudes(before)).toEqual([0.25, 0.75]);
+    expect(longitudes(after)).toEqual([0.75, 1.25]);
+  });
+
   it('keeps tide and tidal-current conclusions on their loaded stations', () => {
     const tides = new TidesStore();
     tides.setReadings(

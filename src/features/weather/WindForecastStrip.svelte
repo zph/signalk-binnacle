@@ -72,6 +72,9 @@ const nowFrac = $derived.by<number | undefined>(() => {
 });
 const statusNote = $derived.by(() => {
   if (store.status === 'loading' && !store.grid) return `Loading ${kind.toLowerCase()} forecast`;
+  if (store.status === 'loading') {
+    return `Updating ${kind.toLowerCase()} forecast for this chart view`;
+  }
   if (store.status === 'error') return `${kind} forecast unavailable`;
   if (store.status === 'stale') return `Showing the last cached ${kind.toLowerCase()} forecast`;
   if (!store.grid) return `Waiting for ${kind.toLowerCase()} forecast`;

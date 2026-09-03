@@ -60,10 +60,23 @@ function targetCount(pixels: number | undefined, fallback: number, maximum: numb
   return Math.max(2, Math.min(maximum, Math.round(pixels / TARGET_SPACING_PX)));
 }
 
+// Keep sample locations on a geographic lattice instead of recentering them inside each viewport.
+// During a pan, overlapping icons then remain attached to the same forecast locations while old
+// ones leave and new ones enter. Binary degree steps also change only at useful zoom thresholds,
+// which avoids a full icon shuffle after a tiny camera change.
 function sampleAxis(low: number, high: number, count: number): number[] {
   if (!(high > low)) return [];
-  const step = (high - low) / count;
-  return Array.from({ length: count }, (_, index) => low + (index + 0.5) * step);
+  const rawStep = (high - low) / count;
+  const step = 2 ** Math.ceil(Math.log2(rawStep));
+  if (!(step > 0) || !Number.isFinite(step)) return [];
+  const firstIndex = Math.ceil(low / step - 0.5);
+  const samples: number[] = [];
+  for (let index = firstIndex; samples.length <= count; index += 1) {
+    const value = (index + 0.5) * step;
+    if (value > high) break;
+    samples.push(value);
+  }
+  return samples;
 }
 
 function visibleSamples(grid: WeatherGrid, view: ConditionsView): Array<[number, number]> {
