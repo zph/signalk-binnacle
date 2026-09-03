@@ -5,8 +5,7 @@ import type { OverlayContext } from '$shared/map';
 import { authInit } from '$shared/signalk';
 
 const SETTLE_MS = 1_500;
-const LIVE_POLL_MS = 5_000;
-const CONNECTING_POLL_MS = 2_000;
+const POLL_MS = 1_000;
 const MAX_TARGETS = 1_000;
 const MAX_BBOX_SPAN = 5;
 
@@ -139,7 +138,7 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
     loading = false;
     fetchedBbox = bbox;
     options.targets.replaceViewportTargets(snapshot.targets);
-    nextFetchAt = now() + (snapshot.state === 'live' ? LIVE_POLL_MS : CONNECTING_POLL_MS);
+    nextFetchAt = now() + POLL_MS;
   }
 
   return {
