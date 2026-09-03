@@ -23,9 +23,6 @@ import { fetchDestinationAis, fetchMoorings } from './moorings-client';
 import {
   addMooringLayers,
   applyMooringTheme,
-  MOORINGS_AIS_LABEL_LAYER_ID,
-  MOORINGS_AIS_LAYER_ID,
-  MOORINGS_AIS_SOURCE_ID,
   MOORINGS_LABEL_LAYER_ID,
   MOORINGS_LAYER_ID,
   MOORINGS_LAYERS,
@@ -70,24 +67,6 @@ function renderFeatures(moorings: readonly MooringPoint[]): GeoJSON.FeatureColle
           name: mooring.name,
           occupancy: mooring.assessment.status,
           score: mooring.assessment.score,
-        },
-      }),
-    ),
-  );
-}
-
-function renderDestinationTargets(targets: readonly MooringAisTarget[]): GeoJSON.FeatureCollection {
-  return featureCollection(
-    targets.map(
-      (target): GeoJSON.Feature => ({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [target.position.longitude, target.position.latitude],
-        },
-        properties: {
-          id: target.id,
-          label: target.name ?? target.mmsi ?? 'AIS target',
         },
       }),
     ),
@@ -151,7 +130,6 @@ export function createMooringsOverlay(
     lastRenderKey = '';
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, emptyFeatureCollection());
     setSourceData(ctx.map, MOORINGS_SELECTED_SOURCE_ID, emptyFeatureCollection());
-    setSourceData(ctx.map, MOORINGS_AIS_SOURCE_ID, emptyFeatureCollection());
     options.onMoorings?.([]);
   }
 
@@ -170,7 +148,6 @@ export function createMooringsOverlay(
     lastRenderKey = key;
     rendered = assessMoorings(rawMoorings, onboard, destinationTargets, now);
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, renderFeatures(rendered));
-    setSourceData(ctx.map, MOORINGS_AIS_SOURCE_ID, renderDestinationTargets(destinationTargets));
     const selected = rendered.find((mooring) => mooring.id === options.selectedId());
     setSourceData(
       ctx.map,
@@ -348,12 +325,6 @@ export function createMooringsOverlay(
       }
       if (ctx.map.getLayer(MOORINGS_LABEL_LAYER_ID)) {
         ctx.map.setPaintProperty(MOORINGS_LABEL_LAYER_ID, 'text-opacity', next);
-      }
-      if (ctx.map.getLayer(MOORINGS_AIS_LAYER_ID)) {
-        ctx.map.setPaintProperty(MOORINGS_AIS_LAYER_ID, 'circle-opacity', next * 0.95);
-      }
-      if (ctx.map.getLayer(MOORINGS_AIS_LABEL_LAYER_ID)) {
-        ctx.map.setPaintProperty(MOORINGS_AIS_LABEL_LAYER_ID, 'text-opacity', next);
       }
       hit.refreshInteractionState();
     },

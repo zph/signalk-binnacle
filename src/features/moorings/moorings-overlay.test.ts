@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AisTargets } from '$entities/ais';
-import { createFakeMap, fakeOverlayContext, sourceFeatures } from '$shared/testing';
+import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { fetchDestinationAis, fetchMoorings } from './moorings-client';
-import { MOORINGS_AIS_SOURCE_ID } from './moorings-layers';
 import { createMooringsOverlay } from './moorings-overlay';
 
 vi.mock('./moorings-client', () => ({
@@ -47,7 +46,7 @@ describe('moorings destination AIS viewport', () => {
     vi.useRealTimers();
   });
 
-  it('waits for a settled pan, requests its padded area, and renders returned targets', async () => {
+  it('requests destination AIS for occupancy without drawing duplicate target circles', async () => {
     const view = { longitude: -71.32, latitude: 41.49 };
     const map = {
       ...createFakeMap(),
@@ -94,12 +93,9 @@ describe('moorings destination AIS viewport', () => {
       expect.closeTo(-71.3),
       expect.closeTo(41.51),
     ]);
-    expect(sourceFeatures(map, MOORINGS_AIS_SOURCE_ID)).toMatchObject([
-      {
-        geometry: { coordinates: [-71.32, 41.49] },
-        properties: { id: 'aisstream:111111111', label: 'Target 111111111' },
-      },
-    ]);
+    expect(map.getSource('binnacle-moorings-destination-ais-source')).toBeUndefined();
+    expect(map.getLayer('binnacle-moorings-destination-ais')).toBeUndefined();
+    expect(map.getLayer('binnacle-moorings-destination-ais-labels')).toBeUndefined();
 
     view.longitude = -70.32;
     vi.setSystemTime(17_000);
@@ -117,11 +113,6 @@ describe('moorings destination AIS viewport', () => {
       expect.closeTo(-70.3),
       expect.closeTo(41.51),
     ]);
-    expect(sourceFeatures(map, MOORINGS_AIS_SOURCE_ID)).toMatchObject([
-      {
-        geometry: { coordinates: [-70.32, 41.49] },
-        properties: { id: 'aisstream:222222222', label: 'Target 222222222' },
-      },
-    ]);
+    expect(map.getSource('binnacle-moorings-destination-ais-source')).toBeUndefined();
   });
 });
