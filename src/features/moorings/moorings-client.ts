@@ -22,7 +22,7 @@ const NOAA_SOURCES: readonly { scaleBand: MooringScaleBand; layer: number }[] = 
 const NOAA_FIELDS = 'OBJECTID,BOYSHP,CATMOR,COLOUR,COLPAT,OBJNAM,INFORM,SORDAT,SORIND,DSNM';
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
-const MAX_DESTINATION_TARGETS = 1_000;
+const MAX_DESTINATION_TARGETS = 10_000;
 
 async function readMoorings(
   response: Response,
