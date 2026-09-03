@@ -10,7 +10,9 @@ const viewports = [
 ] as const;
 
 for (const viewport of viewports) {
-  test(`moorings searches destination AIS on ${viewport.name}`, async ({ page }) => {
+  test(`viewport AIS runs independently and informs moorings on ${viewport.name}`, async ({
+    page,
+  }) => {
     const destinationCenters: number[] = [];
     await page.setViewportSize(viewport);
     await page.addInitScript(() => {
@@ -103,6 +105,7 @@ for (const viewport of viewports) {
     });
 
     await page.goto('/');
+    await expect.poll(() => destinationCenters.length, { timeout: 15_000 }).toBeGreaterThan(0);
     const helm = page.getByRole('group', { name: 'Helm actions' });
     await helm.getByRole('button', { name: 'Open supermenu' }).click();
     const supermenu = page.getByRole('menu', { name: 'Supermenu' });
