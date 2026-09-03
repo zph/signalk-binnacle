@@ -297,10 +297,14 @@ function emitChartsStatus(status: 'loading' | 'ready' | 'partial' | 'error'): vo
 let destroyed = false;
 let routeEditor: RouteEditor | undefined;
 // Signal K starts the resource API before every chart provider has necessarily registered. A
-// discovery made in that window is valid but incomplete, so retry twice across the normal plugin
-// startup window. Unchanged snapshots are ignored below, avoiding needless chart remounts.
-const SERVER_CHART_DISCOVERY_RETRY_MS = [3_000, 12_000] as const;
-const serverChartDiscoveryTimers: ReturnType<typeof setTimeout>[] = [];
+// discovery made in that window is valid but incomplete, so retry quickly across the normal plugin
+// startup window, then keep a cheap slow refresh for providers installed while Binnacle is open.
+// Unchanged snapshots are ignored below, avoiding needless chart remounts.
+const SERVER_CHART_DISCOVERY_RETRY_MS = [
+  1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000,
+] as const;
+const SERVER_CHART_DISCOVERY_REFRESH_MS = 5 * 60_000;
+let serverChartDiscoveryTimer: ReturnType<typeof setTimeout> | undefined;
 // Stays true through MapLibre dispatch and the shared queued marker-hit routing for a radar placement
 // tap. The general map listener runs before layer delegates, and the final or failed placement tap
 // may stop editing immediately, so the live chartEditing flag alone cannot gate those later hits.
@@ -897,14 +901,23 @@ onMount(async () => {
       if (isDestroyed()) return;
       // Safety and vessel overlays are already live before optional chart discovery starts. A slow
       // or unavailable charts endpoint therefore cannot postpone navigation rendering or map tools.
-      void retryServerCharts();
-      for (const delay of SERVER_CHART_DISCOVERY_RETRY_MS) {
-        serverChartDiscoveryTimers.push(
-          setTimeout(() => {
-            if (!isDestroyed()) void retryServerCharts();
-          }, delay),
-        );
-      }
+      let discoveryRetryIndex = 0;
+      const scheduleServerChartDiscovery = (): void => {
+        const delay =
+          SERVER_CHART_DISCOVERY_RETRY_MS[discoveryRetryIndex] ?? SERVER_CHART_DISCOVERY_REFRESH_MS;
+        if (discoveryRetryIndex < SERVER_CHART_DISCOVERY_RETRY_MS.length) {
+          discoveryRetryIndex += 1;
+        }
+        serverChartDiscoveryTimer = setTimeout(() => {
+          if (isDestroyed()) return;
+          void retryServerCharts().finally(() => {
+            if (!isDestroyed()) scheduleServerChartDiscovery();
+          });
+        }, delay);
+      };
+      void retryServerCharts().finally(() => {
+        if (!isDestroyed()) scheduleServerChartDiscovery();
+      });
 
       const userChartRegistrar: UserChartRegistrar = {
         register: async (chart) => {
@@ -1021,7 +1034,7 @@ onDestroy(() => {
   measureOverlay = undefined;
   routeEditor?.stop();
   chartWind.destroy();
-  for (const timer of serverChartDiscoveryTimers) clearTimeout(timer);
+  if (serverChartDiscoveryTimer !== undefined) clearTimeout(serverChartDiscoveryTimer);
   onWindRetryReady?.(undefined);
   mapHandle?.destroy();
   onMapDestroyed?.();
