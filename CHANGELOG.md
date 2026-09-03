@@ -32,6 +32,8 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Fixed
 
+- NOAA chart sources now appear after a Signal K restart even when the chart provider registers a
+  few seconds after the resource API becomes available.
 - AISStream viewport targets now stay visible while a replacement area connects, small chart pans
   reuse the current padded subscription, and ordinary harbor views no longer request a fixed
   ten-degree square. NOAA moorings also keep the last complete result when any compilation-scale

@@ -296,6 +296,11 @@ function emitChartsStatus(status: 'loading' | 'ready' | 'partial' | 'error'): vo
 // unmounting during that await, which would otherwise build a map onDestroy never tears down.
 let destroyed = false;
 let routeEditor: RouteEditor | undefined;
+// Signal K starts the resource API before every chart provider has necessarily registered. A
+// discovery made in that window is valid but incomplete, so retry twice across the normal plugin
+// startup window. Unchanged snapshots are ignored below, avoiding needless chart remounts.
+const SERVER_CHART_DISCOVERY_RETRY_MS = [3_000, 12_000] as const;
+const serverChartDiscoveryTimers: ReturnType<typeof setTimeout>[] = [];
 // Stays true through MapLibre dispatch and the shared queued marker-hit routing for a radar placement
 // tap. The general map listener runs before layer delegates, and the final or failed placement tap
 // may stop editing immediately, so the live chartEditing flag alone cannot gate those later hits.
@@ -801,6 +806,7 @@ onMount(async () => {
 
       let serverChartsGeneration = 0;
       let serverChartsQueue = Promise.resolve();
+      let registeredServerChartsSignature: string | undefined;
 
       async function loadServerCharts(generation: number): Promise<void> {
         const next = await fetchCharts(origin, chartsToken);
@@ -813,10 +819,19 @@ onMount(async () => {
         // manageable descriptor and omit its duplicate server entry.
         const localIds = new Set((userCharts?.sources ?? []).map((source) => source.id));
         const wanted = next.filter((chart) => !localIds.has(chart.identifier));
+        const wantedSignature = JSON.stringify(wanted);
+        if (
+          registeredServerChartsSignature === wantedSignature &&
+          serverChartIds.size === wanted.length
+        ) {
+          emitChartsStatus('ready');
+          return;
+        }
         for (const id of serverChartIds) {
           mgr.unregister(chartSourceId(id), { preserveProfileState: true });
         }
         serverChartIds.clear();
+        registeredServerChartsSignature = undefined;
         const results = await mgr.registerBatch(
           wanted.map((chart) =>
             createChartOverlay(chart, origin, 'basemap', () => chartsToken, {
@@ -856,9 +871,9 @@ onMount(async () => {
           }
         }
         view.refresh();
-        emitChartsStatus(
-          results.some((result) => result.status === 'failed') ? 'partial' : 'ready',
-        );
+        const partial = results.some((result) => result.status === 'failed');
+        if (!partial) registeredServerChartsSignature = wantedSignature;
+        emitChartsStatus(partial ? 'partial' : 'ready');
       }
 
       function retryServerCharts(): Promise<void> {
@@ -883,6 +898,13 @@ onMount(async () => {
       // Safety and vessel overlays are already live before optional chart discovery starts. A slow
       // or unavailable charts endpoint therefore cannot postpone navigation rendering or map tools.
       void retryServerCharts();
+      for (const delay of SERVER_CHART_DISCOVERY_RETRY_MS) {
+        serverChartDiscoveryTimers.push(
+          setTimeout(() => {
+            if (!isDestroyed()) void retryServerCharts();
+          }, delay),
+        );
+      }
 
       const userChartRegistrar: UserChartRegistrar = {
         register: async (chart) => {
@@ -999,6 +1021,7 @@ onDestroy(() => {
   measureOverlay = undefined;
   routeEditor?.stop();
   chartWind.destroy();
+  for (const timer of serverChartDiscoveryTimers) clearTimeout(timer);
   onWindRetryReady?.(undefined);
   mapHandle?.destroy();
   onMapDestroyed?.();
