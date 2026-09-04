@@ -8,8 +8,9 @@ import type {
 } from './moorings-types';
 
 const HISTORY_MS = 30 * 60 * 1000;
-const NEAR_METERS = 50;
+const FULL_PROXIMITY_METERS = 35;
 const MATCH_METERS = 75;
+const MAX_PROXIMITY_SCORE = 30;
 const LOW_SPEED_MPS = 0.5 * 0.514444;
 const DWELL_MS = 15 * 60 * 1000;
 const BOUNDED_RADIUS_METERS = 60;
@@ -123,8 +124,20 @@ function assessment(
   distanceMeters: number,
   now: number,
 ): MooringAssessment {
-  let score = distanceMeters <= NEAR_METERS ? 30 : 20;
-  const evidence = [`AIS target ${Math.round(distanceMeters)} m from the charted position`];
+  const proximityScore =
+    distanceMeters <= FULL_PROXIMITY_METERS
+      ? MAX_PROXIMITY_SCORE
+      : Math.max(
+          0,
+          Math.round(
+            (MAX_PROXIMITY_SCORE * (MATCH_METERS - distanceMeters)) /
+              (MATCH_METERS - FULL_PROXIMITY_METERS),
+          ),
+        );
+  let score = proximityScore;
+  const evidence = [
+    `AIS target ${Math.round(distanceMeters)} m from the charted position: ${proximityScore} of ${MAX_PROXIMITY_SCORE} proximity points`,
+  ];
   const medianSog = target.history.medianSogMps ?? target.sogMps;
   if (medianSog !== undefined && medianSog < LOW_SPEED_MPS) {
     score += 20;

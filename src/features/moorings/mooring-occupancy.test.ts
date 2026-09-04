@@ -35,6 +35,25 @@ function target(id: string, longitude = 0): MooringAisTarget {
   };
 }
 
+function longitudeAtMeters(meters: number): number {
+  return meters / 111_194.9266;
+}
+
+function distanceOnlyTarget(id: string, meters: number): MooringAisTarget {
+  const result = target(id, longitudeAtMeters(meters));
+  return {
+    ...result,
+    sogMps: undefined,
+    navigationState: undefined,
+    history: {
+      ...result.history,
+      firstSeenAtMs: NOW,
+      sampleCount: 1,
+      medianSogMps: undefined,
+    },
+  };
+}
+
 describe('assessMoorings', () => {
   it('preserves destination provenance for viewport AIS targets in the shared target model', () => {
     const history = new OnboardAisHistory();
@@ -57,6 +76,34 @@ describe('assessMoorings', () => {
     expect(result.assessment.status).toBe('likely-occupied');
     expect(result.assessment.score).toBe(100);
     expect(result.assessment.source).toBe('destination');
+  });
+
+  it('awards full proximity points through 35 m and tapers to zero at 75 m', () => {
+    const distances = [1, 35, 55, 74];
+    const expectedScores = [30, 30, 15, 1];
+
+    for (const [index, meters] of distances.entries()) {
+      const [result] = assessMoorings(
+        [mooring(`m${index}`)],
+        [],
+        [distanceOnlyTarget(`${index}`, meters)],
+        NOW,
+      );
+      expect(result.assessment.score).toBe(expectedScores[index]);
+      expect(result.assessment.evidence[0]).toBe(
+        `AIS target ${meters} m from the charted position: ${expectedScores[index]} of 30 proximity points`,
+      );
+    }
+  });
+
+  it('does not match a target beyond the 75 m maximum', () => {
+    const [result] = assessMoorings([mooring('m1')], [], [distanceOnlyTarget('1', 76)], NOW);
+
+    expect(result.assessment).toEqual({
+      status: 'unknown',
+      score: 0,
+      evidence: ['Nearest current AIS target is 76 m away, beyond the 75 m matching limit'],
+    });
   });
 
   it('leaves a mooring unknown when no AIS target is observed', () => {
