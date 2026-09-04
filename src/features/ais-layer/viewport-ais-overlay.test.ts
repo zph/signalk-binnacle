@@ -52,11 +52,8 @@ describe('viewport AIS overlay', () => {
     const ctx = fakeOverlayContext(map);
     let received: AisTargetView[] = [];
     const targets = {
-      replaceViewportTargets(next: readonly AisTargetView[]) {
+      mergeViewportTargets(next: readonly AisTargetView[]) {
         received = [...next];
-      },
-      clearViewportTargets() {
-        received = [];
       },
     } as AisTargets;
     const overlay = createViewportAisOverlay({
@@ -132,11 +129,8 @@ describe('viewport AIS overlay', () => {
       getToken: () => undefined,
       available: () => true,
       targets: {
-        replaceViewportTargets(next: readonly AisTargetView[]) {
+        mergeViewportTargets(next: readonly AisTargetView[]) {
           received = [...next];
-        },
-        clearViewportTargets() {
-          received = [];
         },
       } as AisTargets,
     });
@@ -185,11 +179,8 @@ describe('viewport AIS overlay', () => {
       getToken: () => undefined,
       available: () => true,
       targets: {
-        replaceViewportTargets(next: readonly AisTargetView[]) {
+        mergeViewportTargets(next: readonly AisTargetView[]) {
           received = [...next];
-        },
-        clearViewportTargets() {
-          received = [];
         },
       } as AisTargets,
     });
@@ -218,8 +209,7 @@ describe('viewport AIS overlay', () => {
       getToken: () => undefined,
       available: () => true,
       targets: {
-        replaceViewportTargets() {},
-        clearViewportTargets() {},
+        mergeViewportTargets() {},
       } as unknown as AisTargets,
     });
     overlay.add(fakeOverlayContext(viewMap(view)));

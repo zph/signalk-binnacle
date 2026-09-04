@@ -75,7 +75,7 @@ describe('AisTargets', () => {
       ),
     );
 
-    ais.replaceViewportTargets([
+    ais.mergeViewportTargets([
       {
         id: 'aisstream:222222222',
         name: 'REMOTE',
@@ -93,10 +93,6 @@ describe('AisTargets', () => {
     });
     expect(ais.positionEpochMs('aisstream:222222222')).toBe(10_000);
     expect(ais.revision('aisstream:222222222')).toBeDefined();
-
-    ais.clearViewportTargets();
-    expect(ais.find('aisstream:222222222')).toBeUndefined();
-    expect(ais.list()).toHaveLength(1);
   });
 
   it('prefers a local Signal K target over the viewport copy of the same MMSI', () => {
@@ -113,7 +109,7 @@ describe('AisTargets', () => {
         10_000,
       ),
     );
-    ais.replaceViewportTargets([
+    ais.mergeViewportTargets([
       {
         id: 'aisstream:111111111',
         name: 'REMOTE COPY',
@@ -124,6 +120,40 @@ describe('AisTargets', () => {
 
     expect(ais.list()).toHaveLength(1);
     expect(ais.list()[0].name).toBe('LOCAL');
+  });
+
+  it('accumulates viewport snapshots and removes targets only after retention expires', () => {
+    let now = 1_000;
+    const retentionMs = 6 * 60_000;
+    const ais = new AisTargets(
+      new SignalKStore(),
+      () => now,
+      undefined,
+      () => retentionMs,
+    );
+    ais.mergeViewportTargets([
+      {
+        id: 'aisstream:111111111',
+        position: { latitude: 36, longitude: -121 },
+        lastReportAtMs: now,
+      },
+    ]);
+    now += 1_000;
+    ais.mergeViewportTargets([
+      {
+        id: 'aisstream:222222222',
+        position: { latitude: 37, longitude: -122 },
+        lastReportAtMs: now,
+      },
+    ]);
+
+    expect(ais.list().map((target) => target.id)).toEqual([
+      'aisstream:111111111',
+      'aisstream:222222222',
+    ]);
+
+    now = 1_000 + retentionMs + 1;
+    expect(ais.list().map((target) => target.id)).toEqual(['aisstream:222222222']);
   });
 
   // find() indexes the memoized list, so it must hand back the very object the list holds and it

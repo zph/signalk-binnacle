@@ -129,7 +129,6 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
     }
     requestedBbox = undefined;
     pendingBbox = undefined;
-    options.targets.clearViewportTargets();
   }
 
   async function load(bbox: Bbox4): Promise<void> {
@@ -140,7 +139,7 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
     loading = false;
     requestedBbox = bbox;
     if (snapshot.state === 'live' || snapshot.targets.length > 0) {
-      options.targets.replaceViewportTargets(snapshot.targets);
+      options.targets.mergeViewportTargets(snapshot.targets);
     } else if (snapshot.state === 'unavailable') clear();
     nextFetchAt = now() + POLL_MS;
   }
@@ -185,7 +184,6 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
     remove(_ctx: OverlayContext) {
       mounted = false;
       generation += 1;
-      options.targets.clearViewportTargets();
     },
   };
 }

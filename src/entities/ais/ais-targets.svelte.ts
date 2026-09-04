@@ -80,7 +80,7 @@ interface CachedView {
 
 export class AisTargets {
   #store: SignalKStore;
-  #viewportTargets: AisTargetView[] = [];
+  #viewportTargets = new Map<string, AisTargetView>();
   #viewportVersion = $state(0);
   #cache: AisTargetView[] | undefined;
   #cacheVersion = -1;
@@ -132,19 +132,18 @@ export class AisTargets {
     return this.#store.aisVersion + this.#viewportVersion;
   }
 
-  replaceViewportTargets(targets: readonly AisTargetView[]): void {
-    if (this.#sameTargets(this.#viewportTargets, targets)) return;
-    this.#viewportTargets = targets.map((target) => ({
-      ...target,
-      position: { ...target.position },
-    }));
-    this.#viewportVersion += 1;
-    this.#cache = undefined;
-  }
-
-  clearViewportTargets(): void {
-    if (this.#viewportTargets.length === 0) return;
-    this.#viewportTargets = [];
+  mergeViewportTargets(targets: readonly AisTargetView[]): void {
+    let changed = false;
+    for (const target of targets) {
+      const prior = this.#viewportTargets.get(target.id);
+      if (prior && this.#sameTarget(prior, target)) continue;
+      this.#viewportTargets.set(target.id, {
+        ...target,
+        position: { ...target.position },
+      });
+      changed = true;
+    }
+    if (!changed) return;
     this.#viewportVersion += 1;
     this.#cache = undefined;
   }
@@ -159,9 +158,10 @@ export class AisTargets {
   list(): AisTargetView[] {
     // Rebuild only when AIS data changed. With aisVersion bumped only on real AIS
     // updates, own-vessel motion no longer forces a full list rebuild on consumers.
-    const version = this.version;
     const now = this.#now();
     const retentionMs = this.retentionMs;
+    this.#pruneViewportTargets(now, retentionMs);
+    const version = this.version;
     if (
       this.#cache &&
       this.#cacheVersion === version &&
@@ -267,10 +267,9 @@ export class AisTargets {
       expiresAt = Math.min(expiresAt, vesselExpiresAt);
     }
     const localMmsis = new Set(out.map((target) => shortVesselId(target.id)));
-    for (const target of this.#viewportTargets) {
+    for (const target of this.#viewportTargets.values()) {
       if (localMmsis.has(shortVesselId(target.id))) continue;
       const lastReportAtMs = target.lastReportAtMs;
-      if (lastReportAtMs !== undefined && now - lastReportAtMs > retentionMs) continue;
       const stale = lastReportAtMs !== undefined && now - lastReportAtMs > AIS_MOTION_STALE_TTL_MS;
       const view = target.stale === stale ? target : { ...target, stale };
       out.push(view);
@@ -313,7 +312,7 @@ export class AisTargets {
       if (target.generations.get(SK_PATHS.position) !== this.#store.generation) return undefined;
       return target.epochs.get(SK_PATHS.position);
     }
-    return this.#viewportTargets.find((item) => item.id === id)?.lastReportAtMs;
+    return this.#viewportTargets.get(id)?.lastReportAtMs;
   }
 
   // A per-target value-change counter for consumers that need to distinguish a genuinely new AIS
@@ -321,29 +320,37 @@ export class AisTargets {
   revision(id: string): number | undefined {
     return (
       this.#store.aisTargets.get(id)?.revision ??
-      (this.#viewportTargets.some((target) => target.id === id) ? this.#viewportVersion : undefined)
+      (this.#viewportTargets.has(id) ? this.#viewportVersion : undefined)
     );
   }
 
-  #sameTargets(left: readonly AisTargetView[], right: readonly AisTargetView[]): boolean {
-    if (left.length !== right.length) return false;
-    return left.every((target, index) => {
-      const other = right[index];
-      return (
-        other !== undefined &&
-        target.id === other.id &&
-        target.name === other.name &&
-        target.position.latitude === other.position.latitude &&
-        target.position.longitude === other.position.longitude &&
-        target.cogRad === other.cogRad &&
-        target.headingRad === other.headingRad &&
-        target.sogMps === other.sogMps &&
-        target.shipTypeId === other.shipTypeId &&
-        target.lengthMeters === other.lengthMeters &&
-        target.navigationState === other.navigationState &&
-        target.lastReportAtMs === other.lastReportAtMs
-      );
-    });
+  #pruneViewportTargets(now: number, retentionMs: number): void {
+    let changed = false;
+    for (const [id, target] of this.#viewportTargets) {
+      if (target.lastReportAtMs === undefined || now - target.lastReportAtMs <= retentionMs)
+        continue;
+      this.#viewportTargets.delete(id);
+      changed = true;
+    }
+    if (!changed) return;
+    this.#viewportVersion += 1;
+    this.#cache = undefined;
+  }
+
+  #sameTarget(target: AisTargetView, other: AisTargetView): boolean {
+    return (
+      target.id === other.id &&
+      target.name === other.name &&
+      target.position.latitude === other.position.latitude &&
+      target.position.longitude === other.position.longitude &&
+      target.cogRad === other.cogRad &&
+      target.headingRad === other.headingRad &&
+      target.sogMps === other.sogMps &&
+      target.shipTypeId === other.shipTypeId &&
+      target.lengthMeters === other.lengthMeters &&
+      target.navigationState === other.navigationState &&
+      target.lastReportAtMs === other.lastReportAtMs
+    );
   }
 
   #numField(value: unknown, key: string): number | undefined {
