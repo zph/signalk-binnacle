@@ -2144,6 +2144,7 @@ const menuItems = $derived<MenuItem[]>([
     shortLabel: 'Center',
     icon: LocateFixed,
     group: 'Chart',
+    fixedToBar: true,
     disabled: !mapCommands || !vessel.position || vessel.positionStale,
     disabledLabel: !mapCommands
       ? 'Center (chart is loading)'
@@ -4481,6 +4482,22 @@ const plotterActions = {
         >
           <MenuIcon size={16} aria-hidden="true" />
         </button>
+        <button
+          type="button"
+          class="btn btn-pill helm-center-action"
+          aria-label="Center on vessel"
+          title={!mapCommands
+          ? 'Center on vessel (chart is loading)'
+          : vessel.positionStale
+            ? 'Center on vessel needs a fresh GPS fix'
+            : !vessel.position
+              ? 'Center on vessel needs a GPS position'
+              : 'Center on vessel'}
+          disabled={!mapCommands || !vessel.position || vessel.positionStale}
+          onclick={() => mapCommands?.centerOnVessel()}
+        >
+          <LocateFixed size={16} aria-hidden="true" />
+        </button>
       </div>
     </div>
   {:else}
@@ -4780,6 +4797,20 @@ const plotterActions = {
     z-index: var(--z-panel);
     inline-size: auto;
     background: var(--surface);
+  }
+}
+@media (max-width: 480px) {
+  .helm-primary-actions {
+    justify-content: flex-start;
+    gap: var(--space-1);
+    padding-inline: var(--space-1);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+  .helm-actions-start,
+  .helm-actions-end {
+    gap: var(--space-1);
   }
 }
 </style>

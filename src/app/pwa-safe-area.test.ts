@@ -38,6 +38,18 @@ describe('installed PWA system-bar clearance', () => {
     expect(APP).toContain('--helm-action-size: calc(2 * var(--control-size))');
   });
 
+  it('keeps center on vessel as the final fixed action on the right rail', () => {
+    const rightRail = APP.slice(
+      APP.indexOf('<div class="helm-actions-end">'),
+      APP.indexOf('</div>', APP.indexOf('<div class="helm-actions-end">')),
+    );
+    expect(rightRail).toContain('aria-label="Center on vessel"');
+    expect(rightRail.indexOf('aria-label="Center on vessel"')).toBeGreaterThan(
+      rightRail.indexOf("aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}"),
+    );
+    expect(APP).toMatch(/id: 'center',[\s\S]*?fixedToBar: true/);
+  });
+
   it('removes the redundant browser full-screen control in an installed PWA', () => {
     expect(APP).toContain("createMediaQuery('(display-mode: standalone)')");
     expect(APP).toContain('{#if !installedPwa}');

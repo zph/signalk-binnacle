@@ -32,6 +32,8 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Fixed
 
+- Center on vessel is now an always-present fixed control at the right end of the lower helm row
+  instead of a transient button that moves around the chart edge.
 - Mooring occupancy no longer drops slow-reporting AIS contacts after two minutes. Unassociated
   moorings now explain whether no current targets were observed, the nearest target is beyond the
   matching limit, or that target belongs to a closer charted mooring. Selecting a buoy expands that

@@ -80,7 +80,6 @@ import { buildDynamicOverlays } from './build-overlays';
 import { buildReferenceOverlays } from './build-reference-overlays';
 import type { MapCommands, UserChartRegistrar } from './commands';
 import { CRITICAL_OVERLAY_IDS } from './critical-overlays';
-import VesselOffScreenIndicator from './VesselOffScreenIndicator.svelte';
 
 const loadRouteEditorModule = createRetryableLazyUiLoader(() => import('$features/route-edit'));
 const loadChartFeatureInfo = createRetryableLazyUiLoader(
@@ -407,9 +406,6 @@ function resizeAfterFullScreenChange(): void {
 // Available as soon as MapLibre creates its canvas. Chart tools can be armed before the base style
 // loads, so their cursor must not depend on the later onLoad callback that initializes overlays.
 let cursorMapRef = $state<MapLibreMap | undefined>();
-// Captured from onLoad alongside mapRef, so the off-screen vessel indicator can reuse the exact
-// same centerOnVessel behavior as the menu's Center action, rather than duplicating its fly-to math.
-let commandsRef = $state<MapCommands | undefined>();
 let chartFeature = $state<ChartFeatureSelection | undefined>();
 const CONTEXT_HINT_KEY = binnacleStorageKey('chartActionsHint');
 let showContextHint = $state(false);
@@ -1015,7 +1011,6 @@ onMount(async () => {
         },
         currentEditGeneration: () => editGeneration,
       });
-      commandsRef = commands;
       onCommandsReady?.(commands);
       if (isDestroyed()) return;
       onMapInstance?.(map);
@@ -1074,14 +1069,6 @@ onDestroy(() => {
       <span>Press and hold the chart for actions.</span>
       <button type="button" class="btn btn-ghost" onclick={dismissContextHint}>Got it</button>
     </div>
-  {/if}
-  {#if mapRef}
-    <VesselOffScreenIndicator
-      map={mapRef}
-      position={vessel.position}
-      positionStale={vessel.positionStale}
-      onCenter={() => commandsRef?.centerOnVessel()}
-    />
   {/if}
   {#if chartFeature}
     {#await loadChartFeatureInfo()}
