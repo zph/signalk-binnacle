@@ -183,6 +183,15 @@ export function createMooringsOverlay(
     const observedTargets = onboardHistory.observe(aisTargets.list(), now);
     destinationAis = options.destinationAisAvailable() ? 'live' : 'unavailable';
     const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
+    // Viewport AIS snapshots deliberately overlap in the shared target store so panning does not
+    // blink vessels off the chart while the replacement subscription settles. Mooring assessment
+    // must not inherit that behavior: a retained contact from the previous side of the country
+    // would briefly become the "nearest" vessel and produce a meaningless multi-million-metre
+    // explanation. Score only contacts from the padded area that supplied these moorings.
+    const assessmentBoxes = splitAtAntimeridian(fetchBbox ?? viewport);
+    const nearbyTargets = observedTargets.filter((target) =>
+      assessmentBoxes.some((box) => bboxContainsPoint(box, target.position)),
+    );
     const key = [
       mooringVersion,
       options.selectedId() ?? '',
@@ -192,7 +201,7 @@ export function createMooringsOverlay(
     ].join('|');
     if (key === lastRenderKey) return;
     lastRenderKey = key;
-    rendered = assessMoorings(rawMoorings, observedTargets, [], now);
+    rendered = assessMoorings(rawMoorings, nearbyTargets, [], now);
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, renderFeatures(rendered));
     const selected = rendered.find((mooring) => mooring.id === options.selectedId());
     setSourceData(

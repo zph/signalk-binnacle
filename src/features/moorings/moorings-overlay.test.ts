@@ -67,6 +67,76 @@ describe('moorings viewport loading', () => {
     expect(map.getLayer('binnacle-moorings-destination-ais-labels')).toBeUndefined();
   });
 
+  it('does not compare new-view moorings with AIS targets retained from another viewport', async () => {
+    const view = { longitude: -71.32, latitude: 41.49 };
+    const map = {
+      ...createFakeMap(),
+      getZoom: () => 13,
+      getBounds: () => ({
+        getWest: () => view.longitude - 0.01,
+        getSouth: () => view.latitude - 0.01,
+        getEast: () => view.longitude + 0.01,
+        getNorth: () => view.latitude + 0.01,
+      }),
+    };
+    fetchMooringsMock.mockResolvedValue({
+      moorings: [
+        {
+          id: 'test:new-view',
+          name: 'New-view mooring',
+          position: { longitude: view.longitude, latitude: view.latitude },
+          scaleBand: 'harbour',
+          assessment: { status: 'unknown', score: 0, evidence: [] },
+        },
+      ],
+    });
+    let targets = [
+      {
+        id: 'aisstream:111111111',
+        name: 'Retained old-view target',
+        position: { longitude: 20, latitude: -30 },
+        lastReportAtMs: Date.now(),
+      },
+    ];
+    const received: MooringPoint[][] = [];
+    const overlay = createMooringsOverlay(
+      'http://pi',
+      () => undefined,
+      { list: () => targets } as unknown as AisTargets,
+      {
+        destinationAisAvailable: () => true,
+        selectedId: () => undefined,
+        onMoorings: (moorings) => received.push(moorings),
+      },
+    );
+    const ctx = fakeOverlayContext(map);
+
+    await overlay.add(ctx);
+    overlay.sync(ctx);
+    await settle();
+
+    expect(received.at(-1)?.[0]?.assessment.evidence).toEqual([
+      'No current AIS targets were observed in this chart area',
+    ]);
+
+    vi.setSystemTime(11_000);
+    targets = [
+      ...targets,
+      {
+        id: 'aisstream:222222222',
+        name: 'Current-view target',
+        position: { longitude: view.longitude + 0.0001, latitude: view.latitude },
+        lastReportAtMs: Date.now(),
+      },
+    ];
+    overlay.sync(ctx);
+
+    expect(received.at(-1)?.[0]?.assessment.distanceMeters).toBeLessThan(20);
+    expect(received.at(-1)?.[0]?.assessment.evidence[0]).toMatch(
+      /^AIS target \d+ m from the charted position:/,
+    );
+  });
+
   it('loads moorings at the wider zoom ten view', async () => {
     const map = {
       ...createFakeMap(),

@@ -32,6 +32,8 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Fixed
 
+- Mooring occupancy no longer reports a retained AIS target from the previous viewport as a
+  multi-million-metre nearest vessel while destination-area AIS catches up after a pan.
 - Center on vessel is now an always-present fixed control at the right end of the lower helm row
   instead of a transient button that moves around the chart edge.
 - Mooring occupancy no longer drops slow-reporting AIS contacts after two minutes. Unassociated
