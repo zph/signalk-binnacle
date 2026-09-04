@@ -15,6 +15,7 @@ const NOAA_FIELDS = 'OBJECTID,BOYSHP,CATMOR,COLOUR,COLPAT,OBJNAM,INFORM,SORDAT,S
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
 const NOAA_CACHE_MS = 15 * 60 * 1_000;
+const NOAA_FAILURE_RETRY_MS = 10_000;
 const MAX_CACHE_ENTRIES = 32;
 const MAX_AREA_SPAN_DEGREES = 5;
 
@@ -168,8 +169,11 @@ async function fetchNoaaMoorings(bbox) {
   const results = await Promise.allSettled(
     NOAA_MOORING_SOURCES.map((source) => fetchNoaaMooringSource(source, bbox)),
   );
-  if (results.some((result) => result.status !== 'fulfilled')) {
-    throw new Error('One or more NOAA ENC mooring services were unavailable');
+  const unavailable = results.flatMap((result, index) =>
+    result.status === 'fulfilled' ? [] : [NOAA_MOORING_SOURCES[index].scaleBand],
+  );
+  if (unavailable.length > 0) {
+    throw new Error(`NOAA ENC mooring services unavailable: ${unavailable.join(', ')}`);
   }
   const byPosition = new Map();
   for (const result of results) {
@@ -184,20 +188,38 @@ async function fetchNoaaMoorings(bbox) {
 
 function createNoaaCache() {
   const entries = new Map();
+  const failures = new Map();
+  const pending = new Map();
   return {
     async get(bbox) {
       const key = bboxKey(bbox);
       const now = Date.now();
       const cached = entries.get(key);
       if (cached && cached.expiresAt > now) return cached.value;
-      const value = await fetchNoaaMoorings(bbox);
-      entries.delete(key);
-      entries.set(key, { expiresAt: now + NOAA_CACHE_MS, value });
-      while (entries.size > MAX_CACHE_ENTRIES) entries.delete(entries.keys().next().value);
-      return value;
+      const failed = failures.get(key);
+      if (failed && failed.retryAt > now) throw failed.error;
+      const existing = pending.get(key);
+      if (existing) return existing;
+      const request = fetchNoaaMoorings(bbox)
+        .then((value) => {
+          failures.delete(key);
+          entries.delete(key);
+          entries.set(key, { expiresAt: Date.now() + NOAA_CACHE_MS, value });
+          while (entries.size > MAX_CACHE_ENTRIES) entries.delete(entries.keys().next().value);
+          return value;
+        })
+        .catch((error) => {
+          failures.set(key, { retryAt: Date.now() + NOAA_FAILURE_RETRY_MS, error });
+          throw error;
+        })
+        .finally(() => pending.delete(key));
+      pending.set(key, request);
+      return request;
     },
     clear() {
       entries.clear();
+      failures.clear();
+      pending.clear();
     },
   };
 }

@@ -2,7 +2,6 @@ import type { AisTargets } from '$entities/ais';
 import {
   bboxContains,
   bboxContainsPoint,
-  boundedViewportBbox,
   lngLatBoundsToBbox4,
   padBbox,
   splitAtAntimeridian,
@@ -20,7 +19,7 @@ import {
   setSourceData,
 } from '$shared/map';
 import { assessMoorings, OnboardAisHistory } from './mooring-occupancy';
-import { fetchDestinationAis, fetchMoorings } from './moorings-client';
+import { fetchMoorings } from './moorings-client';
 import {
   addMooringLayers,
   applyMooringTheme,
@@ -34,15 +33,13 @@ import {
 } from './moorings-layers';
 import type {
   DestinationAisState,
-  MooringAisTarget,
   MooringPoint,
   MooringViewPhase,
   MooringViewState,
 } from './moorings-types';
 
-const AIS_POLL_MS = 5_000;
-const AIS_VIEWPORT_QUIESCENCE_MS = 1_500;
-const AIS_MAX_BBOX_SPAN = 10;
+const MOORINGS_RETRY_INITIAL_MS = 10_000;
+const MOORINGS_RETRY_MAX_MS = 10 * 60_000;
 
 export interface MooringsOverlay extends OverlayModule, Syncable {}
 
@@ -86,19 +83,16 @@ export function createMooringsOverlay(
   let mounted = false;
   let lifecycle = 0;
   let fetchBbox: ReturnType<typeof lngLatBoundsToBbox4> | undefined;
+  let lastFetchAttemptBbox: ReturnType<typeof lngLatBoundsToBbox4> | undefined;
   let rawMoorings: MooringPoint[] = [];
   let rendered: MooringPoint[] = [];
-  let destinationTargets: MooringAisTarget[] = [];
   let destinationAis: DestinationAisState = options.destinationAisAvailable()
     ? 'checking'
     : 'unavailable';
   let lastStatus: MooringViewState | undefined;
   let loading = false;
-  let aisLoading = false;
-  let lastAisPollAt = 0;
-  let destinationFetchBbox: ReturnType<typeof lngLatBoundsToBbox4> | undefined;
-  let pendingDestinationViewport: ReturnType<typeof lngLatBoundsToBbox4> | undefined;
-  let pendingDestinationSince = 0;
+  let consecutiveFetchFailures = 0;
+  let nextFetchAt = 0;
   let lastRenderKey = '';
   let mooringVersion = 0;
   let themePaint = mapThemePaint('day');
@@ -136,19 +130,19 @@ export function createMooringsOverlay(
   }
 
   function updateRender(ctx: OverlayContext, now: number): void {
-    const onboard = onboardHistory.observe(aisTargets.list(), now);
+    const observedTargets = onboardHistory.observe(aisTargets.list(), now);
+    destinationAis = options.destinationAisAvailable() ? 'live' : 'unavailable';
     const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
     const key = [
       mooringVersion,
       options.selectedId() ?? '',
       ...viewport.map((value) => value.toFixed(5)),
       Math.floor(now / 60_000),
-      ...onboard.map((target) => `${target.id}:${target.lastReportAtMs}`),
-      ...destinationTargets.map((target) => `${target.id}:${target.lastReportAtMs}`),
+      ...observedTargets.map((target) => `${target.id}:${target.lastReportAtMs}`),
     ].join('|');
     if (key === lastRenderKey) return;
     lastRenderKey = key;
-    rendered = assessMoorings(rawMoorings, onboard, destinationTargets, now);
+    rendered = assessMoorings(rawMoorings, observedTargets, [], now);
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, renderFeatures(rendered));
     const selected = rendered.find((mooring) => mooring.id === options.selectedId());
     setSourceData(
@@ -180,14 +174,24 @@ export function createMooringsOverlay(
   ): Promise<void> {
     const generation = lifecycle;
     loading = true;
+    lastFetchAttemptBbox = bbox;
     report('loading');
     const result = await fetchMoorings(origin, getToken(), bbox);
     if (!mounted || generation !== lifecycle) return;
     loading = false;
     if (!result) {
+      consecutiveFetchFailures += 1;
+      nextFetchAt =
+        Date.now() +
+        Math.min(
+          MOORINGS_RETRY_INITIAL_MS * 2 ** (consecutiveFetchFailures - 1),
+          MOORINGS_RETRY_MAX_MS,
+        );
       report('error');
       return;
     }
+    consecutiveFetchFailures = 0;
+    nextFetchAt = 0;
     const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
     if (!bboxContains(bbox, viewport)) return;
     fetchBbox = bbox;
@@ -196,69 +200,6 @@ export function createMooringsOverlay(
     lastRenderKey = '';
     updateRender(ctx, Date.now());
     report('ready');
-  }
-
-  async function pollDestinationAis(
-    ctx: OverlayContext,
-    bbox: ReturnType<typeof lngLatBoundsToBbox4>,
-    now: number,
-  ): Promise<void> {
-    if (!options.destinationAisAvailable()) {
-      destinationAis = 'unavailable';
-      destinationTargets = [];
-      lastRenderKey = '';
-      updateRender(ctx, now);
-      report(lastStatus?.phase ?? 'idle');
-      return;
-    }
-    const boxes = splitAtAntimeridian(bbox);
-    if (boxes.length !== 1) {
-      destinationAis = 'error';
-      destinationTargets = [];
-      lastRenderKey = '';
-      updateRender(ctx, now);
-      report(lastStatus?.phase ?? 'idle');
-      return;
-    }
-    const generation = lifecycle;
-    aisLoading = true;
-    const snapshot = await fetchDestinationAis(origin, getToken(), boxes[0]);
-    if (!mounted || generation !== lifecycle) return;
-    aisLoading = false;
-    destinationAis = snapshot.state;
-    if (snapshot.state === 'live' || snapshot.state === 'unavailable') {
-      destinationTargets = snapshot.targets;
-      lastRenderKey = '';
-      updateRender(ctx, now);
-    }
-    report(lastStatus?.phase ?? 'idle');
-  }
-
-  function destinationRequestBbox(
-    viewport: ReturnType<typeof lngLatBoundsToBbox4>,
-    now: number,
-  ): ReturnType<typeof lngLatBoundsToBbox4> | undefined {
-    const desired = boundedViewportBbox(viewport, AIS_MAX_BBOX_SPAN);
-    if (
-      destinationFetchBbox &&
-      (bboxContains(destinationFetchBbox, viewport) ||
-        destinationFetchBbox.every((coordinate, index) => coordinate === desired[index]))
-    ) {
-      pendingDestinationViewport = undefined;
-      return destinationFetchBbox;
-    }
-    const viewportChanged =
-      !pendingDestinationViewport ||
-      pendingDestinationViewport.some((value, index) => value !== desired[index]);
-    if (viewportChanged) {
-      pendingDestinationViewport = desired;
-      pendingDestinationSince = now;
-      return undefined;
-    }
-    if (now - pendingDestinationSince < AIS_VIEWPORT_QUIESCENCE_MS) return undefined;
-    destinationFetchBbox = desired;
-    pendingDestinationViewport = undefined;
-    return destinationFetchBbox;
   }
 
   return {
@@ -287,16 +228,13 @@ export function createMooringsOverlay(
     reset() {
       lifecycle += 1;
       fetchBbox = undefined;
+      lastFetchAttemptBbox = undefined;
       rawMoorings = [];
       rendered = [];
       mooringVersion += 1;
-      destinationTargets = [];
-      destinationFetchBbox = undefined;
-      pendingDestinationViewport = undefined;
-      pendingDestinationSince = 0;
       loading = false;
-      aisLoading = false;
-      lastAisPollAt = 0;
+      consecutiveFetchFailures = 0;
+      nextFetchAt = 0;
       lastRenderKey = '';
     },
     sync(ctx) {
@@ -309,18 +247,18 @@ export function createMooringsOverlay(
       }
       const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
       const now = Date.now();
-      if (!loading && (!fetchBbox || !bboxContains(fetchBbox, viewport))) {
-        void loadMoorings(ctx, padBbox(viewport));
+      const requestBbox = padBbox(viewport);
+      const viewportChangedSinceFailure =
+        lastFetchAttemptBbox !== undefined && !bboxContains(lastFetchAttemptBbox, viewport);
+      if (
+        !loading &&
+        (!fetchBbox || !bboxContains(fetchBbox, viewport)) &&
+        (now >= nextFetchAt || viewportChangedSinceFailure)
+      ) {
+        void loadMoorings(ctx, requestBbox);
       } else if (!loading) {
         updateRender(ctx, now);
-        report('ready');
-      }
-      if (!aisLoading && now - lastAisPollAt >= AIS_POLL_MS) {
-        const requestBbox = destinationRequestBbox(viewport, now);
-        if (requestBbox) {
-          lastAisPollAt = now;
-          void pollDestinationAis(ctx, requestBbox, now);
-        }
+        if (fetchBbox && bboxContains(fetchBbox, viewport)) report('ready');
       }
     },
     setVisible(ctx, next) {

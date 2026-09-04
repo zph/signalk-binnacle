@@ -262,16 +262,14 @@ describe('Binnacle server settings plugin', () => {
   });
 
   it('rejects an incomplete NOAA scale snapshot instead of caching it as empty', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: string | URL | Request) => {
-        const url = new URL(String(input));
-        if (url.pathname.includes('/enc_general/')) return new Response('', { status: 503 });
-        return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
-          status: 200,
-        });
-      }),
-    );
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname.includes('/enc_general/')) return new Response('', { status: 503 });
+      return new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), {
+        status: 200,
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
     const test = harness();
     const response = test.response();
     await test.routes.get('readonly:GET:/api/moorings')?.(
@@ -281,6 +279,14 @@ describe('Binnacle server settings plugin', () => {
 
     expect(response.code).toBe(502);
     expect(response.body).toEqual({ error: 'Unable to load NOAA ENC moorings.' });
+
+    const retry = test.response();
+    await test.routes.get('readonly:GET:/api/moorings')?.(
+      { query: { bbox: '[-71,41,-70,42]' } },
+      retry,
+    );
+    expect(retry.code).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     vi.unstubAllGlobals();
   });
 

@@ -2,14 +2,7 @@ import type { Bbox4 } from '$shared/geo';
 import { fetchAcrossSeam } from '$shared/geo';
 import { isRecord, readBoundedJson, withTimeout } from '$shared/lib';
 import { authInit } from '$shared/signalk';
-import {
-  type DestinationAisState,
-  destinationTarget,
-  type MooringAisTarget,
-  type MooringPoint,
-  type MooringScaleBand,
-  mooringFromGeoJson,
-} from './moorings-types';
+import { type MooringPoint, type MooringScaleBand, mooringFromGeoJson } from './moorings-types';
 
 const NOAA_SOURCES: readonly { scaleBand: MooringScaleBand; layer: number }[] = [
   { scaleBand: 'overview', layer: 34 },
@@ -22,7 +15,6 @@ const NOAA_SOURCES: readonly { scaleBand: MooringScaleBand; layer: number }[] = 
 const NOAA_FIELDS = 'OBJECTID,BOYSHP,CATMOR,COLOUR,COLPAT,OBJNAM,INFORM,SORDAT,SORIND,DSNM';
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
-const MAX_DESTINATION_TARGETS = 10_000;
 
 async function readMoorings(
   response: Response,
@@ -122,6 +114,9 @@ export function fetchMoorings(
         );
         const provided = await readMoorings(response);
         if (provided) return provided;
+        // A reachable companion route owns NOAA access. Do not multiply a transient upstream
+        // failure into six more browser requests; the overlay retries it with bounded backoff.
+        if (response.status !== 404) return undefined;
       } catch {
         // A standalone Binnacle build has no companion route. NOAA supports GeoJSON directly.
       }
@@ -129,46 +124,4 @@ export function fetchMoorings(
     },
     (mooring) => mooring.id,
   );
-}
-
-export interface DestinationAisSnapshot {
-  state: DestinationAisState;
-  targets: MooringAisTarget[];
-}
-
-export async function fetchDestinationAis(
-  origin: string,
-  token: string | undefined,
-  bbox: Bbox4,
-): Promise<DestinationAisSnapshot> {
-  const query = new URLSearchParams({ bbox: JSON.stringify(bbox) });
-  try {
-    const response = await fetch(
-      `${origin}/plugins/signalk-aisstream/api/destination?${query}`,
-      withTimeout(authInit(token, { cache: 'no-store' }), 5_000),
-    );
-    if (response.status === 404 || response.status === 503) {
-      return { state: 'unavailable', targets: [] };
-    }
-    if (!response.ok) return { state: 'error', targets: [] };
-    const body = await readBoundedJson<unknown>(response);
-    if (!isRecord(body) || !Array.isArray(body.targets)) {
-      return { state: 'error', targets: [] };
-    }
-    const providerState = body.state;
-    const state: DestinationAisState =
-      providerState === 'live' ||
-      providerState === 'connecting' ||
-      providerState === 'disconnected' ||
-      providerState === 'error'
-        ? providerState
-        : 'error';
-    const targets = body.targets
-      .slice(0, MAX_DESTINATION_TARGETS)
-      .map(destinationTarget)
-      .filter((target): target is MooringAisTarget => target !== undefined);
-    return { state, targets };
-  } catch {
-    return { state: 'error', targets: [] };
-  }
 }

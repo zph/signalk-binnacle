@@ -89,7 +89,7 @@ export class OnboardAisHistory {
         sogMps: target.sogMps,
         navigationState: target.navigationState,
         lastReportAtMs: at,
-        source: 'onboard',
+        source: target.id.startsWith('aisstream:') ? 'destination' : 'onboard',
         history: summarize(history.samples),
       });
     }

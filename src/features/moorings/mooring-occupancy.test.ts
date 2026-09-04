@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { assessMoorings } from './mooring-occupancy';
+import type { AisTargetView } from '$entities/ais';
+import { assessMoorings, OnboardAisHistory } from './mooring-occupancy';
 import type { MooringAisTarget, MooringPoint } from './moorings-types';
 
 const NOW = 2_000_000;
@@ -35,6 +36,22 @@ function target(id: string, longitude = 0): MooringAisTarget {
 }
 
 describe('assessMoorings', () => {
+  it('preserves destination provenance for viewport AIS targets in the shared target model', () => {
+    const history = new OnboardAisHistory();
+    const [observed] = history.observe(
+      [
+        {
+          id: 'aisstream:123456789',
+          position: { latitude: 0, longitude: 0 },
+          lastReportAtMs: NOW,
+        } satisfies AisTargetView,
+      ],
+      NOW,
+    );
+    expect(observed.source).toBe('destination');
+    expect(observed.mmsi).toBe('123456789');
+  });
+
   it('marks strong dwell and swing evidence as likely occupied', () => {
     const [result] = assessMoorings([mooring('m1')], [], [target('1')], NOW);
     expect(result.assessment.status).toBe('likely-occupied');
