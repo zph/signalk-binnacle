@@ -34,7 +34,8 @@ All notable changes to Binnacle are documented here. The format follows
 
 - Mooring occupancy no longer drops slow-reporting AIS contacts after two minutes. Unassociated
   moorings now explain whether no current targets were observed, the nearest target is beyond the
-  matching limit, or that target belongs to a closer charted mooring.
+  matching limit, or that target belongs to a closer charted mooring. Selecting a buoy expands that
+  buoy's own list card to show its explanation and source details.
 - Position-derived AIS motion now uses each report's receipt timestamp, so view refreshes cannot
   manufacture movement samples from one unchanged position.
 - NOAA chart sources now appear after a Signal K restart even when the chart provider registers

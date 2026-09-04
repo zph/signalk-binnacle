@@ -51,7 +51,6 @@ const allRows = $derived(
   sortRows(filterRows(toRows(moorings, vesselPosition), query), sortState.key, sortState.dir),
 );
 const rows = $derived(allRows.slice(0, MAX_NAV_ROWS));
-const selected = $derived(moorings.find((mooring) => mooring.id === selectedId));
 const likelyCount = $derived(
   moorings.filter((mooring) => mooring.assessment.status === 'likely-occupied').length,
 );
@@ -151,11 +150,14 @@ $effect(() => {
   {:else}
     <ul class="nav-list bare-list" aria-label="Moorings in view">
       {#each rows as row (row.mooring.id)}
-        <li>
+        <li
+          class="nav-row mooring-card"
+          aria-current={selectedId === row.mooring.id ? 'true' : undefined}
+        >
           <button
             type="button"
-            class="nav-row"
-            aria-current={selectedId === row.mooring.id ? 'true' : undefined}
+            class="mooring-summary"
+            aria-expanded={selectedId === row.mooring.id}
             onclick={() => onSelect(row.mooring)}
           >
             <span class="mooring-title">
@@ -182,6 +184,47 @@ $effect(() => {
               </span>
             </span>
           </button>
+          {#if selectedId === row.mooring.id}
+            <section class="mooring-details" aria-label="Selected mooring details">
+              <div class="mooring-detail-head">
+                <p>{occupancyLabel(row.mooring)} · score {row.mooring.assessment.score} of 100</p>
+                <button type="button" class="btn btn-compact" onclick={() => onLocate(row.mooring)}>
+                  <LocateFixed size={16} aria-hidden="true" />
+                  Locate
+                </button>
+              </div>
+              {#if row.mooring.information}
+                <p>{row.mooring.information}</p>
+              {/if}
+              {#if row.mooring.assessment.vesselName}
+                <p>
+                  AIS target: {row.mooring.assessment.vesselName}. Source:
+                  {row.mooring.assessment.source ===
+                  'destination'
+                    ? 'destination review feed'
+                    : 'onboard Signal K'}.
+                </p>
+              {/if}
+              {#if row.mooring.assessment.evidence.length > 0}
+                <h3 class="caps-label">
+                  {row.mooring.assessment.vesselId
+                    ? 'AIS evidence'
+                    : 'Why no vessel was associated'}
+                </h3>
+                <ul>
+                  {#each row.mooring.assessment.evidence as evidence, index (index)}
+                    <li>{evidence}</li>
+                  {/each}
+                </ul>
+              {/if}
+              <p class="muted-note">
+                NOAA ENC {row.mooring.encCell ?? 'source cell unavailable'}
+                {row.mooring.sourceDate
+                  ? ` · source date ${row.mooring.sourceDate}`
+                  : ''}
+              </p>
+            </section>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -191,47 +234,6 @@ $effect(() => {
         the results.
       </p>
     {/if}
-  {/if}
-
-  {#if selected}
-    <section class="detail-card" aria-label="Selected mooring details">
-      <div>
-        <strong>{selected.name}</strong>
-        <p>{occupancyLabel(selected)} · score {selected.assessment.score} of 100</p>
-      </div>
-      <button type="button" class="btn btn-compact" onclick={() => onLocate(selected)}>
-        <LocateFixed size={16} aria-hidden="true" />
-        Locate
-      </button>
-      {#if selected.information}
-        <p>{selected.information}</p>
-      {/if}
-      {#if selected.assessment.vesselName}
-        <p>
-          AIS target: {selected.assessment.vesselName}. Source:
-          {selected.assessment.source ===
-          'destination'
-            ? 'destination review feed'
-            : 'onboard Signal K'}.
-        </p>
-      {/if}
-      {#if selected.assessment.evidence.length > 0}
-        <h3 class="caps-label">
-          {selected.assessment.vesselId ? 'AIS evidence' : 'Why no vessel was associated'}
-        </h3>
-        <ul>
-          {#each selected.assessment.evidence as evidence, index (index)}
-            <li>{evidence}</li>
-          {/each}
-        </ul>
-      {/if}
-      <p class="muted-note">
-        NOAA ENC {selected.encCell ?? 'source cell unavailable'}
-        {selected.sourceDate
-          ? ` · source date ${selected.sourceDate}`
-          : ''}
-      </p>
-    </section>
   {/if}
 </SlideOver>
 
@@ -255,19 +257,42 @@ $effect(() => {
 .occupancy--possible b {
   color: var(--warning);
 }
-.detail-card {
+.mooring-card {
+  gap: 0;
+  padding: 0;
+  cursor: default;
+}
+.mooring-summary {
+  inline-size: 100%;
+  min-block-size: var(--control-size);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.mooring-details {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  border-block-start: 1px solid var(--border);
 }
-.detail-card p,
-.detail-card ul {
+.mooring-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.mooring-details p,
+.mooring-details ul {
   margin: 0;
-}
-.detail-card .btn {
-  justify-self: start;
 }
 </style>

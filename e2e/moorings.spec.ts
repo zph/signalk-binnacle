@@ -136,7 +136,10 @@ for (const viewport of viewports) {
     const row = panel.getByRole('button', { name: /Guest Mooring 42/ });
     await expect(row).toBeVisible();
     await row.click();
-    await expect(row).toHaveAttribute('aria-current', 'true');
+    const card = row.locator('..');
+    await expect(card).toHaveAttribute('aria-current', 'true');
+    await expect(row).toHaveAttribute('aria-expanded', 'true');
+    await expect(card.getByRole('region', { name: 'Selected mooring details' })).toBeVisible();
     await expect(panel.getByRole('button', { name: 'Locate' })).toBeVisible();
     await expectNoHorizontalOverflow(panel);
     await expectInsideViewport(panel, page);
