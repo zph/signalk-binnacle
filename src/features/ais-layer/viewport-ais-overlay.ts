@@ -132,8 +132,9 @@ export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {
     if (!mounted || requestGeneration !== generation) return;
     loading = false;
     requestedBbox = bbox;
-    if (snapshot.state === 'live') options.targets.replaceViewportTargets(snapshot.targets);
-    else if (snapshot.state === 'unavailable') clear();
+    if (snapshot.state === 'live' || snapshot.targets.length > 0) {
+      options.targets.replaceViewportTargets(snapshot.targets);
+    } else if (snapshot.state === 'unavailable') clear();
     nextFetchAt = now() + POLL_MS;
   }
 

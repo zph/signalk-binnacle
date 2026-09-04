@@ -158,6 +158,47 @@ describe('viewport AIS overlay', () => {
     expect(received.map((item) => item.id)).toEqual(['first']);
   });
 
+  it('renders valid targets received while the first subscription is still connecting', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(200, {
+          state: 'connecting',
+          targets: [
+            {
+              id: 'early',
+              mmsi: '111111111',
+              position: { latitude: 41.5, longitude: -71.3 },
+              lastReportAtMs: 10_000,
+            },
+          ],
+        }),
+      ),
+    );
+    let received: AisTargetView[] = [];
+    const overlay = createViewportAisOverlay({
+      origin: 'http://pi',
+      getToken: () => undefined,
+      available: () => true,
+      targets: {
+        replaceViewportTargets(next: readonly AisTargetView[]) {
+          received = [...next];
+        },
+        clearViewportTargets() {
+          received = [];
+        },
+      } as AisTargets,
+    });
+    const ctx = fakeOverlayContext(viewMap({ west: -71.4, south: 41.4, east: -71.2, north: 41.6 }));
+    overlay.add(ctx);
+    overlay.sync(ctx);
+    vi.advanceTimersByTime(1_500);
+    overlay.sync(ctx);
+    await flush();
+
+    expect(received.map((item) => item.id)).toEqual(['early']);
+  });
+
   it('requests a fixed ten-degree area for a viewport wider than ten degrees', async () => {
     const requested: string[] = [];
     vi.stubGlobal(
