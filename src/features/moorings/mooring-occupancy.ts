@@ -1,4 +1,4 @@
-import { type AisTargetView, shortVesselId } from '$entities/ais';
+import { AIS_MOTION_STALE_TTL_MS, type AisTargetView, shortVesselId } from '$entities/ais';
 import { haversineMeters } from '$shared/nav';
 import type {
   AisHistorySummary,
@@ -8,7 +8,6 @@ import type {
 } from './moorings-types';
 
 const HISTORY_MS = 30 * 60 * 1000;
-const TARGET_STALE_MS = 2 * 60 * 1000;
 const NEAR_METERS = 50;
 const MATCH_METERS = 75;
 const LOW_SPEED_MPS = 0.5 * 0.514444;
@@ -69,7 +68,7 @@ export class OnboardAisHistory {
     const result: MooringAisTarget[] = [];
     for (const target of targets) {
       const at = target.lastReportAtMs;
-      if (target.stale || at === undefined || now - at > TARGET_STALE_MS) continue;
+      if (target.stale || at === undefined || now - at > AIS_MOTION_STALE_TTL_MS) continue;
       const history = this.#histories.get(target.id) ?? { lastReportAtMs: -1, samples: [] };
       if (at > history.lastReportAtMs) {
         history.samples.push({ at, position: target.position, sogMps: target.sogMps });
@@ -176,16 +175,22 @@ export function assessMoorings(
 ): MooringPoint[] {
   const pairs: Array<{ mooring: MooringPoint; target: MooringAisTarget; distanceMeters: number }> =
     [];
-  const targets = combinedTargets(onboard, destination);
+  const targets = combinedTargets(onboard, destination).filter(
+    (target) => now - target.lastReportAtMs <= AIS_MOTION_STALE_TTL_MS,
+  );
+  const nearestByMooring = new Map<string, { target: MooringAisTarget; distanceMeters: number }>();
   for (const mooring of moorings) {
     for (const target of targets) {
-      if (now - target.lastReportAtMs > TARGET_STALE_MS) continue;
       const distanceMeters = haversineMeters(
         mooring.position.latitude,
         mooring.position.longitude,
         target.position.latitude,
         target.position.longitude,
       );
+      const nearest = nearestByMooring.get(mooring.id);
+      if (!nearest || distanceMeters < nearest.distanceMeters) {
+        nearestByMooring.set(mooring.id, { target, distanceMeters });
+      }
       if (distanceMeters <= MATCH_METERS) pairs.push({ mooring, target, distanceMeters });
     }
   }
@@ -198,8 +203,19 @@ export function assessMoorings(
     byMooring.set(pair.mooring.id, assessment(pair.mooring, pair.target, pair.distanceMeters, now));
     usedTargets.add(targetKey);
   }
-  return moorings.map((mooring) => ({
-    ...mooring,
-    assessment: byMooring.get(mooring.id) ?? { status: 'unknown', score: 0, evidence: [] },
-  }));
+  return moorings.map((mooring) => {
+    const assigned = byMooring.get(mooring.id);
+    if (assigned) return { ...mooring, assessment: assigned };
+    const nearest = nearestByMooring.get(mooring.id);
+    const evidence = nearest
+      ? nearest.distanceMeters > MATCH_METERS
+        ? [
+            `Nearest current AIS target is ${Math.round(nearest.distanceMeters)} m away, beyond the ${MATCH_METERS} m matching limit`,
+          ]
+        : [
+            `Nearest current AIS target is ${Math.round(nearest.distanceMeters)} m away, but it is assigned to a closer charted mooring`,
+          ]
+      : ['No current AIS targets were observed in this chart area'];
+    return { ...mooring, assessment: { status: 'unknown' as const, score: 0, evidence } };
+  });
 }

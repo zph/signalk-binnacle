@@ -19,7 +19,7 @@ function mooring(
       status,
       score: 0,
       vesselName: id === 'a' ? 'Sea Bird' : undefined,
-      evidence: [],
+      evidence: id === 'b' ? ['Nearest current AIS target is 111 m away'] : [],
     },
   };
 }
@@ -35,6 +35,7 @@ describe('mooring rows', () => {
     expect(filterRows(rows, 'guest')).toHaveLength(3);
     expect(filterRows(rows, 'sea bird').map((row) => row.id)).toEqual(['a']);
     expect(filterRows(rows, 'likely occupied').map((row) => row.id)).toEqual(['a']);
+    expect(filterRows(rows, '111 m away').map((row) => row.id)).toEqual(['b']);
     expect(filterRows(rows, 'US5TEST')).toHaveLength(3);
   });
 

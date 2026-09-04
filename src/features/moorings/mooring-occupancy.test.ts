@@ -61,7 +61,21 @@ describe('assessMoorings', () => {
 
   it('leaves a mooring unknown when no AIS target is observed', () => {
     const [result] = assessMoorings([mooring('m1')], [], [], NOW);
-    expect(result.assessment).toEqual({ status: 'unknown', score: 0, evidence: [] });
+    expect(result.assessment).toEqual({
+      status: 'unknown',
+      score: 0,
+      evidence: ['No current AIS targets were observed in this chart area'],
+    });
+  });
+
+  it('explains when the nearest current vessel is beyond the matching limit', () => {
+    const [result] = assessMoorings([mooring('m1')], [], [target('1', 0.001)], NOW);
+
+    expect(result.assessment).toEqual({
+      status: 'unknown',
+      score: 0,
+      evidence: ['Nearest current AIS target is 111 m away, beyond the 75 m matching limit'],
+    });
   });
 
   it('assigns one nearby target to only one mooring', () => {
@@ -73,11 +87,23 @@ describe('assessMoorings', () => {
     );
     expect(results.filter((result) => result.assessment.vesselId)).toHaveLength(1);
     expect(results[0].assessment.vesselId).toBe('1');
+    expect(results[1].assessment.evidence).toEqual([
+      'Nearest current AIS target is 17 m away, but it is assigned to a closer charted mooring',
+    ]);
   });
 
-  it('ignores stale destination targets', () => {
-    const stale = { ...target('1'), lastReportAtMs: NOW - 3 * 60_000 };
+  it('keeps a slow-reporting target current for the shared AIS motion window', () => {
+    const slow = { ...target('1'), lastReportAtMs: NOW - 3 * 60_000 };
+    const [result] = assessMoorings([mooring('m1')], [], [slow], NOW);
+    expect(result.assessment.status).toBe('likely-occupied');
+  });
+
+  it('ignores destination targets after the shared AIS motion window', () => {
+    const stale = { ...target('1'), lastReportAtMs: NOW - 6 * 60_000 };
     const [result] = assessMoorings([mooring('m1')], [], [stale], NOW);
     expect(result.assessment.status).toBe('unknown');
+    expect(result.assessment.evidence).toEqual([
+      'No current AIS targets were observed in this chart area',
+    ]);
   });
 });

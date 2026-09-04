@@ -56,6 +56,16 @@ function reportedMotion(target: AisTargetView): AisMotion | undefined {
   return { cogRad: target.cogRad, sogMps: target.sogMps };
 }
 
+function positionSampleAt(target: AisTargetView, now: number): number {
+  const receivedAt = target.lastReportAtMs;
+  return receivedAt !== undefined &&
+    Number.isFinite(receivedAt) &&
+    receivedAt >= 0 &&
+    receivedAt <= now
+    ? receivedAt
+    : now;
+}
+
 function angleDifferenceRad(a: number, b: number): number {
   const wrapped = Math.abs(a - b) % (2 * Math.PI);
   return Math.min(wrapped, 2 * Math.PI - wrapped);
@@ -174,9 +184,10 @@ export class AisMotionEstimator {
         history.samples = [];
         latest = undefined;
       }
-      if (history.lastView !== target && (!latest || now > latest.at)) {
+      const sampleAt = positionSampleAt(target, now);
+      if (history.lastView !== target && (!latest || sampleAt > latest.at)) {
         history.samples.push({
-          at: now,
+          at: sampleAt,
           latitude: target.position.latitude,
           longitude: target.position.longitude,
         });

@@ -15,7 +15,9 @@ Binnacle reports three states:
   movement, swing-center, or reported moored evidence.
 - **Possible occupancy** means some evidence exists, but it is not strong enough for the higher
   classification.
-- **Unknown** means AIS cannot establish occupancy. It does not mean vacant.
+- **Unknown** means AIS cannot establish occupancy. It does not mean vacant. The selected mooring
+  explains whether no current AIS targets were observed, the nearest target was beyond the matching
+  limit, or that target was assigned to a closer charted mooring.
 
 Many recreational boats do not transmit AIS. Class B reports also usually omit navigational status.
 Binnacle therefore uses position, median speed, dwell time, and movement geometry, and does not rely

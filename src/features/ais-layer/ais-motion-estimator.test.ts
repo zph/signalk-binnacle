@@ -224,6 +224,37 @@ describe('AisMotionEstimator', () => {
     expect(selection).toEqual({ sampleCount: 1, newestSampleAt: 0 });
   });
 
+  it('reports the position receipt time instead of the estimator refresh time', () => {
+    const estimator = new AisMotionEstimator();
+    const selection = estimator
+      .update(
+        [
+          target(
+            { latitude: 10, longitude: 20 },
+            { cogRad: undefined, sogMps: undefined, lastReportAtMs: 95_000 },
+          ),
+        ],
+        100_000,
+      )
+      .get('target-1');
+
+    expect(selection).toEqual({ sampleCount: 1, newestSampleAt: 95_000 });
+  });
+
+  it('does not turn view rebuilds with one position timestamp into motion samples', () => {
+    const estimator = new AisMotionEstimator();
+    const position = { latitude: 10, longitude: 20 };
+    estimator.update([target(position, { lastReportAtMs: 95_000 })], 100_000);
+
+    const selection = estimator
+      .update([target(position, { lastReportAtMs: 95_000 })], 110_000)
+      .get('target-1');
+
+    expect(selection?.sampleCount).toBe(1);
+    expect(selection?.newestSampleAt).toBe(95_000);
+    expect(selection?.observed).toBeUndefined();
+  });
+
   it('forgets removed targets and starts their history over', () => {
     const estimator = new AisMotionEstimator();
     const origin = { latitude: 10, longitude: 20 };

@@ -216,6 +216,9 @@ $effect(() => {
         </p>
       {/if}
       {#if selected.assessment.evidence.length > 0}
+        <h3 class="caps-label">
+          {selected.assessment.vesselId ? 'AIS evidence' : 'Why no vessel was associated'}
+        </h3>
         <ul>
           {#each selected.assessment.evidence as evidence, index (index)}
             <li>{evidence}</li>

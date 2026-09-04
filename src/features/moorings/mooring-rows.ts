@@ -37,6 +37,7 @@ export function filterRows(rows: readonly MooringRow[], query: string): readonly
     row.mooring.encCell,
     row.mooring.assessment.vesselName,
     row.mooring.assessment.status.replace('-', ' '),
+    ...row.mooring.assessment.evidence,
   ]);
 }
 
