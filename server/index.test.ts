@@ -1,11 +1,15 @@
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { describe, expect, it, vi } from 'vitest';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const createPlugin = require('./index.cjs') as (app: AppStub) => PluginStub;
 
 interface AppStub {
   error: ReturnType<typeof vi.fn>;
+  getDataDirPath?: () => string;
   savePluginOptions: (
     options: object,
     callback: (error: NodeJS.ErrnoException | null) => void,
@@ -25,6 +29,7 @@ interface ResponseStub {
 
 interface PluginStub {
   start: (options: object) => void;
+  stop: () => void;
   registerWithRouter: (router: RouterStub) => void;
 }
 
@@ -48,10 +53,15 @@ const thresholds = {
 };
 const alarmLocation = 'center';
 
-function harness(initial: object = {}, savePluginOptions?: AppStub['savePluginOptions']) {
+function harness(
+  initial: object = {},
+  savePluginOptions?: AppStub['savePluginOptions'],
+  dataDirectory?: string,
+) {
   const routes = new Map<string, RouteHandler>();
   const app: AppStub = {
     error: vi.fn(),
+    getDataDirPath: dataDirectory ? () => dataDirectory : undefined,
     savePluginOptions: savePluginOptions ?? vi.fn((_options, callback) => callback(null)),
     setPluginError: vi.fn(),
     setPluginStatus: vi.fn(),
@@ -87,6 +97,11 @@ function harness(initial: object = {}, savePluginOptions?: AppStub['savePluginOp
   return { app, plugin, response, routes };
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
 describe('Binnacle server settings plugin', () => {
   it('serves stored thresholds to readonly clients without caching', async () => {
     const test = harness({ collisionThresholds: thresholds });
@@ -115,7 +130,10 @@ describe('Binnacle server settings plugin', () => {
   });
 
   it('serves and persists the alarm location while preserving thresholds', async () => {
-    const test = harness({ collisionThresholds: thresholds, alarmLocation: 'top' });
+    const test = harness({
+      collisionThresholds: thresholds,
+      alarmLocation: 'top',
+    });
     const response = test.response();
     await test.routes.get('readonly:GET:/api/settings/alarm-location')?.({}, response);
     expect(response.body).toEqual({ location: 'top' });
@@ -280,7 +298,9 @@ describe('Binnacle server settings plugin', () => {
     );
 
     expect(response.code).toBe(502);
-    expect(response.body).toEqual({ error: 'Unable to load NOAA ENC moorings.' });
+    expect(response.body).toEqual({
+      error: 'Unable to load NOAA ENC moorings.',
+    });
 
     const retry = test.response();
     await test.routes.get('readonly:GET:/api/moorings')?.(
@@ -290,6 +310,59 @@ describe('Binnacle server settings plugin', () => {
     expect(retry.code).toBe(502);
     expect(fetchMock).toHaveBeenCalledTimes(6);
     vi.unstubAllGlobals();
+  });
+
+  it('retains mooring snapshots in SQLite for 90 days across plugin restarts', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-04T12:00:00Z'));
+    const dataDirectory = mkdtempSync(join(tmpdir(), 'binnacle-moorings-'));
+    const goodFetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-70.7, 41.5] },
+                properties: {
+                  OBJECTID: 42,
+                  OBJNAM: 'Persisted mooring',
+                  DSNM: 'US5TEST.000',
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', goodFetch);
+    const first = harness({}, undefined, dataDirectory);
+    const firstResponse = first.response();
+    await first.routes.get('readonly:GET:/api/moorings')?.(
+      { query: { bbox: '[-71,41,-70,42]' } },
+      firstResponse,
+    );
+    first.plugin.stop();
+
+    vi.setSystemTime(new Date('2026-09-04T12:16:00Z'));
+    const failedFetch = vi.fn(async () => new Response('', { status: 503 }));
+    vi.stubGlobal('fetch', failedFetch);
+    const second = harness({}, undefined, dataDirectory);
+    const cachedResponse = second.response();
+    await second.routes.get('readonly:GET:/api/moorings')?.(
+      { query: { bbox: '[-71,41,-70,42]' } },
+      cachedResponse,
+    );
+
+    expect(cachedResponse.code).toBe(200);
+    expect(cachedResponse.headers['X-Binnacle-Moorings-Source']).toBe('stored');
+    expect(cachedResponse.body).toMatchObject({
+      cachedAtMs: new Date('2026-09-04T12:00:00Z').getTime(),
+      features: [{ properties: { OBJNAM: 'Persisted mooring' } }],
+    });
+    second.plugin.stop();
+    rmSync(dataDirectory, { recursive: true, force: true });
   });
 
   it('rejects a NOAA request that spans an unbounded area', async () => {

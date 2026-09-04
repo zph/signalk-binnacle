@@ -51,6 +51,7 @@ export type DestinationAisState =
 export interface MooringViewState {
   phase: MooringViewPhase;
   destinationAis: DestinationAisState;
+  cachedAtMs?: number;
 }
 
 export interface AisHistorySummary {

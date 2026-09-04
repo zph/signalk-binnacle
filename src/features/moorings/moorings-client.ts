@@ -1,5 +1,5 @@
 import type { Bbox4 } from '$shared/geo';
-import { fetchAcrossSeam } from '$shared/geo';
+import { splitAtAntimeridian } from '$shared/geo';
 import { isRecord, readBoundedJson, withTimeout } from '$shared/lib';
 import { authInit } from '$shared/signalk';
 import { type MooringPoint, type MooringScaleBand, mooringFromGeoJson } from './moorings-types';
@@ -15,10 +15,15 @@ const NOAA_SOURCES: readonly { scaleBand: MooringScaleBand; layer: number }[] = 
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
 
+export interface MooringFetchResult {
+  moorings: MooringPoint[];
+  cachedAtMs?: number;
+}
+
 async function readMoorings(
   response: Response,
   fallbackScaleBand?: MooringScaleBand,
-): Promise<MooringPoint[] | undefined> {
+): Promise<MooringFetchResult | undefined> {
   if (!response.ok) return undefined;
   const body = await readBoundedJson<unknown>(response);
   if (!isRecord(body) || !Array.isArray(body.features)) return undefined;
@@ -30,7 +35,14 @@ async function readMoorings(
     seen.add(mooring.id);
     moorings.push(mooring);
   }
-  return moorings;
+  const cachedAtMs = body.cachedAtMs;
+  return {
+    moorings,
+    cachedAtMs:
+      typeof cachedAtMs === 'number' && Number.isFinite(cachedAtMs) && cachedAtMs >= 0
+        ? cachedAtMs
+        : undefined,
+  };
 }
 
 async function fetchNoaaSource(
@@ -62,12 +74,12 @@ async function fetchNoaaSource(
         source.scaleBand,
       );
       if (!page) return undefined;
-      for (const mooring of page) {
+      for (const mooring of page.moorings) {
         if (seen.has(mooring.id)) continue;
         seen.add(mooring.id);
         moorings.push(mooring);
       }
-      if (page.length < NOAA_PAGE_SIZE) break;
+      if (page.moorings.length < NOAA_PAGE_SIZE) break;
     }
     return moorings;
   } catch {
@@ -100,26 +112,45 @@ export function fetchMoorings(
   origin: string,
   token: string | undefined,
   bbox: Bbox4,
-): Promise<MooringPoint[] | undefined> {
-  return fetchAcrossSeam(
-    bbox,
-    async (box) => {
-      const query = new URLSearchParams({ bbox: JSON.stringify(box) });
-      try {
-        const response = await fetch(
-          `${origin}/plugins/binnacle-custom/api/moorings?${query}`,
-          withTimeout(authInit(token), 12_000),
-        );
-        const provided = await readMoorings(response);
-        if (provided) return provided;
-        // A reachable companion route owns NOAA access. Do not multiply a transient upstream
-        // failure into six more browser requests; the overlay retries it with bounded backoff.
-        if (response.status !== 404) return undefined;
-      } catch {
-        // A standalone Binnacle build has no companion route. NOAA supports GeoJSON directly.
+): Promise<MooringFetchResult | undefined> {
+  return (async () => {
+    const boxes = splitAtAntimeridian(bbox);
+    if (boxes.length === 0) return undefined;
+    const answers = await Promise.all(
+      boxes.map(async (box) => {
+        const query = new URLSearchParams({ bbox: JSON.stringify(box) });
+        try {
+          const response = await fetch(
+            `${origin}/plugins/binnacle-custom/api/moorings?${query}`,
+            withTimeout(authInit(token), 12_000),
+          );
+          const provided = await readMoorings(response);
+          if (provided) return provided;
+          // A reachable companion route owns NOAA access. Do not multiply a transient upstream
+          // failure into six more browser requests; the overlay retries it with bounded backoff.
+          if (response.status !== 404) return undefined;
+        } catch {
+          // A standalone Binnacle build has no companion route. NOAA supports GeoJSON directly.
+        }
+        const direct = await fetchNoaaDirect(box);
+        return direct ? { moorings: direct } : undefined;
+      }),
+    );
+    if (answers.some((answer) => !answer)) return undefined;
+    const seen = new Set<string>();
+    const moorings: MooringPoint[] = [];
+    let cachedAtMs: number | undefined;
+    for (const answer of answers) {
+      if (!answer) continue;
+      if (answer.cachedAtMs !== undefined) {
+        cachedAtMs = Math.min(cachedAtMs ?? answer.cachedAtMs, answer.cachedAtMs);
       }
-      return fetchNoaaDirect(box);
-    },
-    (mooring) => mooring.id,
-  );
+      for (const mooring of answer.moorings) {
+        if (seen.has(mooring.id)) continue;
+        seen.add(mooring.id);
+        moorings.push(mooring);
+      }
+    }
+    return { moorings, cachedAtMs };
+  })();
 }

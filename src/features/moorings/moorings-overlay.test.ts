@@ -20,7 +20,7 @@ describe('moorings viewport loading', () => {
     vi.useFakeTimers();
     vi.setSystemTime(10_000);
     fetchMooringsMock.mockReset();
-    fetchMooringsMock.mockResolvedValue([]);
+    fetchMooringsMock.mockResolvedValue({ moorings: [] });
   });
 
   afterEach(() => {
@@ -90,6 +90,57 @@ describe('moorings viewport loading', () => {
     overlay.sync(ctx);
     await settle();
 
+    expect(fetchMooringsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps fetched positions available after zooming out and back in', async () => {
+    let zoom = 13;
+    const map = {
+      ...createFakeMap(),
+      getZoom: () => zoom,
+      getBounds: () => ({
+        getWest: () => -123.2,
+        getSouth: () => 48.5,
+        getEast: () => -123.1,
+        getNorth: () => 48.6,
+      }),
+    };
+    const received: MooringPoint[][] = [];
+    fetchMooringsMock.mockResolvedValue({
+      moorings: [
+        {
+          id: 'test:42',
+          name: 'Retained mooring',
+          position: { longitude: -123.15, latitude: 48.55 },
+          scaleBand: 'harbour',
+          assessment: { status: 'unknown', score: 0, evidence: [] },
+        },
+      ],
+    });
+    const ctx = fakeOverlayContext(map);
+    const overlay = createMooringsOverlay(
+      'http://pi',
+      () => undefined,
+      { list: () => [] } as unknown as AisTargets,
+      {
+        destinationAisAvailable: () => true,
+        selectedId: () => undefined,
+        onMoorings: (moorings) => received.push(moorings),
+      },
+    );
+
+    await overlay.add(ctx);
+    overlay.sync(ctx);
+    await settle();
+    expect(received.at(-1)?.[0]?.name).toBe('Retained mooring');
+
+    zoom = 8;
+    overlay.sync(ctx);
+    expect(received.at(-1)).toEqual([]);
+
+    zoom = 13;
+    overlay.sync(ctx);
+    expect(received.at(-1)?.[0]?.name).toBe('Retained mooring');
     expect(fetchMooringsMock).toHaveBeenCalledTimes(1);
   });
 

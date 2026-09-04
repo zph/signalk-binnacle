@@ -32,8 +32,8 @@ describe('mooring client', () => {
 
     const result = await fetchMoorings('https://signal-k.test', undefined, [-71, 41, -70, 42]);
 
-    expect(result).toHaveLength(1);
-    expect(result?.[0]).toMatchObject({
+    expect(result?.moorings).toHaveLength(1);
+    expect(result?.moorings[0]).toMatchObject({
       id: 'noaa-enc:berthing:US27:27',
       name: 'Layer 27',
       scaleBand: 'berthing',

@@ -18,7 +18,9 @@ import {
   setLayersVisibility,
   setSourceData,
 } from '$shared/map';
+import type { ExpiringStore } from '$shared/storage';
 import { assessMoorings, OnboardAisHistory } from './mooring-occupancy';
+import { createMooringsCache } from './moorings-cache';
 import { fetchMoorings } from './moorings-client';
 import {
   addMooringLayers,
@@ -54,6 +56,8 @@ export interface MooringsOverlayOptions {
   onSelect?: (id: string) => void;
   onMoorings?: (moorings: MooringPoint[]) => void;
   onStatus?: (state: MooringViewState) => void;
+  isOnline?: () => boolean;
+  persist?: ExpiringStore<unknown>;
 }
 
 function renderFeatures(moorings: readonly MooringPoint[]): GeoJSON.FeatureCollection {
@@ -128,6 +132,7 @@ export function createMooringsOverlay(
     ? 'checking'
     : 'unavailable';
   let lastStatus: MooringViewState | undefined;
+  let cachedAtMs: number | undefined;
   let loading = false;
   let consecutiveFetchFailures = 0;
   let nextFetchAt = 0;
@@ -137,6 +142,8 @@ export function createMooringsOverlay(
   let themePaint = mapThemePaint('day');
   const onboardHistory = new OnboardAisHistory();
   const externalInteractionsAllowed = options.interactionsAllowed ?? (() => true);
+  const isOnline = options.isOnline ?? (() => true);
+  const cache = createMooringsCache(options.persist);
   const hit = createLayerHitHandlers(
     [MOORINGS_LABEL_LAYER_ID, MOORINGS_LAYER_ID],
     (event) => {
@@ -153,15 +160,19 @@ export function createMooringsOverlay(
   );
 
   function report(phase: MooringViewPhase): void {
-    if (lastStatus?.phase === phase && lastStatus.destinationAis === destinationAis) return;
-    lastStatus = { phase, destinationAis };
+    if (
+      lastStatus?.phase === phase &&
+      lastStatus.destinationAis === destinationAis &&
+      lastStatus.cachedAtMs === cachedAtMs
+    ) {
+      return;
+    }
+    lastStatus = { phase, destinationAis, cachedAtMs };
     options.onStatus?.(lastStatus);
   }
 
-  function clear(ctx: OverlayContext): void {
-    rawMoorings = [];
+  function clearRendered(ctx: OverlayContext): void {
     rendered = [];
-    mooringVersion += 1;
     lastRenderKey = '';
     setSourceData(ctx.map, MOORINGS_SOURCE_ID, emptyFeatureCollection());
     setSourceData(ctx.map, MOORINGS_SELECTED_SOURCE_ID, emptyFeatureCollection());
@@ -215,6 +226,29 @@ export function createMooringsOverlay(
     loading = true;
     lastFetchAttemptBbox = bbox;
     report('loading');
+    const now = Date.now();
+    const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
+    const cached = await cache.find(viewport, now);
+    if (!mounted || generation !== lifecycle) return;
+    if (cached) {
+      fetchBbox = cached.bbox;
+      rawMoorings = cached.moorings;
+      cachedAtMs = cached.savedAtMs;
+      mooringVersion += 1;
+      lastRenderKey = '';
+      updateRender(ctx, now);
+      report('loading');
+      if (!isOnline()) {
+        loading = false;
+        report('ready');
+        return;
+      }
+    }
+    if (!isOnline()) {
+      loading = false;
+      report('error');
+      return;
+    }
     const result = await fetchMoorings(origin, getToken(), bbox);
     if (!mounted || generation !== lifecycle) return;
     loading = false;
@@ -231,10 +265,12 @@ export function createMooringsOverlay(
     }
     consecutiveFetchFailures = 0;
     nextFetchAt = 0;
-    const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
-    if (!bboxContains(bbox, viewport)) return;
+    const currentViewport = lngLatBoundsToBbox4(ctx.map.getBounds());
+    if (!bboxContains(bbox, currentViewport)) return;
     fetchBbox = bbox;
-    rawMoorings = result;
+    rawMoorings = result.moorings;
+    cachedAtMs = result.cachedAtMs;
+    void cache.put(bbox, rawMoorings, result.cachedAtMs ?? Date.now());
     mooringVersion += 1;
     lastRenderKey = '';
     updateRender(ctx, Date.now());
@@ -270,6 +306,7 @@ export function createMooringsOverlay(
       lastFetchAttemptBbox = undefined;
       rawMoorings = [];
       rendered = [];
+      cachedAtMs = undefined;
       mooringVersion += 1;
       loading = false;
       consecutiveFetchFailures = 0;
@@ -281,7 +318,7 @@ export function createMooringsOverlay(
       if (!visible) return;
       const zoom = ctx.map.getZoom();
       if (zoom < MOORINGS_MIN_ZOOM) {
-        if (rendered.length > 0) clear(ctx);
+        if (rendered.length > 0) clearRendered(ctx);
         report('zoomed-out');
         return;
       }
@@ -295,6 +332,8 @@ export function createMooringsOverlay(
         if (local.length > 0) {
           fetchBbox = requestBbox;
           rawMoorings = local;
+          cachedAtMs = undefined;
+          void cache.put(requestBbox, local, now);
           mooringVersion += 1;
           lastRenderKey = '';
           consecutiveFetchFailures = 0;

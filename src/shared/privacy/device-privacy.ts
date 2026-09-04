@@ -477,6 +477,7 @@ const BINNACLE_INDEXED_DB_NAMES = [
   'binnacle-custom',
   'binnacle-custom-pmtiles-blocks',
   'binnacle-custom-notes',
+  'binnacle-custom-moorings',
   'binnacle-custom-tides-data',
   'binnacle-custom-weather',
   'binnacle-custom-weather-point',

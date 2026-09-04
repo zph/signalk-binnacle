@@ -1,5 +1,9 @@
 'use strict';
 
+const { mkdirSync } = require('node:fs');
+const path = require('node:path');
+const { DatabaseSync } = require('node:sqlite');
+
 const MAX_CPA_METERS = 1_852_000;
 const MAX_TCPA_SECONDS = 7 * 24 * 60 * 60;
 const ALARM_LOCATIONS = new Set(['top', 'center', 'bottom']);
@@ -14,6 +18,7 @@ const NOAA_MOORING_SOURCES = [
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
 const NOAA_CACHE_MS = 15 * 60 * 1_000;
+const NOAA_CACHE_RETENTION_MS = 90 * 24 * 60 * 60 * 1_000;
 const NOAA_FAILURE_RETRY_MS = 10_000;
 const MAX_CACHE_ENTRIES = 32;
 const MAX_AREA_SPAN_DEGREES = 5;
@@ -73,6 +78,18 @@ function parseBbox(value) {
 
 function bboxKey(bbox) {
   return bbox.map((value) => value.toFixed(5)).join(',');
+}
+
+function filterCollection(collection, bbox) {
+  return {
+    type: 'FeatureCollection',
+    features: collection.features.filter((feature) => {
+      const [longitude, latitude] = feature.geometry.coordinates;
+      return (
+        longitude >= bbox[0] && longitude <= bbox[2] && latitude >= bbox[1] && latitude <= bbox[3]
+      );
+    }),
+  };
 }
 
 function cleanText(value, maxLength) {
@@ -181,43 +198,145 @@ async function fetchNoaaMoorings(bbox) {
       byPosition.set(`${longitude.toFixed(6)},${latitude.toFixed(6)}`, feature);
     }
   }
-  return { type: 'FeatureCollection', features: [...byPosition.values()].slice(0, MAX_MOORINGS) };
+  return {
+    type: 'FeatureCollection',
+    features: [...byPosition.values()].slice(0, MAX_MOORINGS),
+  };
 }
 
-function createNoaaCache() {
+function createNoaaCache(databasePath, onError) {
   const entries = new Map();
   const failures = new Map();
   const pending = new Map();
+  let database;
+  let readStored;
+  let writeStored;
+  let pruneStored;
+  try {
+    if (databasePath) {
+      mkdirSync(path.dirname(databasePath), { recursive: true });
+      database = new DatabaseSync(databasePath);
+      database.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 1000;');
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS mooring_cache (
+          cache_key TEXT PRIMARY KEY,
+          west REAL NOT NULL,
+          south REAL NOT NULL,
+          east REAL NOT NULL,
+          north REAL NOT NULL,
+          payload TEXT NOT NULL,
+          refreshed_at_ms INTEGER NOT NULL
+        ) STRICT;
+        CREATE INDEX IF NOT EXISTS mooring_cache_refreshed_at
+          ON mooring_cache(refreshed_at_ms DESC);
+      `);
+      readStored = database.prepare(`
+        SELECT payload, refreshed_at_ms
+        FROM mooring_cache
+        WHERE west <= ? AND south <= ? AND east >= ? AND north >= ?
+          AND refreshed_at_ms > ?
+        ORDER BY refreshed_at_ms DESC
+        LIMIT 1
+      `);
+      writeStored = database.prepare(`
+        INSERT INTO mooring_cache(cache_key, west, south, east, north, payload, refreshed_at_ms)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(cache_key) DO UPDATE SET
+          west = excluded.west, south = excluded.south, east = excluded.east,
+          north = excluded.north, payload = excluded.payload,
+          refreshed_at_ms = excluded.refreshed_at_ms
+      `);
+      pruneStored = database.prepare(`
+        DELETE FROM mooring_cache
+        WHERE refreshed_at_ms <= ?
+      `);
+    }
+  } catch (error) {
+    database?.close();
+    database = undefined;
+    onError?.(`Unable to open mooring cache database: ${errorMessage(error)}`);
+  }
+
+  function stored(bbox, now) {
+    if (!readStored) return undefined;
+    try {
+      const row = readStored.get(bbox[0], bbox[1], bbox[2], bbox[3], now - NOAA_CACHE_RETENTION_MS);
+      if (!row || typeof row.payload !== 'string' || typeof row.refreshed_at_ms !== 'number') {
+        return undefined;
+      }
+      const value = JSON.parse(row.payload);
+      if (value?.type !== 'FeatureCollection' || !Array.isArray(value.features)) {
+        return undefined;
+      }
+      return {
+        value: filterCollection(value, bbox),
+        cachedAtMs: row.refreshed_at_ms,
+      };
+    } catch (error) {
+      onError?.(`Unable to read mooring cache database: ${errorMessage(error)}`);
+      return undefined;
+    }
+  }
+
+  function persist(bbox, value, now) {
+    if (!writeStored || !pruneStored) return;
+    try {
+      writeStored.run(bboxKey(bbox), ...bbox, JSON.stringify(value), now);
+      pruneStored.run(now - NOAA_CACHE_RETENTION_MS);
+    } catch (error) {
+      onError?.(`Unable to write mooring cache database: ${errorMessage(error)}`);
+    }
+  }
+
+  function refresh(bbox, key) {
+    const existing = pending.get(key);
+    if (existing) return existing;
+    const request = fetchNoaaMoorings(bbox)
+      .then((value) => {
+        const now = Date.now();
+        failures.delete(key);
+        entries.delete(key);
+        entries.set(key, { refreshedAtMs: now, value });
+        while (entries.size > MAX_CACHE_ENTRIES) entries.delete(entries.keys().next().value);
+        persist(bbox, value, now);
+        return { value, cachedAtMs: undefined };
+      })
+      .catch((error) => {
+        failures.set(key, {
+          retryAt: Date.now() + NOAA_FAILURE_RETRY_MS,
+          error,
+        });
+        throw error;
+      })
+      .finally(() => pending.delete(key));
+    pending.set(key, request);
+    return request;
+  }
+
   return {
     async get(bbox) {
       const key = bboxKey(bbox);
       const now = Date.now();
       const cached = entries.get(key);
-      if (cached && cached.expiresAt > now) return cached.value;
+      if (cached && cached.refreshedAtMs + NOAA_CACHE_MS > now) {
+        return { value: cached.value, cachedAtMs: undefined };
+      }
+      const disk = stored(bbox, now);
+      if (disk && disk.cachedAtMs + NOAA_CACHE_MS > now) return disk;
+      if (disk) {
+        void refresh(bbox, key).catch(() => undefined);
+        return disk;
+      }
       const failed = failures.get(key);
       if (failed && failed.retryAt > now) throw failed.error;
-      const existing = pending.get(key);
-      if (existing) return existing;
-      const request = fetchNoaaMoorings(bbox)
-        .then((value) => {
-          failures.delete(key);
-          entries.delete(key);
-          entries.set(key, { expiresAt: Date.now() + NOAA_CACHE_MS, value });
-          while (entries.size > MAX_CACHE_ENTRIES) entries.delete(entries.keys().next().value);
-          return value;
-        })
-        .catch((error) => {
-          failures.set(key, { retryAt: Date.now() + NOAA_FAILURE_RETRY_MS, error });
-          throw error;
-        })
-        .finally(() => pending.delete(key));
-      pending.set(key, request);
-      return request;
+      return refresh(bbox, key);
     },
     clear() {
       entries.clear();
       failures.clear();
       pending.clear();
+      database?.close();
+      database = undefined;
     },
   };
 }
@@ -260,9 +379,15 @@ module.exports = function createBinnaclePlugin(app) {
   let storedThresholds;
   let storedAlarmLocation;
   let saveQueue = Promise.resolve();
-  const noaaCache = createNoaaCache();
+  let noaaCache = createNoaaCache();
 
   function start(options) {
+    noaaCache.clear();
+    const dataDirectory = app.getDataDirPath?.();
+    noaaCache = createNoaaCache(
+      dataDirectory ? path.join(dataDirectory, 'moorings-cache.sqlite') : undefined,
+      (message) => app.error?.(message),
+    );
     saveQueue = Promise.resolve();
     storedThresholds = undefined;
     storedAlarmLocation = undefined;
@@ -328,9 +453,12 @@ module.exports = function createBinnaclePlugin(app) {
           return;
         }
         try {
-          const collection = await noaaCache.get(bbox);
+          const result = await noaaCache.get(bbox);
           response.set('Cache-Control', 'public, max-age=300');
-          response.json(collection);
+          response.set('X-Binnacle-Moorings-Source', result.cachedAtMs ? 'stored' : 'live');
+          response.json(
+            result.cachedAtMs ? { ...result.value, cachedAtMs: result.cachedAtMs } : result.value,
+          );
         } catch (fetchError) {
           app.error?.(`Unable to load NOAA ENC moorings: ${errorMessage(fetchError)}`);
           response.status(502).json({ error: 'Unable to load NOAA ENC moorings.' });
@@ -391,7 +519,9 @@ module.exports = function createBinnaclePlugin(app) {
             put: { summary: 'Store alarm location' },
           },
           '/api/moorings': {
-            get: { summary: 'Read NOAA ENC mooring facilities for a bounded chart area' },
+            get: {
+              summary: 'Read NOAA ENC mooring facilities for a bounded chart area',
+            },
           },
         },
       };

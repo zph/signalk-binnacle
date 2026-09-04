@@ -12,6 +12,7 @@ import {
   SlideOver,
 } from '$shared/ui';
 import { defaultSort, filterRows, type MooringSort, sortRows, toRows } from './mooring-rows';
+import { MOORINGS_MIN_ZOOM } from './moorings-layers';
 import type { MooringPoint, MooringViewState } from './moorings-types';
 
 interface Props {
@@ -79,6 +80,14 @@ function occupancyLabel(mooring: MooringPoint): string {
   return 'Unknown';
 }
 
+function cacheAge(savedAtMs: number): string {
+  const minutes = Math.max(0, Math.round((Date.now() - savedAtMs) / 60_000));
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
 $effect(() => {
   if (sortTouched) return;
   const next = defaultSort(vesselPosition !== undefined);
@@ -105,6 +114,16 @@ $effect(() => {
     description="Charted positions colored by AIS observation"
     onToggle={onToggleShown}
   />
+  {#if viewState.cachedAtMs !== undefined}
+    <p class={viewState.phase === 'error' ? 'alert-note' : 'muted-note'} role="status">
+      Showing saved charted positions from {cacheAge(viewState.cachedAtMs)}.
+      {viewState.phase === 'loading'
+        ? 'Refreshing the live source now.'
+        : viewState.phase === 'error'
+          ? 'The live source could not refresh.'
+          : 'NOAA refreshes automatically when this snapshot ages.'}
+    </p>
+  {/if}
   {#if viewState.destinationAis === 'unavailable'}
     <p class="muted-note" role="status">
       Remote-area AIS needs the extended signalk-aisstream plugin. Onboard Signal K AIS still
@@ -135,7 +154,9 @@ $effect(() => {
     {#if moorings.length > 0}
       <p class="muted-note" role="status">No moorings match your search.</p>
     {:else if viewState.phase === 'zoomed-out'}
-      <p class="muted-note" role="status">Zoom in to level 11 or closer to review moorings.</p>
+      <p class="muted-note" role="status">
+        Zoom in to level {MOORINGS_MIN_ZOOM} or closer to review moorings.
+      </p>
     {:else if viewState.phase === 'hidden'}
       <p class="muted-note" role="status">Turn on Show moorings on chart to search this area.</p>
     {:else if viewState.phase === 'error'}

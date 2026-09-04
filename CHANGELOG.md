@@ -37,6 +37,8 @@ All notable changes to Binnacle are documented here. The format follows
   matching limit, or that target belongs to a closer charted mooring. Selecting a buoy expands that
   buoy's own list card to show its explanation and source details. Proximity now earns the full 30
   points through 35 meters, then decreases progressively to zero at the 75-meter matching limit.
+  Charted buoy positions are retained for 90 days in SQLite on the Signal K host and in the
+  browser's offline cache, and zooming out no longer discards positions from an already-loaded area.
 - Position-derived AIS motion now uses each report's receipt timestamp, so view refreshes cannot
   manufacture movement samples from one unchanged position.
 - NOAA chart sources now appear after a Signal K restart even when the chart provider registers

@@ -628,6 +628,7 @@ onMount(async () => {
         },
       );
       const mooringsOverlay = createMooringsOverlay(origin, () => chartsToken, aisTargets, {
+        isOnline: isOnline ?? (() => true),
         destinationAisAvailable: destinationAisAvailable ?? (() => false),
         selectedId: () => selectedMooringId,
         interactionsAllowed: markerInteractionsAllowed,
