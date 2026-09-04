@@ -100,8 +100,12 @@ export function centeredBbox(viewport: Bbox4, span: number): Bbox4 {
 // Return a padded viewport request without exceeding an upstream span limit. Ordinary harbor
 // views keep the useful cache margin from padBbox. Wider views fall back to the viewport itself,
 // then to a fixed box around its center only when the viewport cannot fit inside the limit.
-export function boundedViewportBbox(viewport: Bbox4, maxSpan: number): Bbox4 {
-  const padded = padBbox(viewport);
+export function boundedViewportBbox(
+  viewport: Bbox4,
+  maxSpan: number,
+  padFraction: number = VIEWPORT_FETCH_PAD_FRACTION,
+): Bbox4 {
+  const padded = padBbox(viewport, padFraction);
   const viewportLongitudeSpan = unwrapEast(viewport[0], viewport[2]) - viewport[0];
   const paddedLongitudeSpan = unwrapEast(padded[0], padded[2]) - padded[0];
   if (paddedLongitudeSpan <= maxSpan && padded[3] - padded[1] <= maxSpan) return padded;

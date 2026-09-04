@@ -20,7 +20,7 @@ export const MOORINGS_LAYERS = [
   MOORINGS_LAYER_ID,
   MOORINGS_LABEL_LAYER_ID,
 ];
-export const MOORINGS_MIN_ZOOM = 11;
+export const MOORINGS_MIN_ZOOM = 9;
 
 function occupancyColor(paint: MapThemePaint): ExpressionSpecification {
   return [
@@ -63,7 +63,7 @@ export function addMooringLayers(
       source: MOORINGS_SOURCE_ID,
       minzoom: MOORINGS_MIN_ZOOM,
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 5, 15, 8],
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 4, 15, 8],
         'circle-color': occupancyColor(paint),
         'circle-stroke-color': paint.markerGlyph,
         'circle-stroke-width': 1.5,

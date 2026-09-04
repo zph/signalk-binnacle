@@ -1,5 +1,11 @@
 import type { AisTargets, AisTargetView } from '$entities/ais';
-import { type Bbox4, bboxContains, boundedViewportBbox, lngLatBoundsToBbox4 } from '$shared/geo';
+import {
+  type Bbox4,
+  bboxContains,
+  boundedViewportBbox,
+  lngLatBoundsToBbox4,
+  VIEWPORT_FETCH_PAD_FRACTION,
+} from '$shared/geo';
 import { isRecord, readBoundedJson, withTimeout } from '$shared/lib';
 import type { OverlayContext } from '$shared/map';
 import { authInit } from '$shared/signalk';
@@ -8,6 +14,7 @@ const SETTLE_MS = 1_500;
 const POLL_MS = 1_000;
 const MAX_TARGETS = 10_000;
 const MAX_BBOX_SPAN = 10;
+const AIS_VIEWPORT_PAD_FRACTION = VIEWPORT_FETCH_PAD_FRACTION * 8;
 
 interface DestinationSnapshot {
   state: 'connecting' | 'live' | 'disconnected' | 'error' | 'unavailable';
@@ -102,7 +109,7 @@ function sameBbox(left: Bbox4 | undefined, right: Bbox4): boolean {
 }
 
 function requestBbox(viewport: Bbox4): Bbox4 {
-  return boundedViewportBbox(viewport, MAX_BBOX_SPAN);
+  return boundedViewportBbox(viewport, MAX_BBOX_SPAN, AIS_VIEWPORT_PAD_FRACTION);
 }
 
 export function createViewportAisOverlay(options: ViewportAisOverlayOptions) {

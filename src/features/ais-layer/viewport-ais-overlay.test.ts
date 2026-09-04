@@ -75,9 +75,11 @@ describe('viewport AIS overlay', () => {
     overlay.sync(ctx);
     await flush();
     expect(requested).toHaveLength(1);
-    expect(JSON.parse(new URL(requested[0]).searchParams.get('bbox') ?? '')).toEqual([
-      -71.5, 41.3, -71.1, 41.7,
-    ]);
+    expect(
+      (JSON.parse(new URL(requested[0]).searchParams.get('bbox') ?? '') as number[]).map((value) =>
+        Number(value.toFixed(6)),
+      ),
+    ).toEqual([-72.2, 40.6, -70.4, 42.4]);
     expect(received).toEqual([expect.objectContaining({ id: 'first', name: 'first' })]);
 
     vi.advanceTimersByTime(999);
@@ -95,9 +97,11 @@ describe('viewport AIS overlay', () => {
     overlay.sync(ctx);
     await flush();
     expect(requested).toHaveLength(3);
-    expect(JSON.parse(new URL(requested[2]).searchParams.get('bbox') ?? '')).toEqual([
-      -70.5, 41.3, -70.1, 41.7,
-    ]);
+    expect(
+      (JSON.parse(new URL(requested[2]).searchParams.get('bbox') ?? '') as number[]).map((value) =>
+        Number(value.toFixed(6)),
+      ),
+    ).toEqual([-71.2, 40.6, -69.4, 42.4]);
     expect(received).toEqual([expect.objectContaining({ id: 'second', name: 'second' })]);
   });
 

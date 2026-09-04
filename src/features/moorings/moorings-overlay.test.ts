@@ -67,6 +67,32 @@ describe('moorings viewport loading', () => {
     expect(map.getLayer('binnacle-moorings-destination-ais-labels')).toBeUndefined();
   });
 
+  it('loads moorings at the wider zoom ten view', async () => {
+    const map = {
+      ...createFakeMap(),
+      getZoom: () => 10,
+      getBounds: () => ({
+        getWest: () => -123.2,
+        getSouth: () => 48.5,
+        getEast: () => -123.1,
+        getNorth: () => 48.6,
+      }),
+    };
+    const ctx = fakeOverlayContext(map);
+    const overlay = createMooringsOverlay(
+      'http://pi',
+      () => undefined,
+      { list: () => [] } as unknown as AisTargets,
+      { destinationAisAvailable: () => true, selectedId: () => undefined },
+    );
+
+    await overlay.add(ctx);
+    overlay.sync(ctx);
+    await settle();
+
+    expect(fetchMooringsMock).toHaveBeenCalledTimes(1);
+  });
+
   it('uses MORFAC objects from a loaded local vector chart before NOAA', async () => {
     const map = {
       ...createFakeMap(),
