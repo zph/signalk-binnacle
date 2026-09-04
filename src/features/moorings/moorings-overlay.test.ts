@@ -3,6 +3,7 @@ import type { AisTargets } from '$entities/ais';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { fetchMoorings } from './moorings-client';
 import { createMooringsOverlay } from './moorings-overlay';
+import type { MooringPoint } from './moorings-types';
 
 vi.mock('./moorings-client', () => ({
   fetchMoorings: vi.fn(),
@@ -64,6 +65,65 @@ describe('moorings viewport loading', () => {
     expect(map.getSource('binnacle-moorings-destination-ais-source')).toBeUndefined();
     expect(map.getLayer('binnacle-moorings-destination-ais')).toBeUndefined();
     expect(map.getLayer('binnacle-moorings-destination-ais-labels')).toBeUndefined();
+  });
+
+  it('uses MORFAC objects from a loaded local vector chart before NOAA', async () => {
+    const map = {
+      ...createFakeMap(),
+      getZoom: () => 13,
+      getBounds: () => ({
+        getWest: () => -123.2,
+        getSouth: () => 48.5,
+        getEast: () => -123.1,
+        getNorth: () => 48.6,
+      }),
+      getStyle: () => ({
+        layers: [],
+        sources: {
+          'chart-local-enc': { type: 'vector' },
+          basemap: { type: 'vector' },
+        },
+      }),
+      querySourceFeatures: vi.fn((sourceId: string) =>
+        sourceId === 'chart-local-enc'
+          ? [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-123.15, 48.55] },
+                properties: {
+                  RCID: 42,
+                  CATMOR: 'mooring buoy',
+                  OBJNAM: 'Local mooring',
+                  DSNM: 'US5LOCAL.000',
+                },
+              },
+            ]
+          : [],
+      ),
+    };
+    const received: MooringPoint[][] = [];
+    const overlay = createMooringsOverlay(
+      'http://pi',
+      () => undefined,
+      { list: () => [] } as unknown as AisTargets,
+      {
+        destinationAisAvailable: () => true,
+        selectedId: () => undefined,
+        onMoorings: (moorings) => received.push(moorings),
+      },
+    );
+
+    await overlay.add(fakeOverlayContext(map));
+    overlay.sync(fakeOverlayContext(map));
+
+    expect(fetchMooringsMock).not.toHaveBeenCalled();
+    expect(received.at(-1)).toEqual([
+      expect.objectContaining({ name: 'Local mooring', scaleBand: 'harbour' }),
+    ]);
+    expect(map.querySourceFeatures).toHaveBeenCalledWith('chart-local-enc', {
+      sourceLayer: 'MORFAC',
+    });
+    expect(map.querySourceFeatures).not.toHaveBeenCalledWith('basemap', expect.anything());
   });
 
   it('backs off after a failed request and retries immediately for a changed viewport', async () => {

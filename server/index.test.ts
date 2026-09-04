@@ -258,6 +258,8 @@ describe('Binnacle server settings plugin', () => {
     expect(requested.every((url) => url.searchParams.get('geometry') === '-71,41,-70,42')).toBe(
       true,
     );
+    expect(requested.every((url) => url.searchParams.get('outFields') === '*')).toBe(true);
+    expect(requested.every((url) => !url.searchParams.has('orderByFields'))).toBe(true);
     vi.unstubAllGlobals();
   });
 

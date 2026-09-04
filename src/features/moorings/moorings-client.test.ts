@@ -42,6 +42,8 @@ describe('mooring client', () => {
       .map((call) => new URL(String(call[0])))
       .filter((url) => url.hostname === 'encdirect.noaa.gov');
     expect(noaaRequests).toHaveLength(6);
+    expect(noaaRequests.every((url) => url.searchParams.get('outFields') === '*')).toBe(true);
+    expect(noaaRequests.every((url) => !url.searchParams.has('orderByFields'))).toBe(true);
   });
 
   it('does not accept a partial direct NOAA scale snapshot as complete', async () => {

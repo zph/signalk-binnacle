@@ -37,9 +37,13 @@ import type {
   MooringViewPhase,
   MooringViewState,
 } from './moorings-types';
+import { mooringFromGeoJson } from './moorings-types';
 
 const MOORINGS_RETRY_INITIAL_MS = 10_000;
 const MOORINGS_RETRY_MAX_MS = 10 * 60_000;
+const LOCAL_MOORINGS_SCAN_MS = 1_000;
+const CHART_SOURCE_PREFIX = 'chart-';
+const LOCAL_MOORINGS_SOURCE_LAYER = 'MORFAC';
 
 export interface MooringsOverlay extends OverlayModule, Syncable {}
 
@@ -72,6 +76,40 @@ function renderFeatures(moorings: readonly MooringPoint[]): GeoJSON.FeatureColle
   );
 }
 
+function localMoorings(ctx: OverlayContext, bbox: ReturnType<typeof padBbox>): MooringPoint[] {
+  const sources = ctx.map.getStyle().sources ?? {};
+  const boxes = splitAtAntimeridian(bbox);
+  const byId = new Map<string, MooringPoint>();
+  for (const [sourceId, source] of Object.entries(sources)) {
+    if (
+      !sourceId.startsWith(CHART_SOURCE_PREFIX) ||
+      !source ||
+      typeof source !== 'object' ||
+      source.type !== 'vector'
+    ) {
+      continue;
+    }
+    try {
+      for (const feature of ctx.map.querySourceFeatures(sourceId, {
+        sourceLayer: LOCAL_MOORINGS_SOURCE_LAYER,
+      })) {
+        const mooring = mooringFromGeoJson(feature, 'general');
+        if (
+          !mooring ||
+          !boxes.some((box) => bboxContainsPoint(box, mooring.position)) ||
+          byId.has(mooring.id)
+        ) {
+          continue;
+        }
+        byId.set(mooring.id, mooring);
+      }
+    } catch {
+      // A chart source can exist before its TileJSON or first vector tile is ready.
+    }
+  }
+  return [...byId.values()];
+}
+
 export function createMooringsOverlay(
   origin: string,
   getToken: () => string | undefined,
@@ -93,6 +131,7 @@ export function createMooringsOverlay(
   let loading = false;
   let consecutiveFetchFailures = 0;
   let nextFetchAt = 0;
+  let lastLocalScanAt = Number.NEGATIVE_INFINITY;
   let lastRenderKey = '';
   let mooringVersion = 0;
   let themePaint = mapThemePaint('day');
@@ -235,6 +274,7 @@ export function createMooringsOverlay(
       loading = false;
       consecutiveFetchFailures = 0;
       nextFetchAt = 0;
+      lastLocalScanAt = Number.NEGATIVE_INFINITY;
       lastRenderKey = '';
     },
     sync(ctx) {
@@ -248,13 +288,25 @@ export function createMooringsOverlay(
       const viewport = lngLatBoundsToBbox4(ctx.map.getBounds());
       const now = Date.now();
       const requestBbox = padBbox(viewport);
+      const needsMoorings = !fetchBbox || !bboxContains(fetchBbox, viewport);
+      if (needsMoorings && now - lastLocalScanAt >= LOCAL_MOORINGS_SCAN_MS) {
+        lastLocalScanAt = now;
+        const local = localMoorings(ctx, requestBbox);
+        if (local.length > 0) {
+          fetchBbox = requestBbox;
+          rawMoorings = local;
+          mooringVersion += 1;
+          lastRenderKey = '';
+          consecutiveFetchFailures = 0;
+          nextFetchAt = 0;
+          updateRender(ctx, now);
+          report('ready');
+          return;
+        }
+      }
       const viewportChangedSinceFailure =
         lastFetchAttemptBbox !== undefined && !bboxContains(lastFetchAttemptBbox, viewport);
-      if (
-        !loading &&
-        (!fetchBbox || !bboxContains(fetchBbox, viewport)) &&
-        (now >= nextFetchAt || viewportChangedSinceFailure)
-      ) {
+      if (!loading && needsMoorings && (now >= nextFetchAt || viewportChangedSinceFailure)) {
         void loadMoorings(ctx, requestBbox);
       } else if (!loading) {
         updateRender(ctx, now);

@@ -12,7 +12,6 @@ const NOAA_SOURCES: readonly { scaleBand: MooringScaleBand; layer: number }[] = 
   { scaleBand: 'harbour', layer: 56 },
   { scaleBand: 'berthing', layer: 27 },
 ];
-const NOAA_FIELDS = 'OBJECTID,BOYSHP,CATMOR,COLOUR,COLPAT,OBJNAM,INFORM,SORDAT,SORIND,DSNM';
 const MAX_MOORINGS = 5_000;
 const NOAA_PAGE_SIZE = 1_000;
 
@@ -48,10 +47,9 @@ async function fetchNoaaSource(
         geometryType: 'esriGeometryEnvelope',
         inSR: '4326',
         spatialRel: 'esriSpatialRelIntersects',
-        outFields: NOAA_FIELDS,
+        outFields: '*',
         returnGeometry: 'true',
         outSR: '4326',
-        orderByFields: 'OBJECTID',
         resultOffset: String(offset),
         resultRecordCount: String(NOAA_PAGE_SIZE),
         f: 'geojson',

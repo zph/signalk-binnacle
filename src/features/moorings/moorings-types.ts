@@ -92,6 +92,15 @@ const MOORING_SCALE_BANDS = new Set<MooringScaleBand>([
   'berthing',
 ]);
 
+const ENC_SCALE_BANDS: Readonly<Record<string, MooringScaleBand>> = {
+  '1': 'overview',
+  '2': 'general',
+  '3': 'coastal',
+  '4': 'approach',
+  '5': 'harbour',
+  '6': 'berthing',
+};
+
 export function mooringFromGeoJson(
   value: unknown,
   fallbackScaleBand: MooringScaleBand = 'general',
@@ -104,13 +113,20 @@ export function mooringFromGeoJson(
   const position = { longitude: coordinates[0], latitude: coordinates[1] };
   if (!isLatLon(position) || !isRecord(value.properties)) return undefined;
   const properties = value.properties;
-  const objectId = properties.OBJECTID;
-  if (!Number.isSafeInteger(objectId) || Number(objectId) < 0) return undefined;
+  const rawObjectId =
+    properties.OBJECTID ?? properties.FID ?? properties.RCID ?? properties.LNAM ?? value.id;
+  const objectId =
+    Number.isSafeInteger(rawObjectId) && Number(rawObjectId) >= 0
+      ? String(rawObjectId)
+      : text(rawObjectId, 128);
+  if (!objectId) return undefined;
   const providedScaleBand = text(properties.BINNACLE_SCALE_BAND, 16);
+  const encCell = text(properties.DSNM, 12);
   const scaleBand = MOORING_SCALE_BANDS.has(providedScaleBand as MooringScaleBand)
     ? (providedScaleBand as MooringScaleBand)
-    : fallbackScaleBand;
-  const encCell = text(properties.DSNM, 12);
+    : fallbackScaleBand !== 'general'
+      ? fallbackScaleBand
+      : ((encCell ? ENC_SCALE_BANDS[encCell[2]] : undefined) ?? fallbackScaleBand);
   const id = `noaa-enc:${scaleBand}:${encCell ?? 'unknown'}:${objectId}`;
   return {
     id,
