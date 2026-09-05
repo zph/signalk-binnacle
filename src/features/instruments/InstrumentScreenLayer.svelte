@@ -104,6 +104,11 @@ let windRoseSettingsOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
 let helpTrigger = $state<HTMLElement | undefined>();
 let expandedId = $state<string | undefined>();
+// Physical shape is not encoded by normalized width/height alone: their pixel ratio changes when
+// the viewport rotates. Remember it for this screen session so iPad and phone rotations can solve
+// for new normalized dimensions without changing each instrument's screen coverage.
+// eslint-disable-next-line svelte/prefer-svelte-reactivity -- resize bookkeeping triggers rendering
+const floatingAspectRatios = new Map<string, number>();
 
 // In-flight move or resize, so a drag renders its live box without writing storage per pointer
 // event; the persisted box only changes when the pointer is released.
@@ -122,6 +127,15 @@ function observeLayer(node: HTMLElement): { destroy(): void } {
   const updateSize = (): void => {
     const { width, height } = node.getBoundingClientRect();
     const previous = layerSize;
+    const reference = previous ?? { width, height };
+    for (const { box } of floatingTiles) {
+      if (!floatingAspectRatios.has(box.id) && reference.width > 0 && reference.height > 0) {
+        floatingAspectRatios.set(
+          box.id,
+          (box.width * reference.width) / (box.height * reference.height),
+        );
+      }
+    }
     layerSize = { width, height };
     // A rotation can leave a child tile with a canvas or measured readout sized for the old axis.
     // Re-key the frames after the chart bounds settle, so every instrument redraws to the final
@@ -139,7 +153,20 @@ function observeLayer(node: HTMLElement): { destroy(): void } {
 }
 
 function displayedBox(box: FloatingInstrumentBox): FloatingInstrumentBox {
-  return layerSize ? fitFloatingBoxToViewport(box, layerSize) : box;
+  if (!layerSize) return box;
+  let aspectRatio = floatingAspectRatios.get(box.id);
+  if (!aspectRatio) {
+    aspectRatio = (box.width * layerSize.width) / (box.height * layerSize.height);
+    floatingAspectRatios.set(box.id, aspectRatio);
+  }
+  return fitFloatingBoxToViewport(box, layerSize, aspectRatio);
+}
+
+function commitFloatingBox(id: string, box: FloatingInstrumentBox): void {
+  if (layerSize && box.width > 0 && box.height > 0) {
+    floatingAspectRatios.set(id, (box.width * layerSize.width) / (box.height * layerSize.height));
+  }
+  controller.setFloatingBox(id, box);
 }
 
 type AlignmentGuide = { axis: 'x' | 'y'; value: number };
@@ -160,7 +187,7 @@ function edgeName(edge: AlignmentEdge): string {
 function snapToAlignment(box: FloatingInstrumentBox): FloatingInstrumentBox {
   const others = floatingTiles
     .filter(({ def }) => def.id !== box.id)
-    .map(({ box: other }) => other);
+    .map(({ box: other }) => displayedBox(other));
   let next = { ...box };
   let horizontal: string | undefined;
   let vertical: string | undefined;
@@ -200,7 +227,7 @@ const alignmentGuides = $derived.by<AlignmentGuide[]>(() => {
   const guides: AlignmentGuide[] = [];
   const candidates = floatingTiles
     .filter(({ def }) => def.id !== dragBox?.id)
-    .map(({ box }) => box);
+    .map(({ box }) => displayedBox(box));
   const horizontal = [dragBox.x, dragBox.x + dragBox.width / 2, dragBox.x + dragBox.width];
   const vertical = [dragBox.y, dragBox.y + dragBox.height / 2, dragBox.y + dragBox.height];
   for (const other of candidates) {
@@ -306,7 +333,7 @@ function beginDrag(
     teardown();
     const next = dragBox;
     dragBox = undefined;
-    if (next) controller.setFloatingBox(id, next);
+    if (next) commitFloatingBox(id, next);
   };
   const discard = (): void => {
     teardown();
@@ -355,7 +382,7 @@ function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEve
     teardown();
     const next = dragBox;
     dragBox = undefined;
-    if (dragging && next) controller.setFloatingBox(id, next);
+    if (dragging && next) commitFloatingBox(id, next);
   };
   const cancel = (): void => {
     teardown();
@@ -372,14 +399,14 @@ function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEve
 }
 
 function nudge(id: string, box: FloatingInstrumentBox, dx: number, dy: number): void {
-  controller.setFloatingBox(
+  commitFloatingBox(
     id,
     snapToAlignment(clampFloatingBox({ ...box, x: box.x + dx, y: box.y + dy })),
   );
 }
 
 function grow(id: string, box: FloatingInstrumentBox, dWidth: number, dHeight: number): void {
-  controller.setFloatingBox(
+  commitFloatingBox(
     id,
     snapToAlignment(
       clampFloatingBox({ ...box, width: box.width + dWidth, height: box.height + dHeight }),
@@ -388,6 +415,7 @@ function grow(id: string, box: FloatingInstrumentBox, dWidth: number, dHeight: n
 }
 
 function removeInstrument(id: string): void {
+  floatingAspectRatios.delete(id);
   controller.removeFloating(id);
 }
 
@@ -457,12 +485,13 @@ function placeAt(id: string, clientX: number, clientY: number): void {
   // dropping a dock tile places a default box centered on the drop point.
   const current = controller.floating.find((box) => box.id === id);
   if (current) {
-    controller.setFloatingBox(
+    const visible = displayedBox(current);
+    commitFloatingBox(
       id,
       clampFloatingBox({
-        ...current,
-        x: point.x - current.width / 2,
-        y: point.y - current.height / 2,
+        ...visible,
+        x: point.x - visible.width / 2,
+        y: point.y - visible.height / 2,
       }),
     );
     return;
@@ -480,8 +509,9 @@ function previewAt(id: string, clientX: number, clientY: number): void {
   const point = normalizedPoint(clientX, clientY);
   if (!point) return;
   const current = controller.floating.find((box) => box.id === id);
-  const width = current?.width ?? DEFAULT_FLOATING_WIDTH;
-  const height = current?.height ?? DEFAULT_FLOATING_HEIGHT;
+  const visible = current ? displayedBox(current) : undefined;
+  const width = visible?.width ?? DEFAULT_FLOATING_WIDTH;
+  const height = visible?.height ?? DEFAULT_FLOATING_HEIGHT;
   dropPreview = clampFloatingBox({
     id,
     width,
@@ -670,8 +700,8 @@ function finishEditing(): void {
   {/if}
 
   {#each floatingTiles as entry (`${entry.def.id}:${layoutEpoch}`)}
-    {@const box = dragBox && dragBox.id === entry.def.id ? dragBox : entry.box}
-    {@const visibleBox = displayedBox(box)}
+    {@const box = dragBox && dragBox.id === entry.def.id ? dragBox : displayedBox(entry.box)}
+    {@const visibleBox = box}
     {@const expanded = expandedId === entry.def.id}
     {@const reading = entry.def.read(deps)}
     {@const zone = controller.zoneState(entry.def, reading.siValue)}

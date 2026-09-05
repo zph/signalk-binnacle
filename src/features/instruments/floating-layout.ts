@@ -95,20 +95,53 @@ export function clampFloatingBox(box: FloatingInstrumentBox): FloatingInstrument
 export function fitFloatingBoxToViewport(
   box: FloatingInstrumentBox,
   viewport: { width: number; height: number },
+  pixelAspectRatio?: number,
 ): FloatingInstrumentBox {
   if (viewport.width <= 0 || viewport.height <= 0) return clampFloatingBox(box);
-  const width = Math.min(1, Math.max(box.width, MIN_FLOATING_WIDTH_PX / viewport.width));
-  const height = Math.min(1, Math.max(box.height, MIN_FLOATING_HEIGHT_PX / viewport.height));
+  const aspectRatio =
+    pixelAspectRatio ?? (box.width * viewport.width) / (box.height * viewport.height);
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+    return clampFloatingBox(box);
+  }
+
+  // A normalized box's area is its fraction of the screen. Solve for a new normalized width and
+  // height which retain that area while producing the same physical (pixel) aspect ratio in the
+  // new viewport. This keeps an instrument the same shape and visual weight on device rotation.
+  const area = box.width * box.height;
+  const normalizedAspectRatio = aspectRatio * (viewport.height / viewport.width);
+  let width = pixelAspectRatio === undefined ? box.width : Math.sqrt(area * normalizedAspectRatio);
+  let height =
+    pixelAspectRatio === undefined ? box.height : Math.sqrt(area / normalizedAspectRatio);
+
+  // Apply readability floors uniformly so they cannot stretch the tile. Exact coverage only gives
+  // way when a small phone viewport cannot fit the requested readable size at the saved aspect.
+  const minimumScale = Math.max(
+    1,
+    MIN_FLOATING_WIDTH / width,
+    MIN_FLOATING_HEIGHT / height,
+    MIN_FLOATING_WIDTH_PX / (width * viewport.width),
+    MIN_FLOATING_HEIGHT_PX / (height * viewport.height),
+  );
+  width *= minimumScale;
+  height *= minimumScale;
+  const maximumScale = Math.min(1, 1 / width, 1 / height);
+  width *= maximumScale;
+  height *= maximumScale;
+
+  if (width === box.width && height === box.height) return clampFloatingBox(box);
+
   const pinnedLeft = box.x <= EDGE_PIN_TOLERANCE;
   const pinnedRight = 1 - (box.x + box.width) <= EDGE_PIN_TOLERANCE;
   const pinnedTop = box.y <= EDGE_PIN_TOLERANCE;
   const pinnedBottom = 1 - (box.y + box.height) <= EDGE_PIN_TOLERANCE;
+  const centeredX = box.x + box.width / 2 - width / 2;
+  const centeredY = box.y + box.height / 2 - height / 2;
   return clampFloatingBox({
     ...box,
     width,
     height,
-    x: pinnedLeft ? 0 : pinnedRight ? 1 - width : box.x,
-    y: pinnedTop ? 0 : pinnedBottom ? 1 - height : box.y,
+    x: pinnedLeft ? 0 : pinnedRight ? 1 - width : centeredX,
+    y: pinnedTop ? 0 : pinnedBottom ? 1 - height : centeredY,
   });
 }
 

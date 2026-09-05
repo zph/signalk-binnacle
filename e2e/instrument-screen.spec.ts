@@ -257,6 +257,14 @@ test('iPad rotation keeps an edge-mounted instrument inside the chart and restor
   await page.mouse.move(target.x + target.width - 2, target.y + target.height - 2, { steps: 12 });
   await page.mouse.up();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
+  const [landscapeFrame, landscapeLayer] = await Promise.all([
+    frame.boundingBox(),
+    layer.boundingBox(),
+  ]);
+  if (!landscapeFrame || !landscapeLayer) throw new Error('Instrument or chart target missing.');
+  const landscapeAspect = landscapeFrame.width / landscapeFrame.height;
+  const landscapeCoverage =
+    (landscapeFrame.width * landscapeFrame.height) / (landscapeLayer.width * landscapeLayer.height);
 
   await page.setViewportSize({ width: 834, height: 1194 });
   await expectInsideViewport(frame, page);
@@ -273,9 +281,47 @@ test('iPad rotation keeps an edge-mounted instrument inside the chart and restor
     portraitLayer.y + portraitLayer.height,
     0,
   );
+  expect(portraitFrame.width / portraitFrame.height).toBeCloseTo(landscapeAspect, 1);
+  expect(
+    (portraitFrame.width * portraitFrame.height) / (portraitLayer.width * portraitLayer.height),
+  ).toBeCloseTo(landscapeCoverage, 2);
 
   await page.setViewportSize({ width: 1194, height: 834 });
   await expectInsideViewport(frame, page);
+});
+
+test('phone rotation retains an instrument physical shape and chart coverage', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  const layer = page.locator('.instrument-screen-layer');
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  const [landscapeFrame, landscapeLayer] = await Promise.all([
+    frame.boundingBox(),
+    layer.boundingBox(),
+  ]);
+  if (!landscapeFrame || !landscapeLayer) throw new Error('Instrument or chart target missing.');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectInsideViewport(frame, page);
+  const [portraitFrame, portraitLayer] = await Promise.all([
+    frame.boundingBox(),
+    layer.boundingBox(),
+  ]);
+  if (!portraitFrame || !portraitLayer) throw new Error('Instrument or chart target missing.');
+
+  expect(portraitFrame.width / portraitFrame.height).toBeCloseTo(
+    landscapeFrame.width / landscapeFrame.height,
+    1,
+  );
+  expect(
+    (portraitFrame.width * portraitFrame.height) / (portraitLayer.width * portraitLayer.height),
+  ).toBeCloseTo(
+    (landscapeFrame.width * landscapeFrame.height) / (landscapeLayer.width * landscapeLayer.height),
+    2,
+  );
 });
 
 test('iPad portrait-to-landscape rotation redraws a top and bottom instrument without clipping', async ({

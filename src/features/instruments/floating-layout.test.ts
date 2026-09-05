@@ -105,23 +105,41 @@ describe('defaultFloatingBox', () => {
 
 describe('fitFloatingBoxToViewport', () => {
   it('keeps a right and bottom mounted tile inside a narrow rotated chart', () => {
-    const result = fitFloatingBoxToViewport(
-      { id: 'depth', x: 0.74, y: 0.8, width: 0.26, height: 0.2 },
-      { width: 300, height: 200 },
-    );
+    const saved = { id: 'depth', x: 0.74, y: 0.8, width: 0.26, height: 0.2 };
+    const originalViewport = { width: 1200, height: 800 };
+    const aspectRatio =
+      (saved.width * originalViewport.width) / (saved.height * originalViewport.height);
+    const result = fitFloatingBoxToViewport(saved, { width: 300, height: 200 }, aspectRatio);
 
-    expect(result.x).toBeCloseTo(0.68);
+    expect(result.x).toBeCloseTo(0.584);
     expect(result.y).toBeCloseTo(0.68);
-    expect(result.width).toBe(0.32);
-    expect(result.height).toBe(0.32);
+    expect(result.width).toBeCloseTo(0.416);
+    expect(result.height).toBeCloseTo(0.32);
     expect(result.x + result.width).toBe(1);
     expect(result.y + result.height).toBe(1);
+    expect((result.width * 300) / (result.height * 200)).toBeCloseTo(aspectRatio);
   });
 
   it('leaves an interior tile unchanged after rotating back to a wide chart', () => {
     const saved = { id: 'depth', x: 0.2, y: 0.3, width: 0.26, height: 0.2 };
 
     expect(fitFloatingBoxToViewport(saved, { width: 1024, height: 768 })).toEqual(saved);
+  });
+
+  it('preserves pixel aspect ratio and screen coverage through a device rotation', () => {
+    const saved = { id: 'depth', x: 0.2, y: 0.3, width: 0.3, height: 0.25 };
+    const landscape = { width: 1200, height: 700 };
+    const portrait = { width: 700, height: 1200 };
+    const aspectRatio = (saved.width * landscape.width) / (saved.height * landscape.height);
+
+    const rotated = fitFloatingBoxToViewport(saved, portrait, aspectRatio);
+
+    expect(rotated.width * rotated.height).toBeCloseTo(saved.width * saved.height);
+    expect((rotated.width * portrait.width) / (rotated.height * portrait.height)).toBeCloseTo(
+      aspectRatio,
+    );
+    expect(rotated.x + rotated.width / 2).toBeCloseTo(saved.x + saved.width / 2);
+    expect(rotated.y + rotated.height / 2).toBeCloseTo(saved.y + saved.height / 2);
   });
 });
 
