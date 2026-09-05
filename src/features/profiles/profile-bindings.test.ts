@@ -131,7 +131,7 @@ describe('createProfileBindings', () => {
     expect(deps.aisIconMode.value).toBe('type-specific');
   });
 
-  it('applies the disabled AIS name default for a legacy profile', () => {
+  it('applies the adaptive AIS name default for a legacy profile', () => {
     const deps = makeDeps();
     const bindings = createProfileBindings(deps);
     deps.aisNameMode.set('on');
@@ -140,7 +140,7 @@ describe('createProfileBindings', () => {
 
     bindings.apply(legacy);
 
-    expect(deps.aisNameMode.value).toBe('off');
+    expect(deps.aisNameMode.value).toBe('adaptive');
   });
 
   it('applies the 60-minute AIS retention default for a legacy profile', () => {

@@ -1034,7 +1034,7 @@ const aisIconMode = new PersistedValue<AisVesselKindMode>(
 );
 const aisNameMode = new PersistedValue<AisNameMode>(
   binnacleStorageKey('aisNameMode'),
-  'off',
+  'adaptive',
   undefined,
   enumPersistedCodec(['off', 'adaptive', 'on'] as const),
 );

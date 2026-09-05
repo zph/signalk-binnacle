@@ -101,7 +101,7 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
     },
     aisNameMode: {
       read: () => ({ aisNameMode: deps.aisNameMode.snapshot() }),
-      write: (s) => deps.aisNameMode.set(s.aisNameMode ?? 'off'),
+      write: (s) => deps.aisNameMode.set(s.aisNameMode ?? 'adaptive'),
       track: () => void deps.aisNameMode.value,
     },
     aisRetentionMinutes: {

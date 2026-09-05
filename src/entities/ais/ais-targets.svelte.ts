@@ -132,6 +132,12 @@ export class AisTargets {
     return this.#store.aisVersion + this.#viewportVersion;
   }
 
+  // Separate from the render version because an unchanged, newly timestamped coordinate is still
+  // a new fix for dead reckoning: it must collapse the ghost back onto the authoritative vessel.
+  get positionVersion(): number {
+    return this.#store.aisPositionVersion + this.#viewportVersion;
+  }
+
   mergeViewportTargets(targets: readonly AisTargetView[]): void {
     let changed = false;
     for (const target of targets) {

@@ -91,10 +91,11 @@ test('keeps AIS name controls reachable and persists the adaptive choice', async
 
   const panel = page.getByRole('complementary', { name: 'AIS display' });
   const names = panel.getByRole('group', { name: 'AIS vessel name labels' });
-  await expect(names.getByRole('button', { name: 'Off', exact: true })).toHaveAttribute(
+  await expect(names.getByRole('button', { name: 'Adaptive', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
+  await names.getByRole('button', { name: 'Off', exact: true }).click();
   await names.getByRole('button', { name: 'Adaptive', exact: true }).click();
   await expect(names.getByRole('button', { name: 'Adaptive', exact: true })).toHaveAttribute(
     'aria-pressed',

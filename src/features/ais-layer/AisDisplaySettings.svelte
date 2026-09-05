@@ -87,8 +87,9 @@ const RETENTION_OPTIONS = [15, 30, 60, 120, 360, 720, 1440] as const;
     </button>
   </div>
   <p class="muted-note">
-    Adaptive shows names from harbor-level zoom and suppresses them in crowded screen areas. On
-    shows every available name, even when labels overlap.
+    Adaptive shows names at a chart scale of 0.2 nm or closer, hides them when zoomed out, and
+    suppresses them in crowded screen areas. On shows every available name, even when labels
+    overlap.
   </p>
 </section>
 

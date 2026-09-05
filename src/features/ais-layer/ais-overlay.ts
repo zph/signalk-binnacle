@@ -13,7 +13,7 @@ import {
 } from '$entities/ais';
 import type { Assessment, Severity } from '$entities/collision';
 import { latLonToLonLat } from '$shared/geo';
-import { headingDegrees } from '$shared/lib';
+import { DEG_TO_RAD, headingDegrees, METERS_PER_NAUTICAL_MILE } from '$shared/lib';
 import {
   createLayerHitHandlers,
   createSymbolOverlay,
@@ -64,7 +64,9 @@ const PROJECTION_REFRESH_MS = 1_000;
 const PROJECTION_GHOST_OPACITY = 0.3;
 const PROJECTION_CONNECTOR_OPACITY = 0.22;
 const STALE_REPAINT_MS = 60_000;
-const ADAPTIVE_NAME_MIN_ZOOM = 13;
+const ADAPTIVE_NAME_MAX_SCALE_NM = 0.2;
+const ADAPTIVE_NAME_SCALE_WIDTH_PX = 120;
+const WEB_MERCATOR_METERS_PER_PIXEL_AT_EQUATOR = 156_543.033_928_040_97;
 const ADAPTIVE_NAME_NEIGHBOR_WIDTH_PX = 180;
 const ADAPTIVE_NAME_NEIGHBOR_HEIGHT_PX = 64;
 const ADAPTIVE_NAME_MAX_NEIGHBORS = 3;
@@ -98,11 +100,12 @@ export function createAisOverlay(
   let opacity = 1;
   let lastSelectedId = options.selectedId?.();
   let lastKindMode = options.kindMode?.() ?? 'type-specific';
-  let lastNameLayoutMode = options.nameMode?.() ?? 'off';
+  let lastNameLayoutMode = options.nameMode?.() ?? 'adaptive';
   let visibleNameIds = new Set<string>();
   let nameEligibilityChanged = false;
   let lastProjectionKindMode = lastKindMode;
   let lastProjectionVersion = -1;
+  let lastProjectionPositionVersion = -1;
   let lastProjectionRefreshAt = Number.NEGATIVE_INFINITY;
   let lastContacts: Assessment['contacts'] | undefined;
   let lastStaleRepaintAt = Number.NEGATIVE_INFINITY;
@@ -117,7 +120,13 @@ export function createAisOverlay(
   }
 
   function adaptiveNameIds(ctx: OverlayContext): Set<string> {
-    if (ctx.map.getZoom() < ADAPTIVE_NAME_MIN_ZOOM) return new Set();
+    const latitude = Math.max(-85.051_129, Math.min(85.051_129, ctx.map.getCenter().lat));
+    const scaleMeters =
+      (WEB_MERCATOR_METERS_PER_PIXEL_AT_EQUATOR *
+        Math.cos(latitude * DEG_TO_RAD) *
+        ADAPTIVE_NAME_SCALE_WIDTH_PX) /
+      2 ** ctx.map.getZoom();
+    if (scaleMeters > ADAPTIVE_NAME_MAX_SCALE_NM * METERS_PER_NAUTICAL_MILE) return new Set();
     const { width, height } = ctx.map.getCanvas().getBoundingClientRect();
     if (width <= 0 || height <= 0) return new Set();
 
@@ -158,7 +167,7 @@ export function createAisOverlay(
   }
 
   function refreshNameEligibility(ctx: OverlayContext): void {
-    const mode = options.nameMode?.() ?? 'off';
+    const mode = options.nameMode?.() ?? 'adaptive';
     const next =
       mode === 'off'
         ? new Set<string>()
@@ -257,6 +266,7 @@ export function createAisOverlay(
 
   function recordProjectionRefresh(): void {
     lastProjectionVersion = targets.version;
+    lastProjectionPositionVersion = targets.positionVersion;
     lastProjectionKindMode = options.kindMode?.() ?? 'type-specific';
     lastProjectionRefreshAt = now();
   }
@@ -270,6 +280,7 @@ export function createAisOverlay(
     const kindMode = options.kindMode?.() ?? 'type-specific';
     return (
       targets.version !== lastProjectionVersion ||
+      targets.positionVersion !== lastProjectionPositionVersion ||
       kindMode !== lastProjectionKindMode ||
       now() - lastProjectionRefreshAt >= PROJECTION_REFRESH_MS
     );
@@ -338,7 +349,7 @@ export function createAisOverlay(
     setLayersVisibility(
       ctx.map,
       [NAME_LAYER_ID],
-      visible && (options.nameMode?.() ?? 'off') !== 'off',
+      visible && (options.nameMode?.() ?? 'adaptive') !== 'off',
     );
     setLayersVisibility(ctx.map, [HIT_LAYER_ID], visible && opacity > 0);
     hit.refreshInteractionState();
@@ -488,7 +499,7 @@ export function createAisOverlay(
       syncVisibility(ctx);
     },
     sync(ctx) {
-      const nameMode = options.nameMode?.() ?? 'off';
+      const nameMode = options.nameMode?.() ?? 'adaptive';
       if (nameMode !== lastNameLayoutMode && ctx.map.getLayer(NAME_LAYER_ID)) {
         const forceAllNames = nameMode === 'on';
         ctx.map.setLayoutProperty(NAME_LAYER_ID, 'text-allow-overlap', forceAllNames);

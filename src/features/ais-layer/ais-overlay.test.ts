@@ -190,7 +190,7 @@ describe('ais overlay', () => {
     expect(sourceFeatures(map, 'binnacle-ais')[0].properties?.iconImage).toBe(AIS_ICON_IDS.tanker);
   });
 
-  it('keeps vessel names off by default and supports an explicit all-names mode', async () => {
+  it('supports an explicit names-off mode and an all-names mode', async () => {
     let nameMode: 'off' | 'adaptive' | 'on' = 'off';
     const store = new SignalKStore();
     store.applyFrame(
@@ -250,8 +250,9 @@ describe('ais overlay', () => {
     );
     const overlay = createAisOverlay(new AisTargets(store), { nameMode: () => 'adaptive' });
     const map = createFakeMap();
-    let zoom = 12;
+    let zoom = 15;
     map.getZoom = () => zoom;
+    map.getCenter = () => ({ lat: 0, lng: 0 });
     map.getCanvas().getBoundingClientRect = () =>
       ({ left: 0, top: 0, width: 800, height: 600 }) as DOMRect;
     map.project = (coordinate) => {
@@ -269,9 +270,13 @@ describe('ais overlay', () => {
 
     expect(shownIds()).toEqual([]);
 
-    zoom = 14;
+    zoom = 16;
     overlay.sync(ctx);
     expect(shownIds()).toEqual(['vessels.isolated']);
+
+    zoom = 15;
+    overlay.sync(ctx);
+    expect(shownIds()).toEqual([]);
   });
 
   it('colors target icons from the live CPA assessment and refreshes when a grade changes', async () => {
@@ -467,7 +472,9 @@ describe('ais overlay', () => {
     expect(sourceFeatures(map, 'binnacle-ais-position-projection')).toHaveLength(2);
     const version = targets.version;
 
-    now += 1_000;
+    // This lands inside the periodic projection repaint interval. A fresh fix must invalidate the
+    // ghost immediately even though its quantized coordinate (and rendered target view) is equal.
+    now += 100;
     store.applyFrame(frameAtNow());
     expect(targets.version).toBe(version);
     overlay.sync(ctx);

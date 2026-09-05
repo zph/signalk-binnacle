@@ -92,6 +92,7 @@ describe('SignalKStore', () => {
       epoch: 1000,
     });
     const after = store.aisVersion;
+    const positionAfter = store.aisPositionVersion;
     // A target at anchor keeps transmitting the same fix. Bumping on that made the list, the
     // collision assessment, and the traffic overlays rebuild and re-clone the whole fleet for
     // nothing. A fresh object with equal fields is what actually arrives off the wire.
@@ -102,6 +103,7 @@ describe('SignalKStore', () => {
       epoch: 2000,
     });
     expect(store.aisVersion).toBe(after);
+    expect(store.aisPositionVersion).toBe(positionAfter + 1);
   });
 
   it('still advances freshness on an identical republish, so the target does not age out', () => {

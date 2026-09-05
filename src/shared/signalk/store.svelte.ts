@@ -1,4 +1,5 @@
 import { sameJsonValue } from '$shared/lib';
+import { SK_PATHS } from './paths';
 import type { SourceTransition } from './source-trace';
 import type {
   AisTargetState,
@@ -141,6 +142,10 @@ export class SignalKStore {
   // Bumped on every AIS change, so a consumer can skip rebuilding when nothing moved.
   // Reactive so a $derived or $effect consumer is notified, not only the rAF poll.
   aisVersion = $state(0);
+  // Advances for every accepted AIS position fix, including a fresh report whose quantized
+  // latitude/longitude are identical. Rendered target data can remain memoized in that case, but
+  // between-fix projection must immediately reset its age and discard the old ghost.
+  aisPositionVersion = $state(0);
 
   // Mirror of every raised self notifications.* value, keyed by path, mirroring the AIS
   // pattern: a non-reactive Map plus a version bump so list consumers rebuild only on change.
@@ -272,6 +277,7 @@ export class SignalKStore {
       // fleet. Freshness still advances on an identical republish (the epoch is what keeps the
       // target from aging out), so only the value comparison gates the bump.
       let changed = false;
+      let positionUpdated = false;
       for (const [context, incoming] of frame.ais) {
         let target = this.#aisTargets.get(context);
         if (!target) {
@@ -313,11 +319,13 @@ export class SignalKStore {
           target.epochs.set(path, receivedAt);
           target.generations.set(path, generation);
           target.lastUpdate = Math.max(target.lastUpdate, receivedAt);
+          if (path === SK_PATHS.position) positionUpdated = true;
         }
         if (targetChanged) target.revision += 1;
         changed ||= targetChanged;
       }
       if (changed) this.aisVersion += 1;
+      if (positionUpdated) this.aisPositionVersion += 1;
     }
     // The worker sends a fresh connection object on every frame; assigning it unconditionally
     // would re-run every connection-derived consumer once per animation frame.
