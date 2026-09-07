@@ -3503,6 +3503,10 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
 // frames into one page-lifetime sequence so late callbacks can be rejected without making a restarted
 // worker look older than the worker it replaced.
 let workerGenerationBase = 0;
+// Incremented by the provider's resources.charts.* stream event. PlotterView turns the edge into a
+// server-chart discovery pass, which swaps an immutable generation URL in place without reloading
+// Binnacle. The chart canvas retains a slow polling fallback for providers that emit no event.
+let chartCatalogRevision = $state(0);
 const streamController = createStreamController({
   client,
   store,
@@ -3522,7 +3526,12 @@ const streamController = createStreamController({
     // spread rebuilt it once per flush on a documented hot path.
     frame.generation = generation;
     if (!store.applyFrame(frame)) return;
-    for (const [path, value] of frame.self) marineRadar.applyControlDelta(path, value);
+    let chartCatalogChanged = false;
+    for (const [path, value] of frame.self) {
+      marineRadar.applyControlDelta(path, value);
+      if (path.startsWith(SK_PATHS.chartResourcesPrefix)) chartCatalogChanged = true;
+    }
+    if (chartCatalogChanged) chartCatalogRevision += 1;
   },
   // The open edge is the whole connect-and-reconnect story: every open re-hydrates the course
   // (the one edge tied to the socket actually delivering; hydrateAndSeedCourse serializes
@@ -4029,6 +4038,7 @@ const plotterActions = {
     actions={plotterActions}
     {routeDistanceToGoMeters}
     {chartsToken}
+    {chartCatalogRevision}
     {savedView}
     {currentView}
     layerSettings={layerSettings.value}

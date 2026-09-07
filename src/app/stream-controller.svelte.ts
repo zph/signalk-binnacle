@@ -30,6 +30,10 @@ interface StreamControllerDeps {
 }
 
 const SUBSCRIPTIONS = [
+  // A chart provider emits this event when it publishes a new immutable generation. Keeping it on
+  // the main stream lets an open chart replace the old URL without waiting for discovery polling or
+  // requiring a page refresh.
+  { path: SK_PATHS.chartResourcesAll, policy: 'instant' as const, minPeriod: 1000 },
   { path: 'radars.*.controls.*' as Path, policy: 'instant' as const, minPeriod: 200 },
   { path: SK_PATHS.headingTrue, policy: 'instant' as const, minPeriod: 200 },
   { path: SK_PATHS.position, policy: 'instant' as const, minPeriod: 1000 },

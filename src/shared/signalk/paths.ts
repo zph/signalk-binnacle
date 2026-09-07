@@ -5,6 +5,11 @@ import { NOTIFICATIONS_PREFIX, type Path } from './types';
 // app actually subscribes to or reads live here; instrument paths (depth, wind, STW) join
 // when the instrument widgets that consume them land.
 export const SK_PATHS = {
+  // Server chart providers publish a resource delta whenever a chart appears, disappears, or moves
+  // to a new immutable generation. The prefix is also used to recognize those event frames without
+  // re-spelling the wire contract at the composition root.
+  chartResourcesPrefix: 'resources.charts.',
+  chartResourcesAll: 'resources.charts.*',
   position: 'navigation.position',
   headingTrue: 'navigation.headingTrue',
   courseOverGroundTrue: 'navigation.courseOverGroundTrue',

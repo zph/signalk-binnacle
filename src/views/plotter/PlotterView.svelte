@@ -169,6 +169,9 @@ interface FlatProps {
 
   // Chart state
   chartsToken: string | undefined;
+  // Changes whenever a server chart provider publishes a resources.charts.* event. The chart
+  // canvas callback below converts it into an in-place discovery and generation swap.
+  chartCatalogRevision: number;
   savedView: import('$shared/settings').MapView | undefined;
   currentView: import('$shared/settings').MapView | undefined;
   layerSettings: LayerSettings;
@@ -460,6 +463,7 @@ let {
   entities,
   routeDistanceToGoMeters,
   chartsToken,
+  chartCatalogRevision,
   savedView,
   currentView,
   layerSettings,
@@ -654,6 +658,12 @@ const {
 let mapCommands = $state<MapCommands | undefined>();
 let serverChartsStatus = $state<'loading' | 'ready' | 'partial' | 'error'>('loading');
 let retryServerCharts = $state<(() => void) | undefined>();
+let handledChartCatalogRevision = 0;
+$effect(() => {
+  if (chartCatalogRevision <= handledChartCatalogRevision) return;
+  handledChartCatalogRevision = chartCatalogRevision;
+  retryServerCharts?.();
+});
 let retryWindForecast = $state<(() => void) | undefined>();
 let criticalOverlayError = $state<string | undefined>();
 let lazyPanelAttempt = $state(0);
