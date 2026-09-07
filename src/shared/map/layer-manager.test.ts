@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
-import { LayerManager, type LayerManagerOptions, type OverlayState } from './layer-manager';
+import {
+  LayerManager,
+  type LayerManagerOptions,
+  type LayerSettings,
+  type OverlayState,
+} from './layer-manager';
 import type { OverlayContext, OverlayModule, ZBand } from './types';
 
 const fakeCtx = (): OverlayContext => fakeOverlayContext(createFakeMap());
@@ -907,27 +912,59 @@ describe('LayerManager', () => {
     expect(manager.layers().map((l) => l.id)).toEqual(['third', 'second', 'first', 'chart']);
   });
 
-  it('turning a parent off hides its sub-layer', async () => {
+  it('turning a parent off hides its sub-layer without changing its desired state', async () => {
     const manager = new LayerManager(fakeCtx());
     await manager.register(fakeOverlay('chart', 'bathymetry'));
-    await manager.register({ ...fakeOverlay('quality', 'bathymetry'), parent: 'chart' });
+    const quality = { ...fakeOverlay('quality', 'bathymetry'), parent: 'chart' };
+    await manager.register(quality);
     manager.toggle('quality', true);
     manager.toggle('chart', false);
-    expect(manager.layers().find((l) => l.id === 'quality')?.visible).toBe(false);
+    expect(manager.layers().find((l) => l.id === 'quality')?.visible).toBe(true);
+    expect(quality.events.at(-1)).toBe('visible:false');
   });
 
-  it('restores the sub-layers it hid when the parent comes back on', async () => {
+  it('renders the exact former sub-layer choices when the parent comes back on', async () => {
     const manager = new LayerManager(fakeCtx());
     await manager.register(fakeOverlay('chart', 'bathymetry'));
-    await manager.register({ ...fakeOverlay('quality', 'bathymetry'), parent: 'chart' });
-    await manager.register({ ...fakeOverlay('coverage', 'bathymetry'), parent: 'chart' });
+    const quality = { ...fakeOverlay('quality', 'bathymetry'), parent: 'chart' };
+    const coverage = { ...fakeOverlay('coverage', 'bathymetry'), parent: 'chart' };
+    await manager.register(quality);
+    await manager.register(coverage);
     // The navigator turns one facet off deliberately, then switches the parent off and on.
     manager.toggle('coverage', false);
     manager.toggle('chart', false);
     manager.toggle('chart', true);
-    expect(shownOnMap(manager, 'quality')).toBe(true);
-    // Only what the parent hid returns: the facet already switched off stays off.
-    expect(shownOnMap(manager, 'coverage')).toBe(false);
+    expect(quality.events.at(-1)).toBe('visible:true');
+    // The facet already switched off stays off.
+    expect(coverage.events.at(-1)).toBe('visible:false');
+  });
+
+  it('preserves child choices across a parent-off reload', async () => {
+    let saved: LayerSettings = {};
+    const parent = fakeOverlay('chart', 'bathymetry');
+    const enabled = { ...fakeOverlay('depth', 'bathymetry'), parent: 'chart' };
+    const disabled = { ...fakeOverlay('quality', 'bathymetry'), parent: 'chart' };
+    const first = new LayerManager(fakeCtx(), { onChange: (settings) => (saved = settings) });
+    await first.register(parent);
+    await first.register(enabled);
+    await first.register(disabled);
+    first.toggle('quality', false);
+    first.toggle('chart', false);
+
+    expect(saved).toMatchObject({
+      chart: { visible: false },
+      depth: { visible: true },
+      quality: { visible: false },
+    });
+
+    const restored = new LayerManager(fakeCtx(), { saved });
+    await restored.register(parent);
+    await restored.register(enabled);
+    await restored.register(disabled);
+    restored.toggle('chart', true);
+
+    expect(enabled.events.at(-1)).toBe('visible:true');
+    expect(disabled.events.at(-1)).toBe('visible:false');
   });
 
   it('materializes declarative facets with independent persisted state', async () => {

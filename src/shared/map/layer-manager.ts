@@ -133,10 +133,6 @@ export class LayerManager {
   #onOrderChange?: (order: string[]) => void;
   #pinned: Set<string>;
   #exclusive: string[][];
-  // Sub-layers hidden because their parent was switched off, keyed by parent id. Turning the parent
-  // back on restores exactly those facets, so an off-and-on round trip does not silently discard the
-  // navigator's per-facet choices. Session-scoped: a reload starts from the persisted state.
-  #suppressedChildren = new Map<string, Set<string>>();
   // The last theme paint broadcast, so a module registered after the first recolor (an imported
   // user chart) is themed at add time instead of staying day-colored until the next theme change.
   #lastPaint?: MapThemePaint;
@@ -445,7 +441,6 @@ export class LayerManager {
     const childIds = this.#childrenOf(id);
     for (const childId of childIds.reverse()) this.#removeModule(childId);
     this.#removeModule(id);
-    this.#suppressedChildren.delete(id);
     // A deliberate removal, such as deleting a user chart, clears its saved state and order. A
     // provider refresh temporarily unregisters the same logical chart, so it retains the parent,
     // every facet, and the stacking slot for the replacement registration.
@@ -476,8 +471,6 @@ export class LayerManager {
       this.#availability.delete(id);
       this.#renderedVisibility.delete(id);
     }
-    this.#suppressedChildren.delete(id);
-    if (module.parent !== undefined) this.#suppressedChildren.get(module.parent)?.delete(id);
   }
 
   #childrenOf(id: string): string[] {
@@ -499,7 +492,6 @@ export class LayerManager {
     this.#state.clear();
     this.#availability.clear();
     this.#renderedVisibility.clear();
-    this.#suppressedChildren.clear();
     for (const module of modules) {
       try {
         module.remove(this.#ctx);
@@ -531,10 +523,9 @@ export class LayerManager {
     }
     state.visible = visible;
     this.#syncVisibility(module, state, true);
-    // A choice made on the sub-layer itself supersedes whatever its parent remembered for it.
-    if (module.parent !== undefined) this.#suppressedChildren.get(module.parent)?.delete(id);
-    if (visible) this.#restoreChildren(id);
-    else this.#suppressChildren(id);
+    // Child visibility is desired state, independent of the parent's temporary visibility. The
+    // rendered-visibility calculation below gates children through their parent without rewriting
+    // or persisting their choices, so a parent off-on round trip survives reloads and refreshes.
     this.#syncChildren(id);
     this.#persist();
   }
@@ -544,40 +535,6 @@ export class LayerManager {
       const child = this.#modules.get(childId);
       const childState = this.#state.get(childId);
       if (child && childState) this.#syncVisibility(child, childState, true);
-    }
-  }
-
-  // Turning a parent off hides its sub-layers, so a facet (the data-quality overlay) never lingers
-  // on the map without the chart it annotates. The panel also disables a sub-layer's toggle while
-  // its parent is off, so this only fires when the parent goes off with a child still on.
-  #suppressChildren(id: string): void {
-    const suppressed = new Set<string>();
-    for (const [childId, child] of this.#modules) {
-      if (child.parent !== id) continue;
-      const childState = this.#state.get(childId);
-      if (!childState?.visible || this.#flooredVisible(childId, false)) continue;
-      childState.visible = false;
-      this.#syncVisibility(child, childState, true);
-      suppressed.add(childId);
-    }
-    // A repeat toggle-off finds nothing visible; keep the earlier memory rather than clearing it.
-    if (suppressed.size > 0) this.#suppressedChildren.set(id, suppressed);
-  }
-
-  #restoreChildren(id: string): void {
-    const suppressed = this.#suppressedChildren.get(id);
-    if (!suppressed) return;
-    this.#suppressedChildren.delete(id);
-    for (const childId of suppressed) {
-      const child = this.#modules.get(childId);
-      const childState = this.#state.get(childId);
-      if (!child || !childState || childState.visible) continue;
-      // Honor exclusion on restore too, as #addModule does: a sibling turned on while the parent
-      // was off must not end up visible alongside the facet being restored.
-      const group = this.#groupOf(childId);
-      if (group?.some((other) => other !== childId && this.#state.get(other)?.visible)) continue;
-      childState.visible = true;
-      this.#syncVisibility(child, childState, true);
     }
   }
 
@@ -601,7 +558,6 @@ export class LayerManager {
       const state = this.#state.get(id);
       if (!module || module.parent !== parentId || !state || state.visible === visible) continue;
       state.visible = visible;
-      this.#suppressedChildren.get(parentId)?.delete(id);
       this.#syncVisibility(module, state, true);
       changed = true;
     }
@@ -777,9 +733,6 @@ export class LayerManager {
         }
       }
     }
-    // The snapshot is the authoritative desired state, so an earlier parent-off memory must not
-    // reinstate a facet the profile deliberately left off.
-    this.#suppressedChildren.clear();
     this.#explicitOrder = [...order];
     this.#applyOrder();
     this.#persist();

@@ -141,6 +141,29 @@ describe('LayerRow opacity focus', () => {
 });
 
 describe('LayerRow child-layer disclosure', () => {
+  it('shows the enabled child-layer fraction while the disclosure is closed', () => {
+    const children = Array.from({ length: 7 }, (_, index) =>
+      layer(`enc:facet:${index}`, {
+        parent: 'enc',
+        visible: index < 2,
+      }),
+    );
+    const html = body(layer('enc', { title: 'NOAA ENC West Coast' }), children);
+
+    expect(html.replace(/\s+/g, ' ')).toContain('2 of 7 child layers enabled');
+    expect(html).toContain('>2/7</span>');
+  });
+
+  it('shows zero enabled child layers while their parent remains enabled', () => {
+    const children = Array.from({ length: 7 }, (_, index) =>
+      layer(`enc:facet:${index}`, { parent: 'enc', visible: false }),
+    );
+    const html = body(layer('enc', { title: 'NOAA ENC West Coast' }), children);
+
+    expect(html.replace(/\s+/g, ' ')).toContain('0 of 7 child layers enabled');
+    expect(html).toContain('>0/7</span>');
+  });
+
   it('keeps non-chart child layers in an inline disclosure', () => {
     const html = body(layer('enc', { title: 'NOAA ENC California' }), [
       layer('enc:facet:depth', { title: 'Depth areas', parent: 'enc' }),

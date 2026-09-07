@@ -1,11 +1,28 @@
-import { expect, test } from '@playwright/test';
-import { openMenuItem, stubVesselsSelf } from './helpers';
+import { expect, type Page, test } from '@playwright/test';
+import { stubVesselsSelf } from './helpers';
 import { installMapLibreWorkerProof } from './maplibre-worker-proof';
 
 test.use({ serviceWorkers: 'block' });
 
 const CHART_ID = 'fixture-noaa-s57';
-const TILE_PATH = new RegExp(`/signalk/v1/api/resources/charts/${CHART_ID}/\\d+/\\d+/\\d+$`);
+const FACET_CHART_ID = 'fixture-west-coast-s57';
+const TILE_PATH = new RegExp(
+  `/signalk/v1/api/resources/charts/${CHART_ID}/\\d+/\\d+/\\d+(?:\\?.*)?$`,
+);
+const FACET_TILE_PATH = new RegExp(
+  `/signalk/v1/api/resources/charts/${FACET_CHART_ID}/\\d+/\\d+/\\d+(?:\\?.*)?$`,
+);
+
+async function openLayersAndCharts(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Open supermenu' }).click();
+  const supermenu = page.getByRole('menu', { name: 'Supermenu' });
+  await supermenu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
+  await supermenu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
+  const closeSupermenu = page.getByRole('button', { name: 'Close supermenu' });
+  if ((await closeSupermenu.count()) > 0) {
+    await closeSupermenu.evaluate((button: HTMLButtonElement) => button.click());
+  }
+}
 
 function varint(value: number): number[] {
   const bytes: number[] = [];
@@ -132,11 +149,31 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
           maxzoom: 16,
           tilemapUrl: `/signalk/v1/api/resources/charts/${CHART_ID}/{z}/{x}/{y}`,
         },
+        [FACET_CHART_ID]: {
+          identifier: FACET_CHART_ID,
+          name: 'Fixture West Coast ENC',
+          description: 'Synthetic S-57 chart with independently configurable feature groups',
+          type: 'S-57',
+          format: 'pbf',
+          chartLayers: ['DEPARE', 'DEPCNT', 'SOUNDG', 'LNDARE'],
+          bounds: [-180, -85, 180, 85],
+          minzoom: 0,
+          maxzoom: 16,
+          tilemapUrl: `/signalk/v1/api/resources/charts/${FACET_CHART_ID}/{z}/{x}/{y}`,
+        },
       }),
     }),
   );
   await page.route(TILE_PATH, async (route) => {
     tileRequests.push(new URL(route.request().url()).pathname);
+    await tileGate;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/x-protobuf',
+      body: Buffer.from(encDepthAreaTile()),
+    });
+  });
+  await page.route(FACET_TILE_PATH, async (route) => {
     await tileGate;
     await route.fulfill({
       status: 200,
@@ -211,12 +248,14 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await canvas.click({ position: { x: canvasBox.width / 2, y: canvasBox.height / 2 } });
     const cellDetails = page.getByRole('dialog', { name: 'Local bathymetry cell details' });
     await expect(cellDetails).toBeVisible();
-    await expect(cellDetails).toContainText('Safety-conservative chart depth');
+    await expect(cellDetails).toContainText('Conservative depth below chart datum');
     await expect(cellDetails).toContainText('4.0 m');
     await expect(cellDetails).toContainText('Moderate evidence (72%)');
     await expect(cellDetails).toContainText('Observations');
     await expect(cellDetails).toContainText('Quality limits: Single Pass, Sparse Neighbors.');
-    await cellDetails.getByRole('button', { name: 'Raw data table' }).click();
+    await cellDetails
+      .getByRole('button', { name: 'Raw data table' })
+      .evaluate((button: HTMLButtonElement) => button.click());
     const rawDialog = page.getByRole('dialog', { name: 'Raw bathymetry data' });
     await expect(rawDialog).toBeVisible();
     await expect(rawDialog).toContainText('1 source record');
@@ -238,40 +277,65 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await cellDetails.getByRole('button', { name: 'Close cell details' }).click();
     await expect(cellDetails).toBeHidden();
 
-    await openMenuItem(page, 'Layers and charts');
-    const row = page.locator(`#layers-panel [data-layer-row="chart-${CHART_ID}"]`);
+    await openLayersAndCharts(page);
+    const row = page.locator(`#layers-panel [data-layer-row="chart-${FACET_CHART_ID}"]`);
     await expect(row).toBeVisible();
-    const chartToggle = row.getByRole('button', { name: 'Fixture NOAA ENC', exact: true });
+    const chartToggle = row.getByRole('button', { name: 'Fixture West Coast ENC', exact: true });
     await expect(chartToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(row.getByText('3/3', { exact: true })).toBeVisible();
     await expect(row.getByRole('checkbox')).toHaveCount(0);
     await expect(row.getByRole('button', { name: 'Adjust Fixture NOAA ENC opacity' })).toHaveCount(
       0,
     );
     const facetCaret = row.getByRole('button', {
-      name: 'Show Fixture NOAA ENC child layers',
+      name: 'Show Fixture West Coast ENC child layers',
     });
     await expect(facetCaret).toBeVisible();
     await facetCaret.click();
-    const inlineFacets = row.getByRole('group', { name: 'Fixture NOAA ENC child layers' });
+    const inlineFacets = row.getByRole('group', { name: 'Fixture West Coast ENC child layers' });
     await expect(inlineFacets).toBeVisible();
-    await expect(
-      inlineFacets.getByRole('button', { name: 'Depth areas', exact: true }),
-    ).toBeVisible();
+    const depthFacet = inlineFacets.getByRole('button', { name: 'Depth areas', exact: true });
+    const soundingsFacet = inlineFacets.getByRole('button', {
+      name: 'Soundings and contours',
+      exact: true,
+    });
+    await expect(depthFacet).toBeVisible();
     await expect(
       inlineFacets.getByRole('button', { name: 'Adjust Depth areas opacity' }),
     ).toBeVisible();
-    await row.getByRole('button', { name: 'Open Fixture NOAA ENC chart details' }).click();
+    await depthFacet.click();
+    await expect(depthFacet).toHaveAttribute('aria-pressed', 'false');
+    await expect(row.getByText('2/3', { exact: true })).toBeVisible();
+
+    await chartToggle.click();
+    await expect(chartToggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(row.getByText('2/3', { exact: true })).toBeVisible();
+    await chartToggle.click();
+    await expect(chartToggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(depthFacet).toHaveAttribute('aria-pressed', 'false');
+    await expect(soundingsFacet).toHaveAttribute('aria-pressed', 'true');
+
+    // Restore the fixture's initial state before exercising the remaining chart controls.
+    await depthFacet.click();
+    await expect(row.getByText('3/3', { exact: true })).toBeVisible();
+    await row.getByRole('button', { name: 'Open Fixture West Coast ENC chart details' }).click();
     await expect(page.getByRole('slider', { name: 'Opacity' })).toBeVisible();
-    await expect(page.getByRole('group', { name: 'Fixture NOAA ENC chart layers' })).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: 'Fixture West Coast ENC chart layers' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Back to layers' }).click();
+    const bathymetryRow = page.locator(`#layers-panel [data-layer-row="chart-${CHART_ID}"]`);
+    await bathymetryRow
+      .getByRole('button', { name: 'Open Fixture NOAA ENC chart details' })
+      .click();
     await expect(page.getByText('Depth colors', { exact: true })).toBeVisible();
     const noaaColors = page.getByRole('button', { name: 'NOAA chart', exact: true });
-    await expect(noaaColors).toHaveAttribute('aria-pressed', 'false');
-    await noaaColors.click();
     await expect(noaaColors).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: 'Safety', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    const safetyColors = page.getByRole('button', { name: 'Safety', exact: true });
+    await expect(safetyColors).toHaveAttribute('aria-pressed', 'false');
+    await safetyColors.click();
+    await expect(safetyColors).toHaveAttribute('aria-pressed', 'true');
+    await expect(noaaColors).toHaveAttribute('aria-pressed', 'false');
     await page.getByRole('button', { name: 'Back to layers' }).click();
     const baseRow = page.locator('#layers-panel [data-layer-row="basemap"]');
     await expect(baseRow).toBeVisible();
@@ -283,7 +347,9 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await baseOpacity.fill('0.5');
     await expect(baseOpacity).toHaveAttribute('aria-valuetext', '50%');
 
-    await page.getByRole('button', { name: 'Close OpenFreeMap base opacity' }).click();
+    await page
+      .getByRole('button', { name: 'Close OpenFreeMap base opacity' })
+      .evaluate((button: HTMLButtonElement) => button.click());
     await page.getByRole('button', { name: 'Close layers and charts' }).click();
     // Keyboard zoom remains available after removing the chart's top-right zoom buttons. Let each
     // animation finish so rapid steps do not collapse into one partial zoom.
@@ -301,7 +367,7 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     // the chart off at that zoom therefore changes the compositor screenshot; the old layer cap at
     // z17 made this a no-op because the ENC had already vanished.
     const overzoomedWithChart = await canvas.screenshot();
-    await openMenuItem(page, 'Layers and charts');
+    await openLayersAndCharts(page);
     await chartToggle.click();
     await expect(chartToggle).toHaveAttribute('aria-pressed', 'false');
     await expect

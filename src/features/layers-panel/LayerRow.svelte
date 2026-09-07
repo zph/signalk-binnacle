@@ -80,6 +80,7 @@ const MIN_LAYER_OPACITY = 0.15;
 // merely shares a group id with something it is not the parent of (for example a plain sibling row
 // tagged with the same group for display grouping alone) keeps its own title.
 const isFacetGroup = $derived(subLayers.length > 0);
+const enabledFacetCount = $derived(subLayers.filter((sub) => sub.visible).length);
 // Chart rows keep a disclosure slot even when the provider exposes no child facets. That makes the
 // capability discoverable and keeps the visibility/detail controls aligned across the Charts list.
 // Non-chart rows only reserve the slot when they actually own child layers.
@@ -299,6 +300,13 @@ $effect(() => {
             onToggle={(visible) => view.toggle(item.id, visible)}
             presentation="row"
           />
+          <span class="pill-count facet-count num" aria-hidden="true"
+            >{enabledFacetCount}/{subLayers.length}</span
+          >
+          <span class="visually-hidden">
+            {enabledFacetCount}
+            of {subLayers.length} child layers enabled
+          </span>
           {@render facetCaret()}
           {@render regionTag()}
           {@render trailing()}
@@ -455,6 +463,10 @@ $effect(() => {
 }
 .facet-disclosure {
   padding-inline-start: var(--space-3);
+}
+.facet-count {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .facet-presets {
   display: flex;
