@@ -41,6 +41,8 @@ const CONTOUR_LABEL_TEXT: ExpressionSpecification = [
   'case',
   ['==', ['global-state', 'unit'], 'ft'],
   ['concat', ['to-string', ['get', 'depth_ft']], 'ft'],
+  ['==', ['global-state', 'unit'], 'fm'],
+  ['concat', ['to-string', ['/', ['get', 'depth_abs_m'], 1.8288]], 'fm'],
   ['concat', ['to-string', ['get', 'depth_abs_m']], 'm'],
 ];
 
@@ -48,6 +50,8 @@ const SOUNDING_TEXT: ExpressionSpecification = [
   'case',
   ['==', ['global-state', 'unit'], 'ft'],
   ['to-string', ['get', 'depth_ft']],
+  ['==', ['global-state', 'unit'], 'fm'],
+  ['to-string', ['/', ['get', 'depth_m'], 1.8288]],
   ['to-string', ['get', 'depth_m']],
 ];
 

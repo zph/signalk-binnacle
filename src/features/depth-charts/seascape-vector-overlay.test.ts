@@ -1,3 +1,5 @@
+import { createExpression } from '@maplibre/maplibre-gl-style-spec';
+import type { ExpressionSpecification } from 'maplibre-gl';
 import { chartSourceById } from 'signalk-chart-sources';
 import { describe, expect, it } from 'vitest';
 import { createFakeMap, declaredSource, type FakeMap, fakeOverlayContext } from '$shared/testing';
@@ -19,6 +21,20 @@ const ctx = (map: FakeMap) => fakeOverlayContext(map);
 // rather than casting at every text-font assertion below.
 const layerLayout = (map: FakeMap, id: string) =>
   map.layers.get(id)?.layout as Record<string, unknown> | undefined;
+
+function evaluateExpression(
+  expression: unknown,
+  unit: 'm' | 'ft' | 'fm',
+  properties: Record<string, number | string>,
+): unknown {
+  const parsed = createExpression(expression as ExpressionSpecification, 'seascape-label', null, {
+    unit,
+  });
+  if (parsed.result === 'error') {
+    throw new Error(parsed.value.map(({ message }) => message).join('; '));
+  }
+  return parsed.value.evaluate({ zoom: 12 }, { type: 'Point', properties } as never);
+}
 
 describe('createSeascapeVectorOverlay', () => {
   it('drying is a standalone fill row; contours bundles the line and both symbol layers', () => {
@@ -73,6 +89,33 @@ describe('createSeascapeVectorOverlay', () => {
     expect(layerLayout(map, 'seascape-soundings-layer')?.['text-font']).toEqual([
       'Noto Sans Regular',
     ]);
+  });
+
+  it('renders contour labels and soundings in the live depth unit', async () => {
+    const map = createFakeMap();
+    const { contours } = createSeascapeVectorOverlay(SOURCE);
+    await contours.add(ctx(map));
+    const contourText = layerLayout(map, 'seascape-contours-label')?.['text-field'];
+    const soundingText = layerLayout(map, 'seascape-soundings-layer')?.['text-field'];
+    const properties = { depth_abs_m: 9.144, depth_m: 9.144, depth_ft: 30 };
+
+    expect(evaluateExpression(contourText, 'm', properties)).toBe('9.144m');
+    expect(evaluateExpression(contourText, 'ft', properties)).toBe('30ft');
+    expect(evaluateExpression(contourText, 'fm', properties)).toBe('5fm');
+    expect(evaluateExpression(soundingText, 'm', properties)).toBe('9.144');
+    expect(evaluateExpression(soundingText, 'ft', properties)).toBe('30');
+    expect(evaluateExpression(soundingText, 'fm', properties)).toBe('5');
+  });
+
+  it('uses Seascape metric contour features for fathoms', async () => {
+    const map = createFakeMap();
+    const { contours } = createSeascapeVectorOverlay(SOURCE);
+    await contours.add(ctx(map));
+    const filter = map.layers.get('seascape-contours-line')?.filter;
+
+    expect(evaluateExpression(filter, 'ft', { sys: 'ft' })).toBe(true);
+    expect(evaluateExpression(filter, 'fm', { sys: 'm' })).toBe(true);
+    expect(evaluateExpression(filter, 'fm', { sys: 'ft' })).toBe(false);
   });
 
   it('removing one row does not remove the shared source out from under the other', async () => {
