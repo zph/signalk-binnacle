@@ -12,6 +12,12 @@ export interface WayfinderCapabilities {
   unavailableReason?: string;
   objectives: readonly 'fastest'[];
   passageConstraints: readonly ('daylightOnly' | 'maxHoursPerDay')[];
+  navigationConstraints: readonly (
+    | 'minimumDepthM'
+    | 'minimumShoreDistanceNm'
+    | 'maximumOffshoreDistanceNm'
+  )[];
+  depthSource?: string;
 }
 
 export interface WayfinderStatus {
@@ -23,6 +29,14 @@ export interface WayfinderStatus {
 export interface WayfinderConstraints {
   daylightOnly: boolean;
   maxHoursPerDay: number;
+  minimumDepthM: number;
+  minimumShoreDistanceNm: number;
+  maximumOffshoreDistanceNm: number;
+}
+
+export interface WayfinderPlanStartResult {
+  started: boolean;
+  error?: string;
 }
 
 function stringArray(value: unknown): string[] | undefined {
@@ -44,6 +58,17 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
   const passageConstraints = stringArray(value.passageConstraints) ?? [];
   if (!passageConstraints.every((item) => item === 'daylightOnly' || item === 'maxHoursPerDay'))
     return undefined;
+  const navigationConstraints = stringArray(value.navigationConstraints) ?? [];
+  if (
+    !navigationConstraints.every(
+      (item) =>
+        item === 'minimumDepthM' ||
+        item === 'minimumShoreDistanceNm' ||
+        item === 'maximumOffshoreDistanceNm',
+    )
+  ) {
+    return undefined;
+  }
   return {
     apiVersion: value.apiVersion,
     ready: value.ready,
@@ -51,6 +76,8 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
       typeof value.unavailableReason === 'string' ? value.unavailableReason : undefined,
     objectives,
     passageConstraints,
+    navigationConstraints,
+    depthSource: typeof value.depthSource === 'string' ? value.depthSource : undefined,
   };
 }
 
@@ -119,10 +146,10 @@ export async function startWayfinderPlan(
   departureTime: string,
   constraints: WayfinderConstraints,
   fetchFn: typeof fetch = globalThis.fetch,
-): Promise<boolean> {
+): Promise<WayfinderPlanStartResult> {
   const [start, ...rest] = route.waypoints;
   const end = rest.at(-1);
-  if (!start || !end) return false;
+  if (!start || !end) return { started: false };
   const body = {
     start: { lat: start.position.latitude, lon: start.position.longitude },
     end: { lat: end.position.latitude, lon: end.position.longitude },
@@ -136,21 +163,29 @@ export async function startWayfinderPlan(
     options: {
       daylightOnly: constraints.daylightOnly,
       maxHoursPerDay: constraints.maxHoursPerDay,
+      minimumDepthM: constraints.minimumDepthM,
+      minimumShoreDistanceNm: constraints.minimumShoreDistanceNm,
+      maximumOffshoreDistanceNm: constraints.maximumOffshoreDistanceNm,
     },
   };
-  return (
-    (await jsonRequest(
-      origin,
-      '/calculate',
-      token,
-      {
+  try {
+    const response = await fetchFn(
+      `${origin}${WAYFINDER_API_PATH}/calculate`,
+      authInit(token, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      },
-      fetchFn,
-    )) !== undefined
-  );
+      }),
+    );
+    if (response.ok) return { started: true };
+    const payload: unknown = await response.json().catch(() => undefined);
+    return {
+      started: false,
+      error: isRecord(payload) && typeof payload.error === 'string' ? payload.error : undefined,
+    };
+  } catch {
+    return { started: false };
+  }
 }
 
 export async function fetchWayfinderStatus(

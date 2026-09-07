@@ -15,6 +15,18 @@ interface PresetCategories {
 
 export type DepthUnit = 'm' | 'ft' | 'fm';
 
+export function depthValueFromMeters(meters: number, unit: DepthUnit): number {
+  if (unit === 'ft') return meters / 0.3048;
+  if (unit === 'fm') return meters / 1.8288;
+  return meters;
+}
+
+export function depthValueToMeters(value: number, unit: DepthUnit): number {
+  if (unit === 'ft') return value * 0.3048;
+  if (unit === 'fm') return value * 1.8288;
+  return value;
+}
+
 export function speedUnitFromPreset(preset: PresetCategories | undefined): SpeedUnit | undefined {
   const target = preset?.categories?.speed?.targetUnit?.trim().toLowerCase();
   if (target === 'kn' || target === 'knot' || target === 'knots') return 'kn';

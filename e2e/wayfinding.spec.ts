@@ -44,6 +44,12 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
         ready: true,
         objectives: ['fastest'],
         passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
+        navigationConstraints: [
+          'minimumDepthM',
+          'minimumShoreDistanceNm',
+          'maximumOffshoreDistanceNm',
+        ],
+        depthSource: '/charts/depth.tif',
       }),
     }),
   );
@@ -55,13 +61,20 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     expect(request.end).toEqual({ lat: 42.7, lon: -83.4 });
     expect(request.useLandAvoidance).toBe(true);
     expect(request.useSafetyMargin).toBe(true);
-    expect(request.options).toEqual({ daylightOnly: true, maxHoursPerDay: 8 });
+    expect(request.options).toEqual({
+      daylightOnly: true,
+      maxHoursPerDay: 8,
+      minimumDepthM: 10,
+      minimumShoreDistanceNm: 2,
+      maximumOffshoreDistanceNm: 30,
+    });
     await route.fulfill({ status: 202, contentType: 'application/json', body: '{}' });
   });
   let statusReads = 0;
+  let allowComplete = false;
   await page.route(/\/plugins\/signalk-wayfinder\/status$/, (route) => {
     statusReads += 1;
-    const done = statusReads > 1;
+    const done = allowComplete && statusReads > 1;
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -71,6 +84,7 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   let cancellations = 0;
   await page.route(/\/plugins\/signalk-wayfinder\/cancel$/, (route) => {
     cancellations += 1;
+    allowComplete = true;
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -105,6 +119,19 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   const maxHours = panel.getByRole('spinbutton', { name: 'Maximum underway per day in h' });
   await maxHours.fill('8');
   await maxHours.blur();
+  const minimumDepth = panel.getByRole('spinbutton', { name: /Minimum charted depth in/ });
+  await minimumDepth.fill('10');
+  await minimumDepth.blur();
+  const minimumShore = panel.getByRole('spinbutton', {
+    name: 'Minimum shoreline clearance in nm',
+  });
+  await minimumShore.fill('2');
+  await minimumShore.blur();
+  const maximumOffshore = panel.getByRole('spinbutton', {
+    name: 'Maximum distance offshore in nm',
+  });
+  await maximumOffshore.fill('30');
+  await maximumOffshore.blur();
 
   await panel.getByRole('button', { name: 'Calculate fastest route' }).click();
   await expect(panel.getByRole('button', { name: 'Cancel calculation' })).toBeVisible();

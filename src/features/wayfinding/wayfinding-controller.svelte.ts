@@ -54,19 +54,20 @@ export function createWayfindingController(deps: {
     busy = true;
     error.clear();
     status = { state: 'calculating', progress: 0 };
-    const started = await startWayfinderPlan(
+    const startResult = await startWayfinderPlan(
       deps.origin,
       deps.getToken(),
       route,
       departureTime,
       constraints,
     );
-    if (!started) {
+    if (!startResult.started) {
       if (sequence === operation) {
         busy = false;
         status = { state: 'failed', progress: 0 };
         error.flag(
-          'Sail Wayfinder refused the plan. Check its forecast coverage and configuration.',
+          startResult.error ??
+            'Sail Wayfinder refused the plan. Check its forecast coverage and configuration.',
         );
       }
       return;

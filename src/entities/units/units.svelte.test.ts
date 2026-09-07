@@ -3,6 +3,8 @@ import { PersistedValue } from '$shared/settings';
 import { createFakeStorage } from '$shared/testing';
 import {
   depthUnitFromPreset,
+  depthValueFromMeters,
+  depthValueToMeters,
   modeFromPreset,
   speedUnitFromPreset,
   UnitsStore,
@@ -14,6 +16,16 @@ const imperialPreset = {
 const metricPreset = {
   categories: { length: { targetUnit: 'm' }, depth: { targetUnit: 'm' } },
 };
+
+describe('depth value conversion', () => {
+  it('converts meters to and from the selected depth unit', () => {
+    expect(depthValueFromMeters(3.048, 'ft')).toBeCloseTo(10);
+    expect(depthValueToMeters(10, 'ft')).toBeCloseTo(3.048);
+    expect(depthValueFromMeters(3.6576, 'fm')).toBeCloseTo(2);
+    expect(depthValueToMeters(2, 'fm')).toBeCloseTo(3.6576);
+    expect(depthValueFromMeters(4, 'm')).toBe(4);
+  });
+});
 
 function localSetting(seed?: Record<string, string>) {
   return new PersistedValue<'metric' | 'imperial'>(

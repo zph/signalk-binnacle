@@ -1265,6 +1265,7 @@ $effect(() => {
             <module.default
               controller={wayfindingController}
               {routeStore}
+              {units}
               onClose={closePanel}
               onBack={backToMenu}
             />

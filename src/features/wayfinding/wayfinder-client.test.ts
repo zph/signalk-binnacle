@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseCapabilities, parseStatus } from './wayfinder-client';
+import { describe, expect, it, vi } from 'vitest';
+import { parseCapabilities, parseStatus, startWayfinderPlan } from './wayfinder-client';
 
 describe('wayfinder API parsing', () => {
   it('accepts a ready capability response', () => {
@@ -9,13 +9,63 @@ describe('wayfinder API parsing', () => {
         ready: true,
         objectives: ['fastest'],
         passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
+        navigationConstraints: [
+          'minimumDepthM',
+          'minimumShoreDistanceNm',
+          'maximumOffshoreDistanceNm',
+        ],
+        depthSource: '/charts/depth.tif',
       }),
     ).toEqual({
       apiVersion: '1.0',
       ready: true,
       objectives: ['fastest'],
       passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
+      navigationConstraints: [
+        'minimumDepthM',
+        'minimumShoreDistanceNm',
+        'maximumOffshoreDistanceNm',
+      ],
+      depthSource: '/charts/depth.tif',
       unavailableReason: undefined,
+    });
+  });
+
+  it('preserves a precise route-start rejection from Wayfinder', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: 'Start point is shallower than the configured minimum depth' }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    const result = await startWayfinderPlan(
+      'http://signalk.test',
+      undefined,
+      {
+        id: 'route-1',
+        name: 'Test route',
+        waypoints: [
+          { position: { latitude: 58.6, longitude: 19 } },
+          { position: { latitude: 58.8, longitude: 19.35 } },
+        ],
+      },
+      '2026-06-06T13:00:00.000Z',
+      {
+        daylightOnly: false,
+        maxHoursPerDay: 0,
+        minimumDepthM: 25,
+        minimumShoreDistanceNm: 0,
+        maximumOffshoreDistanceNm: 0,
+      },
+      fetchFn,
+    );
+
+    expect(result).toEqual({
+      started: false,
+      error: 'Start point is shallower than the configured minimum depth',
     });
   });
 
@@ -25,6 +75,8 @@ describe('wayfinder API parsing', () => {
       ready: true,
       objectives: ['fastest'],
       passageConstraints: [],
+      navigationConstraints: [],
+      depthSource: undefined,
       unavailableReason: undefined,
     });
   });
