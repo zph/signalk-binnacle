@@ -415,7 +415,8 @@ export class LayerManager {
       // paint updates until their layers exist, and this pass is what recovers those skips; if
       // #state ever moves to replace-on-write, this must re-read the current entry instead.
       this.#syncVisibility(module, state, true);
-      module.setOpacity?.(this.#ctx, state.opacity);
+      this.#syncOpacity(module, state);
+      this.#syncChildOpacities(module.id);
       if (this.#lastPaint) module.applyTheme?.(this.#ctx, this.#lastPaint);
     } catch (error) {
       if (!removedAfterAdd) {
@@ -544,9 +545,46 @@ export class LayerManager {
     if (!module || !state) return;
     if (state.opacity !== opacity) {
       state.opacity = opacity;
-      module.setOpacity?.(this.#ctx, opacity);
+      this.#syncOpacity(module, state);
+      this.#syncChildOpacities(id);
     }
     if (persist) this.#persist();
+  }
+
+  // A separately rendered child inherits the opacity of every separately rendered parent, while
+  // retaining its own persisted opacity as a local adjustment. Declarative facets are different:
+  // their parent module owns the same MapLibre layers and already multiplies parent and facet
+  // opacity internally, so passing a multiplied value to those virtual child modules would apply
+  // the parent twice.
+  #syncOpacity(module: OverlayModule, state: OverlayState): void {
+    let opacity = state.opacity;
+    let current = module;
+    const seen = new Set<string>([module.id]);
+    while (current.parent !== undefined) {
+      const parent = this.#modules.get(current.parent);
+      const parentState = this.#state.get(current.parent);
+      if (!parent || !parentState || seen.has(parent.id)) break;
+      if (parent.facets?.some((facet) => facet.id === current.id)) break;
+      opacity *= parentState.opacity;
+      seen.add(parent.id);
+      current = parent;
+    }
+    module.setOpacity?.(this.#ctx, opacity);
+  }
+
+  #syncChildOpacities(parentId: string, seen = new Set<string>()): void {
+    if (seen.has(parentId)) return;
+    seen.add(parentId);
+    const parent = this.#modules.get(parentId);
+    for (const [childId, child] of this.#modules) {
+      if (child.parent !== parentId) continue;
+      // The owning parent redraws declarative facets when its own opacity changes.
+      if (!parent?.facets?.some((facet) => facet.id === childId)) {
+        const childState = this.#state.get(childId);
+        if (childState) this.#syncOpacity(child, childState);
+      }
+      this.#syncChildOpacities(childId, seen);
+    }
   }
 
   applyFacetPreset(parentId: string, visibility: Readonly<Record<string, boolean>>): void {
@@ -699,7 +737,8 @@ export class LayerManager {
       const opacity = this.#coerceOpacity(next.opacity);
       if (opacity !== state.opacity) {
         state.opacity = opacity;
-        module.setOpacity?.(this.#ctx, opacity);
+        this.#syncOpacity(module, state);
+        this.#syncChildOpacities(id);
       }
       if (module.cellSizeControl) {
         const cellSizeScale = this.#coerceCellSizeScale(module.cellSizeControl, next.cellSizeScale);
@@ -981,7 +1020,8 @@ export class LayerManager {
         return;
       }
       this.#syncVisibility(module, state, true);
-      module.setOpacity?.(this.#ctx, state.opacity);
+      this.#syncOpacity(module, state);
+      this.#syncChildOpacities(module.id);
       if (this.#lastPaint) module.applyTheme?.(this.#ctx, this.#lastPaint);
     }
     this.#applyOrder();

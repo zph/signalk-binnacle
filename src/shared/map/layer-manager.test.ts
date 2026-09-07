@@ -89,6 +89,33 @@ describe('LayerManager', () => {
     expect(overlay.events.at(-1)).toBe('opacity:0.4');
   });
 
+  it('multiplies separately rendered child opacity by its parent opacity', async () => {
+    const parent = fakeOverlay('chart', 'bathymetry');
+    const child = { ...fakeOverlay('color', 'bathymetry'), parent: 'chart' };
+    const manager = new LayerManager(fakeCtx());
+    await manager.register(parent);
+    await manager.register(child);
+
+    manager.setOpacity('chart', 0.5);
+    expect(child.events.at(-1)).toBe('opacity:0.5');
+
+    manager.setOpacity('color', 0.4);
+    expect(child.events.at(-1)).toBe('opacity:0.2');
+
+    manager.setOpacity('chart', 0.8);
+    expect(child.events.at(-1)).toBe(`opacity:${0.8 * 0.4}`);
+    expect(manager.layers().find((layer) => layer.id === 'color')?.opacity).toBe(0.4);
+
+    manager.applySnapshot(
+      {
+        chart: { visible: true, opacity: 0.25 },
+        color: { visible: true, opacity: 0.4 },
+      },
+      [],
+    );
+    expect(child.events.at(-1)).toBe('opacity:0.1');
+  });
+
   it('applies transient opacity updates, then persists the committed value once', async () => {
     const onChange = vi.fn();
     const overlay = fakeOverlay('ais');
@@ -996,8 +1023,11 @@ describe('LayerManager', () => {
     });
 
     manager.toggle('chart:facet:depth', false);
+    manager.setOpacity('chart', 0.5);
     manager.setOpacity('chart:facet:depth', 0.4);
     expect(depthEvents).toContain('visible:false');
+    // The chart renderer owns the shared draw layers and composes its facet opacity internally.
+    // The manager therefore passes the facet's local value rather than multiplying the parent twice.
     expect(depthEvents.at(-1)).toBe('opacity:0.4');
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
