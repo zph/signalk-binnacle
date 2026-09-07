@@ -6,7 +6,8 @@ import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onMount } from 'svelte';
 import type { RouteStore } from '$entities/route';
 import { depthValueFromMeters, depthValueToMeters, type UnitsStore } from '$entities/units';
-import { LayerToggle, SlideOver, UnavailableHint, UnitField } from '$shared/ui';
+import { LayerToggle, SlideOver, UnitField } from '$shared/ui';
+import type { WayfinderObjective } from './wayfinder-client';
 import type { createWayfindingController } from './wayfinding-controller.svelte';
 
 interface Props {
@@ -26,16 +27,18 @@ const supportsShoreConstraints = $derived(
   controller.capabilities?.navigationConstraints.includes('minimumShoreDistanceNm') === true &&
     controller.capabilities?.navigationConstraints.includes('maximumOffshoreDistanceNm') === true,
 );
-const supportsDepthConstraint = $derived(
-  controller.capabilities?.navigationConstraints.includes('minimumDepthM') === true,
-);
+const supportsAlternatives = $derived((controller.capabilities?.maximumAlternatives ?? 0) > 0);
 const available = $derived(
-  controller.capabilities?.ready === true && supportsPassageConstraints && supportsShoreConstraints,
+  controller.capabilities?.ready === true &&
+    supportsPassageConstraints &&
+    supportsShoreConstraints &&
+    supportsAlternatives,
 );
 const reason = $derived(
   controller.error ??
-    (controller.capabilities?.ready && (!supportsPassageConstraints || !supportsShoreConstraints)
-      ? 'Update Sail Wayfinder to use passage schedule and navigation safety constraints.'
+    (controller.capabilities?.ready &&
+    (!supportsPassageConstraints || !supportsShoreConstraints || !supportsAlternatives)
+      ? 'Update Sail Wayfinder to use passage alternatives and navigation constraints.'
       : undefined) ??
     controller.capabilities?.unavailableReason ??
     'Install and configure Sail Wayfinder with forecast coverage, a polar, and shoreline data.',
@@ -44,28 +47,62 @@ let routeId = $state('');
 let departure = $state(new Date(Date.now() + 300_000).toISOString().slice(0, 16));
 let daylightOnly = $state(false);
 let maxHoursPerDay = $state(0);
-let minimumDepthM = $state(0);
 let minimumShoreDistanceNm = $state(0);
 let maximumOffshoreDistanceNm = $state(0);
+let objective = $state<WayfinderObjective>('fastest');
+let alternativeCount = $state(5);
+let motorSpeedKn = $state(0);
+let motorBelowKn = $state(0);
+let vesselDraftM = $state(0);
+let draftPath = $state('design.draft.current');
+let selectedAlternativeIndex = $state(0);
 let saveName = $state('');
 const selected = $derived(routeStore.routeById(routeId));
 
 onMount(() => {
   if (!routeId && routeStore.routes[0]) routeId = routeStore.routes[0].id;
-  void controller.refresh();
+  void controller.refresh().then(() => applyDiscoveredDraft());
 });
+
+function applyDiscoveredDraft(): void {
+  const capabilities = controller.capabilities;
+  if (!capabilities) return;
+  draftPath = capabilities.configuredDraftPath;
+  vesselDraftM = capabilities.vesselDraft?.valueM ?? 0;
+  alternativeCount = Math.min(5, capabilities.maximumAlternatives);
+}
+
+async function readDraftPath(): Promise<void> {
+  await controller.refresh(draftPath.trim());
+  vesselDraftM = controller.capabilities?.vesselDraft?.valueM ?? 0;
+}
 
 function calculate(): void {
   if (!selected || !departure) return;
   saveName = `${selected.name} weather route`;
+  selectedAlternativeIndex = 0;
   void controller.plan(selected, new Date(departure).toISOString(), {
     daylightOnly,
     maxHoursPerDay,
-    minimumDepthM,
     minimumShoreDistanceNm,
     maximumOffshoreDistanceNm,
+    objective,
+    alternativeCount,
+    motorSpeedKn,
+    motorBelowKn,
+    vesselDraftM,
   });
 }
+
+const objectiveLabel = $derived(
+  objective === 'leastMotoring'
+    ? 'least-motoring'
+    : objective === 'allMotoring'
+      ? 'all-motoring'
+      : objective === 'bestWeather'
+        ? 'best-weather'
+        : 'fastest',
+);
 </script>
 
 <SlideOver
@@ -97,6 +134,33 @@ function calculate(): void {
       {#if controller.status.message}
         <p class="alert-note">{controller.status.message}</p>
       {/if}
+      {#if (controller.status.alternatives?.length ?? 0) > 1}
+        <label class="field">
+          <span>Route alternative</span>
+          <select class="input" bind:value={selectedAlternativeIndex} disabled={controller.busy}>
+            {#each controller.status.alternatives ?? [] as alternative (alternative.index)}
+              <option value={alternative.index}>
+                {alternative.index + 1}. {alternative.durationHours.toFixed(1)} h,
+                {alternative.distanceNm.toFixed(1)}
+                nm,
+                {alternative.motorHours.toFixed(1)}
+                h motor
+              </option>
+            {/each}
+          </select>
+        </label>
+        {@const selectedAlternative = controller.status.alternatives?.[selectedAlternativeIndex]}
+        {#if selectedAlternative}
+          <p class="muted-note muted-note--xs">
+            Average wind {selectedAlternative.averageWindKn.toFixed(1)} kn,
+            {#if selectedAlternative.averageWaveHeightM !== null}
+              average waves {selectedAlternative.averageWaveHeightM.toFixed(1)} m.
+            {:else}
+              no wave field in the selected forecast.
+            {/if}
+          </p>
+        {/if}
+      {/if}
       <label class="field">
         <span>Route name</span>
         <input class="input" maxlength="256" bind:value={saveName}>
@@ -105,7 +169,7 @@ function calculate(): void {
         class="btn btn-primary"
         type="button"
         disabled={!saveName.trim() || controller.busy}
-        onclick={() => void controller.save(saveName.trim())}
+        onclick={() => void controller.save(saveName.trim(), selectedAlternativeIndex)}
       >
         Save advisory route
       </button>
@@ -125,7 +189,7 @@ function calculate(): void {
       </button>
     </section>
   {:else}
-    <section aria-label="Passage inputs">
+    <section class="passage-inputs" aria-label="Passage inputs">
       <h3 class="caps-label">Passage</h3>
       {#if routeStore.routes.length === 0}
         <p class="alert-note">Create and save a route in Binnacle first.</p>
@@ -138,6 +202,65 @@ function calculate(): void {
             {/each}
           </select>
         </label>
+        <label class="field">
+          <span>Routing objective</span>
+          <select class="input" bind:value={objective} disabled={controller.busy}>
+            <option value="fastest">Fastest</option>
+            <option value="leastMotoring">Least motoring</option>
+            <option value="allMotoring">All motoring</option>
+            <option value="bestWeather">Best waves and weather</option>
+          </select>
+        </label>
+        <UnitField
+          label="Route alternatives"
+          value={alternativeCount}
+          min={1}
+          max={controller.capabilities?.maximumAlternatives ?? 10}
+          step={1}
+          disabled={controller.busy}
+          ariaDescribedBy="wayfinder-alternatives-help"
+          onCommit={(value) =>
+            (alternativeCount = Math.max(
+              1,
+              Math.min(controller.capabilities?.maximumAlternatives ?? 10, Math.round(value)),
+            ))}
+        />
+        <p id="wayfinder-alternatives-help" class="muted-note muted-note--xs">
+          Request 1 to {controller.capabilities?.maximumAlternatives ?? 10} distinct routes, ranked
+          by the selected objective.
+        </p>
+        {#if objective === 'fastest' || objective === 'allMotoring'}
+          <UnitField
+            label="Engine cruising speed"
+            unit="kn"
+            value={motorSpeedKn}
+            min={0}
+            max={100}
+            step={0.1}
+            disabled={controller.busy}
+            ariaDescribedBy="wayfinder-engine-help"
+            onCommit={(value) => (motorSpeedKn = Math.max(0, Math.min(100, value)))}
+          />
+        {/if}
+        {#if objective === 'fastest' && motorSpeedKn > 0}
+          <UnitField
+            label="Motor when sailing below"
+            unit="kn"
+            value={motorBelowKn}
+            min={0}
+            max={100}
+            step={0.1}
+            disabled={controller.busy}
+            ariaDescribedBy="wayfinder-engine-help"
+            onCommit={(value) => (motorBelowKn = Math.max(0, Math.min(100, value)))}
+          />
+        {/if}
+        {#if objective === 'fastest' || objective === 'allMotoring'}
+          <p id="wayfinder-engine-help" class="muted-note muted-note--xs">
+            All-motoring requires a cruising speed. Fastest uses the engine only below the sailing
+            threshold; 0 disables assistance.
+          </p>
+        {/if}
         <label class="field">
           <span>Departure</span>
           <input
@@ -171,34 +294,39 @@ function calculate(): void {
           0 is unlimited. Each passage day begins at the selected departure time.
         </p>
         <h3 class="caps-label">Navigation safety</h3>
-        <div
-          title={supportsDepthConstraint
-            ? undefined
-            : 'Configure a numeric bathymetry raster in Sail Wayfinder to set a minimum depth.'}
+        <label class="field">
+          <span>Signal K draft path</span>
+          <input class="input" bind:value={draftPath} disabled={controller.busy}>
+        </label>
+        <button
+          class="btn btn-secondary"
+          type="button"
+          disabled={controller.busy || !draftPath.trim()}
+          onclick={() => void readDraftPath()}
         >
-          <UnavailableHint
-            id="wayfinder-depth-unavailable"
-            hint={supportsDepthConstraint
-              ? undefined
-              : 'Configure a numeric bathymetry raster in Sail Wayfinder to set a minimum depth.'}
-          />
-          <UnitField
-            label="Minimum charted depth"
-            unit={units.depthUnit}
-            value={Number(depthValueFromMeters(minimumDepthM, units.depthUnit).toFixed(1))}
-            min={0}
-            max={Number(depthValueFromMeters(12_000, units.depthUnit).toFixed(1))}
-            step={0.5}
-            disabled={controller.busy || !supportsDepthConstraint}
-            ariaDescribedBy={supportsDepthConstraint
-              ? 'wayfinder-depth-help'
-              : 'wayfinder-depth-unavailable'}
-            onCommit={(value) =>
-              (minimumDepthM = Math.max(0, depthValueToMeters(value, units.depthUnit)))}
-          />
-        </div>
-        <p id="wayfinder-depth-help" class="muted-note muted-note--xs">
-          0 disables the limit. Missing raster cells are treated as unsafe, not as deep water.
+          Read draft path
+        </button>
+        <UnitField
+          label="Vessel draft / keel depth"
+          unit={units.depthUnit}
+          value={Number(depthValueFromMeters(vesselDraftM, units.depthUnit).toFixed(1))}
+          min={0}
+          max={Number(depthValueFromMeters(100, units.depthUnit).toFixed(1))}
+          step={0.1}
+          disabled={controller.busy}
+          ariaDescribedBy="wayfinder-draft-help"
+          onCommit={(value) =>
+            (vesselDraftM = Math.max(0, depthValueToMeters(value, units.depthUnit)))}
+        />
+        <p id="wayfinder-draft-help" class="muted-note muted-note--xs">
+          {#if controller.capabilities?.vesselDraft}
+            Loaded from {controller.capabilities.vesselDraft.path}. Edit the value to override it
+            for this plan.
+          {:else}
+            No numeric draft was found at this path. Enter the keel depth for this plan.
+          {/if}
+          Depth clearance remains a chart-reading decision; Wayfinder does not infer safe water from
+          this value.
         </p>
         <UnitField
           label="Minimum shoreline clearance"
@@ -229,12 +357,21 @@ function calculate(): void {
         <button
           class="btn btn-primary"
           type="button"
-          disabled={!selected || !departure || controller.busy}
+          disabled={!selected ||
+            !departure ||
+            vesselDraftM <= 0 ||
+            (objective === 'allMotoring' && motorSpeedKn <= 0) ||
+            controller.busy}
           onclick={calculate}
         >
           <Compass size={18} aria-hidden="true" />
-          Calculate fastest route
+          Calculate {objectiveLabel} routes
         </button>
+        {#if vesselDraftM <= 0}
+          <p class="alert-note">Enter vessel draft / keel depth before calculating.</p>
+        {:else if objective === 'allMotoring' && motorSpeedKn <= 0}
+          <p class="alert-note">Enter engine cruising speed for an all-motoring route.</p>
+        {/if}
       {/if}
     </section>
   {/if}
@@ -262,5 +399,10 @@ function calculate(): void {
 progress {
   inline-size: 100%;
   accent-color: var(--accent);
+}
+@media (min-width: 601px) {
+  .passage-inputs {
+    padding-block-end: var(--helm-actions-clearance, 0px);
+  }
 }
 </style>

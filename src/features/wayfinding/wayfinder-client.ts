@@ -10,28 +10,46 @@ export interface WayfinderCapabilities {
   apiVersion: string;
   ready: boolean;
   unavailableReason?: string;
-  objectives: readonly 'fastest'[];
+  objectives: readonly WayfinderObjective[];
+  maximumAlternatives: number;
   passageConstraints: readonly ('daylightOnly' | 'maxHoursPerDay')[];
-  navigationConstraints: readonly (
-    | 'minimumDepthM'
-    | 'minimumShoreDistanceNm'
-    | 'maximumOffshoreDistanceNm'
-  )[];
-  depthSource?: string;
+  navigationConstraints: readonly ('minimumShoreDistanceNm' | 'maximumOffshoreDistanceNm')[];
+  vesselDraft?: { valueM: number; path: string };
+  configuredDraftPath: string;
+}
+
+export type WayfinderObjective = 'fastest' | 'leastMotoring' | 'allMotoring' | 'bestWeather';
+
+export interface WayfinderAlternative {
+  index: number;
+  complete: boolean;
+  durationHours: number;
+  distanceNm: number;
+  motorHours: number;
+  averageWaveHeightM: number | null;
+  maximumWaveHeightM: number | null;
+  averageWindKn: number;
+  maximumWindKn: number;
+  warning?: string;
 }
 
 export interface WayfinderStatus {
   state: 'idle' | 'calculating' | 'complete' | 'failed';
   progress: number;
   message?: string;
+  alternatives?: WayfinderAlternative[];
 }
 
 export interface WayfinderConstraints {
   daylightOnly: boolean;
   maxHoursPerDay: number;
-  minimumDepthM: number;
   minimumShoreDistanceNm: number;
   maximumOffshoreDistanceNm: number;
+  objective: WayfinderObjective;
+  alternativeCount: number;
+  motorSpeedKn: number;
+  motorBelowKn: number;
+  vesselDraftM: number;
 }
 
 export interface WayfinderPlanStartResult {
@@ -54,17 +72,19 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
     return undefined;
   }
   const objectives = stringArray(value.objectives);
-  if (!objectives?.every((item) => item === 'fastest')) return undefined;
+  if (
+    !objectives?.every((item) =>
+      ['fastest', 'leastMotoring', 'allMotoring', 'bestWeather'].includes(item),
+    )
+  )
+    return undefined;
   const passageConstraints = stringArray(value.passageConstraints) ?? [];
   if (!passageConstraints.every((item) => item === 'daylightOnly' || item === 'maxHoursPerDay'))
     return undefined;
   const navigationConstraints = stringArray(value.navigationConstraints) ?? [];
   if (
     !navigationConstraints.every(
-      (item) =>
-        item === 'minimumDepthM' ||
-        item === 'minimumShoreDistanceNm' ||
-        item === 'maximumOffshoreDistanceNm',
+      (item) => item === 'minimumShoreDistanceNm' || item === 'maximumOffshoreDistanceNm',
     )
   ) {
     return undefined;
@@ -74,10 +94,21 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
     ready: value.ready,
     unavailableReason:
       typeof value.unavailableReason === 'string' ? value.unavailableReason : undefined,
-    objectives,
+    objectives: objectives as WayfinderObjective[],
+    maximumAlternatives:
+      typeof value.maximumAlternatives === 'number' ? value.maximumAlternatives : 1,
     passageConstraints,
     navigationConstraints,
-    depthSource: typeof value.depthSource === 'string' ? value.depthSource : undefined,
+    vesselDraft:
+      isRecord(value.vesselDraft) &&
+      typeof value.vesselDraft.valueM === 'number' &&
+      typeof value.vesselDraft.path === 'string'
+        ? { valueM: value.vesselDraft.valueM, path: value.vesselDraft.path }
+        : undefined,
+    configuredDraftPath:
+      typeof value.configuredDraftPath === 'string'
+        ? value.configuredDraftPath
+        : 'design.draft.current',
   };
 }
 
@@ -88,10 +119,12 @@ export function parseStatus(value: unknown): WayfinderStatus | undefined {
   if (value.status === 'idle') return { state: 'idle', progress };
   if (value.status === 'calculating') return { state: 'calculating', progress };
   if (value.status === 'done' || value.status === 'warning') {
+    const alternatives = parseAlternatives(value.alternatives);
     return {
       state: 'complete',
       progress: 100,
       message: typeof value.warning === 'string' ? value.warning : undefined,
+      ...(alternatives ? { alternatives } : {}),
     };
   }
   if (value.status === 'error') {
@@ -103,6 +136,39 @@ export function parseStatus(value: unknown): WayfinderStatus | undefined {
     };
   }
   return undefined;
+}
+
+function parseAlternatives(value: unknown): WayfinderAlternative[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const alternatives: WayfinderAlternative[] = [];
+  for (const item of value) {
+    if (
+      !isRecord(item) ||
+      typeof item.index !== 'number' ||
+      typeof item.complete !== 'boolean' ||
+      typeof item.durationHours !== 'number' ||
+      typeof item.distanceNm !== 'number' ||
+      typeof item.motorHours !== 'number' ||
+      typeof item.averageWindKn !== 'number' ||
+      typeof item.maximumWindKn !== 'number'
+    )
+      return undefined;
+    alternatives.push({
+      index: item.index,
+      complete: item.complete,
+      durationHours: item.durationHours,
+      distanceNm: item.distanceNm,
+      motorHours: item.motorHours,
+      averageWaveHeightM:
+        typeof item.averageWaveHeightM === 'number' ? item.averageWaveHeightM : null,
+      maximumWaveHeightM:
+        typeof item.maximumWaveHeightM === 'number' ? item.maximumWaveHeightM : null,
+      averageWindKn: item.averageWindKn,
+      maximumWindKn: item.maximumWindKn,
+      ...(typeof item.warning === 'string' ? { warning: item.warning } : {}),
+    });
+  }
+  return alternatives;
 }
 
 function authInit(token: string | undefined, init: RequestInit = {}): RequestInit {
@@ -132,10 +198,17 @@ async function jsonRequest(
 export async function fetchWayfinderCapabilities(
   origin: string,
   token: string | undefined,
+  draftPath?: string,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<WayfinderCapabilities | undefined> {
   return parseCapabilities(
-    await jsonRequest(origin, '/api/v1/capabilities', token, undefined, fetchFn),
+    await jsonRequest(
+      origin,
+      `/api/v1/capabilities${draftPath ? `?draftPath=${encodeURIComponent(draftPath)}` : ''}`,
+      token,
+      undefined,
+      fetchFn,
+    ),
   );
 }
 
@@ -163,9 +236,13 @@ export async function startWayfinderPlan(
     options: {
       daylightOnly: constraints.daylightOnly,
       maxHoursPerDay: constraints.maxHoursPerDay,
-      minimumDepthM: constraints.minimumDepthM,
       minimumShoreDistanceNm: constraints.minimumShoreDistanceNm,
       maximumOffshoreDistanceNm: constraints.maximumOffshoreDistanceNm,
+      objective: constraints.objective,
+      alternativeCount: constraints.alternativeCount,
+      motorSpeedKn: constraints.motorSpeedKn,
+      motorBelowKn: constraints.motorBelowKn,
+      vesselDraftM: constraints.vesselDraftM,
     },
   };
   try {
@@ -208,6 +285,7 @@ export async function saveWayfinderPlan(
   origin: string,
   token: string | undefined,
   name: string,
+  alternativeIndex = 0,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<string | undefined> {
   const value = await jsonRequest(
@@ -217,7 +295,7 @@ export async function saveWayfinderPlan(
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, alternativeIndex }),
     },
     fetchFn,
   );

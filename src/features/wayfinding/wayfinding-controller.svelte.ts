@@ -28,11 +28,11 @@ export function createWayfindingController(deps: {
   let operation = 0;
   const error = new ErrorState();
 
-  async function refresh(): Promise<void> {
+  async function refresh(draftPath?: string): Promise<void> {
     checking = true;
     error.clear();
     try {
-      const next = await fetchWayfinderCapabilities(deps.origin, deps.getToken());
+      const next = await fetchWayfinderCapabilities(deps.origin, deps.getToken(), draftPath);
       capabilities = next;
       if (!next) {
         error.flag(
@@ -104,11 +104,11 @@ export function createWayfindingController(deps: {
     if (!cancelled) error.flag('Sail Wayfinder could not cancel the calculation.');
   }
 
-  async function save(name: string): Promise<void> {
+  async function save(name: string, alternativeIndex = 0): Promise<void> {
     if (busy || status.state !== 'complete') return;
     busy = true;
     error.clear();
-    const routeId = await saveWayfinderPlan(deps.origin, deps.getToken(), name);
+    const routeId = await saveWayfinderPlan(deps.origin, deps.getToken(), name, alternativeIndex);
     if (!routeId) {
       busy = false;
       error.flag('Sail Wayfinder could not save the planned route.');

@@ -35,24 +35,26 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
       body: JSON.stringify(routeResource),
     }),
   );
-  await page.route(/\/plugins\/signalk-wayfinder\/api\/v1\/capabilities$/, (route) =>
-    route.fulfill({
+  await page.route(/\/plugins\/signalk-wayfinder\/api\/v1\/capabilities/, (route) => {
+    const requestedDraftPath = new URL(route.request().url()).searchParams.get('draftPath');
+    return route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        apiVersion: '1.1',
+        apiVersion: '1.3',
         ready: true,
-        objectives: ['fastest'],
+        objectives: ['fastest', 'leastMotoring', 'allMotoring', 'bestWeather'],
+        maximumAlternatives: 10,
         passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
-        navigationConstraints: [
-          'minimumDepthM',
-          'minimumShoreDistanceNm',
-          'maximumOffshoreDistanceNm',
-        ],
-        depthSource: '/charts/depth.tif',
+        navigationConstraints: ['minimumShoreDistanceNm', 'maximumOffshoreDistanceNm'],
+        vesselDraft: {
+          valueM: requestedDraftPath === 'design.customDraft' ? 2.1 : 1.8,
+          path: requestedDraftPath ?? 'design.draft.current',
+        },
+        configuredDraftPath: requestedDraftPath ?? 'design.draft.current',
       }),
-    }),
-  );
+    });
+  });
   let calculations = 0;
   await page.route(/\/plugins\/signalk-wayfinder\/calculate$/, async (route) => {
     calculations += 1;
@@ -64,9 +66,13 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     expect(request.options).toEqual({
       daylightOnly: true,
       maxHoursPerDay: 8,
-      minimumDepthM: 10,
       minimumShoreDistanceNm: 2,
       maximumOffshoreDistanceNm: 30,
+      objective: 'bestWeather',
+      alternativeCount: 5,
+      motorSpeedKn: 0,
+      motorBelowKn: 0,
+      vesselDraftM: 2.1,
     });
     await route.fulfill({ status: 202, contentType: 'application/json', body: '{}' });
   });
@@ -78,7 +84,38 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ status: done ? 'done' : 'calculating', progress: done ? 100 : 45 }),
+      body: JSON.stringify({
+        status: done ? 'done' : 'calculating',
+        progress: done ? 100 : 45,
+        ...(done
+          ? {
+              alternatives: [
+                {
+                  index: 0,
+                  complete: true,
+                  durationHours: 16.2,
+                  distanceNm: 72.4,
+                  motorHours: 0,
+                  averageWaveHeightM: 0.7,
+                  maximumWaveHeightM: 1.2,
+                  averageWindKn: 13.4,
+                  maximumWindKn: 20.1,
+                },
+                {
+                  index: 1,
+                  complete: true,
+                  durationHours: 17.8,
+                  distanceNm: 75.1,
+                  motorHours: 0,
+                  averageWaveHeightM: 0.6,
+                  maximumWaveHeightM: 1.1,
+                  averageWindKn: 12.9,
+                  maximumWindKn: 18.7,
+                },
+              ],
+            }
+          : {}),
+      }),
     });
   });
   let cancellations = 0;
@@ -94,7 +131,10 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   let saves = 0;
   await page.route(/\/plugins\/signalk-wayfinder\/save-route$/, (route) => {
     saves += 1;
-    expect(route.request().postDataJSON()).toEqual({ name: 'Harbor passage weather route' });
+    expect(route.request().postDataJSON()).toEqual({
+      name: 'Harbor passage weather route',
+      alternativeIndex: 1,
+    });
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -115,13 +155,17 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   await expectInsideViewport(panel, page);
   await expectNoHorizontalOverflow(panel);
 
+  await panel.getByRole('combobox', { name: 'Routing objective' }).selectOption('bestWeather');
+  const draftPath = panel.getByRole('textbox', { name: 'Signal K draft path' });
+  await expect(draftPath).toHaveValue('design.draft.current');
+  await draftPath.fill('design.customDraft');
+  await panel.getByRole('button', { name: 'Read draft path' }).click();
+  await expect(panel.getByText('Loaded from design.customDraft.')).toBeVisible();
+
   await panel.getByRole('checkbox', { name: 'Daylight-only sailing' }).check();
   const maxHours = panel.getByRole('spinbutton', { name: 'Maximum underway per day in h' });
   await maxHours.fill('8');
   await maxHours.blur();
-  const minimumDepth = panel.getByRole('spinbutton', { name: /Minimum charted depth in/ });
-  await minimumDepth.fill('10');
-  await minimumDepth.blur();
   const minimumShore = panel.getByRole('spinbutton', {
     name: 'Minimum shoreline clearance in nm',
   });
@@ -133,15 +177,17 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   await maximumOffshore.fill('30');
   await maximumOffshore.blur();
 
-  await panel.getByRole('button', { name: 'Calculate fastest route' }).click();
+  await panel.getByRole('button', { name: 'Calculate best-weather routes' }).click();
   await expect(panel.getByRole('button', { name: 'Cancel calculation' })).toBeVisible();
   await panel.getByRole('button', { name: 'Cancel calculation' }).click();
   await expect.poll(() => cancellations).toBe(1);
-  await expect(panel.getByRole('button', { name: 'Calculate fastest route' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Calculate best-weather routes' })).toBeVisible();
 
   statusReads = 0;
-  await panel.getByRole('button', { name: 'Calculate fastest route' }).click();
+  await panel.getByRole('button', { name: 'Calculate best-weather routes' }).click();
   await expect(panel.getByRole('heading', { name: 'Ready to save' })).toBeVisible();
+  await panel.getByRole('combobox', { name: 'Route alternative' }).selectOption('1');
+  await expect(panel.getByText(/Average wind 12\.9 kn,\s*average waves 0\.6 m\./)).toBeVisible();
   await panel.getByRole('button', { name: 'Save advisory route' }).click();
   await expect.poll(() => saves).toBe(1);
   await expect(panel.getByText('Route saved. Navigation was not started.')).toBeVisible();
