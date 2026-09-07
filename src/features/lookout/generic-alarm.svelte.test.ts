@@ -190,6 +190,28 @@ describe('GenericAlarm', () => {
     expect(alarm.locallyMuted).toBe(true);
   });
 
+  it('immediately mutes only the acknowledged activation and can restore it after failure', () => {
+    const { control, events } = createFakeAlarmControl();
+    const alarm = new GenericAlarm(control);
+    const aground = at('notifications.navigation.aground', 3);
+    const fire = at('notifications.environment.fire', 1);
+    alarm.update([aground, fire]);
+
+    alarm.muteNotificationHere(aground);
+    expect(events).toEqual(['start']);
+    expect(alarm.sounding).toBe(true);
+    expect(alarm.locallyMuted).toBe(true);
+
+    alarm.update([aground]);
+    expect(events).toEqual(['start', 'stop']);
+    expect(alarm.sounding).toBe(false);
+
+    alarm.unmuteNotificationHere(aground);
+    expect(events).toEqual(['start', 'stop', 'start']);
+    expect(alarm.sounding).toBe(true);
+    expect(alarm.locallyMuted).toBe(false);
+  });
+
   it('mutes nothing when no alarm is sounding', () => {
     const { control, events } = createFakeAlarmControl();
     const alarm = new GenericAlarm(control);

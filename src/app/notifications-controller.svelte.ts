@@ -98,6 +98,8 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
     ) => Promise<NotificationActionResult>,
     unsupportedMessage: string,
     failMessage: string,
+    onStarted?: () => void,
+    onFailed?: () => void,
   ): void {
     if (!notification.id) return;
     alarmActionError = undefined;
@@ -105,13 +107,20 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
       alarmActionError = 'Server write access is needed for this alarm action.';
       return;
     }
+    onStarted?.();
     void action(deps.origin, deps.token(), notification.id).then((result) => {
       if (result === 'access-denied') {
+        onFailed?.();
         alarmActionError =
           'Signal K refused this alarm action. Read and write access is being requested.';
         void deps.requestWriteAccess();
-      } else if (result === 'unsupported') alarmActionError = unsupportedMessage;
-      else if (result === 'failed') alarmActionError = failMessage;
+      } else if (result === 'unsupported') {
+        onFailed?.();
+        alarmActionError = unsupportedMessage;
+      } else if (result === 'failed') {
+        onFailed?.();
+        alarmActionError = failMessage;
+      }
     });
   }
 
@@ -130,6 +139,8 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
       acknowledgeNotification,
       'This server delegates notification management, so acknowledgment is unavailable.',
       'Could not acknowledge the alert. Check the connection and access.',
+      () => deps.genericAlarm.muteNotificationHere(notification),
+      () => deps.genericAlarm.unmuteNotificationHere(notification),
     );
   }
 

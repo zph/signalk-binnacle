@@ -26,6 +26,22 @@ export const worstRaisedNotification = (
 export const notificationGrade = (n: ActiveNotification): 'Alarm' | 'Emergency' =>
   n.state === 'emergency' ? 'Emergency' : 'Alarm';
 
+export type AlarmButtonGrade = 'alert' | 'alarm' | undefined;
+
+// The fixed helm button summarizes the whole alarm nest, including hazards that have a dedicated
+// strip. Acknowledged conditions remain in the panel for review but stop demanding attention here.
+export const alarmButtonGrade = (
+  notifications: readonly ActiveNotification[],
+): AlarmButtonGrade => {
+  const active = notifications.filter((notification) => !notification.acknowledged);
+  if (active.some((notification) => isRaisedNotification(notification))) return 'alarm';
+  if (
+    active.some((notification) => notification.state === 'warn' || notification.state === 'alert')
+  )
+    return 'alert';
+  return undefined;
+};
+
 // Whether the v2 silence route can act on this alert: it needs a server-assigned id and an explicit
 // capability flag, and an emergency is deliberately not silenceable. Shared by the alarms panel and
 // the alarm strip so one alert cannot offer Silence in one surface and refuse it in the other.

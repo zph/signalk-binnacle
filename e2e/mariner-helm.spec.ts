@@ -296,6 +296,51 @@ test('stream fixture feeds the worker: subscriptions arrive and deltas render', 
   expect(body.received.some((message) => Array.isArray(message.subscribe))).toBe(true);
 });
 
+test('fixed alarm button grades active notifications and always opens the alarm nest', async ({
+  page,
+}) => {
+  await fixturePost(page, 'reset');
+  await stubRestApis(page);
+  await page.addInitScript(() => localStorage.clear());
+  await page.goto('/');
+  const button = page.locator('.alarm-button');
+  const center = page.getByRole('button', { name: 'Center on vessel' });
+  await expect(button).toBeVisible();
+  await expect
+    .poll(async () => {
+      const state = await page.request.get(`${FIXTURE_SERVER}/__fixture__/state`);
+      const body = (await state.json()) as { connections: number };
+      return body.connections;
+    })
+    .toBeGreaterThan(0);
+  await expect(button).toHaveAttribute('aria-label', 'Open alarms');
+  await expect
+    .poll(async () => {
+      const [alarmBox, centerBox] = await Promise.all([button.boundingBox(), center.boundingBox()]);
+      return alarmBox !== null && centerBox !== null && alarmBox.x > centerBox.x;
+    })
+    .toBe(true);
+
+  await sendDelta(page, [
+    {
+      path: 'notifications.environment.wind',
+      value: { state: 'alert', method: ['visual'], message: 'High wind' },
+    },
+  ]);
+  await expect(button).toHaveClass(/alarm-button--alert/);
+  await expect
+    .poll(() => button.evaluate((element) => getComputedStyle(element).animationName))
+    .toContain('alarm-button-pulse');
+
+  await sendDelta(page, [GENERIC_ALARM]);
+  await expect(button).toHaveClass(/alarm-button--alarm/);
+  await button.click();
+  const panel = page.getByRole('complementary', { name: 'Alarms' });
+  await expect(panel).toBeVisible();
+  await button.click();
+  await expect(panel).toBeVisible();
+});
+
 test('accelerated helm soak keeps rendering, heap, and mounted UI work bounded', async ({
   page,
 }) => {

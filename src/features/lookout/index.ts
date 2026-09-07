@@ -1,5 +1,6 @@
 import { createRetryableLazyUiLoader } from '$shared/lib';
 
+export { default as AlarmButton } from './AlarmButton.svelte';
 export { default as AlarmStrip } from './AlarmStrip.svelte';
 export { createAlarmLocationSettingsSync } from './alarm-location-settings-sync';
 export {
@@ -17,6 +18,8 @@ export { default as DangerStrip } from './DangerStrip.svelte';
 export { GenericAlarm, selectGenericAlarms } from './generic-alarm.svelte';
 export { LookoutAlarm } from './lookout-alarm';
 export {
+  type AlarmButtonGrade,
+  alarmButtonGrade,
   isRaisedNotification,
   notificationGrade,
   notificationLabel,

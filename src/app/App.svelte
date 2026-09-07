@@ -101,6 +101,8 @@ import {
 import { createInterfaceLockController, InterfaceLockLayer } from '$features/interface-lock';
 import type { LayersView } from '$features/layers-panel';
 import {
+  AlarmButton,
+  alarmButtonGrade,
   CollisionMute,
   createAlarmLocationSettingsSync,
   createAlarmSilenceController,
@@ -1939,6 +1941,10 @@ const notificationsController = createNotificationsController({
 });
 const collisionAlert = $derived(notificationsController.collisionAlert);
 const genericAlarms = $derived(notificationsController.genericAlarms);
+const activeAlarmNotifications = $derived(
+  notificationsStore.list().filter((notification) => !notification.acknowledged),
+);
+const helmAlarmGrade = $derived(alarmButtonGrade(activeAlarmNotifications));
 const genericNotificationAlert = $derived(notificationsController.notificationAlert);
 const muteAlert = $derived(notificationsController.muteAlert);
 const muteRemainingMin = $derived(notificationsController.muteRemainingMin);
@@ -4498,6 +4504,11 @@ const plotterActions = {
         >
           <LocateFixed size={16} aria-hidden="true" />
         </button>
+        <AlarmButton
+          grade={helmAlarmGrade}
+          count={activeAlarmNotifications.length}
+          onOpen={() => openPanel('alarms')}
+        />
       </div>
     </div>
   {:else}

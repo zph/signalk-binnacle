@@ -53,6 +53,8 @@ function setup(
   const genericAlarm = {
     update: vi.fn(),
     muteActiveHere: vi.fn(),
+    muteNotificationHere: vi.fn(),
+    unmuteNotificationHere: vi.fn(),
     sounding: false,
     locallyMuted: false,
   };
@@ -186,6 +188,40 @@ describe('createNotificationsController', () => {
 
     await vi.waitFor(() => expect(test.requestWriteAccess).toHaveBeenCalledOnce());
     expect(test.controller.alarmActionError).toContain('Read and write access is being requested');
+  });
+
+  it('silences an acknowledged generic alarm immediately and restores it if the action fails', async () => {
+    const test = mount();
+    const aground = {
+      id: 'aground-1',
+      path: 'notifications.navigation.aground',
+      state: 'alarm',
+      message: 'Aground',
+      activation: 4,
+    } as const;
+
+    test.controller.onAcknowledgeNotification(aground);
+    expect(test.genericAlarm.muteNotificationHere).toHaveBeenCalledWith(aground);
+    expect(test.genericAlarm.unmuteNotificationHere).not.toHaveBeenCalled();
+
+    vi.mocked(signalk.acknowledgeNotification).mockResolvedValueOnce('failed');
+    test.controller.onAcknowledgeNotification(aground);
+    await vi.waitFor(() =>
+      expect(test.genericAlarm.unmuteNotificationHere).toHaveBeenCalledWith(aground),
+    );
+  });
+
+  it('does not mute locally when acknowledgement is blocked before it starts', () => {
+    const test = mount({ writeBlocked: true });
+    test.controller.onAcknowledgeNotification({
+      id: 'aground-1',
+      path: 'notifications.navigation.aground',
+      state: 'alarm',
+      message: 'Aground',
+      activation: 4,
+    });
+
+    expect(test.genericAlarm.muteNotificationHere).not.toHaveBeenCalled();
   });
 
   it('keeps a non-audible warning out of the assertive live region', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ActiveNotification } from '$entities/notifications';
 import {
+  alarmButtonGrade,
   canAcknowledgeNotification,
   canSilenceNotification,
   notificationLabel,
@@ -71,5 +72,25 @@ describe('canAcknowledgeNotification', () => {
     expect(canAcknowledgeNotification(notification({ canAcknowledge: undefined }))).toBe(false);
     expect(canAcknowledgeNotification(notification({ canAcknowledge: false }))).toBe(false);
     expect(canAcknowledgeNotification(notification({ acknowledged: true }))).toBe(false);
+  });
+});
+
+describe('alarmButtonGrade', () => {
+  it('uses amber for warnings and alerts, and red for alarms and emergencies', () => {
+    expect(alarmButtonGrade([notification({ state: 'warn' })])).toBe('alert');
+    expect(alarmButtonGrade([notification({ state: 'alert' })])).toBe('alert');
+    expect(alarmButtonGrade([notification({ state: 'alarm' })])).toBe('alarm');
+    expect(alarmButtonGrade([notification({ state: 'emergency' })])).toBe('alarm');
+  });
+
+  it('lets the worst unacknowledged condition win and ignores acknowledged conditions', () => {
+    expect(
+      alarmButtonGrade([
+        notification({ state: 'alarm', acknowledged: true }),
+        notification({ state: 'warn' }),
+      ]),
+    ).toBe('alert');
+    expect(alarmButtonGrade([notification({ acknowledged: true })])).toBeUndefined();
+    expect(alarmButtonGrade([])).toBeUndefined();
   });
 });

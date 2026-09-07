@@ -388,9 +388,11 @@ source, and surrounding traffic before relying on it.
   open-lock control to unlock. It blocks every other action, including safety responses, while live
   data, visual alarms, and alarm audio continue underneath. Unlock before acting. Instruments toggles
   the dock open or closed and shows its current state. The MOB key requires confirmation before it
-  marks the position and raises the alarm. Fixed controls are not customizable. The default pinned set
-  is Center, Follow, and AIS, keeping one Safety action thumb-reachable with its live collision-risk
-  count.
+  marks the position and raises the alarm. The button beside Center always opens Alarms. It stays
+  slightly translucent when quiet, pulses amber for an unacknowledged warning or alert, and pulses
+  red for an unacknowledged alarm or emergency. Fixed controls are not customizable. The default
+  pinned set is Center, Follow, and AIS, keeping one Safety action thumb-reachable with its live
+  collision-risk count.
 - Degraded status-strip chips explain themselves on touch: tapping the connection dot, the AIS
   chip, the depth chip, a radar-trouble chip, or either alarm-audio chip shows its explanation as a
   transient note above the strip. Waiting for GPS carries a Help action, and the anchor chip opens

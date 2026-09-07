@@ -115,6 +115,21 @@ export class GenericAlarm {
     this.update(this.#last);
   }
 
+  // Acknowledge is a server action, but the round trip that republishes status can lag behind the
+  // successful button press. Quiet this one activation immediately on this display. If the server
+  // rejects the action, the controller removes the provisional mute and the alarm resumes.
+  muteNotificationHere(notification: ActiveNotification): void {
+    if (!isAudibleAlarmNotification(notification)) return;
+    this.#mutedAt.set(notification.path, notification.activation);
+    this.update(this.#last);
+  }
+
+  unmuteNotificationHere(notification: ActiveNotification): void {
+    if (this.#mutedAt.get(notification.path) !== notification.activation) return;
+    this.#mutedAt.delete(notification.path);
+    this.update(this.#last);
+  }
+
   // Silence outright (teardown). The next update starts the tone again if an alarm is still up.
   stop(): void {
     this.#alarm.stop();
