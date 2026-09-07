@@ -128,7 +128,6 @@ import {
   DEFAULT_PINNED,
   itemBlocked,
   type MenuItem,
-  reorderPinned,
   togglePinned,
 } from '$features/menu';
 import { createMobController, MOB_TONE, MobButton } from '$features/mob';
@@ -151,6 +150,7 @@ import {
   downloadProfileJson,
   type ImportedProfile,
   loadProfilesPanel,
+  ProfileSwitcher,
 } from '$features/profiles';
 import { createRouteController } from '$features/routing';
 import {
@@ -1056,6 +1056,27 @@ const pinnedActions = new PersistedValue<string[]>(
   undefined,
   stringArrayPersistedCodec({ maxItems: 64, maxLength: 128 }),
 );
+const DEFAULT_HELM_BUTTONS = [
+  'lock',
+  'fullscreen',
+  'home',
+  'weather',
+  'profiles',
+  'instruments',
+  'supermenu',
+  'center',
+] as const;
+type HelmButtonId = (typeof DEFAULT_HELM_BUTTONS)[number];
+const helmButtons = new PersistedValue<string[]>(
+  binnacleStorageKey('helmButtons'),
+  [...DEFAULT_HELM_BUTTONS],
+  undefined,
+  stringArrayPersistedCodec({ maxItems: DEFAULT_HELM_BUTTONS.length, maxLength: 32 }),
+);
+const helmButtonSet = $derived(new Set(helmButtons.value));
+function helmButtonVisible(id: HelmButtonId): boolean {
+  return helmButtonSet.has(id);
+}
 const bottomToolbarLabels = new PersistedValue<boolean>(
   binnacleStorageKey('bottomToolbarLabels'),
   true,
@@ -1242,14 +1263,11 @@ function closeTrendsPanel(): void {
 function backFromTrendsPanel(): void {
   goBack();
 }
-const onTogglePin = (id: string): void => {
-  pinnedActions.set(togglePinned(pinnedActions.value, id));
+const onToggleHelmButton = (id: string): void => {
+  helmButtons.set(togglePinned(helmButtons.value, id));
 };
-const onReorderPinned = (id: string, slot: number): void => {
-  pinnedActions.set(reorderPinned(pinnedActions.value, id, slot));
-};
-const onResetPinned = (): void => {
-  pinnedActions.set([...DEFAULT_PINNED]);
+const onResetHelmButtons = (): void => {
+  helmButtons.set([...DEFAULT_HELM_BUTTONS]);
 };
 // Which Layers-panel categories the navigator has left open or closed, so the panel reopens that way.
 const layerCategoriesOpen = new PersistedValue<Record<string, boolean>>(
@@ -2525,6 +2543,100 @@ const menuItems = $derived<MenuItem[]>([
   },
 ]);
 
+// The rail has shell actions that do not belong in the normal app-menu registry. Its Customize
+// mode receives this dedicated registry, so every ordinary bottom button can be shown or hidden
+// while the two safety controls remain visibly selected and immutable.
+const helmButtonItems = $derived<MenuItem[]>([
+  {
+    id: 'lock',
+    label: interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle',
+    shortLabel: 'Lock',
+    icon: interfaceLock.locked ? LockOpen : Lock,
+    group: 'Bottom buttons',
+    onSelect: interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock,
+  },
+  ...(!installedPwa
+    ? [
+        {
+          id: 'fullscreen',
+          label: 'Toggle full screen',
+          shortLabel: 'Full screen',
+          icon: Maximize2,
+          group: 'Bottom buttons',
+          onSelect: () => void toggleBrowserFullScreen(),
+        },
+      ]
+    : []),
+  {
+    id: 'home',
+    label: 'Home',
+    icon: House,
+    group: 'Bottom buttons',
+    onSelect: goHome,
+  },
+  {
+    id: 'weather',
+    label: 'Weather and tides',
+    icon: CloudSun,
+    group: 'Bottom buttons',
+    pressed: helmWeatherLayer !== undefined,
+    onSelect: cycleHelmWeatherLayer,
+  },
+  {
+    id: 'profiles',
+    label: 'Profiles',
+    icon: UserCog,
+    group: 'Bottom buttons',
+    onSelect: () => openPanel('profiles'),
+  },
+  {
+    id: 'instruments',
+    label: instrumentsActionLabel(),
+    icon: instruments.screenEditing ? Pencil : Gauge,
+    group: 'Bottom buttons',
+    onSelect: cycleInstruments,
+  },
+  {
+    id: 'supermenu',
+    label: actionDialOpen ? 'Close supermenu' : 'Open supermenu',
+    shortLabel: 'Menu',
+    icon: MenuIcon,
+    group: 'Bottom buttons',
+    onSelect: () => {
+      actionDialContextPoint = undefined;
+      actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      setActionDialOpen(!actionDialOpen);
+    },
+  },
+  {
+    id: 'center',
+    label: 'Center on vessel',
+    shortLabel: 'Center',
+    icon: LocateFixed,
+    group: 'Bottom buttons',
+    disabled: !mapCommands || !vessel.position || vessel.positionStale,
+    onSelect: () => mapCommands?.centerOnVessel(),
+  },
+  {
+    id: 'mob',
+    label: 'Man overboard',
+    icon: LifeBuoy,
+    group: 'Always shown',
+    fixedToBar: true,
+    onSelect: () => void requestMobFromPalette(),
+  },
+  {
+    id: 'alarms',
+    label: 'Alarms',
+    icon: Bell,
+    group: 'Always shown',
+    fixedToBar: true,
+    count: activeAlarmNotifications.length,
+    countNoun: 'alarm',
+    onSelect: () => openPanel('alarms'),
+  },
+]);
+
 const commandPlaces = $derived.by<PlaceSearchItem[]>(() => {
   void aisTargets.version;
   return [
@@ -2558,6 +2670,11 @@ const commandPlaces = $derived.by<PlaceSearchItem[]>(() => {
 function runMenuCommand(item: MenuItem): void {
   item.onSelect();
   menuOpen = false;
+}
+
+function openBottomButtonEditor(): void {
+  menuEditing = true;
+  setMenuOpen(true);
 }
 
 // These menu destinations contain persisted preferences, live controls, or both. They remain root
@@ -2868,6 +2985,15 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       ],
     },
     {
+      id: 'customize-bottom-buttons',
+      label: 'Customize bottom buttons',
+      description: 'Choose which helm controls are shown; Man overboard and Alarms stay fixed',
+      group: 'Display',
+      keywords: ['toolbar', 'helm', 'buttons', 'show', 'hide', 'configuration'],
+      icon: MenuIcon,
+      onSelect: openBottomButtonEditor,
+    },
+    {
       id: 'bottom-toolbar-labels',
       label: bottomToolbarLabels.value
         ? 'Hide bottom toolbar labels'
@@ -3026,6 +3152,14 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
       group: 'Safety',
       onSelect: interfaceLock.lock,
     },
+    {
+      id: 'customize-bottom-buttons',
+      label: 'Customize bottom buttons',
+      shortLabel: 'Bottom buttons',
+      icon: MenuIcon,
+      group: 'Settings',
+      onSelect: openBottomButtonEditor,
+    },
     mobAction(),
   ]);
   const buckets: Record<SupermenuBucketId, MenuItem[]> = {
@@ -3061,6 +3195,7 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
     help: 'system',
     settings: 'system',
     'browser-fullscreen': 'system',
+    'customize-bottom-buttons': 'system',
     mob: 'safety',
     'lock-interface': 'safety',
     alarms: 'safety',
@@ -4046,17 +4181,15 @@ const plotterActions = {
   />
   <AppMenu
     items={menuItems}
+    toolbarItems={helmButtonItems}
     open={menuOpen}
     panelOpen={bottomTabObscured}
     onOpenChange={setMenuOpen}
-    pinnedIds={pinnedActions.value}
+    pinnedIds={helmButtons.value}
     editing={menuEditing}
     onEditingChange={(next) => (menuEditing = next)}
-    {onTogglePin}
-    {onReorderPinned}
-    {onResetPinned}
-    showToolbarLabels={bottomToolbarLabels.value}
-    onShowToolbarLabelsChange={(shown) => bottomToolbarLabels.set(shown)}
+    onTogglePin={onToggleHelmButton}
+    onResetPinned={onResetHelmButtons}
   />
   <PlotterView
     services={plotterServices}
@@ -4428,50 +4561,58 @@ const plotterActions = {
       onclickcapture={guardHelmClick}
     >
       <div class="helm-actions-start">
-        <button
-          type="button"
-          class="btn btn-pill"
-          aria-label={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
-          title={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
-          onclick={interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock}
-        >
-          {#if interfaceLock.locked}
-            <LockOpen size={16} aria-hidden="true" />
-          {:else}
-            <Lock size={16} aria-hidden="true" />
-          {/if}
-        </button>
-        {#if !installedPwa}
+        {#if helmButtonVisible('lock')}
           <button
             type="button"
             class="btn btn-pill"
-            aria-label="Toggle full screen"
-            title="Toggle full screen"
-            onclick={() => void toggleBrowserFullScreen()}
+            aria-label={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
+            title={interfaceLock.locked ? 'Unlock Binnacle' : 'Lock Binnacle'}
+            onclick={interfaceLock.locked ? interfaceLock.unlock : interfaceLock.lock}
           >
-            <Maximize2 size={16} aria-hidden="true" />
+            {#if interfaceLock.locked}
+              <LockOpen size={16} aria-hidden="true" />
+            {:else}
+              <Lock size={16} aria-hidden="true" />
+            {/if}
           </button>
         {/if}
-        <button
-          type="button"
-          class="btn btn-pill"
-          aria-label="Home"
-          title="Return to chart"
-          onclick={goHome}
-        >
-          <House size={16} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-pill"
-          class:is-on={helmWeatherLayer !== undefined}
-          aria-label={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}. Activate for next overlay.`}
-          aria-pressed={helmWeatherLayer !== undefined}
-          title={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}`}
-          onclick={cycleHelmWeatherLayer}
-        >
-          <CloudSun size={16} aria-hidden="true" />
-        </button>
+        {#if !installedPwa}
+          {#if helmButtonVisible('fullscreen')}
+            <button
+              type="button"
+              class="btn btn-pill"
+              aria-label="Toggle full screen"
+              title="Toggle full screen"
+              onclick={() => void toggleBrowserFullScreen()}
+            >
+              <Maximize2 size={16} aria-hidden="true" />
+            </button>
+          {/if}
+        {/if}
+        {#if helmButtonVisible('home')}
+          <button
+            type="button"
+            class="btn btn-pill"
+            aria-label="Home"
+            title="Return to chart"
+            onclick={goHome}
+          >
+            <House size={16} aria-hidden="true" />
+          </button>
+        {/if}
+        {#if helmButtonVisible('weather')}
+          <button
+            type="button"
+            class="btn btn-pill"
+            class:is-on={helmWeatherLayer !== undefined}
+            aria-label={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}. Activate for next overlay.`}
+            aria-pressed={helmWeatherLayer !== undefined}
+            title={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}`}
+            onclick={cycleHelmWeatherLayer}
+          >
+            <CloudSun size={16} aria-hidden="true" />
+          </button>
+        {/if}
       </div>
       <div class="helm-mob-action">
         <MobButton
@@ -4483,19 +4624,30 @@ const plotterActions = {
         />
       </div>
       <div class="helm-actions-end">
-        <button
-          type="button"
-          class="btn btn-pill helm-instruments-action"
-          aria-label={instrumentsActionLabel()}
-          title={instrumentsActionLabel()}
-          onclick={cycleInstruments}
-        >
-          {#if instruments.screenEditing}
-            <Pencil size={18} aria-hidden="true" />
-          {:else}
-            <Gauge size={18} aria-hidden="true" />
-          {/if}
-        </button>
+        {#if helmButtonVisible('profiles')}
+          <ProfileSwitcher
+            active={profileStore.active}
+            profiles={profileStore.profiles}
+            hasUpdate={profileStore.remoteUpdateAvailable}
+            onSelect={onApplyProfile}
+            onManage={() => openPanel('profiles')}
+          />
+        {/if}
+        {#if helmButtonVisible('instruments')}
+          <button
+            type="button"
+            class="btn btn-pill helm-instruments-action"
+            aria-label={instrumentsActionLabel()}
+            title={instrumentsActionLabel()}
+            onclick={cycleInstruments}
+          >
+            {#if instruments.screenEditing}
+              <Pencil size={18} aria-hidden="true" />
+            {:else}
+              <Gauge size={18} aria-hidden="true" />
+            {/if}
+          </button>
+        {/if}
         {#if updateReady}
           <button
             type="button"
@@ -4510,37 +4662,41 @@ const plotterActions = {
             <DownloadCloud size={16} aria-hidden="true" />
           </button>
         {/if}
-        <button
-          type="button"
-          class="btn btn-pill"
-          aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}
-          aria-expanded={actionDialOpen}
-          aria-haspopup="menu"
-          onpointerdown={(event) => event.stopPropagation()}
-          onclick={() => {
-          actionDialContextPoint = undefined;
-          actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-          setActionDialOpen(!actionDialOpen);
-        }}
-        >
-          <MenuIcon size={16} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-pill helm-center-action"
-          aria-label="Center on vessel"
-          title={!mapCommands
-          ? 'Center on vessel (chart is loading)'
-          : vessel.positionStale
-            ? 'Center on vessel needs a fresh GPS fix'
-            : !vessel.position
-              ? 'Center on vessel needs a GPS position'
-              : 'Center on vessel'}
-          disabled={!mapCommands || !vessel.position || vessel.positionStale}
-          onclick={() => mapCommands?.centerOnVessel()}
-        >
-          <LocateFixed size={16} aria-hidden="true" />
-        </button>
+        {#if helmButtonVisible('supermenu')}
+          <button
+            type="button"
+            class="btn btn-pill"
+            aria-label={actionDialOpen ? 'Close supermenu' : 'Open supermenu'}
+            aria-expanded={actionDialOpen}
+            aria-haspopup="menu"
+            onpointerdown={(event) => event.stopPropagation()}
+            onclick={() => {
+            actionDialContextPoint = undefined;
+            actionDialPosition.set({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+            setActionDialOpen(!actionDialOpen);
+          }}
+          >
+            <MenuIcon size={16} aria-hidden="true" />
+          </button>
+        {/if}
+        {#if helmButtonVisible('center')}
+          <button
+            type="button"
+            class="btn btn-pill helm-center-action"
+            aria-label="Center on vessel"
+            title={!mapCommands
+            ? 'Center on vessel (chart is loading)'
+            : vessel.positionStale
+              ? 'Center on vessel needs a fresh GPS fix'
+              : !vessel.position
+                ? 'Center on vessel needs a GPS position'
+                : 'Center on vessel'}
+            disabled={!mapCommands || !vessel.position || vessel.positionStale}
+            onclick={() => mapCommands?.centerOnVessel()}
+          >
+            <LocateFixed size={16} aria-hidden="true" />
+          </button>
+        {/if}
         <AlarmButton
           grade={helmAlarmGrade}
           count={activeAlarmNotifications.length}
@@ -4776,12 +4932,17 @@ const plotterActions = {
      width so the helm rail and its emergency key remain on the screen the operator is touching. */
   inset-inline-start: 0;
   inline-size: 100dvw;
-  inset-block-end: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  /* Move a hide drag with the inset instead of transform. A transformed rail becomes the containing
+     block for the profile switcher's viewport-fixed menu and would place that menu below the screen. */
+  inset-block-end: calc(
+    var(--space-2) +
+    env(safe-area-inset-bottom, 0px) -
+    var(--helm-drag-offset, 0px)
+  );
   justify-content: center;
   gap: var(--space-2);
   pointer-events: auto;
   touch-action: none;
-  transform: translateY(var(--helm-drag-offset, 0px));
 }
 .helm-actions-start,
 .helm-actions-end {

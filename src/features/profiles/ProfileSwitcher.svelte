@@ -93,7 +93,7 @@ function manage(): void {
          expects switching back to restore the original, so state the rule where switching happens. -->
     <p class="switcher-note muted-note">Changes save to the active profile automatically.</p>
     <button type="button" role="menuitem" class="menu-item manage" onclick={manage}>
-      Manage profiles
+      Edit profiles
     </button>
   </AnchoredMenu>
 </div>
@@ -137,7 +137,7 @@ function manage(): void {
 :global(.profile-switcher-menu) {
   --menu-width: 14rem;
 }
-/* A hairline above Manage profiles separates switching from managing. */
+/* A hairline above Edit profiles separates switching from managing. */
 :global(.profile-switcher-menu .manage) {
   margin-block-start: var(--space-1);
   border-block-start: 1px solid var(--border);

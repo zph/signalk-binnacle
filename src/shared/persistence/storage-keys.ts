@@ -46,6 +46,7 @@ const BINNACLE_STORAGE_KEYS = {
   aisNames: { key: 'binnacle-custom:ais-names', scope: 'cache' },
   radarAutoEnabled: { key: 'binnacle-custom:radar-autoenabled', scope: 'device' },
   pinnedActions: { key: 'binnacle-custom:pinned-actions', scope: 'profile' },
+  helmButtons: { key: 'binnacle-custom:helm-buttons', scope: 'device' },
   bottomToolbarLabels: { key: 'binnacle-custom:bottom-toolbar-labels', scope: 'device' },
   bottomStatusReadouts: { key: 'binnacle-custom:bottom-status-readouts', scope: 'device' },
   actionDialPosition: { key: 'binnacle-custom:action-dial-position', scope: 'device' },

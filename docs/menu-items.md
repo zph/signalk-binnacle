@@ -381,8 +381,10 @@ source, and surrounding traffic before relying on it.
 ## Toolbar and status strip
 
 - The app menu lives in a left-edge dock with an attached chevron tab that remains reachable while
-  collapsed. The bottom toolbar carries customizable pinned actions and ends with fixed profile,
-  theme, app information, interface lock, and Man overboard controls. Instruments has a separate
+  collapsed. Its Customize mode chooses which ordinary helm buttons appear along the bottom,
+  including Profiles, interface lock, full screen, Home, weather, instruments, the radial menu, and
+  Center. Profiles opens an anchored chooser containing every saved profile and a final Edit profiles
+  action. Instruments also has a separate
   right-edge tab that stays reachable when the bottom toolbar is hidden and follows the dock edge
   while the dock is open.
   Interface lock is also available from the chart context menu and full-screen Instruments. It places
@@ -392,9 +394,9 @@ source, and surrounding traffic before relying on it.
   the dock open or closed and shows its current state. The MOB key requires confirmation before it
   marks the position and raises the alarm. The button beside Center always opens Alarms. It stays
   slightly translucent when quiet, pulses amber for an unacknowledged warning or alert, and pulses
-  red for an unacknowledged alarm or emergency. Fixed controls are not customizable. The default
-  pinned set is Center, Follow, and AIS, keeping one Safety action thumb-reachable with its live
-  collision-risk count.
+  red for an unacknowledged alarm or emergency. Man overboard remains centered and Alarms remains at
+  the end; neither safety control can be removed in Customize mode. A Command K entry opens the same
+  bottom-button configuration so it remains reachable after hiding other buttons.
 - Degraded status-strip chips explain themselves on touch: tapping the connection dot, the AIS
   chip, the depth chip, a radar-trouble chip, or either alarm-audio chip shows its explanation as a
   transient note above the strip. Waiting for GPS carries a Help action, and the anchor chip opens

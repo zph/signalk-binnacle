@@ -2,6 +2,7 @@
 import { onDestroy } from 'svelte';
 import { Toast } from '$shared/lib';
 import {
+  CustomizeToggle,
   nextRovingIndex,
   onKeydownAction,
   type RovingKey,
@@ -14,6 +15,10 @@ import { blockedReason, itemBlocked, type MenuItem } from './menu-item';
 
 interface Props {
   items?: MenuItem[];
+  // The current helm rail is a smaller, shell-owned registry than the launcher. Supplying it keeps
+  // Customize focused on the buttons it can actually show without duplicating shell actions in the
+  // normal app menu.
+  toolbarItems?: MenuItem[];
   label?: string;
   // The open state is controlled by the parent, so a panel's "back to menu" action can expand the
   // dock after it collapsed on selection. The menu renders the current state and requests changes.
@@ -33,6 +38,7 @@ interface Props {
 
 const {
   items = [],
+  toolbarItems = items,
   label = 'Menu',
   open,
   onOpenChange,
@@ -41,10 +47,11 @@ const {
   editing = false,
   onEditingChange,
   onTogglePin,
+  onResetPinned,
 }: Props = $props();
 
 const pinnedSet = $derived(
-  new Set([...pinnedIds, ...items.filter((item) => item.fixedToBar).map((item) => item.id)]),
+  new Set([...pinnedIds, ...toolbarItems.filter((item) => item.fixedToBar).map((item) => item.id)]),
 );
 
 let card = $state<HTMLElement>();
@@ -60,7 +67,7 @@ onDestroy(() => blockedNote.dispose());
 // with its caps-label header. The launcher stays generic: it renders whatever it is given.
 const groups = $derived.by(() => {
   const out: { label: string; items: MenuItem[] }[] = [];
-  for (const item of items) {
+  for (const item of editing ? toolbarItems : items) {
     const label = item.group ?? '';
     const last = out.at(-1);
     if (last && last.label === label) last.items.push(item);
@@ -164,6 +171,23 @@ function onWindowPointerDown(event: PointerEvent): void {
       {:else}
         <TransientNote message={blockedNote.message} noteClass="blocked-note-slot" />
         <div class="launcher-scroll">
+          <div class="menu-head">
+            <CustomizeToggle
+              object="bottom buttons"
+              {editing}
+              onToggle={() => onEditingChange?.(!editing)}
+            />
+          </div>
+          {#if editing}
+            <div class="toolbar-edit-note">
+              <p class="muted-note">
+                Choose the buttons shown along the bottom. Man overboard and Alarms always remain.
+              </p>
+              <button type="button" class="btn btn-ghost" onclick={() => onResetPinned?.()}>
+                Show defaults
+              </button>
+            </div>
+          {/if}
           {#each groups as group, gi (gi)}
             <!-- Every menu item carries a group label, so role="group" always has an accessible name
              here; the static role is required by the linter's valid-role rule. -->
@@ -270,6 +294,18 @@ function onWindowPointerDown(event: PointerEvent): void {
     100% 12px,
     100% 12px;
   background-attachment: local, local, scroll, scroll;
+}
+.toolbar-edit-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.toolbar-edit-note .muted-note {
+  margin: 0;
+}
+.toolbar-edit-note .btn {
+  flex: none;
 }
 @media (max-width: 600px) {
   .app-menu-dock {

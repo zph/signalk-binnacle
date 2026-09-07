@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 describe('ProfileSwitcher menu', () => {
-  it('opens one row per profile plus Manage profiles, marking the active row', () => {
+  it('opens one row per profile plus Edit profiles, marking the active row', () => {
     const target = mountSwitcher();
     openMenu(target);
 
@@ -60,7 +60,7 @@ describe('ProfileSwitcher menu', () => {
     expect(rows.map((row) => row.textContent?.trim())).toEqual([
       'Coastal day',
       'Night passage',
-      'Manage profiles',
+      'Edit profiles',
     ]);
     expect(rows[0]?.getAttribute('aria-current')).toBe('true');
     expect(rows[1]?.getAttribute('aria-current')).toBeNull();
@@ -79,7 +79,7 @@ describe('ProfileSwitcher menu', () => {
     expect(trigger(target).getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('Manage profiles opens the panel and closes the menu', () => {
+  it('Edit profiles opens the panel and closes the menu', () => {
     const onManage = vi.fn();
     const target = mountSwitcher({ onManage });
     openMenu(target);

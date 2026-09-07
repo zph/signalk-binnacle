@@ -533,8 +533,8 @@ Every persisted value has one product scope:
 
 - **Profile:** portable helm preferences that should follow a named setup, such as theme, layers,
   thresholds, toolbar pins, instrument selection, and the preferred radius for the next anchor drop.
-- **Device:** browser layout and chrome, such as the chart view, active profile, instrument-dock open
-  state, disclosure state, and dismissed hints.
+- **Device:** browser layout and chrome, such as the chart view, active profile, visible bottom
+  buttons, instrument-dock open state, disclosure state, and dismissed hints.
 - **Server resource:** routes, tracks, waypoints, charts, and other data owned by a Signal K API.
 - **Safety:** active MOB, anchor watch, navigation, alarm acknowledgement, and mute state.
 - **Credential:** Signal K device authorization and administrator sessions.
@@ -637,16 +637,16 @@ every shipped panel (alarms, anchor, tracks, weather, routes, the radar controls
 - An anchored menu (a popover hung off a control) is `AnchoredMenu`. A modal is the rare exception
   (a native `<dialog class="modal-card">` opened via the `dialog` action, which calls `showModal()`),
   used for the waypoint editor and the MOB confirm.
-- The bottom bar renders the pinned `MenuItem`s in stored order (using `shortLabel`) plus a More
-  overflow, followed by the fixed profile, theme, app information, interface lock, and MOB controls.
-  Fixed actions stay outside toolbar customization and remain in the thumb-reachable action row.
+- The bottom helm rail renders the device-selected shell actions, including the profile switcher.
+  The app menu's Customize mode controls their visibility. Man overboard and Alarms stay outside
+  customization and remain in their fixed safety positions.
   Interface lock opens a
   transparent, full-viewport native modal that intercepts interaction everywhere and leaves one
   open-lock control to unlock. It persists on this device across reloads. MOB opens its confirmation
   dialog before marking. Instruments has its own attached right-edge tab, which reflects its open
   state and moves with the dock edge while the dock is open. The left app
-  menu's toolbar edit mode owns membership, order, reset, and the live reorder announcement; the bar
-  only renders the resolved customizable list.
+  menu's bottom-button edit mode owns visibility and reset; the rail only renders the selected
+  ordinary controls plus the two fixed safety controls.
 - The chart's fixed helm action rail publishes `--helm-actions-clearance`, so forecast controls,
   bottom-positioned safety cards, and MapLibre's lower controls always sit above it. Dragging
   downward anywhere across the rail hides it for the current session. While hidden, the full bottom

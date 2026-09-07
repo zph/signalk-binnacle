@@ -59,6 +59,47 @@ test('the helm Menu button toggles the supermenu and keeps lock and full-screen 
   await helm.getByRole('button', { name: 'Close supermenu' }).click();
 });
 
+test('profiles switch from the helm rail and bottom-button choices cannot hide safety', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const helm = page.getByRole('group', { name: 'Helm actions' });
+
+  const profiles = helm.getByRole('button', { name: /switch profile/ });
+  await expect(profiles).toBeVisible();
+  await profiles.click();
+  const profileMenu = page.getByRole('menu', { name: 'Switch profile' });
+  await expect(profileMenu.getByRole('menuitem', { name: 'Coastal day' })).toBeVisible();
+  await expect(profileMenu.getByRole('menuitem', { name: 'Night passage' })).toBeVisible();
+  await expect(profileMenu.getByRole('menuitem', { name: 'At anchor' })).toBeVisible();
+  await profileMenu.getByRole('menuitem', { name: 'Night passage' }).click();
+  await expect(
+    helm.getByRole('button', { name: 'Profile Night passage, switch profile' }),
+  ).toBeVisible();
+  await helm.getByRole('button', { name: /switch profile/ }).click();
+  await expect(profileMenu.getByRole('menuitem', { name: 'Edit profiles' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('bottom buttons');
+  await palette.getByRole('option', { name: /Customize bottom buttons/ }).click();
+  const appMenu = page.locator('#app-menu-launcher');
+  await expect(appMenu).toBeVisible();
+  await appMenu.getByRole('button', { name: 'Home', exact: true }).click();
+  await appMenu.getByRole('button', { name: 'Man overboard', exact: true }).click();
+  await expect(appMenu.getByText('Man overboard is always shown')).toBeVisible();
+  await appMenu.getByRole('button', { name: 'Done' }).click();
+  await page.keyboard.press('Escape');
+
+  await expect(helm.getByRole('button', { name: 'Home' })).toHaveCount(0);
+  await expect(helm.getByRole('button', { name: /Mark man overboard/ })).toBeVisible();
+  await expect(helm.getByRole('button', { name: /Open alarms/ })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem('binnacle-custom:helm-buttons')))
+    .not.toContain('home');
+});
+
 test('the Chart supermenu section shows and hides the instrument dock', async ({ page }) => {
   await page.goto('/');
   const helm = page.getByRole('group', { name: 'Helm actions' });

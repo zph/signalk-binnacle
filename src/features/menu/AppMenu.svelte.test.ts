@@ -93,7 +93,24 @@ describe('AppMenu edge dock', () => {
 });
 
 describe('AppMenu fixed bottom-bar actions', () => {
-  it('shows a fixed action as selected in edit mode without adding it to the reorder list', () => {
+  it('uses the shell toolbar registry only while customizing', () => {
+    const body = render(AppMenu, {
+      props: {
+        items: [item('chart', { group: 'Chart' })],
+        toolbarItems: [item('profiles', { group: 'Bottom buttons' })],
+        open: true,
+        onOpenChange: () => {},
+        editing: true,
+        pinnedIds: ['profiles'],
+      },
+    }).body;
+
+    expect(body).toContain('Choose the buttons shown along the bottom');
+    expect(body).toContain('profiles');
+    expect(body).not.toContain('chart');
+  });
+
+  it('shows a fixed action as selected and immutable in edit mode', () => {
     const body = render(AppMenu, {
       props: {
         items: [
