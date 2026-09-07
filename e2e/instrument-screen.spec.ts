@@ -84,16 +84,18 @@ test('screen edit mode places an instrument on the chart and locks it with Done'
   expect(actionsBox.x + actionsBox.width / 2).toBeCloseTo(layerBox.x + layerBox.width / 2, 0);
   expect(actionsBox.y + actionsBox.height / 2).toBeCloseTo(layerBox.y + layerBox.height / 2, 0);
 
-  // Starting edit mode frees the selected set from the old drawer, so the chart immediately has
-  // a real instrument to arrange rather than asking the operator to discover a second add flow.
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
-  await expect(frame).toBeVisible();
-  await expect(frame).toHaveAttribute('data-instrument-id', 'sog');
+  // An empty chart starts with the two useful visual instruments. The ordinary dock defaults do
+  // not spill into the chart layout.
+  const windRose = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
+  const aisRadar = page.locator(`${FLOATING_FRAME}[data-instrument-id="ais-radar"]`);
+  await expect(windRose).toBeVisible();
+  await expect(aisRadar).toBeVisible();
+  await expect(page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`)).toHaveCount(0);
 
   await done.click();
   await expect(layer.getByRole('button', { name: 'Done', exact: true })).toHaveCount(0);
-  await expect(frame).toBeVisible();
-  await expect(frame).not.toHaveAttribute('inert', '');
+  await expect(windRose).toBeVisible();
+  await expect(windRose).not.toHaveAttribute('inert', '');
 
   // Locked mode hands gestures back to the chart: the layer root no longer intercepts, so a drag
   // beside the tile pans the chart (the persisted map view moves with it).
@@ -176,8 +178,6 @@ test('screen edit help explains the controls and keeps wind rose settings availa
   await page.goto('/');
   await runScreenEditCommand(page);
 
-  await page.getByRole('button', { name: 'Add instrument', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Wind rose', exact: true }).click();
   await page.getByRole('button', { name: 'Instrument editing help' }).click();
   const help = page.getByRole('group', { name: 'Instrument editing help' });
   await expect(help).toContainText('Drag an instrument to move it.');
@@ -218,7 +218,7 @@ test('screen edit mode drags an instrument from its face on the chart', async ({
   await runScreenEditCommand(page);
 
   const layer = page.locator('.instrument-screen-layer');
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
   const [source, destination] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
   if (!source || !destination) throw new Error('Instrument or chart target missing.');
 
@@ -234,7 +234,7 @@ test('screen edit mode drags an instrument from its face on the chart', async ({
   await expect(frame).toHaveClass(/floating-frame--dragging/);
   await page.mouse.up();
 
-  await expect(frame).toHaveAttribute('data-instrument-id', 'sog');
+  await expect(frame).toHaveAttribute('data-instrument-id', 'wind-rose');
   const frameBox = await frame.boundingBox();
   expect(frameBox).not.toBeNull();
   expect(frameBox?.x).toBeLessThan(destination.x + destination.width * 0.6);
@@ -249,7 +249,7 @@ test('iPad rotation keeps an edge-mounted instrument inside the chart and restor
   await runScreenEditCommand(page);
 
   const layer = page.locator('.instrument-screen-layer');
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
   const [source, target] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
   if (!source || !target) throw new Error('Instrument or chart target missing.');
   await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
@@ -296,7 +296,7 @@ test('phone rotation retains an instrument physical shape and chart coverage', a
   await runScreenEditCommand(page);
 
   const layer = page.locator('.instrument-screen-layer');
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   const [landscapeFrame, landscapeLayer] = await Promise.all([
     frame.boundingBox(),
@@ -332,7 +332,7 @@ test('iPad portrait-to-landscape rotation redraws a top and bottom instrument wi
   await runScreenEditCommand(page);
 
   const layer = page.locator('.instrument-screen-layer');
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
   const [source, target] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
   if (!source || !target) throw new Error('Instrument or chart target missing.');
   await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
@@ -361,11 +361,6 @@ test('desktop window resizing keeps dense instrument content inside every floati
   await page.goto('/');
   await runScreenEditCommand(page);
 
-  for (const name of ['Wind rose', 'AIS radar']) {
-    await page.getByRole('button', { name: 'Add instrument', exact: true }).click();
-    await page.getByRole('menuitem', { name, exact: true }).click();
-  }
-
   const windRose = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
   const aisRadar = page.locator(`${FLOATING_FRAME}[data-instrument-id="ais-radar"]`);
   await expect(windRose).toBeVisible();
@@ -392,7 +387,7 @@ test('touch drag from the instrument body keeps the edit toolbar reachable', asy
   await page.goto('/');
   await runScreenEditCommand(page);
 
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
   const layer = page.locator('.instrument-screen-layer');
   const [source, destination] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
   if (!source || !destination) throw new Error('Instrument or chart target missing.');
@@ -423,17 +418,22 @@ test('the locked screen layout persists across a reload and can be removed again
 
   await page.reload();
 
-  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="sog"]`);
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
+  const aisRadar = page.locator(`${FLOATING_FRAME}[data-instrument-id="ais-radar"]`);
   await expect(frame).toBeVisible();
-  await expect(frame).toHaveAttribute('data-instrument-id', 'sog');
+  await expect(frame).toHaveAttribute('data-instrument-id', 'wind-rose');
   await expect(frame).not.toHaveAttribute('inert', '');
+  await expect(aisRadar).toBeVisible();
 
   await runScreenEditCommand(page);
-  await frame.getByRole('button', { name: 'Remove Speed from chart' }).click();
+  await frame.getByRole('button', { name: 'Remove Wind rose from chart' }).click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
 
   await expect(frame).toHaveCount(0);
-  // The remaining selected instruments stay on the desktop; removal is per widget, not a global
-  // clear-layout action.
+  // Re-entering edit mode preserves the remaining layout and does not seed the removed starter.
+  await runScreenEditCommand(page);
+  await expect(frame).toHaveCount(0);
+  await expect(aisRadar).toBeVisible();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.locator('.instrument-screen-slot')).toHaveCount(1);
 });

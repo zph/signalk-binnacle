@@ -50,6 +50,7 @@ type InstrumentHistoryStatus =
 // The registry scope that carries the App Launcher's web view tiles, so dispose can clear them
 // exactly like the other dynamic scopes.
 const WEBVIEW_INSTRUMENT_SCOPE = 'binnacle-webview-instruments';
+const EMPTY_SCREEN_STARTER_IDS = ['wind-rose', 'ais-radar'] as const;
 
 import {
   batteryDefsFor,
@@ -110,7 +111,7 @@ export interface InstrumentsController {
   toggleTile(id: string): void;
   reorderTile(id: string, slot: number): void;
   setScreenEditing(editing: boolean): void;
-  ensureSelectedFloating(): void;
+  seedEmptyFloating(): void;
   isFloating(id: string): boolean;
   addFloating(id: string, at?: { x?: number; y?: number }): void;
   removeFloating(id: string): void;
@@ -549,16 +550,15 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     fetchMetaForSelected();
   }
 
-  function ensureSelectedFloating(): void {
-    const current = Array.isArray(deps.floatingStore.value) ? deps.floatingStore.value : [];
-    const placed = new Set(current.map((box) => box?.id));
-    const next = [...current];
-    for (const id of resolveSelectedIds()) {
-      if (placed.has(id) || next.length >= MAX_FLOATING_INSTRUMENTS) continue;
+  function seedEmptyFloating(): void {
+    // Starter instruments make the first edit useful, but an existing chart layout is entirely
+    // operator-owned. Entering edit mode must never supplement or otherwise change it.
+    if (floating.length > 0) return;
+    const next: FloatingInstrumentBox[] = [];
+    for (const id of EMPTY_SCREEN_STARTER_IDS) {
       const def = deps.registry.resolve(id);
       if (!def) continue;
-      // Give newly freed instruments a visible, non-overlapping first arrangement. Existing
-      // placements are retained exactly, so returning to edit mode never loses a helm layout.
+      // Give the empty chart a visible, non-overlapping first arrangement.
       const slot = next.length;
       next.push(
         defaultFloatingBox(
@@ -566,10 +566,9 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
           id,
         ),
       );
-      placed.add(id);
       ensureFloatingCells(def);
     }
-    if (next.length === current.length) return;
+    if (next.length === 0) return;
     deps.floatingStore.set(next);
     syncSubscriptions();
     fetchMetaForSelected();
@@ -809,7 +808,7 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     toggleTile,
     reorderTile,
     setScreenEditing,
-    ensureSelectedFloating,
+    seedEmptyFloating,
     isFloating,
     addFloating,
     removeFloating,

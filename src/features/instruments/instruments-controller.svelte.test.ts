@@ -950,20 +950,33 @@ describe('createInstrumentsController screen layout', () => {
     ctrl.dispose();
   });
 
-  it('frees the selected instruments into a persistent, non-overlapping chart layout', () => {
+  it('seeds an empty chart with only wind rose and AIS radar', () => {
     stubSilentDiscovery();
     const deps = makeDeps({ tiles: ['sog', 'depth', 'stw'] });
     const ctrl = createInstrumentsController(deps);
 
-    ctrl.ensureSelectedFloating();
+    ctrl.seedEmptyFloating();
 
-    expect(ctrl.floating.map((box) => box.id)).toEqual(['sog', 'depth', 'stw']);
-    expect(new Set(ctrl.floating.map((box) => `${box.x}:${box.y}`)).size).toBe(3);
+    expect(ctrl.floating.map((box) => box.id)).toEqual(['wind-rose', 'ais-radar']);
+    expect(new Set(ctrl.floating.map((box) => `${box.x}:${box.y}`)).size).toBe(2);
     expect(deps.floatingStore.value).toEqual(ctrl.floating);
 
-    // A later edit session preserves the carefully placed helm layout instead of resetting it.
-    ctrl.ensureSelectedFloating();
-    expect(ctrl.floating).toHaveLength(3);
+    // A later edit session preserves the seeded layout instead of duplicating it.
+    ctrl.seedEmptyFloating();
+    expect(ctrl.floating).toHaveLength(2);
+    ctrl.dispose();
+  });
+
+  it('does not add starter or dock instruments to an existing chart layout', () => {
+    stubSilentDiscovery();
+    const existing = { id: 'depth', x: 0.17, y: 0.23, width: 0.31, height: 0.28 };
+    const deps = makeDeps({ tiles: ['sog', 'wind-rose'], floating: [existing] });
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.seedEmptyFloating();
+
+    expect(ctrl.floating).toEqual([existing]);
+    expect(deps.floatingStore.value).toEqual([existing]);
     ctrl.dispose();
   });
 

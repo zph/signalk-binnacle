@@ -912,11 +912,11 @@ function openTideStationSettings(): void {
   loadTides();
 }
 
-// Screen edit mode frees the selected dock instruments onto the chart on first use. The chart
-// overlay remains visible after Done, under the same global Instruments show/hide control.
+// An empty screen edit layout starts with two useful visual instruments. Existing layouts remain
+// operator-owned. The overlay stays visible after Done under the global Instruments control.
 function startScreenInstrumentEditing(): void {
   if (instruments.screenEditing) return;
-  instruments.ensureSelectedFloating();
+  instruments.seedEmptyFloating();
   instrumentsFullScreenForced = false;
   instrumentsPanelRequested = false;
   instruments.setOpen(true);
