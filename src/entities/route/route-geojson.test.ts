@@ -106,6 +106,33 @@ describe('routeToFeature', () => {
       { name: '3' },
     ]);
   });
+
+  it('round-trips bounded Sail Wayfinder evidence without inventing navigation state', () => {
+    const routed: Route = {
+      id: 'weather-route',
+      name: 'Weather route',
+      waypoints: [
+        {
+          position: { latitude: 42.6, longitude: -83.5 },
+          wayfinder: {
+            time: '2026-09-06T18:00:00.000Z',
+            windDir: 1.2,
+            twa: -0.7,
+            tws: 8.1,
+            boatSpeed: 3.4,
+            waveHeight: 0.8,
+          },
+        },
+        { position: { latitude: 42.7, longitude: -83.4 } },
+      ],
+    };
+
+    const resource = routeToFeature(routed);
+    const parsed = featureToRoute('weather-route', resource);
+    expect(parsed?.waypoints[0].wayfinder).toEqual(routed.waypoints[0].wayfinder);
+    expect(parsed?.waypoints[1].wayfinder).toBeUndefined();
+    expect(parsed?.id).toBe('weather-route');
+  });
 });
 
 describe('featureToRoute', () => {

@@ -81,11 +81,13 @@ source, and surrounding traffic before relying on it.
 
 ## Navigate
 
-- **Sail wayfinding** remains visible while the optional `signalk-wayfinder` capability is absent
-  or not ready. It states the missing server capability and offers Check again rather than exposing
-  a file path or treating partial forecast, shoreline, tide, datum, or depth evidence as safe.
-  It is advisory only: a future accepted passage result saves a standard route, but never starts
-  navigation.
+- **Sail Wayfinder** remains visible while the optional `signalk-wayfinder` capability is absent
+  or not ready. It states the missing server capability and offers Check again. When ready, an
+  existing saved route supplies the departure, destination, and optional intermediate waypoints;
+  the navigator chooses a departure time, calculates with land avoidance and the shoreline safety
+  margin enabled, reviews any partial-route warning, and explicitly saves the result as a standard
+  Signal K route. Saving never starts navigation. Binnacle retains the result's bounded forecast
+  and calculation metadata when renaming or saving it again.
 - **Routes** loads Signal K route resources independently of the live WebSocket. Creating, editing,
   importing, reversing, deleting, activating, stopping, skipping, and chart-side route actions
   require write access. Route activation, stopping navigation (in the panel and on the navigation

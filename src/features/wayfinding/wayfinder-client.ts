@@ -1,27 +1,21 @@
+// Sail Wayfinder HTTP contract parsing and authenticated transport.
+
+import type { Route } from '$entities/route';
 import { isRecord } from '$shared/lib';
 
 export const WAYFINDER_PLUGIN_ID = 'signalk-wayfinder';
-export const WAYFINDER_API_PATH = `/plugins/${WAYFINDER_PLUGIN_ID}/api/v1`;
+export const WAYFINDER_API_PATH = `/plugins/${WAYFINDER_PLUGIN_ID}`;
 
 export interface WayfinderCapabilities {
   apiVersion: string;
   ready: boolean;
   unavailableReason?: string;
-  objectives: readonly ('fastest' | 'leastMotoring')[];
+  objectives: readonly 'fastest'[];
 }
 
-export interface WayfinderJob {
-  id: string;
-  state:
-    | 'validating'
-    | 'acquiring'
-    | 'indexing'
-    | 'calculating'
-    | 'validatingSafety'
-    | 'complete'
-    | 'noRoute'
-    | 'failed'
-    | 'cancelled';
+export interface WayfinderStatus {
+  state: 'idle' | 'calculating' | 'complete' | 'failed';
+  progress: number;
   message?: string;
 }
 
@@ -40,9 +34,7 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
     return undefined;
   }
   const objectives = stringArray(value.objectives);
-  if (!objectives?.every((item) => item === 'fastest' || item === 'leastMotoring')) {
-    return undefined;
-  }
+  if (!objectives?.every((item) => item === 'fastest')) return undefined;
   return {
     apiVersion: value.apiVersion,
     ready: value.ready,
@@ -52,26 +44,28 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
   };
 }
 
-export function parseJob(value: unknown): WayfinderJob | undefined {
-  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.state !== 'string')
-    return undefined;
-  const states = new Set<WayfinderJob['state']>([
-    'validating',
-    'acquiring',
-    'indexing',
-    'calculating',
-    'validatingSafety',
-    'complete',
-    'noRoute',
-    'failed',
-    'cancelled',
-  ]);
-  if (!states.has(value.state as WayfinderJob['state'])) return undefined;
-  return {
-    id: value.id,
-    state: value.state as WayfinderJob['state'],
-    message: typeof value.message === 'string' ? value.message : undefined,
-  };
+export function parseStatus(value: unknown): WayfinderStatus | undefined {
+  if (!isRecord(value) || typeof value.status !== 'string') return undefined;
+  const progress =
+    typeof value.progress === 'number' ? Math.max(0, Math.min(100, value.progress)) : 0;
+  if (value.status === 'idle') return { state: 'idle', progress };
+  if (value.status === 'calculating') return { state: 'calculating', progress };
+  if (value.status === 'done' || value.status === 'warning') {
+    return {
+      state: 'complete',
+      progress: 100,
+      message: typeof value.warning === 'string' ? value.warning : undefined,
+    };
+  }
+  if (value.status === 'error') {
+    return {
+      state: 'failed',
+      progress,
+      message:
+        typeof value.error === 'string' ? value.error : 'Wayfinder could not calculate a route.',
+    };
+  }
+  return undefined;
 }
 
 function authInit(token: string | undefined, init: RequestInit = {}): RequestInit {
@@ -82,16 +76,100 @@ function authInit(token: string | undefined, init: RequestInit = {}): RequestIni
   };
 }
 
+async function jsonRequest(
+  origin: string,
+  path: string,
+  token: string | undefined,
+  init?: RequestInit,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<unknown> {
+  try {
+    const response = await fetchFn(`${origin}${WAYFINDER_API_PATH}${path}`, authInit(token, init));
+    if (!response.ok) return undefined;
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function fetchWayfinderCapabilities(
   origin: string,
   token: string | undefined,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<WayfinderCapabilities | undefined> {
-  try {
-    const response = await fetchFn(`${origin}${WAYFINDER_API_PATH}/capabilities`, authInit(token));
-    if (!response.ok) return undefined;
-    return parseCapabilities(await response.json());
-  } catch {
-    return undefined;
-  }
+  return parseCapabilities(
+    await jsonRequest(origin, '/api/v1/capabilities', token, undefined, fetchFn),
+  );
+}
+
+export async function startWayfinderPlan(
+  origin: string,
+  token: string | undefined,
+  route: Route,
+  departureTime: string,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<boolean> {
+  const [start, ...rest] = route.waypoints;
+  const end = rest.at(-1);
+  if (!start || !end) return false;
+  const body = {
+    start: { lat: start.position.latitude, lon: start.position.longitude },
+    end: { lat: end.position.latitude, lon: end.position.longitude },
+    waypoints: rest.slice(0, -1).map(({ position }) => ({
+      lat: position.latitude,
+      lon: position.longitude,
+    })),
+    departureTime,
+    useLandAvoidance: true,
+    useSafetyMargin: true,
+  };
+  return (
+    (await jsonRequest(
+      origin,
+      '/calculate',
+      token,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      fetchFn,
+    )) !== undefined
+  );
+}
+
+export async function fetchWayfinderStatus(
+  origin: string,
+  token: string | undefined,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<WayfinderStatus | undefined> {
+  return parseStatus(await jsonRequest(origin, '/status', token, undefined, fetchFn));
+}
+
+export async function cancelWayfinderPlan(
+  origin: string,
+  token: string | undefined,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<boolean> {
+  return (await jsonRequest(origin, '/cancel', token, { method: 'POST' }, fetchFn)) !== undefined;
+}
+
+export async function saveWayfinderPlan(
+  origin: string,
+  token: string | undefined,
+  name: string,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<string | undefined> {
+  const value = await jsonRequest(
+    origin,
+    '/save-route',
+    token,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    },
+    fetchFn,
+  );
+  return isRecord(value) && typeof value.routeId === 'string' ? value.routeId : undefined;
 }

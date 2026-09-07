@@ -22,7 +22,7 @@ export interface RouteResourceBody {
     geometry: { type: 'LineString'; coordinates: LonLat[] };
     // The Signal K route schema requires every coordinatesMeta entry to carry a name, so it is
     // present only when at least one waypoint is named, and absent for a fully unnamed route.
-    properties: { coordinatesMeta?: Array<{ name: string }> };
+    properties: { coordinatesMeta?: Array<{ name: string; [key: string]: unknown }> };
   };
 }
 
@@ -34,9 +34,16 @@ export function routeToFeature(route: Route): RouteResourceBody {
     cleanTruncatedText(waypoint.name, MAX_ROUTE_WAYPOINT_NAME_LENGTH),
   );
   const named = names.some(Boolean);
-  const properties = named
-    ? { coordinatesMeta: names.map((name, index) => ({ name: name ?? `${index + 1}` })) }
-    : {};
+  const hasWayfinder = route.waypoints.some((waypoint) => waypoint.wayfinder !== undefined);
+  const properties =
+    named || hasWayfinder
+      ? {
+          coordinatesMeta: route.waypoints.map((waypoint, index) => ({
+            name: names[index] ?? `${index + 1}`,
+            ...waypoint.wayfinder,
+          })),
+        }
+      : {};
   return {
     name:
       cleanTruncatedText(route.name, MAX_ROUTE_NAME_LENGTH) ?? cleanRouteId(route.id) ?? 'Route',
@@ -68,13 +75,37 @@ export function featureToRoute(id: string, raw: unknown): Route | undefined {
   if (geom.coordinates.length < 2 || geom.coordinates.length > MAX_ROUTE_WAYPOINTS)
     return undefined;
   const meta = Array.isArray(r.feature?.properties?.coordinatesMeta)
-    ? (r.feature?.properties?.coordinatesMeta as Array<{ name?: unknown }>)
+    ? (r.feature?.properties?.coordinatesMeta as Array<Record<string, unknown>>)
     : [];
   const waypoints: RouteWaypoint[] = [];
   for (const [i, coord] of geom.coordinates.entries()) {
     if (!isLonLat(coord)) return undefined;
     const name = cleanTruncatedText(meta[i]?.name, MAX_ROUTE_WAYPOINT_NAME_LENGTH);
-    waypoints.push({ position: lonLatToLatLon(coord), ...(name ? { name } : {}) });
+    const rawMeta = meta[i];
+    const finite = (key: string): number | undefined => {
+      const value = rawMeta?.[key];
+      return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+    };
+    const time = cleanTruncatedText(rawMeta?.time, 64);
+    const gribFile = cleanTruncatedText(rawMeta?.gribFile, 1_024);
+    const wayfinder = rawMeta
+      ? {
+          ...(time ? { time } : {}),
+          ...(finite('windDir') !== undefined ? { windDir: finite('windDir') } : {}),
+          ...(finite('heading') !== undefined ? { heading: finite('heading') } : {}),
+          ...(finite('twa') !== undefined ? { twa: finite('twa') } : {}),
+          ...(finite('tws') !== undefined ? { tws: finite('tws') } : {}),
+          ...(finite('boatSpeed') !== undefined ? { boatSpeed: finite('boatSpeed') } : {}),
+          ...(finite('legCalcMs') !== undefined ? { legCalcMs: finite('legCalcMs') } : {}),
+          ...(finite('waveHeight') !== undefined ? { waveHeight: finite('waveHeight') } : {}),
+          ...(gribFile ? { gribFile } : {}),
+        }
+      : undefined;
+    waypoints.push({
+      position: lonLatToLatLon(coord),
+      ...(name ? { name } : {}),
+      ...(wayfinder && Object.keys(wayfinder).length > 0 ? { wayfinder } : {}),
+    });
   }
   const name = cleanTruncatedText(r.name, MAX_ROUTE_NAME_LENGTH) ?? safeId;
   return { id: safeId, name, waypoints };

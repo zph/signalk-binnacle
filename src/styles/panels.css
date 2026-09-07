@@ -193,6 +193,9 @@
 @media (max-width: 600px) {
   .panel-slot {
     inset-block-start: auto;
+    /* Keep the complete bottom sheet above the fixed helm rail so its last action remains
+       tappable without relying on browser-specific scroll-into-view behavior. */
+    inset-block-end: var(--helm-actions-clearance, 0px);
     inset-inline: 0;
     inline-size: auto;
   }

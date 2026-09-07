@@ -78,22 +78,22 @@ export default defineConfig({
     },
     {
       name: 'webkit-ui',
-      testMatch: /(?:ui-quality|weather-cycle)\.spec\.ts/,
+      testMatch: /(?:ui-quality|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['Desktop Safari'] },
     },
     {
       name: 'mobile-webkit-ui',
-      testMatch: /(?:ui-quality|weather-cycle)\.spec\.ts/,
+      testMatch: /(?:ui-quality|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['iPhone 13'] },
     },
     {
       name: 'ipad-webkit',
-      testMatch: /(?:ui-quality|instrument-screen|weather-cycle)\.spec\.ts/,
+      testMatch: /(?:ui-quality|instrument-screen|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['iPad Pro 11'] },
     },
     {
       name: 'ipad-webkit-landscape',
-      testMatch: /(?:ui-quality|instrument-screen|weather-cycle)\.spec\.ts/,
+      testMatch: /(?:ui-quality|instrument-screen|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['iPad Pro 11 landscape'] },
     },
     // Chromium is retained beside iPad Safari only for CDP's genuine multi-phase touch stream.

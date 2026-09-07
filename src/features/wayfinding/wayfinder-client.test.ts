@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCapabilities, parseJob } from './wayfinder-client';
+import { parseCapabilities, parseStatus } from './wayfinder-client';
 
 describe('wayfinder API parsing', () => {
   it('accepts a ready capability response', () => {
@@ -7,26 +7,32 @@ describe('wayfinder API parsing', () => {
       parseCapabilities({
         apiVersion: '1.0',
         ready: true,
-        objectives: ['fastest', 'leastMotoring'],
+        objectives: ['fastest'],
       }),
     ).toEqual({
       apiVersion: '1.0',
       ready: true,
-      objectives: ['fastest', 'leastMotoring'],
+      objectives: ['fastest'],
       unavailableReason: undefined,
     });
   });
 
-  it('rejects malformed capability and job responses', () => {
+  it('rejects malformed capability and status responses', () => {
     expect(
       parseCapabilities({ apiVersion: '1.0', ready: true, objectives: ['unsafe'] }),
     ).toBeUndefined();
-    expect(parseJob({ id: 'guessable', state: 'routing' })).toBeUndefined();
+    expect(parseStatus({ status: 'routing' })).toBeUndefined();
   });
 
-  it('accepts only documented job states', () => {
-    expect(parseJob({ id: 'job-1', state: 'validatingSafety', message: 'Checking depth' })).toEqual(
-      { id: 'job-1', state: 'validatingSafety', message: 'Checking depth' },
-    );
+  it('normalizes the plugin calculation states', () => {
+    expect(parseStatus({ status: 'calculating', progress: 42 })).toEqual({
+      state: 'calculating',
+      progress: 42,
+    });
+    expect(parseStatus({ status: 'warning', progress: 100, warning: 'Partial route' })).toEqual({
+      state: 'complete',
+      progress: 100,
+      message: 'Partial route',
+    });
   });
 });

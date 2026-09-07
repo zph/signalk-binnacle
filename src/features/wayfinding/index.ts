@@ -1,9 +1,13 @@
 import { createRetryableLazyUiLoader } from '$shared/lib';
 
 export {
+  cancelWayfinderPlan,
   fetchWayfinderCapabilities,
+  fetchWayfinderStatus,
   parseCapabilities,
-  parseJob,
+  parseStatus,
+  saveWayfinderPlan,
+  startWayfinderPlan,
   WAYFINDER_API_PATH,
   WAYFINDER_PLUGIN_ID,
 } from './wayfinder-client';

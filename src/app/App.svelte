@@ -165,6 +165,7 @@ import {
 import { createTimeTravelController } from '$features/time-travel';
 import { createTrackController, createTripLogController } from '$features/tracks';
 import { createTrendsController } from '$features/trends';
+import { createWayfindingController } from '$features/wayfinding';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
   createPointConditionsLoader,
@@ -2140,6 +2141,16 @@ $effect(() => {
   ]);
 });
 
+const wayfindingController = createWayfindingController({
+  origin,
+  getToken: () => chartsToken,
+  onSaved: async (routeId) => {
+    await routeController.refreshRoutes();
+    routeStore.toggleShown(routeId, true);
+    routeController.showRoute(routeId);
+  },
+});
+
 // The app menu's options, grouped into helm-first intent groups: chart controls and navigation,
 // safety, weather, instruments, optional offline charts, and settings. Adding an option is a single
 // entry; the launcher renders and groups whatever it is given.
@@ -2235,6 +2246,20 @@ const menuItems = $derived<MenuItem[]>([
         ? 'Offline charts (finish the radar-area chart edit first)'
         : 'Offline charts (chart is loading)',
     onSelect: () => togglePanel('regions'),
+  },
+  {
+    id: 'wayfinding',
+    label: 'Sail Wayfinder',
+    shortLabel: 'Wayfinder',
+    icon: Compass,
+    group: 'Navigate',
+    available: wayfindingController.capabilities?.ready !== false,
+    unavailableHint:
+      wayfindingController.error ??
+      wayfindingController.capabilities?.unavailableReason ??
+      'Check Sail Wayfinder readiness for details.',
+    pressed: activePanel === 'wayfinding',
+    onSelect: () => togglePanel('wayfinding'),
   },
   {
     id: 'routes',
@@ -3015,6 +3040,7 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
     center: 'navigate',
     follow: 'navigate',
     orientation: 'navigate',
+    wayfinding: 'navigate',
     routes: 'navigate',
     waypoints: 'navigate',
     moorings: 'navigate',
@@ -3880,6 +3906,7 @@ const plotterServices = {
 };
 
 const plotterControllers = {
+  wayfindingController,
   anchorController,
   mobController,
   routeController,
@@ -4802,7 +4829,9 @@ const plotterActions = {
    stays in one row so emergency access never obscures another action. */
 @media (pointer: coarse) and (min-width: 601px) and (max-width: 1200px) {
   .binnacle-shell {
-    --helm-action-size: calc(2 * var(--control-size));
+    /* Nine always-reachable helm actions must fit an iPad in portrait. A full 2x control makes
+       the rail wider than the visible viewport once its gaps are included. */
+    --helm-action-size: calc(1.75 * var(--control-size));
   }
   .helm-primary-actions :global(.btn-pill svg) {
     inline-size: calc(var(--control-size) * 0.73);
@@ -4832,6 +4861,11 @@ const plotterActions = {
   .helm-actions-start,
   .helm-actions-end {
     gap: var(--space-1);
+  }
+  /* A stale or absent fix leaves this shortcut disabled. On a phone, keep its equivalent in the
+     Navigate supermenu and reserve the fixed rail for the working weather, MOB, and alarm actions. */
+  .helm-center-action {
+    display: none;
   }
 }
 </style>

@@ -5,6 +5,19 @@ import type { LatLon } from '$shared/geo';
 export interface RouteWaypoint {
   position: LatLon;
   name?: string;
+  // Optional Sail Wayfinder passage evidence. Binnacle does not navigate from these forecast
+  // values, but retaining them prevents a harmless rename from stripping the passage record.
+  wayfinder?: {
+    time?: string;
+    windDir?: number;
+    heading?: number;
+    twa?: number;
+    tws?: number;
+    boatSpeed?: number;
+    legCalcMs?: number;
+    waveHeight?: number;
+    gribFile?: string;
+  };
 }
 
 // A planned route: an ordered list of waypoints with a stable client id and a name.

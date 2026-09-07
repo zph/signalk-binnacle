@@ -35,7 +35,7 @@ describe('installed PWA system-bar clearance', () => {
     expect(APP).toContain('aria-label="Install ready update"');
     expect(APP).toContain('class="helm-actions-start"');
     expect(APP).toContain('class="helm-actions-end"');
-    expect(APP).toContain('--helm-action-size: calc(2 * var(--control-size))');
+    expect(APP).toContain('--helm-action-size: calc(1.75 * var(--control-size))');
   });
 
   it('keeps center on vessel as the final fixed action on the right rail', () => {

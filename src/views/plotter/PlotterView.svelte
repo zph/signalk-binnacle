@@ -54,6 +54,7 @@ import {
 import { loadHistoryStrip, type TimeTravelController } from '$features/time-travel';
 import { loadTracksPanel } from '$features/tracks';
 import { loadTrendsPanel } from '$features/trends';
+import { loadWayfindingPanel } from '$features/wayfinding';
 import { loadWaypointsPanel } from '$features/waypoints';
 import {
   CHART_FORECAST_LAYER_IDS,
@@ -95,6 +96,9 @@ import { loadWeatherMap } from '$widgets/weather-map';
 type AnchorController = ReturnType<typeof import('$features/anchor-watch').createAnchorController>;
 type MobController = ReturnType<typeof import('$features/mob').createMobController>;
 type RouteController = ReturnType<typeof import('$features/routing').createRouteController>;
+type WayfindingController = ReturnType<
+  typeof import('$features/wayfinding').createWayfindingController
+>;
 type WaypointsController = ReturnType<
   typeof import('$features/waypoints').createWaypointsController
 >;
@@ -122,6 +126,7 @@ interface FlatProps {
 
   // Controllers
   anchorController: AnchorController;
+  wayfindingController: WayfindingController;
   mobController: MobController;
   routeController: RouteController;
   waypointsController: WaypointsController;
@@ -355,6 +360,7 @@ type ServiceKey =
   | 'mapRenderingQuality'
   | 'arrivalMuted';
 type ControllerKey =
+  | 'wayfindingController'
   | 'anchorController'
   | 'mobController'
   | 'routeController'
@@ -560,6 +566,7 @@ $effect(() => {
 let aisMotionById = $state<ReadonlyMap<string, AisMotionSelection>>(new Map());
 const insecureTransport = $derived(isInsecureTransportOrigin(origin));
 const {
+  wayfindingController,
   anchorController,
   mobController,
   routeController,
@@ -1238,6 +1245,47 @@ $effect(() => {
             closeLabel="Close layers and charts"
             state="error"
             message="Layers and charts controls could not load."
+            onClose={closePanel}
+            onBack={backToMenu}
+            onRetry={retryLazyPanel}
+          />
+        {/await}
+      {:else if activePanel === 'wayfinding'}
+        {#await forAttempt(loadWayfindingPanel)}
+          <LazyPanelState
+            title="Sail Wayfinder"
+            closeLabel="Close Sail Wayfinder panel"
+            state="loading"
+            message="Loading Sail Wayfinder…"
+            onClose={closePanel}
+            onBack={backToMenu}
+          />
+        {:then module}
+          <ErrorBoundary>
+            <module.default
+              controller={wayfindingController}
+              {routeStore}
+              onClose={closePanel}
+              onBack={backToMenu}
+            />
+            {#snippet fallback(_error, reset)}
+              <LazyPanelState
+                title="Sail Wayfinder"
+                closeLabel="Close Sail Wayfinder panel"
+                state="error"
+                message="Sail Wayfinder stopped unexpectedly."
+                onClose={closePanel}
+                onBack={backToMenu}
+                onRetry={reset}
+              />
+            {/snippet}
+          </ErrorBoundary>
+        {:catch}
+          <LazyPanelState
+            title="Sail Wayfinder"
+            closeLabel="Close Sail Wayfinder panel"
+            state="error"
+            message="Sail Wayfinder could not load."
             onClose={closePanel}
             onBack={backToMenu}
             onRetry={retryLazyPanel}
