@@ -10,6 +10,7 @@ export {
   startWayfinderPlan,
   WAYFINDER_API_PATH,
   WAYFINDER_PLUGIN_ID,
+  type WayfinderConstraints,
 } from './wayfinder-client';
 export { createWayfindingController } from './wayfinding-controller.svelte';
 

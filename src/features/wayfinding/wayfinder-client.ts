@@ -11,12 +11,18 @@ export interface WayfinderCapabilities {
   ready: boolean;
   unavailableReason?: string;
   objectives: readonly 'fastest'[];
+  passageConstraints: readonly ('daylightOnly' | 'maxHoursPerDay')[];
 }
 
 export interface WayfinderStatus {
   state: 'idle' | 'calculating' | 'complete' | 'failed';
   progress: number;
   message?: string;
+}
+
+export interface WayfinderConstraints {
+  daylightOnly: boolean;
+  maxHoursPerDay: number;
 }
 
 function stringArray(value: unknown): string[] | undefined {
@@ -35,12 +41,16 @@ export function parseCapabilities(value: unknown): WayfinderCapabilities | undef
   }
   const objectives = stringArray(value.objectives);
   if (!objectives?.every((item) => item === 'fastest')) return undefined;
+  const passageConstraints = stringArray(value.passageConstraints) ?? [];
+  if (!passageConstraints.every((item) => item === 'daylightOnly' || item === 'maxHoursPerDay'))
+    return undefined;
   return {
     apiVersion: value.apiVersion,
     ready: value.ready,
     unavailableReason:
       typeof value.unavailableReason === 'string' ? value.unavailableReason : undefined,
     objectives,
+    passageConstraints,
   };
 }
 
@@ -107,6 +117,7 @@ export async function startWayfinderPlan(
   token: string | undefined,
   route: Route,
   departureTime: string,
+  constraints: WayfinderConstraints,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<boolean> {
   const [start, ...rest] = route.waypoints;
@@ -122,6 +133,10 @@ export async function startWayfinderPlan(
     departureTime,
     useLandAvoidance: true,
     useSafetyMargin: true,
+    options: {
+      daylightOnly: constraints.daylightOnly,
+      maxHoursPerDay: constraints.maxHoursPerDay,
+    },
   };
   return (
     (await jsonRequest(

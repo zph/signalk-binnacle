@@ -8,11 +8,23 @@ describe('wayfinder API parsing', () => {
         apiVersion: '1.0',
         ready: true,
         objectives: ['fastest'],
+        passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
       }),
     ).toEqual({
       apiVersion: '1.0',
       ready: true,
       objectives: ['fastest'],
+      passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
+      unavailableReason: undefined,
+    });
+  });
+
+  it('accepts an older capability response but reports no passage constraints', () => {
+    expect(parseCapabilities({ apiVersion: '1.0', ready: true, objectives: ['fastest'] })).toEqual({
+      apiVersion: '1.0',
+      ready: true,
+      objectives: ['fastest'],
+      passageConstraints: [],
       unavailableReason: undefined,
     });
   });

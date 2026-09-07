@@ -5,7 +5,7 @@ import Compass from '@lucide/svelte/icons/compass';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onMount } from 'svelte';
 import type { RouteStore } from '$entities/route';
-import { SlideOver } from '$shared/ui';
+import { LayerToggle, SlideOver, UnitField } from '$shared/ui';
 import type { createWayfindingController } from './wayfinding-controller.svelte';
 
 interface Props {
@@ -16,14 +16,23 @@ interface Props {
 }
 
 const { controller, routeStore, onClose, onBack }: Props = $props();
-const available = $derived(controller.capabilities?.ready === true);
+const supportsPassageConstraints = $derived(
+  controller.capabilities?.passageConstraints.includes('daylightOnly') === true &&
+    controller.capabilities?.passageConstraints.includes('maxHoursPerDay') === true,
+);
+const available = $derived(controller.capabilities?.ready === true && supportsPassageConstraints);
 const reason = $derived(
   controller.error ??
+    (controller.capabilities?.ready && !supportsPassageConstraints
+      ? 'Update Sail Wayfinder to use departure, daylight, and daily underway limits.'
+      : undefined) ??
     controller.capabilities?.unavailableReason ??
     'Install and configure Sail Wayfinder with forecast coverage, a polar, and shoreline data.',
 );
 let routeId = $state('');
 let departure = $state(new Date(Date.now() + 300_000).toISOString().slice(0, 16));
+let daylightOnly = $state(false);
+let maxHoursPerDay = $state(0);
 let saveName = $state('');
 const selected = $derived(routeStore.routeById(routeId));
 
@@ -35,7 +44,10 @@ onMount(() => {
 function calculate(): void {
   if (!selected || !departure) return;
   saveName = `${selected.name} weather route`;
-  void controller.plan(selected, new Date(departure).toISOString());
+  void controller.plan(selected, new Date(departure).toISOString(), {
+    daylightOnly,
+    maxHoursPerDay,
+  });
 }
 </script>
 
@@ -85,6 +97,29 @@ function calculate(): void {
             disabled={controller.busy}
           >
         </label>
+        <div class="constraint-row">
+          <LayerToggle
+            label="Daylight-only sailing"
+            description="Wait at the current position whenever the sun is below the horizon."
+            visible={daylightOnly}
+            disabled={controller.busy}
+            onToggle={(visible) => (daylightOnly = visible)}
+          />
+        </div>
+        <UnitField
+          label="Maximum underway per day"
+          unit="h"
+          value={maxHoursPerDay}
+          min={0}
+          max={24}
+          step={1}
+          disabled={controller.busy}
+          ariaDescribedBy="wayfinder-max-hours-help"
+          onCommit={(value) => (maxHoursPerDay = Math.max(0, Math.min(24, value)))}
+        />
+        <p id="wayfinder-max-hours-help" class="muted-note muted-note--xs">
+          0 is unlimited. Each passage day begins at the selected departure time.
+        </p>
         <button
           class="btn btn-primary"
           type="button"
@@ -145,6 +180,11 @@ function calculate(): void {
   gap: var(--space-1);
   margin-block: var(--space-3);
   font-size: var(--text-sm);
+}
+.constraint-row {
+  min-block-size: var(--control-size);
+  display: flex;
+  align-items: center;
 }
 progress {
   inline-size: 100%;

@@ -9,6 +9,7 @@ import {
   saveWayfinderPlan,
   startWayfinderPlan,
   type WayfinderCapabilities,
+  type WayfinderConstraints,
   type WayfinderStatus,
 } from './wayfinder-client';
 
@@ -43,13 +44,23 @@ export function createWayfindingController(deps: {
     }
   }
 
-  async function plan(route: Route, departureTime: string): Promise<void> {
+  async function plan(
+    route: Route,
+    departureTime: string,
+    constraints: WayfinderConstraints,
+  ): Promise<void> {
     if (busy) return;
     const sequence = ++operation;
     busy = true;
     error.clear();
     status = { state: 'calculating', progress: 0 };
-    const started = await startWayfinderPlan(deps.origin, deps.getToken(), route, departureTime);
+    const started = await startWayfinderPlan(
+      deps.origin,
+      deps.getToken(),
+      route,
+      departureTime,
+      constraints,
+    );
     if (!started) {
       if (sequence === operation) {
         busy = false;

@@ -39,7 +39,12 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ apiVersion: '1.0', ready: true, objectives: ['fastest'] }),
+      body: JSON.stringify({
+        apiVersion: '1.1',
+        ready: true,
+        objectives: ['fastest'],
+        passageConstraints: ['daylightOnly', 'maxHoursPerDay'],
+      }),
     }),
   );
   let calculations = 0;
@@ -50,6 +55,7 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     expect(request.end).toEqual({ lat: 42.7, lon: -83.4 });
     expect(request.useLandAvoidance).toBe(true);
     expect(request.useSafetyMargin).toBe(true);
+    expect(request.options).toEqual({ daylightOnly: true, maxHoursPerDay: 8 });
     await route.fulfill({ status: 202, contentType: 'application/json', body: '{}' });
   });
   let statusReads = 0;
@@ -94,6 +100,11 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   await expect(panel.getByRole('combobox', { name: 'Route' })).toHaveValue('passage');
   await expectInsideViewport(panel, page);
   await expectNoHorizontalOverflow(panel);
+
+  await panel.getByRole('checkbox', { name: 'Daylight-only sailing' }).check();
+  const maxHours = panel.getByRole('spinbutton', { name: 'Maximum underway per day in h' });
+  await maxHours.fill('8');
+  await maxHours.blur();
 
   await panel.getByRole('button', { name: 'Calculate fastest route' }).click();
   await expect(panel.getByRole('button', { name: 'Cancel calculation' })).toBeVisible();
