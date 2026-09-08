@@ -47,6 +47,8 @@ describe('RouteEditPlan', () => {
     expect(body).toContain('Point 3');
     expect(body).toContain('Passage duration');
     expect(body).toContain('Elapsed');
+    expect(body).toContain('Estimated average speed');
+    expect(body).toContain('This is not the motor-speed setting.');
   });
 
   it('defaults the departure to now without persisting it', () => {

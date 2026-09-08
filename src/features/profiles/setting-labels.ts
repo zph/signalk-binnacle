@@ -14,7 +14,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   aisRetentionMinutes: 'AIS target retention',
   thresholds: 'Collision thresholds',
   trackSettings: 'Track recording',
-  planningSpeedMps: 'Planning speed',
+  planningSpeedMps: 'Estimated average speed',
   units: 'Units',
   chartOrientation: 'Chart orientation',
   pinnedActionIds: 'Toolbar actions',

@@ -114,14 +114,15 @@ function endpointName(fromIndex: number): string {
   </dd>
 </dl>
 <UnitField
-  label="Planning speed"
+  label="Estimated average speed"
   unit="kn"
   value={boundedPlanningSpeed}
   min={0}
   max={MAX_PLANNING_SPEED_KN}
   step={0.5}
   inputWidth="4rem"
-  ariaLabel="Planning speed in knots, used to estimate the time to each point"
+  ariaLabel="Estimated average speed in knots, used only for route timing and not as motor speed"
+  ariaDescribedBy="estimated-speed-help"
   onCommit={(speed) =>
     planningSpeed.set(
       knotsToMetersPerSecond(
@@ -129,6 +130,9 @@ function endpointName(fromIndex: number): string {
       ),
     )}
 />
+<p id="estimated-speed-help" class="field-help">
+  Used only to estimate duration and arrival times. This is not the motor-speed setting.
+</p>
 <label class="departure">
   <span class="caps-label">Departure</span>
   <input
@@ -144,7 +148,7 @@ function endpointName(fromIndex: number): string {
     <span class="leg-name">{endpointName(leg.fromIndex)}</span>
     <span
       class="leg-arrive num"
-      title="Planned local arrival at this point, from the departure and planning speed"
+      title="Planned local arrival at this point, from the departure and estimated average speed"
       >{arrivalText(leg.cumulativeMeters)}</span
     >
   </span>
@@ -244,6 +248,11 @@ function endpointName(fromIndex: number): string {
 }
 .departure input {
   min-block-size: var(--control-size);
+}
+.field-help {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }
 /* The route-edit working-plan stats use the global .stat-grid system in app.css. */
 </style>
