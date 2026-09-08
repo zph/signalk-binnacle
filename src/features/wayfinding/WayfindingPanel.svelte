@@ -78,7 +78,6 @@ let objective = $state<WayfinderObjective>('fastest');
 let alternativeCount = $state(5);
 let motorSpeedKn = $state(0);
 let motorBelowKn = $state(0);
-let useLandAvoidance = $state(true);
 let useCurrentGrib = $state(true);
 let waitForWind = $state(false);
 let maxWindKn = $state(0);
@@ -193,7 +192,7 @@ function calculate(): void {
     alternativeCount,
     motorSpeedKn,
     motorBelowKn,
-    useLandAvoidance,
+    useLandAvoidance: true,
     useCurrentGrib,
     waitForWind,
     maxWindKn,
@@ -561,18 +560,10 @@ const objectiveLabel = $derived(
           0 is unlimited. Each passage day begins at the selected departure time.
         </p>
         <h3 class="caps-label">Routing behavior</h3>
-        <div class="constraint-row">
-          <LayerToggle
-            label="Avoid land"
-            description="Reject route segments that cross the best installed chart shoreline."
-            visible={useLandAvoidance}
-            disabled={controller.busy}
-            onToggle={(visible) => {
-              useLandAvoidance = visible;
-              if (!visible) minimumShoreDistanceNm = 0;
-            }}
-          />
-        </div>
+        <p class="muted-note muted-note--xs">
+          Land avoidance is always on. Route segments that cross the best installed chart shoreline
+          are rejected.
+        </p>
         <div class="constraint-row">
           <LayerToggle
             label="Use current forecast"
@@ -670,10 +661,7 @@ const objectiveLabel = $derived(
           step={0.1}
           disabled={controller.busy}
           ariaDescribedBy="wayfinder-shore-help"
-          onCommit={(value) => {
-            minimumShoreDistanceNm = Math.max(0, Math.min(50, value));
-            if (minimumShoreDistanceNm > 0) useLandAvoidance = true;
-          }}
+          onCommit={(value) => (minimumShoreDistanceNm = Math.max(0, Math.min(50, value)))}
         />
         <UnitField
           label="Maximum distance offshore"

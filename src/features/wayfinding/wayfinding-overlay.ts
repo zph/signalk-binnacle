@@ -77,24 +77,25 @@ function frontierFeatures(
   points: readonly LatLon[] | undefined,
 ): GeoJSON.FeatureCollection {
   if (!points?.length && history.length === 0) return emptyFeatureCollection();
-  const features: GeoJSON.Feature[] = (points ?? []).map((point, index) => ({
-    type: 'Feature',
-    id: `frontier-${index}`,
-    geometry: { type: 'Point', coordinates: lonLat(point) },
-    properties: { index },
-  }));
-  for (const [index, frontier] of history.entries()) {
-    if (frontier.length < 2) continue;
-    features.unshift({
-      type: 'Feature',
-      id: `isochrone-${index}`,
-      geometry: antimeridianLineGeometry(frontier.map(lonLat)),
-      // A frontier leaves the active point set once the following search step
-      // supersedes or prunes it. Keep that explored geometry visible as a
-      // neutral dotted trace only while calculation is active.
-      properties: { kind: 'rejected', age: history.length - index },
-    });
+  const features: GeoJSON.Feature[] = [];
+  for (const [historyIndex, frontier] of history.entries()) {
+    for (const [pointIndex, point] of frontier.entries()) {
+      features.push({
+        type: 'Feature',
+        id: `explored-${historyIndex}-${pointIndex}`,
+        geometry: { type: 'Point', coordinates: lonLat(point) },
+        properties: { kind: 'rejected', age: history.length - historyIndex },
+      });
+    }
   }
+  features.push(
+    ...(points ?? []).map((point, index) => ({
+      type: 'Feature' as const,
+      id: `frontier-${index}`,
+      geometry: { type: 'Point' as const, coordinates: lonLat(point) },
+      properties: { kind: 'active', index },
+    })),
+  );
   return featureCollection(features);
 }
 
@@ -263,9 +264,14 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
         source: FRONTIER_SOURCE,
         filter: ['==', '$type', 'Point'],
         paint: {
-          'circle-color': paint.select,
-          'circle-radius': 5,
-          'circle-opacity': 0.65,
+          'circle-color': [
+            'case',
+            ['==', ['get', 'kind'], 'rejected'],
+            rejectedTraceColor(paint),
+            paint.select,
+          ],
+          'circle-radius': ['case', ['==', ['get', 'kind'], 'rejected'], 2.25, 5],
+          'circle-opacity': ['case', ['==', ['get', 'kind'], 'rejected'], 0.5, 0.65],
           'circle-stroke-color': paint.markerGlyph,
           'circle-stroke-width': 1,
         },
@@ -324,18 +330,18 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
       }
       if (source.status.state === 'calculating') {
         const phase = (Date.now() % 1400) / 1400;
-        setPaintProp(
-          ctx.map,
-          FRONTIER_POINT_LAYER,
-          'circle-radius',
+        setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-radius', [
+          'case',
+          ['==', ['get', 'kind'], 'rejected'],
+          2.25,
           4 + Math.sin(phase * Math.PI) * 5,
-        );
-        setPaintProp(
-          ctx.map,
-          FRONTIER_POINT_LAYER,
-          'circle-opacity',
+        ]);
+        setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-opacity', [
+          'case',
+          ['==', ['get', 'kind'], 'rejected'],
+          0.5,
           0.35 + Math.sin(phase * Math.PI) * 0.5,
-        );
+        ]);
       }
     },
     setVisible(ctx, visible) {
@@ -351,7 +357,12 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
         rejectedTraceColor(paint),
         paint.select,
       ]);
-      setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-color', paint.select);
+      setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-color', [
+        'case',
+        ['==', ['get', 'kind'], 'rejected'],
+        rejectedTraceColor(paint),
+        paint.select,
+      ]);
       setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-stroke-color', paint.markerGlyph);
       setPaintProp(ctx.map, MARKER_LAYER, 'circle-color', markerColor(paint));
       setPaintProp(ctx.map, MARKER_LAYER, 'circle-stroke-color', paint.markerGlyph);

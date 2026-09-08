@@ -102,7 +102,7 @@ export function normalizePropulsionOptions(constraints: WayfinderConstraints): {
 }
 
 export function normalizeShorelineConstraints(
-  useLandAvoidance: boolean,
+  _useLandAvoidance: boolean,
   minimumShoreDistanceNm: number,
 ): {
   useLandAvoidance: boolean;
@@ -110,7 +110,7 @@ export function normalizeShorelineConstraints(
   minimumShoreDistanceNm: number;
 } {
   return {
-    useLandAvoidance: useLandAvoidance || minimumShoreDistanceNm > 0,
+    useLandAvoidance: true,
     useSafetyMargin: minimumShoreDistanceNm === 0.5,
     minimumShoreDistanceNm: minimumShoreDistanceNm === 0.5 ? 0 : minimumShoreDistanceNm,
   };

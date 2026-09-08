@@ -148,7 +148,7 @@ describe('wayfinder API parsing', () => {
 
   it('deduplicates the standard shoreline margin from custom clearance', () => {
     expect(normalizeShorelineConstraints(false, 0)).toEqual({
-      useLandAvoidance: false,
+      useLandAvoidance: true,
       useSafetyMargin: false,
       minimumShoreDistanceNm: 0,
     });

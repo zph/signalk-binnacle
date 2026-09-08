@@ -53,8 +53,11 @@ describe('Wayfinding chart overlay', () => {
       'origin',
       'destination',
     ]);
-    expect(frontier.features).toHaveLength(3);
-    expect(frontier.features[0]?.properties?.kind).toBe('rejected');
+    expect(frontier.features).toHaveLength(4);
+    expect(
+      frontier.features.filter((feature) => feature.properties?.kind === 'rejected'),
+    ).toHaveLength(2);
+    expect(frontier.features.every((feature) => feature.geometry.type === 'Point')).toBe(true);
   });
 
   it('draws every result path and marks every waypoint of the selected alternative', async () => {
