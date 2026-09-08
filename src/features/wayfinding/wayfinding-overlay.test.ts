@@ -78,7 +78,12 @@ describe('Wayfinding chart overlay', () => {
           ],
         },
       ],
-      frontiers: [],
+      frontiers: [
+        [
+          { latitude: 38.15, longitude: -122.25 },
+          { latitude: 38.18, longitude: -122.22 },
+        ],
+      ],
       selectedAlternativeIndex: 1,
     };
     const { map, ctx } = context();
@@ -89,6 +94,8 @@ describe('Wayfinding chart overlay', () => {
     const paths = map.sources.get('binnacle-wayfinder-paths')?.data as GeoJSON.FeatureCollection;
     const markers = map.sources.get('binnacle-wayfinder-markers')
       ?.data as GeoJSON.FeatureCollection;
+    const frontier = map.sources.get('binnacle-wayfinder-frontier')
+      ?.data as GeoJSON.FeatureCollection;
     expect(paths.features).toHaveLength(2);
     expect(paths.features.map((feature) => feature.properties?.selected)).toEqual([false, true]);
     expect(markers.features).toHaveLength(3);
@@ -97,5 +104,6 @@ describe('Wayfinding chart overlay', () => {
       'waypoint',
       'destination',
     ]);
+    expect(frontier.features).toHaveLength(0);
   });
 });

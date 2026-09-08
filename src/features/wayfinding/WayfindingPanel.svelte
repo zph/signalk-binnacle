@@ -9,10 +9,11 @@ import type { Route, RouteStore } from '$entities/route';
 import { depthValueFromMeters, depthValueToMeters, type UnitsStore } from '$entities/units';
 import type { OwnVessel } from '$entities/vessel';
 import type { LatLon } from '$shared/geo';
-import { formatLatitude, formatLongitude } from '$shared/lib';
+import { formatDuration, formatLatitude, formatLongitude, PLACEHOLDER } from '$shared/lib';
 import { haversineMeters } from '$shared/nav';
 import { createPanelMinimize, LayerToggle, SlideOver, UnitField } from '$shared/ui';
 import type { WayfinderObjective } from './wayfinder-client';
+import { buildWayfinderLegRows } from './wayfinder-route-table';
 import type { createWayfindingController } from './wayfinding-controller.svelte';
 
 interface Props {
@@ -112,6 +113,22 @@ const canChooseWaitForWind = $derived(
   objective === 'bestWeather' ||
     (objective === 'fastest' && !(motorSpeedKn > 0 && motorBelowKn > 0)),
 );
+const selectedRouteGeometry = $derived(
+  controller.routes.find((route) => route.index === controller.selectedAlternativeIndex),
+);
+const selectedLegRows = $derived(buildWayfinderLegRows(selectedRouteGeometry?.points ?? []));
+const selectedTackCount = $derived(selectedLegRows.filter((row) => row.maneuver === 'Tack').length);
+const selectedJibeCount = $derived(selectedLegRows.filter((row) => row.maneuver === 'Jibe').length);
+const routeTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function formatRouteTime(timeMs: number | undefined): string {
+  return timeMs === undefined ? PLACEHOLDER : routeTimeFormatter.format(timeMs);
+}
 
 onMount(() => {
   if (!routeId && routeStore.routes[0]) routeId = routeStore.routes[0].id;
@@ -257,8 +274,66 @@ const objectiveLabel = $derived(
             {:else}
               no wave field in the selected forecast.
             {/if}
+            {selectedTackCount} {selectedTackCount === 1 ? 'tack' : 'tacks'},
+            {selectedJibeCount} {selectedJibeCount === 1 ? 'jibe' : 'jibes'}.
           </p>
         {/if}
+      {/if}
+      {#if selectedLegRows.length > 0}
+        <details class="route-table-disclosure">
+          <summary>Route table ({selectedLegRows.length} legs)</summary>
+          <div class="route-table-scroll">
+            <table aria-label="Selected route leg forecast">
+              <thead>
+                <tr>
+                  <th scope="col">Leg</th>
+                  <th scope="col">Duration</th>
+                  <th scope="col">Start</th>
+                  <th scope="col">End</th>
+                  <th scope="col">Projected wind</th>
+                  <th scope="col">Angle</th>
+                  <th scope="col">Maneuver</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each selectedLegRows as row (row.leg)}
+                  <tr>
+                    <th scope="row" class="num">{row.leg}</th>
+                    <td class="num">
+                      {row.durationSeconds === undefined
+                        ? PLACEHOLDER
+                        : formatDuration(row.durationSeconds)}
+                    </td>
+                    <td class="num route-time">{formatRouteTime(row.startTimeMs)}</td>
+                    <td class="num route-time">{formatRouteTime(row.endTimeMs)}</td>
+                    <td class="num">
+                      {#if row.windSpeedKn !== undefined}
+                        {row.windSpeedKn.toFixed(1)}
+                        kn
+                        {#if row.windDirectionDeg !== undefined}
+                          · {Math.round(row.windDirectionDeg)}°
+                        {/if}
+                      {:else}
+                        {PLACEHOLDER}
+                      {/if}
+                    </td>
+                    <td class="num">
+                      {#if row.trueWindAngleDeg !== undefined}
+                        {Math.round(row.trueWindAngleDeg)}° TWA
+                        {#if row.windSide}
+                          · {row.windSide}
+                        {/if}
+                      {:else}
+                        {PLACEHOLDER}
+                      {/if}
+                    </td>
+                    <td class:maneuver={row.maneuver}>{row.maneuver ?? PLACEHOLDER}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </details>
       {/if}
       <label class="field">
         <span>Route name</span>
@@ -689,6 +764,49 @@ const objectiveLabel = $derived(
 progress {
   inline-size: 100%;
   accent-color: var(--accent);
+}
+.route-table-disclosure {
+  margin-block: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.route-table-disclosure summary {
+  min-block-size: var(--control-size);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  cursor: pointer;
+}
+.route-table-scroll {
+  overflow-x: auto;
+  border-block-start: 1px solid var(--border);
+}
+.route-table-scroll table {
+  min-inline-size: 760px;
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+.route-table-scroll th,
+.route-table-scroll td {
+  padding: var(--space-2);
+  border-block-end: 1px solid var(--border-subtle, var(--border));
+  text-align: start;
+  white-space: nowrap;
+}
+.route-table-scroll thead th {
+  color: var(--text-muted);
+  font-weight: 650;
+}
+.route-table-scroll tbody tr:last-child > * {
+  border-block-end: 0;
+}
+.route-table-scroll .maneuver {
+  color: var(--accent);
+  font-weight: 700;
 }
 @media (max-width: 380px) {
   .endpoint-actions {

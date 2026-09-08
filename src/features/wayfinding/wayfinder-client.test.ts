@@ -311,6 +311,60 @@ describe('wayfinder API parsing', () => {
     );
   });
 
+  it('retains pending-route timing, wind, angle, and propulsion evidence', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          feature: {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-122.3, 38.1],
+                [-122.2, 38.2],
+              ],
+            },
+            properties: {
+              coordinatesMeta: [
+                { time: '2026-09-08T12:00:00Z' },
+                {
+                  time: '2026-09-08T13:30:00Z',
+                  windDir: 285,
+                  heading: 240,
+                  twa: 45,
+                  tws: 12.4,
+                  boatSpeed: 6.1,
+                  propulsion: 'sail',
+                },
+              ],
+            },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(
+      fetchWayfinderRouteGeometry('http://signalk.test', undefined, 0, fetchFn),
+    ).resolves.toEqual({
+      index: 0,
+      points: [
+        { latitude: 38.1, longitude: -122.3, time: '2026-09-08T12:00:00Z' },
+        {
+          latitude: 38.2,
+          longitude: -122.2,
+          time: '2026-09-08T13:30:00Z',
+          windDir: 285,
+          heading: 240,
+          twa: 45,
+          tws: 12.4,
+          boatSpeed: 6.1,
+          propulsion: 'sail',
+        },
+      ],
+    });
+  });
+
   it('parses ranked alternative summaries', () => {
     expect(
       parseStatus({
@@ -347,5 +401,26 @@ describe('wayfinder API parsing', () => {
         },
       ],
     });
+  });
+
+  it('keeps only alternatives that reached the destination', () => {
+    const complete = {
+      index: 1,
+      complete: true,
+      durationHours: 13,
+      distanceNm: 65,
+      motorHours: 0,
+      averageWaveHeightM: 0.9,
+      maximumWaveHeightM: 1.5,
+      averageWindKn: 13,
+      maximumWindKn: 20,
+    };
+    expect(
+      parseStatus({
+        status: 'warning',
+        progress: 100,
+        alternatives: [{ ...complete, index: 0, complete: false }, complete],
+      }),
+    ).toMatchObject({ state: 'complete', alternatives: [complete] });
   });
 });

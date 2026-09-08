@@ -44,7 +44,17 @@ export interface WayfinderStatus {
 
 export interface WayfinderRouteGeometry {
   index: number;
-  points: LatLon[];
+  points: WayfinderRoutePoint[];
+}
+
+export interface WayfinderRoutePoint extends LatLon {
+  time?: string;
+  windDir?: number;
+  heading?: number;
+  twa?: number;
+  tws?: number;
+  boatSpeed?: number;
+  propulsion?: 'sail' | 'motor' | 'wait';
 }
 
 export interface WayfinderConstraints {
@@ -172,20 +182,21 @@ export function parseStatus(value: unknown): WayfinderStatus | undefined {
   }
   if (value.status === 'done' || value.status === 'warning') {
     const alternatives = parseAlternatives(value.alternatives);
+    const completedAlternatives = alternatives?.filter((alternative) => alternative.complete);
     const message = typeof value.warning === 'string' ? value.warning : undefined;
-    if (alternatives?.length && alternatives.every((alternative) => !alternative.complete)) {
+    if (alternatives?.length && completedAlternatives?.length === 0) {
       return {
         state: 'failed',
         progress: 100,
         message: message ?? 'Wayfinder did not reach the destination within forecast coverage.',
-        alternatives,
+        alternatives: completedAlternatives,
       };
     }
     return {
       state: 'complete',
       progress: 100,
       message,
-      ...(alternatives ? { alternatives } : {}),
+      ...(completedAlternatives ? { alternatives: completedAlternatives } : {}),
     };
   }
   if (value.status === 'error') {
@@ -377,8 +388,10 @@ export async function fetchWayfinderRouteGeometry(
     return undefined;
   const geometry = value.feature.geometry;
   if (geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates)) return undefined;
-  const points: LatLon[] = [];
-  for (const coordinate of geometry.coordinates) {
+  const properties = isRecord(value.feature.properties) ? value.feature.properties : undefined;
+  const meta = Array.isArray(properties?.coordinatesMeta) ? properties.coordinatesMeta : [];
+  const points: WayfinderRoutePoint[] = [];
+  for (const [index, coordinate] of geometry.coordinates.entries()) {
     if (
       !Array.isArray(coordinate) ||
       coordinate.length < 2 ||
@@ -387,7 +400,29 @@ export async function fetchWayfinderRouteGeometry(
     ) {
       return undefined;
     }
-    points.push({ latitude: coordinate[1], longitude: coordinate[0] });
+    const rawMeta = isRecord(meta[index]) ? meta[index] : undefined;
+    const finite = (key: string): number | undefined => {
+      const candidate = rawMeta?.[key];
+      return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : undefined;
+    };
+    const time =
+      typeof rawMeta?.time === 'string' && Number.isFinite(Date.parse(rawMeta.time))
+        ? rawMeta.time
+        : undefined;
+    const propulsion = rawMeta?.propulsion;
+    points.push({
+      latitude: coordinate[1],
+      longitude: coordinate[0],
+      ...(time ? { time } : {}),
+      ...(finite('windDir') !== undefined ? { windDir: finite('windDir') } : {}),
+      ...(finite('heading') !== undefined ? { heading: finite('heading') } : {}),
+      ...(finite('twa') !== undefined ? { twa: finite('twa') } : {}),
+      ...(finite('tws') !== undefined ? { tws: finite('tws') } : {}),
+      ...(finite('boatSpeed') !== undefined ? { boatSpeed: finite('boatSpeed') } : {}),
+      ...(propulsion === 'sail' || propulsion === 'motor' || propulsion === 'wait'
+        ? { propulsion }
+        : {}),
+    });
   }
   return points.length >= 2 ? { index, points } : undefined;
 }

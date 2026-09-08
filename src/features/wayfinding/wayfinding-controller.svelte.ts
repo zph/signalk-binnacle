@@ -110,7 +110,9 @@ export function createWayfindingController(deps: {
       if (next.state !== 'calculating') {
         busy = false;
         if (next.state === 'complete') {
-          const indexes = next.alternatives?.map((alternative) => alternative.index) ?? [0];
+          const indexes = next.alternatives
+            ?.filter((alternative) => alternative.complete)
+            .map((alternative) => alternative.index) ?? [0];
           routes = (
             await Promise.all(
               indexes.map((index) =>

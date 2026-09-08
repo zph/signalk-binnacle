@@ -28,6 +28,7 @@ const PATH_SOURCE = 'binnacle-wayfinder-paths';
 const FRONTIER_SOURCE = 'binnacle-wayfinder-frontier';
 const MARKER_SOURCE = 'binnacle-wayfinder-markers';
 const PATH_CASING_LAYER = 'binnacle-wayfinder-path-casing';
+const PATH_ALTERNATIVE_LAYER = 'binnacle-wayfinder-path-alternative';
 const PATH_LAYER = 'binnacle-wayfinder-path';
 const FRONTIER_LINE_LAYER = 'binnacle-wayfinder-frontier-line';
 const FRONTIER_POINT_LAYER = 'binnacle-wayfinder-frontier-point';
@@ -35,6 +36,7 @@ const MARKER_LAYER = 'binnacle-wayfinder-marker';
 const MARKER_LABEL_LAYER = 'binnacle-wayfinder-marker-label';
 const LAYERS = [
   PATH_CASING_LAYER,
+  PATH_ALTERNATIVE_LAYER,
   PATH_LAYER,
   FRONTIER_LINE_LAYER,
   FRONTIER_POINT_LAYER,
@@ -131,6 +133,36 @@ function selectedColor(paint: MapThemePaint): ExpressionSpecification {
   return ['case', ['get', 'selected'], paint.select, paint.note];
 }
 
+function alternativeColor(paint: MapThemePaint): ExpressionSpecification {
+  return [
+    'match',
+    ['%', ['get', 'index'], 5],
+    0,
+    paint.note,
+    1,
+    paint.waypoint,
+    2,
+    paint.tide,
+    3,
+    paint.navPort,
+    paint.navStarboard,
+  ];
+}
+
+function alternativeDash(): ExpressionSpecification {
+  return [
+    'match',
+    ['%', ['get', 'index'], 4],
+    0,
+    ['literal', [5, 2]],
+    1,
+    ['literal', [2, 2]],
+    2,
+    ['literal', [7, 2, 1, 2]],
+    ['literal', [1, 2]],
+  ];
+}
+
 function markerColor(paint: MapThemePaint): ExpressionSpecification {
   return [
     'match',
@@ -178,11 +210,25 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
         id: PATH_LAYER,
         type: 'line',
         source: PATH_SOURCE,
+        filter: ['==', ['get', 'selected'], true],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': selectedColor(paint),
           'line-width': ['case', ['get', 'selected'], 4, 2],
           'line-opacity': ['case', ['get', 'selected'], 1, 0.7],
+        },
+      };
+      const alternatives: LineLayerSpecification = {
+        id: PATH_ALTERNATIVE_LAYER,
+        type: 'line',
+        source: PATH_SOURCE,
+        filter: ['==', ['get', 'selected'], false],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': alternativeColor(paint),
+          'line-width': 2.5,
+          'line-opacity': 0.78,
+          'line-dasharray': alternativeDash(),
         },
       };
       const frontierLine: LineLayerSpecification = {
@@ -236,7 +282,15 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
         },
         paint: { 'text-color': paint.markerGlyph },
       };
-      for (const layer of [casing, paths, frontierLine, frontierPoints, markers, labels]) {
+      for (const layer of [
+        casing,
+        alternatives,
+        paths,
+        frontierLine,
+        frontierPoints,
+        markers,
+        labels,
+      ]) {
         if (!ctx.map.getLayer(layer.id)) ctx.map.addLayer(layer, before);
       }
     },
@@ -249,7 +303,7 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
           ctx.map,
           FRONTIER_SOURCE,
           frontierFeatures(
-            source.frontiers,
+            source.status.state === 'calculating' ? source.frontiers : [],
             source.status.state === 'calculating' ? source.status.frontier : undefined,
           ),
         );
@@ -277,6 +331,7 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
     applyTheme(ctx, next) {
       paint = next;
       setPaintProp(ctx.map, PATH_LAYER, 'line-color', selectedColor(paint));
+      setPaintProp(ctx.map, PATH_ALTERNATIVE_LAYER, 'line-color', alternativeColor(paint));
       setPaintProp(ctx.map, FRONTIER_LINE_LAYER, 'line-color', paint.select);
       setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-color', paint.select);
       setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-stroke-color', paint.markerGlyph);
