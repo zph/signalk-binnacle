@@ -1,24 +1,44 @@
 <script lang="ts">
-// Sail Wayfinder panel: turns a saved route into a weather-routed passage without activating it.
+// Sail Wayfinder panel: captures a passage from the chart or a saved route, then weather-routes it
+// without activating it.
 
 import Compass from '@lucide/svelte/icons/compass';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onMount } from 'svelte';
-import type { RouteStore } from '$entities/route';
+import type { Route, RouteStore } from '$entities/route';
 import { depthValueFromMeters, depthValueToMeters, type UnitsStore } from '$entities/units';
-import { LayerToggle, SlideOver, UnitField } from '$shared/ui';
+import type { OwnVessel } from '$entities/vessel';
+import type { LatLon } from '$shared/geo';
+import { formatLatitude, formatLongitude } from '$shared/lib';
+import { haversineMeters } from '$shared/nav';
+import { createPanelMinimize, LayerToggle, SlideOver, UnitField } from '$shared/ui';
 import type { WayfinderObjective } from './wayfinder-client';
 import type { createWayfindingController } from './wayfinding-controller.svelte';
 
 interface Props {
   controller: ReturnType<typeof createWayfindingController>;
   routeStore: RouteStore;
+  vessel: OwnVessel;
   units: UnitsStore;
+  chartCommands?: {
+    getCenter: () => LatLon;
+  };
+  onChartModeChange?: (active: boolean) => void;
   onClose: () => void;
   onBack?: () => void;
 }
 
-const { controller, routeStore, units, onClose, onBack }: Props = $props();
+const {
+  controller,
+  routeStore,
+  vessel,
+  units,
+  chartCommands,
+  onChartModeChange,
+  onClose,
+  onBack,
+}: Props = $props();
+const minimize = createPanelMinimize();
 const supportsPassageConstraints = $derived(
   controller.capabilities?.passageConstraints.includes('daylightOnly') === true &&
     controller.capabilities?.passageConstraints.includes('maxHoursPerDay') === true,
@@ -44,6 +64,10 @@ const reason = $derived(
     'Install and configure Sail Wayfinder with forecast coverage, a polar, and shoreline data.',
 );
 let routeId = $state('');
+let passageSource = $state<'chart' | 'saved'>('chart');
+let startPosition = $state<LatLon | undefined>();
+let destinationPosition = $state<LatLon | undefined>();
+let startInitialized = false;
 let departure = $state(new Date(Date.now() + 300_000).toISOString().slice(0, 16));
 let daylightOnly = $state(false);
 let maxHoursPerDay = $state(0);
@@ -62,7 +86,29 @@ let vesselDraftM = $state(0);
 let draftPath = $state('design.draft.current');
 let selectedAlternativeIndex = $state(0);
 let saveName = $state('');
-const selected = $derived(routeStore.routeById(routeId));
+const selectedSavedRoute = $derived(routeStore.routeById(routeId));
+const chartRoute = $derived.by<Route | undefined>(() => {
+  if (!startPosition || !destinationPosition) return undefined;
+  return {
+    id: 'wayfinder-chart-passage',
+    name: 'Chart passage',
+    waypoints: [
+      { name: 'Start', position: startPosition },
+      { name: 'Destination', position: destinationPosition },
+    ],
+  };
+});
+const selected = $derived(passageSource === 'chart' ? chartRoute : selectedSavedRoute);
+const directDistanceNm = $derived(
+  startPosition && destinationPosition
+    ? haversineMeters(
+        startPosition.latitude,
+        startPosition.longitude,
+        destinationPosition.latitude,
+        destinationPosition.longitude,
+      ) / 1852
+    : undefined,
+);
 const canChooseWaitForWind = $derived(
   objective === 'bestWeather' ||
     (objective === 'fastest' && !(motorSpeedKn > 0 && motorBelowKn > 0)),
@@ -72,6 +118,33 @@ onMount(() => {
   if (!routeId && routeStore.routes[0]) routeId = routeStore.routes[0].id;
   void controller.refresh().then(() => applyDiscoveredDraft());
 });
+
+$effect(() => {
+  const position = vessel.position;
+  if (startInitialized || !position || vessel.positionStale) return;
+  startPosition = position;
+  startInitialized = true;
+});
+
+$effect(() => {
+  onChartModeChange?.(passageSource === 'chart');
+  return () => onChartModeChange?.(false);
+});
+
+function setEndpointFromChart(endpoint: 'start' | 'destination'): void {
+  const center = chartCommands?.getCenter();
+  if (!center) return;
+  if (endpoint === 'start') {
+    startPosition = center;
+    startInitialized = true;
+  } else destinationPosition = center;
+}
+
+function useVesselStart(): void {
+  if (!vessel.position || vessel.positionStale) return;
+  startPosition = vessel.position;
+  startInitialized = true;
+}
 
 function applyDiscoveredDraft(): void {
   const capabilities = controller.capabilities;
@@ -88,7 +161,8 @@ async function readDraftPath(): Promise<void> {
 
 function calculate(): void {
   if (!selected || !departure) return;
-  saveName = `${selected.name} weather route`;
+  saveName =
+    passageSource === 'chart' ? 'Wayfinder chart passage' : `${selected.name} weather route`;
   selectedAlternativeIndex = 0;
   void controller.plan(selected, new Date(departure).toISOString(), {
     daylightOnly,
@@ -124,11 +198,12 @@ const objectiveLabel = $derived(
   closeLabel="Close Sail Wayfinder panel"
   {onClose}
   {onBack}
+  minimize={{ collapsed: minimize.collapsed, onToggle: minimize.onToggle }}
   bodyFlex
 >
   <p class="muted-note">
-    Weather-route an existing Binnacle route. The result remains advisory and is never activated
-    automatically.
+    Set a passage from the chart or reuse a saved route. The result remains advisory and is never
+    activated automatically.
   </p>
 
   {#if controller.status.state === 'calculating'}
@@ -205,17 +280,109 @@ const objectiveLabel = $derived(
   {:else}
     <section class="passage-inputs" aria-label="Passage inputs">
       <h3 class="caps-label">Passage</h3>
-      {#if routeStore.routes.length === 0}
-        <p class="alert-note">Create and save a route in Binnacle first.</p>
+      <div class="segmented passage-source" role="group" aria-label="Passage source">
+        <button
+          type="button"
+          class="btn"
+          class:is-on={passageSource === 'chart'}
+          aria-pressed={passageSource === 'chart'}
+          disabled={controller.busy}
+          onclick={() => (passageSource = 'chart')}
+        >
+          Chart endpoints
+        </button>
+        <button
+          type="button"
+          class="btn"
+          class:is-on={passageSource === 'saved'}
+          aria-pressed={passageSource === 'saved'}
+          disabled={controller.busy || routeStore.routes.length === 0}
+          onclick={() => (passageSource = 'saved')}
+        >
+          Saved route
+        </button>
+      </div>
+      {#if passageSource === 'chart'}
+        <p class="muted-note muted-note--xs">
+          Pan the chart until the center target is over the point you want, then capture it. On a
+          phone, minimize this pane to move the chart.
+        </p>
+        <div class="endpoint-card">
+          <div class="endpoint-readout">
+            <span class="caps-label">Start</span>
+            {#if startPosition}
+              <span class="num">
+                {formatLatitude(startPosition.latitude)},
+                {formatLongitude(startPosition.longitude)}
+              </span>
+            {:else}
+              <span class="muted-note muted-note--xs">No fresh vessel position</span>
+            {/if}
+          </div>
+          <div class="endpoint-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              disabled={controller.busy || !vessel.position || vessel.positionStale}
+              onclick={useVesselStart}
+            >
+              Use vessel
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              disabled={controller.busy || !chartCommands}
+              onclick={() => setEndpointFromChart('start')}
+            >
+              Move start to center
+            </button>
+          </div>
+        </div>
+        <div class="endpoint-card">
+          <div class="endpoint-readout">
+            <span class="caps-label">Destination</span>
+            {#if destinationPosition}
+              <span class="num">
+                {formatLatitude(destinationPosition.latitude)},
+                {formatLongitude(destinationPosition.longitude)}
+              </span>
+            {:else}
+              <span class="muted-note muted-note--xs">Not set</span>
+            {/if}
+          </div>
+          <button
+            type="button"
+            class="btn btn-primary"
+            disabled={controller.busy || !chartCommands}
+            onclick={() => setEndpointFromChart('destination')}
+          >
+            Set destination from center
+          </button>
+        </div>
+        {#if directDistanceNm !== undefined}
+          <p class="muted-note muted-note--xs" role="status">
+            Direct span <span class="num">{directDistanceNm.toFixed(1)} nm</span>. Wayfinder will
+            calculate the navigable route.
+          </p>
+        {/if}
       {:else}
+        {#if routeStore.routes.length === 0}
+          <p class="alert-note">No saved routes are available.</p>
+        {/if}
         <label class="field">
           <span>Route</span>
-          <select class="input" bind:value={routeId} disabled={controller.busy}>
+          <select
+            class="input"
+            bind:value={routeId}
+            disabled={controller.busy || routeStore.routes.length === 0}
+          >
             {#each routeStore.routes as route (route.id)}
               <option value={route.id}>{route.name}</option>
             {/each}
           </select>
         </label>
+      {/if}
+      <div class="routing-options">
         <label class="field">
           <span>Routing objective</span>
           <select class="input" bind:value={objective} disabled={controller.busy}>
@@ -456,7 +623,7 @@ const objectiveLabel = $derived(
         {:else if objective === 'allMotoring' && motorSpeedKn <= 0}
           <p class="alert-note">Enter engine cruising speed for an all-motoring route.</p>
         {/if}
-      {/if}
+      </div>
     </section>
   {/if}
 
@@ -480,9 +647,42 @@ const objectiveLabel = $derived(
   display: flex;
   align-items: center;
 }
+.passage-source {
+  margin-block: var(--space-3);
+}
+.passage-source .btn {
+  flex: 1;
+}
+.endpoint-card {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-block: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.endpoint-readout {
+  display: grid;
+  gap: var(--space-1);
+}
+.endpoint-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: var(--space-2);
+}
+.endpoint-actions .btn,
+.endpoint-card > .btn {
+  inline-size: 100%;
+}
 progress {
   inline-size: 100%;
   accent-color: var(--accent);
+}
+@media (max-width: 380px) {
+  .endpoint-actions {
+    grid-template-columns: 1fr;
+  }
 }
 @media (min-width: 601px) {
   .passage-inputs {

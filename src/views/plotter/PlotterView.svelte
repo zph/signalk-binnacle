@@ -663,6 +663,7 @@ const {
 } = $derived(actions);
 
 let mapCommands = $state<MapCommands | undefined>();
+let wayfindingChartMode = $state(false);
 let serverChartsStatus = $state<'loading' | 'ready' | 'partial' | 'error'>('loading');
 let retryServerCharts = $state<(() => void) | undefined>();
 let handledChartCatalogRevision = 0;
@@ -971,6 +972,11 @@ $effect(() => {
     {onMapInstance}
     {onMapDestroyed}
   />
+  {#if activePanel === 'wayfinding' && wayfindingChartMode}
+    <div class="wayfinder-center-target" aria-hidden="true">
+      <span></span>
+    </div>
+  {/if}
   <div class="banner-slot">
     <AuthBanner
       {auth}
@@ -1265,7 +1271,10 @@ $effect(() => {
             <module.default
               controller={wayfindingController}
               {routeStore}
+              {vessel}
               {units}
+              chartCommands={mapCommands}
+              onChartModeChange={(active) => (wayfindingChartMode = active)}
               onClose={closePanel}
               onBack={backToMenu}
             />
@@ -2209,6 +2218,44 @@ $effect(() => {
 .chart-host {
   position: relative;
   block-size: 100%;
+}
+.wayfinder-center-target {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  translate: -50% -50%;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px var(--surface),
+    var(--shadow-overlay);
+  pointer-events: none;
+  z-index: var(--z-overlay);
+}
+.wayfinder-center-target::before,
+.wayfinder-center-target::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  background: var(--accent);
+  translate: -50% -50%;
+}
+.wayfinder-center-target::before {
+  inline-size: 3.25rem;
+  block-size: 2px;
+}
+.wayfinder-center-target::after {
+  inline-size: 2px;
+  block-size: 3.25rem;
+}
+.wayfinder-center-target span {
+  position: absolute;
+  inset: calc(50% - 0.2rem);
+  border-radius: 50%;
+  background: var(--accent);
 }
 .radar-placement-instruction {
   flex: 1;

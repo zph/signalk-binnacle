@@ -26,6 +26,9 @@ export interface MapCommands {
   // The current viewport as a [west, south, east, north] box, read straight from the map, for code
   // that needs the visible area (for example scoping an AI route draft's nearby notes and POIs).
   getBounds: () => Bbox4;
+  // The geographic point under the chart's center target. Planning panels use this instead of
+  // taking over chart taps, so the navigator can pan and zoom normally before capturing a point.
+  getCenter: () => LatLon;
   // Start on-chart route editing (Terra Draw): with a route, edit it; without one, draw a fresh
   // route. An initialPoint seeds the first waypoint of a fresh route at a chosen spot ("Start a route
   // here"). stopRouteEdit tears the editor down.

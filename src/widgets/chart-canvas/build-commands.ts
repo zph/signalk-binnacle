@@ -103,6 +103,10 @@ export function buildMapCommands(deps: MapCommandsDeps): MapCommands {
       });
     },
     getBounds: () => lngLatBoundsToBbox4(map.getBounds()),
+    getCenter: () => {
+      const center = map.getCenter();
+      return { latitude: center.lat, longitude: center.lng };
+    },
     highlightPoi: (position) => notesOverlay.highlight(ctx, position),
     startRouteEdit: (route, initialPoint) => {
       const generation = nextEditGeneration();

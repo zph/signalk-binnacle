@@ -30,6 +30,7 @@ function setup() {
       getEast: () => -85,
       getNorth: () => 45,
     })),
+    getCenter: vi.fn(() => ({ lat: 44.25, lng: -86.5 })),
   };
   const manager = { applySnapshot: vi.fn() };
   const view = { refresh: vi.fn() };
@@ -160,6 +161,7 @@ describe('buildMapCommands', () => {
       { padding: 40, maxZoom: 16, duration: 800 },
     );
     expect(commands.getBounds()).toEqual([-87, 43, -85, 45]);
+    expect(commands.getCenter()).toEqual({ latitude: 44.25, longitude: -86.5 });
   });
 
   it('routes recentering and POI highlighting without moving unrelated state', () => {

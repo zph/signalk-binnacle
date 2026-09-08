@@ -155,6 +155,18 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
 
   const panel = page.getByRole('complementary', { name: 'Sail Wayfinder' });
   await expect(panel.getByRole('heading', { name: 'Sail Wayfinder' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Chart endpoints' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('.wayfinder-center-target')).toBeVisible();
+  await expect(panel.getByText('No fresh vessel position')).toBeVisible();
+  await panel.getByRole('button', { name: 'Move start to center' }).click();
+  await expect(panel.getByText('No fresh vessel position')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Set destination from center' }).click();
+  await expect(panel.getByText(/Direct span \d+\.\d nm/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Saved route' }).click();
+  await expect(page.locator('.wayfinder-center-target')).toHaveCount(0);
   await expect(panel.getByRole('combobox', { name: 'Route' })).toHaveValue('passage');
   await expectInsideViewport(panel, page);
   await expectNoHorizontalOverflow(panel);
@@ -214,4 +226,16 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   await expect(panel.getByText('Route saved. Navigation was not started.')).toBeVisible();
   expect(calculations).toBe(2);
   await expect(page.getByText(/Navigating to/)).toHaveCount(0);
+
+  await panel.getByRole('button', { name: 'Chart endpoints' }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const minimize = panel.getByRole('button', { name: 'Minimize panel' });
+  await expect(minimize).toBeVisible();
+  await minimize.click();
+  await expect(panel.getByRole('region', { name: 'Passage inputs' })).toBeHidden();
+  await expect(page.locator('.wayfinder-center-target')).toBeVisible();
+  await expectInsideViewport(panel, page);
+  await panel.getByRole('button', { name: 'Expand panel' }).click();
+  await expect(panel.getByRole('region', { name: 'Passage inputs' })).toBeVisible();
+  await expectNoHorizontalOverflow(panel);
 });
