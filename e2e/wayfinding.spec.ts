@@ -63,7 +63,11 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     expect(request.end).toEqual({ lat: 42.7, lon: -83.4 });
     expect(request.useLandAvoidance).toBe(true);
     expect(request.useSafetyMargin).toBe(true);
+    expect(request.useCurrentGrib).toBe(true);
     expect(request.options).toEqual({
+      waitForWind: true,
+      maxWindKn: 25,
+      maxWaveM: 1.5,
       daylightOnly: true,
       maxHoursPerDay: 8,
       minimumShoreDistanceNm: 2,
@@ -163,6 +167,18 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   await expect(panel.getByText('Loaded from design.customDraft.')).toBeVisible();
 
   await panel.getByRole('checkbox', { name: 'Daylight-only sailing' }).check();
+  await expect(panel.getByRole('checkbox', { name: 'Avoid land' })).toBeChecked();
+  await expect(panel.getByRole('checkbox', { name: 'Shoreline safety margin' })).toBeChecked();
+  await expect(panel.getByRole('checkbox', { name: 'Use current forecast' })).toBeChecked();
+  await panel.getByRole('checkbox', { name: 'Wait for wind' }).check();
+  const maxWind = panel.getByRole('spinbutton', { name: 'Maximum true wind in kn' });
+  await maxWind.fill('25');
+  await maxWind.blur();
+  const maxWave = panel.getByRole('spinbutton', {
+    name: 'Maximum significant wave height in m',
+  });
+  await maxWave.fill('1.5');
+  await maxWave.blur();
   const maxHours = panel.getByRole('spinbutton', { name: 'Maximum underway per day in h' });
   await maxHours.fill('8');
   await maxHours.blur();

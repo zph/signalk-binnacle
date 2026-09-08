@@ -50,6 +50,12 @@ describe('wayfinder API parsing', () => {
       },
       '2026-06-06T13:00:00.000Z',
       {
+        useLandAvoidance: true,
+        useSafetyMargin: true,
+        useCurrentGrib: true,
+        waitForWind: false,
+        maxWindKn: 0,
+        maxWaveM: 0,
         daylightOnly: false,
         maxHoursPerDay: 0,
         minimumShoreDistanceNm: 0,
@@ -66,6 +72,72 @@ describe('wayfinder API parsing', () => {
     expect(result).toEqual({
       started: false,
       error: 'Start point is shallower than the configured minimum depth',
+    });
+  });
+
+  it('sends every route-affecting standalone Wayfinder option', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{}', { status: 202, headers: { 'Content-Type': 'application/json' } }),
+      );
+
+    await startWayfinderPlan(
+      'http://signalk.test',
+      'token',
+      {
+        id: 'route-1',
+        name: 'Test route',
+        waypoints: [
+          { position: { latitude: 38.1, longitude: -122.3 } },
+          { position: { latitude: 38.2, longitude: -122.2 } },
+          { position: { latitude: 38.3, longitude: -122.1 } },
+        ],
+      },
+      '2026-09-08T16:00:00.000Z',
+      {
+        useLandAvoidance: false,
+        useSafetyMargin: false,
+        useCurrentGrib: false,
+        waitForWind: true,
+        maxWindKn: 28,
+        maxWaveM: 1.7,
+        daylightOnly: true,
+        maxHoursPerDay: 8,
+        minimumShoreDistanceNm: 1,
+        maximumOffshoreDistanceNm: 40,
+        objective: 'leastMotoring',
+        alternativeCount: 10,
+        motorSpeedKn: 6,
+        motorBelowKn: 2,
+        vesselDraftM: 1.8,
+      },
+      fetchFn,
+    );
+
+    const request = fetchFn.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toEqual({
+      start: { lat: 38.1, lon: -122.3 },
+      end: { lat: 38.3, lon: -122.1 },
+      waypoints: [{ lat: 38.2, lon: -122.2 }],
+      departureTime: '2026-09-08T16:00:00.000Z',
+      useLandAvoidance: false,
+      useSafetyMargin: false,
+      useCurrentGrib: false,
+      options: {
+        waitForWind: true,
+        maxWindKn: 28,
+        maxWaveM: 1.7,
+        daylightOnly: true,
+        maxHoursPerDay: 8,
+        minimumShoreDistanceNm: 1,
+        maximumOffshoreDistanceNm: 40,
+        objective: 'leastMotoring',
+        alternativeCount: 10,
+        motorSpeedKn: 6,
+        motorBelowKn: 2,
+        vesselDraftM: 1.8,
+      },
     });
   });
 

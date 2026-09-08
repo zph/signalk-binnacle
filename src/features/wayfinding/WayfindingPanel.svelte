@@ -53,6 +53,12 @@ let objective = $state<WayfinderObjective>('fastest');
 let alternativeCount = $state(5);
 let motorSpeedKn = $state(0);
 let motorBelowKn = $state(0);
+let useLandAvoidance = $state(true);
+let useSafetyMargin = $state(true);
+let useCurrentGrib = $state(true);
+let waitForWind = $state(false);
+let maxWindKn = $state(0);
+let maxWaveM = $state(0);
 let vesselDraftM = $state(0);
 let draftPath = $state('design.draft.current');
 let selectedAlternativeIndex = $state(0);
@@ -90,6 +96,12 @@ function calculate(): void {
     alternativeCount,
     motorSpeedKn,
     motorBelowKn,
+    useLandAvoidance,
+    useSafetyMargin,
+    useCurrentGrib,
+    waitForWind,
+    maxWindKn,
+    maxWaveM,
     vesselDraftM,
   });
 }
@@ -292,6 +304,70 @@ const objectiveLabel = $derived(
         />
         <p id="wayfinder-max-hours-help" class="muted-note muted-note--xs">
           0 is unlimited. Each passage day begins at the selected departure time.
+        </p>
+        <h3 class="caps-label">Routing behavior</h3>
+        <div class="constraint-row">
+          <LayerToggle
+            label="Avoid land"
+            description="Reject route segments that cross the best installed chart shoreline."
+            visible={useLandAvoidance}
+            disabled={controller.busy}
+            onToggle={(visible) => (useLandAvoidance = visible)}
+          />
+        </div>
+        <div class="constraint-row">
+          <LayerToggle
+            label="Shoreline safety margin"
+            description="Keep the route outside Wayfinder's additional 0.5 nm shoreline buffer."
+            visible={useSafetyMargin}
+            disabled={controller.busy}
+            onToggle={(visible) => (useSafetyMargin = visible)}
+          />
+        </div>
+        <div class="constraint-row">
+          <LayerToggle
+            label="Use current forecast"
+            description="Include the available current forecast in speed and timing calculations."
+            visible={useCurrentGrib}
+            disabled={controller.busy}
+            onToggle={(visible) => (useCurrentGrib = visible)}
+          />
+        </div>
+        <div class="constraint-row">
+          <LayerToggle
+            label="Wait for wind"
+            description="Allow the route to wait when wind is below the useful sailing range."
+            visible={waitForWind}
+            disabled={controller.busy}
+            onToggle={(visible) => (waitForWind = visible)}
+          />
+        </div>
+        <UnitField
+          label="Maximum true wind"
+          unit="kn"
+          value={maxWindKn}
+          min={0}
+          max={200}
+          step={1}
+          disabled={controller.busy}
+          ariaDescribedBy="wayfinder-weather-limits-help"
+          onCommit={(value) => (maxWindKn = Math.max(0, Math.min(200, value)))}
+        />
+        <UnitField
+          label="Maximum significant wave height"
+          unit={units.depthUnit}
+          value={Number(depthValueFromMeters(maxWaveM, units.depthUnit).toFixed(1))}
+          min={0}
+          max={Number(depthValueFromMeters(100, units.depthUnit).toFixed(1))}
+          step={0.1}
+          disabled={controller.busy}
+          ariaDescribedBy="wayfinder-weather-limits-help"
+          onCommit={(value) =>
+            (maxWaveM = Math.max(0, depthValueToMeters(value, units.depthUnit)))}
+        />
+        <p id="wayfinder-weather-limits-help" class="muted-note muted-note--xs">
+          0 disables either limit. Wayfinder rejects candidates that exceed an enabled forecast
+          limit.
         </p>
         <h3 class="caps-label">Navigation safety</h3>
         <label class="field">

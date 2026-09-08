@@ -41,6 +41,12 @@ export interface WayfinderStatus {
 }
 
 export interface WayfinderConstraints {
+  useLandAvoidance: boolean;
+  useSafetyMargin: boolean;
+  useCurrentGrib: boolean;
+  waitForWind: boolean;
+  maxWindKn: number;
+  maxWaveM: number;
   daylightOnly: boolean;
   maxHoursPerDay: number;
   minimumShoreDistanceNm: number;
@@ -231,9 +237,13 @@ export async function startWayfinderPlan(
       lon: position.longitude,
     })),
     departureTime,
-    useLandAvoidance: true,
-    useSafetyMargin: true,
+    useLandAvoidance: constraints.useLandAvoidance,
+    useSafetyMargin: constraints.useSafetyMargin,
+    useCurrentGrib: constraints.useCurrentGrib,
     options: {
+      waitForWind: constraints.waitForWind,
+      maxWindKn: constraints.maxWindKn,
+      maxWaveM: constraints.maxWaveM,
       daylightOnly: constraints.daylightOnly,
       maxHoursPerDay: constraints.maxHoursPerDay,
       minimumShoreDistanceNm: constraints.minimumShoreDistanceNm,
