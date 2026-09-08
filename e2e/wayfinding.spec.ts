@@ -62,7 +62,7 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
     expect(request.start).toEqual({ lat: 42.6, lon: -83.5 });
     expect(request.end).toEqual({ lat: 42.7, lon: -83.4 });
     expect(request.useLandAvoidance).toBe(true);
-    expect(request.useSafetyMargin).toBe(true);
+    expect(request.useSafetyMargin).toBe(false);
     expect(request.useCurrentGrib).toBe(true);
     expect(request.options).toEqual({
       waitForWind: true,
@@ -168,7 +168,6 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
 
   await panel.getByRole('checkbox', { name: 'Daylight-only sailing' }).check();
   await expect(panel.getByRole('checkbox', { name: 'Avoid land' })).toBeChecked();
-  await expect(panel.getByRole('checkbox', { name: 'Shoreline safety margin' })).toBeChecked();
   await expect(panel.getByRole('checkbox', { name: 'Use current forecast' })).toBeChecked();
   await panel.getByRole('checkbox', { name: 'Wait for wind' }).check();
   const maxWind = panel.getByRole('spinbutton', { name: 'Maximum true wind in kn' });

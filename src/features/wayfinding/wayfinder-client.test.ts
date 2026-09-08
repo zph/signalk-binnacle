@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parseCapabilities, parseStatus, startWayfinderPlan } from './wayfinder-client';
+import {
+  normalizeShorelineConstraints,
+  parseCapabilities,
+  parseStatus,
+  startWayfinderPlan,
+} from './wayfinder-client';
 
 describe('wayfinder API parsing', () => {
   it('accepts a ready capability response', () => {
@@ -51,7 +56,6 @@ describe('wayfinder API parsing', () => {
       '2026-06-06T13:00:00.000Z',
       {
         useLandAvoidance: true,
-        useSafetyMargin: true,
         useCurrentGrib: true,
         waitForWind: false,
         maxWindKn: 0,
@@ -97,7 +101,6 @@ describe('wayfinder API parsing', () => {
       '2026-09-08T16:00:00.000Z',
       {
         useLandAvoidance: false,
-        useSafetyMargin: false,
         useCurrentGrib: false,
         waitForWind: true,
         maxWindKn: 28,
@@ -121,7 +124,7 @@ describe('wayfinder API parsing', () => {
       end: { lat: 38.3, lon: -122.1 },
       waypoints: [{ lat: 38.2, lon: -122.2 }],
       departureTime: '2026-09-08T16:00:00.000Z',
-      useLandAvoidance: false,
+      useLandAvoidance: true,
       useSafetyMargin: false,
       useCurrentGrib: false,
       options: {
@@ -138,6 +141,24 @@ describe('wayfinder API parsing', () => {
         motorBelowKn: 2,
         vesselDraftM: 1.8,
       },
+    });
+  });
+
+  it('deduplicates the standard shoreline margin from custom clearance', () => {
+    expect(normalizeShorelineConstraints(false, 0)).toEqual({
+      useLandAvoidance: false,
+      useSafetyMargin: false,
+      minimumShoreDistanceNm: 0,
+    });
+    expect(normalizeShorelineConstraints(true, 0.5)).toEqual({
+      useLandAvoidance: true,
+      useSafetyMargin: true,
+      minimumShoreDistanceNm: 0,
+    });
+    expect(normalizeShorelineConstraints(false, 2)).toEqual({
+      useLandAvoidance: true,
+      useSafetyMargin: false,
+      minimumShoreDistanceNm: 2,
     });
   });
 

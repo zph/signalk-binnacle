@@ -47,14 +47,13 @@ let routeId = $state('');
 let departure = $state(new Date(Date.now() + 300_000).toISOString().slice(0, 16));
 let daylightOnly = $state(false);
 let maxHoursPerDay = $state(0);
-let minimumShoreDistanceNm = $state(0);
+let minimumShoreDistanceNm = $state(0.5);
 let maximumOffshoreDistanceNm = $state(0);
 let objective = $state<WayfinderObjective>('fastest');
 let alternativeCount = $state(5);
 let motorSpeedKn = $state(0);
 let motorBelowKn = $state(0);
 let useLandAvoidance = $state(true);
-let useSafetyMargin = $state(true);
 let useCurrentGrib = $state(true);
 let waitForWind = $state(false);
 let maxWindKn = $state(0);
@@ -97,7 +96,6 @@ function calculate(): void {
     motorSpeedKn,
     motorBelowKn,
     useLandAvoidance,
-    useSafetyMargin,
     useCurrentGrib,
     waitForWind,
     maxWindKn,
@@ -312,16 +310,10 @@ const objectiveLabel = $derived(
             description="Reject route segments that cross the best installed chart shoreline."
             visible={useLandAvoidance}
             disabled={controller.busy}
-            onToggle={(visible) => (useLandAvoidance = visible)}
-          />
-        </div>
-        <div class="constraint-row">
-          <LayerToggle
-            label="Shoreline safety margin"
-            description="Keep the route outside Wayfinder's additional 0.5 nm shoreline buffer."
-            visible={useSafetyMargin}
-            disabled={controller.busy}
-            onToggle={(visible) => (useSafetyMargin = visible)}
+            onToggle={(visible) => {
+              useLandAvoidance = visible;
+              if (!visible) minimumShoreDistanceNm = 0;
+            }}
           />
         </div>
         <div class="constraint-row">
@@ -333,15 +325,19 @@ const objectiveLabel = $derived(
             onToggle={(visible) => (useCurrentGrib = visible)}
           />
         </div>
-        <div class="constraint-row">
-          <LayerToggle
-            label="Wait for wind"
-            description="Allow the route to wait when wind is below the useful sailing range."
-            visible={waitForWind}
-            disabled={controller.busy}
-            onToggle={(visible) => (waitForWind = visible)}
-          />
-        </div>
+        {#if objective === 'leastMotoring'}
+          <p class="muted-note muted-note--xs">Least motoring always waits for usable wind.</p>
+        {:else}
+          <div class="constraint-row">
+            <LayerToggle
+              label="Wait for wind"
+              description="Allow the route to wait when wind is below the useful sailing range."
+              visible={waitForWind}
+              disabled={controller.busy}
+              onToggle={(visible) => (waitForWind = visible)}
+            />
+          </div>
+        {/if}
         <UnitField
           label="Maximum true wind"
           unit="kn"
@@ -413,7 +409,10 @@ const objectiveLabel = $derived(
           step={0.1}
           disabled={controller.busy}
           ariaDescribedBy="wayfinder-shore-help"
-          onCommit={(value) => (minimumShoreDistanceNm = Math.max(0, Math.min(50, value)))}
+          onCommit={(value) => {
+            minimumShoreDistanceNm = Math.max(0, Math.min(50, value));
+            if (minimumShoreDistanceNm > 0) useLandAvoidance = true;
+          }}
         />
         <UnitField
           label="Maximum distance offshore"
@@ -427,8 +426,9 @@ const objectiveLabel = $derived(
           onCommit={(value) => (maximumOffshoreDistanceNm = Math.max(0, Math.min(1_000, value)))}
         />
         <p id="wayfinder-shore-help" class="muted-note muted-note--xs">
-          0 disables either limit. Shore distances use the best installed vector chart covering the
-          route, with GSHHG as a fallback. Charted hazards remain advisory.
+          0 disables either limit. A 0.5 nm minimum uses Wayfinder's standard safety margin without
+          stacking a second clearance constraint. Shore distances use the best installed vector
+          chart covering the route, with GSHHG as a fallback. Charted hazards remain advisory.
         </p>
         <button
           class="btn btn-primary"

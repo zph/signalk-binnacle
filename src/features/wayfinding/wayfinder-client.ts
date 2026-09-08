@@ -42,7 +42,6 @@ export interface WayfinderStatus {
 
 export interface WayfinderConstraints {
   useLandAvoidance: boolean;
-  useSafetyMargin: boolean;
   useCurrentGrib: boolean;
   waitForWind: boolean;
   maxWindKn: number;
@@ -61,6 +60,21 @@ export interface WayfinderConstraints {
 export interface WayfinderPlanStartResult {
   started: boolean;
   error?: string;
+}
+
+export function normalizeShorelineConstraints(
+  useLandAvoidance: boolean,
+  minimumShoreDistanceNm: number,
+): {
+  useLandAvoidance: boolean;
+  useSafetyMargin: boolean;
+  minimumShoreDistanceNm: number;
+} {
+  return {
+    useLandAvoidance: useLandAvoidance || minimumShoreDistanceNm > 0,
+    useSafetyMargin: minimumShoreDistanceNm === 0.5,
+    minimumShoreDistanceNm: minimumShoreDistanceNm === 0.5 ? 0 : minimumShoreDistanceNm,
+  };
 }
 
 function stringArray(value: unknown): string[] | undefined {
@@ -229,6 +243,10 @@ export async function startWayfinderPlan(
   const [start, ...rest] = route.waypoints;
   const end = rest.at(-1);
   if (!start || !end) return { started: false };
+  const shoreline = normalizeShorelineConstraints(
+    constraints.useLandAvoidance,
+    constraints.minimumShoreDistanceNm,
+  );
   const body = {
     start: { lat: start.position.latitude, lon: start.position.longitude },
     end: { lat: end.position.latitude, lon: end.position.longitude },
@@ -237,8 +255,8 @@ export async function startWayfinderPlan(
       lon: position.longitude,
     })),
     departureTime,
-    useLandAvoidance: constraints.useLandAvoidance,
-    useSafetyMargin: constraints.useSafetyMargin,
+    useLandAvoidance: shoreline.useLandAvoidance,
+    useSafetyMargin: shoreline.useSafetyMargin,
     useCurrentGrib: constraints.useCurrentGrib,
     options: {
       waitForWind: constraints.waitForWind,
@@ -246,7 +264,7 @@ export async function startWayfinderPlan(
       maxWaveM: constraints.maxWaveM,
       daylightOnly: constraints.daylightOnly,
       maxHoursPerDay: constraints.maxHoursPerDay,
-      minimumShoreDistanceNm: constraints.minimumShoreDistanceNm,
+      minimumShoreDistanceNm: shoreline.minimumShoreDistanceNm,
       maximumOffshoreDistanceNm: constraints.maximumOffshoreDistanceNm,
       objective: constraints.objective,
       alternativeCount: constraints.alternativeCount,
