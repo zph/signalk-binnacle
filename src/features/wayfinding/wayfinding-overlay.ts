@@ -89,7 +89,10 @@ function frontierFeatures(
       type: 'Feature',
       id: `isochrone-${index}`,
       geometry: antimeridianLineGeometry(frontier.map(lonLat)),
-      properties: { kind: 'isochrone', age: history.length - index },
+      // A frontier leaves the active point set once the following search step
+      // supersedes or prunes it. Keep that explored geometry visible as a
+      // neutral dotted trace only while calculation is active.
+      properties: { kind: 'rejected', age: history.length - index },
     });
   }
   return featureCollection(features);
@@ -175,6 +178,11 @@ function markerColor(paint: MapThemePaint): ExpressionSpecification {
   ];
 }
 
+function rejectedTraceColor(paint: MapThemePaint): string {
+  if (paint.theme === 'night-red') return paint.boundary;
+  return paint.theme === 'dusk' ? '#7d8790' : '#7f858a';
+}
+
 export interface WayfindingOverlay extends OverlayModule {
   sync(ctx: OverlayContext): void;
 }
@@ -238,10 +246,15 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
         filter: ['==', '$type', 'LineString'],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': paint.select,
+          'line-color': [
+            'case',
+            ['==', ['get', 'kind'], 'rejected'],
+            rejectedTraceColor(paint),
+            paint.select,
+          ],
           'line-width': 2,
           'line-opacity': 0.58,
-          'line-dasharray': [2, 2],
+          'line-dasharray': [1, 2],
         },
       };
       const frontierPoints: CircleLayerSpecification = {
@@ -332,7 +345,12 @@ export function createWayfindingOverlay(source: WayfindingVisualizationSource): 
       paint = next;
       setPaintProp(ctx.map, PATH_LAYER, 'line-color', selectedColor(paint));
       setPaintProp(ctx.map, PATH_ALTERNATIVE_LAYER, 'line-color', alternativeColor(paint));
-      setPaintProp(ctx.map, FRONTIER_LINE_LAYER, 'line-color', paint.select);
+      setPaintProp(ctx.map, FRONTIER_LINE_LAYER, 'line-color', [
+        'case',
+        ['==', ['get', 'kind'], 'rejected'],
+        rejectedTraceColor(paint),
+        paint.select,
+      ]);
       setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-color', paint.select);
       setPaintProp(ctx.map, FRONTIER_POINT_LAYER, 'circle-stroke-color', paint.markerGlyph);
       setPaintProp(ctx.map, MARKER_LAYER, 'circle-color', markerColor(paint));
