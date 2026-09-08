@@ -5,11 +5,13 @@ import { ErrorState } from '$shared/lib';
 import {
   cancelWayfinderPlan,
   fetchWayfinderCapabilities,
+  fetchWayfinderRouteGeometry,
   fetchWayfinderStatus,
   saveWayfinderPlan,
   startWayfinderPlan,
   type WayfinderCapabilities,
   type WayfinderConstraints,
+  type WayfinderRouteGeometry,
   type WayfinderStatus,
 } from './wayfinder-client';
 
@@ -25,6 +27,11 @@ export function createWayfindingController(deps: {
   let status = $state<WayfinderStatus>({ state: 'idle', progress: 0 });
   let checking = $state(false);
   let busy = $state(false);
+  let previewRoute = $state<Route | undefined>();
+  let routes = $state<WayfinderRouteGeometry[]>([]);
+  let frontiers = $state<Array<NonNullable<WayfinderStatus['frontier']>>>([]);
+  let selectedAlternativeIndex = $state(0);
+  let lastFrontierProgress = -1;
   let operation = 0;
   const error = new ErrorState();
 
@@ -52,6 +59,11 @@ export function createWayfindingController(deps: {
     if (busy) return;
     const sequence = ++operation;
     busy = true;
+    previewRoute = route;
+    routes = [];
+    frontiers = [];
+    lastFrontierProgress = -1;
+    selectedAlternativeIndex = 0;
     error.clear();
     status = { state: 'calculating', progress: 0 };
     const startResult = await startWayfinderPlan(
@@ -86,9 +98,27 @@ export function createWayfindingController(deps: {
         );
         return;
       }
+      if (
+        next.state === 'calculating' &&
+        next.frontier?.length &&
+        next.progress !== lastFrontierProgress
+      ) {
+        lastFrontierProgress = next.progress;
+        frontiers = [...frontiers, next.frontier].slice(-64);
+      }
       status = next;
       if (next.state !== 'calculating') {
         busy = false;
+        if (next.state === 'complete') {
+          const indexes = next.alternatives?.map((alternative) => alternative.index) ?? [0];
+          routes = (
+            await Promise.all(
+              indexes.map((index) =>
+                fetchWayfinderRouteGeometry(deps.origin, deps.getToken(), index),
+              ),
+            )
+          ).filter((route): route is WayfinderRouteGeometry => route !== undefined);
+        }
         if (next.state === 'failed')
           error.flag(next.message ?? 'Sail Wayfinder could not calculate a route.');
         return;
@@ -101,6 +131,8 @@ export function createWayfindingController(deps: {
     const cancelled = await cancelWayfinderPlan(deps.origin, deps.getToken());
     busy = false;
     status = { state: 'idle', progress: 0 };
+    routes = [];
+    frontiers = [];
     if (!cancelled) error.flag('Sail Wayfinder could not cancel the calculation.');
   }
 
@@ -117,6 +149,22 @@ export function createWayfindingController(deps: {
     await deps.onSaved(routeId);
     busy = false;
     status = { state: 'idle', progress: 0, message: 'Route saved. Navigation was not started.' };
+    previewRoute = undefined;
+    routes = [];
+    frontiers = [];
+  }
+
+  function preview(route: Route | undefined): void {
+    if (busy) return;
+    previewRoute = route;
+    routes = [];
+    frontiers = [];
+    lastFrontierProgress = -1;
+    selectedAlternativeIndex = 0;
+  }
+
+  function selectAlternative(index: number): void {
+    if (routes.some((route) => route.index === index)) selectedAlternativeIndex = index;
   }
 
   return {
@@ -132,6 +180,18 @@ export function createWayfindingController(deps: {
     get busy() {
       return busy;
     },
+    get previewRoute() {
+      return previewRoute;
+    },
+    get routes() {
+      return routes;
+    },
+    get frontiers() {
+      return frontiers;
+    },
+    get selectedAlternativeIndex() {
+      return selectedAlternativeIndex;
+    },
     get error() {
       return error.message;
     },
@@ -139,5 +199,7 @@ export function createWayfindingController(deps: {
     plan,
     cancel,
     save,
+    preview,
+    selectAlternative,
   };
 }

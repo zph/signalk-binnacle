@@ -40,6 +40,7 @@ import { createWorkingRouteOverlay, type WorkingRouteOverlay } from '$features/r
 import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
 import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
+import type { WayfindingVisualizationSource } from '$features/wayfinding';
 import {
   CHART_FORECAST_LAYER_IDS,
   createChartWindController,
@@ -113,6 +114,8 @@ interface Props {
   recorder: TrackRecorder;
   // The route store, drawn by the route overlay and edited on the chart via Terra Draw.
   routeStore: RouteStore;
+  // Transient request, search frontier, and ranked results from the Wayfinder panel.
+  wayfinding: WayfindingVisualizationSource;
   // The tides store, drawn as nearest-station markers and fed by the tides loader in App.
   tides: TidesStore;
   // The app-wide weather store and loader feed the optional wind field on this primary chart.
@@ -231,6 +234,7 @@ const {
   guidance,
   recorder,
   routeStore,
+  wayfinding,
   tides,
   weather,
   weatherLoader,
@@ -660,6 +664,7 @@ onMount(async () => {
         guidance,
         recorder,
         routeStore,
+        wayfinding,
         tides,
         weather,
         onTideStationSelect: (selection) => {

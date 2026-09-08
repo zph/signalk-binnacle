@@ -1,6 +1,7 @@
 // Sail Wayfinder HTTP contract parsing and authenticated transport.
 
 import type { Route } from '$entities/route';
+import type { LatLon } from '$shared/geo';
 import { isRecord } from '$shared/lib';
 
 export const WAYFINDER_PLUGIN_ID = 'signalk-wayfinder';
@@ -38,6 +39,12 @@ export interface WayfinderStatus {
   progress: number;
   message?: string;
   alternatives?: WayfinderAlternative[];
+  frontier?: LatLon[];
+}
+
+export interface WayfinderRouteGeometry {
+  index: number;
+  points: LatLon[];
 }
 
 export interface WayfinderConstraints {
@@ -159,13 +166,25 @@ export function parseStatus(value: unknown): WayfinderStatus | undefined {
   const progress =
     typeof value.progress === 'number' ? Math.max(0, Math.min(100, value.progress)) : 0;
   if (value.status === 'idle') return { state: 'idle', progress };
-  if (value.status === 'calculating') return { state: 'calculating', progress };
+  if (value.status === 'calculating') {
+    const frontier = parseFrontier(value.frontier);
+    return { state: 'calculating', progress, ...(frontier ? { frontier } : {}) };
+  }
   if (value.status === 'done' || value.status === 'warning') {
     const alternatives = parseAlternatives(value.alternatives);
+    const message = typeof value.warning === 'string' ? value.warning : undefined;
+    if (alternatives?.length && alternatives.every((alternative) => !alternative.complete)) {
+      return {
+        state: 'failed',
+        progress: 100,
+        message: message ?? 'Wayfinder did not reach the destination within forecast coverage.',
+        alternatives,
+      };
+    }
     return {
       state: 'complete',
       progress: 100,
-      message: typeof value.warning === 'string' ? value.warning : undefined,
+      message,
       ...(alternatives ? { alternatives } : {}),
     };
   }
@@ -178,6 +197,23 @@ export function parseStatus(value: unknown): WayfinderStatus | undefined {
     };
   }
   return undefined;
+}
+
+function parseFrontier(value: unknown): LatLon[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const points: LatLon[] = [];
+  for (const point of value) {
+    if (
+      !Array.isArray(point) ||
+      point.length < 2 ||
+      typeof point[0] !== 'number' ||
+      typeof point[1] !== 'number'
+    ) {
+      return undefined;
+    }
+    points.push({ latitude: point[0], longitude: point[1] });
+  }
+  return points;
 }
 
 function parseAlternatives(value: unknown): WayfinderAlternative[] | undefined {
@@ -322,6 +358,38 @@ export async function fetchWayfinderStatus(
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<WayfinderStatus | undefined> {
   return parseStatus(await jsonRequest(origin, '/status', token, undefined, fetchFn));
+}
+
+export async function fetchWayfinderRouteGeometry(
+  origin: string,
+  token: string | undefined,
+  index: number,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<WayfinderRouteGeometry | undefined> {
+  const value = await jsonRequest(
+    origin,
+    `/pending-route?index=${encodeURIComponent(index)}`,
+    token,
+    undefined,
+    fetchFn,
+  );
+  if (!isRecord(value) || !isRecord(value.feature) || !isRecord(value.feature.geometry))
+    return undefined;
+  const geometry = value.feature.geometry;
+  if (geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates)) return undefined;
+  const points: LatLon[] = [];
+  for (const coordinate of geometry.coordinates) {
+    if (
+      !Array.isArray(coordinate) ||
+      coordinate.length < 2 ||
+      typeof coordinate[0] !== 'number' ||
+      typeof coordinate[1] !== 'number'
+    ) {
+      return undefined;
+    }
+    points.push({ latitude: coordinate[1], longitude: coordinate[0] });
+  }
+  return points.length >= 2 ? { index, points } : undefined;
 }
 
 export async function cancelWayfinderPlan(

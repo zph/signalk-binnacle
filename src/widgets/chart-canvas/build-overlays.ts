@@ -38,6 +38,7 @@ import {
 import { createHistoryTrackOverlay, createTrackOverlay } from '$features/track-layer';
 import type { TripLogController } from '$features/tracks';
 import { createVesselOverlay } from '$features/vessel-layer';
+import { createWayfindingOverlay, type WayfindingVisualizationSource } from '$features/wayfinding';
 import { createWaypointOverlay } from '$features/waypoints';
 import {
   createConditionsOverlay,
@@ -80,6 +81,7 @@ export interface DynamicOverlaysDeps {
   guidance: CourseGuidance;
   recorder: TrackRecorder;
   routeStore: RouteStore;
+  wayfinding: WayfindingVisualizationSource;
   tides: TidesStore;
   weather: WeatherStore;
   onTideStationSelect?: (selection: TideStationSelectionEvent) => void;
@@ -128,6 +130,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     guidance,
     recorder,
     routeStore,
+    wayfinding,
     tides,
     weather,
     onTideStationSelect,
@@ -159,6 +162,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     createAnchorOverlay(anchor, vessel, onAnchorMoved, interactionsAllowed),
     createMeasureOverlay(measure, units),
     createRouteOverlay(routeStore),
+    createWayfindingOverlay(wayfinding),
     createCourseOverlay(guidance, vessel),
     createWaypointOverlay(waypoints, symbols, {
       onSelect: onWaypointSelect,

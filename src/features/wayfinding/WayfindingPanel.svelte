@@ -4,7 +4,7 @@
 
 import Compass from '@lucide/svelte/icons/compass';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
-import { onMount } from 'svelte';
+import { onMount, untrack } from 'svelte';
 import type { Route, RouteStore } from '$entities/route';
 import { depthValueFromMeters, depthValueToMeters, type UnitsStore } from '$entities/units';
 import type { OwnVessel } from '$entities/vessel';
@@ -84,7 +84,6 @@ let maxWindKn = $state(0);
 let maxWaveM = $state(0);
 let vesselDraftM = $state(0);
 let draftPath = $state('design.draft.current');
-let selectedAlternativeIndex = $state(0);
 let saveName = $state('');
 const selectedSavedRoute = $derived(routeStore.routeById(routeId));
 const chartRoute = $derived.by<Route | undefined>(() => {
@@ -131,6 +130,11 @@ $effect(() => {
   return () => onChartModeChange?.(false);
 });
 
+$effect(() => {
+  const route = selected;
+  untrack(() => controller.preview(route));
+});
+
 function setEndpointFromChart(endpoint: 'start' | 'destination'): void {
   const center = chartCommands?.getCenter();
   if (!center) return;
@@ -163,7 +167,6 @@ function calculate(): void {
   if (!selected || !departure) return;
   saveName =
     passageSource === 'chart' ? 'Wayfinder chart passage' : `${selected.name} weather route`;
-  selectedAlternativeIndex = 0;
   void controller.plan(selected, new Date(departure).toISOString(), {
     daylightOnly,
     maxHoursPerDay,
@@ -226,7 +229,12 @@ const objectiveLabel = $derived(
       {#if (controller.status.alternatives?.length ?? 0) > 1}
         <label class="field">
           <span>Route alternative</span>
-          <select class="input" bind:value={selectedAlternativeIndex} disabled={controller.busy}>
+          <select
+            class="input"
+            value={controller.selectedAlternativeIndex}
+            onchange={(event) => controller.selectAlternative(Number(event.currentTarget.value))}
+            disabled={controller.busy}
+          >
             {#each controller.status.alternatives ?? [] as alternative (alternative.index)}
               <option value={alternative.index}>
                 {alternative.index + 1}. {alternative.durationHours.toFixed(1)} h,
@@ -238,7 +246,9 @@ const objectiveLabel = $derived(
             {/each}
           </select>
         </label>
-        {@const selectedAlternative = controller.status.alternatives?.[selectedAlternativeIndex]}
+        {@const selectedAlternative = controller.status.alternatives?.find(
+          (alternative) => alternative.index === controller.selectedAlternativeIndex,
+        )}
         {#if selectedAlternative}
           <p class="muted-note muted-note--xs">
             Average wind {selectedAlternative.averageWindKn.toFixed(1)} kn,
@@ -258,7 +268,8 @@ const objectiveLabel = $derived(
         class="btn btn-primary"
         type="button"
         disabled={!saveName.trim() || controller.busy}
-        onclick={() => void controller.save(saveName.trim(), selectedAlternativeIndex)}
+        onclick={() =>
+          void controller.save(saveName.trim(), controller.selectedAlternativeIndex)}
       >
         Save advisory route
       </button>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  fetchWayfinderRouteGeometry,
   normalizePropulsionOptions,
   normalizeShorelineConstraints,
   parseCapabilities,
@@ -224,15 +225,90 @@ describe('wayfinder API parsing', () => {
   });
 
   it('normalizes the plugin calculation states', () => {
-    expect(parseStatus({ status: 'calculating', progress: 42 })).toEqual({
+    expect(
+      parseStatus({
+        status: 'calculating',
+        progress: 42,
+        frontier: [
+          [38.1, -122.3],
+          [38.2, -122.2],
+        ],
+      }),
+    ).toEqual({
       state: 'calculating',
       progress: 42,
+      frontier: [
+        { latitude: 38.1, longitude: -122.3 },
+        { latitude: 38.2, longitude: -122.2 },
+      ],
     });
     expect(parseStatus({ status: 'warning', progress: 100, warning: 'Partial route' })).toEqual({
       state: 'complete',
       progress: 100,
       message: 'Partial route',
     });
+  });
+
+  it('fails closed when an older Wayfinder promotes only partial alternatives', () => {
+    expect(
+      parseStatus({
+        status: 'warning',
+        progress: 100,
+        warning: 'Route extends past forecast coverage',
+        alternatives: [
+          {
+            index: 0,
+            complete: false,
+            durationHours: 33,
+            distanceNm: 36,
+            motorHours: 0,
+            averageWaveHeightM: 0.9,
+            maximumWaveHeightM: 0.9,
+            averageWindKn: 4,
+            maximumWindKn: 9,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      state: 'failed',
+      progress: 100,
+      message: 'Route extends past forecast coverage',
+    });
+  });
+
+  it('parses pending alternative geometry for chart overlays', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          feature: {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-122.3, 38.1],
+                [-122.2, 38.2],
+              ],
+            },
+            properties: {},
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    await expect(
+      fetchWayfinderRouteGeometry('http://signalk.test', undefined, 2, fetchFn),
+    ).resolves.toEqual({
+      index: 2,
+      points: [
+        { latitude: 38.1, longitude: -122.3 },
+        { latitude: 38.2, longitude: -122.2 },
+      ],
+    });
+    expect(fetchFn).toHaveBeenCalledWith(
+      'http://signalk.test/plugins/signalk-wayfinder/pending-route?index=2',
+      expect.objectContaining({ credentials: 'include' }),
+    );
   });
 
   it('parses ranked alternative summaries', () => {

@@ -928,6 +928,7 @@ $effect(() => {
     guidance={courseGuidance}
     {recorder}
     {routeStore}
+    wayfinding={wayfindingController}
     tides={tidesStore}
     weather={chartWeather}
     {weatherLoader}

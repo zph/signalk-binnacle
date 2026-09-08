@@ -35,6 +35,7 @@ const factories = vi.hoisted(() => {
     createMeasureOverlay: vi.fn(() => marker('measure')),
     createMobOverlay: vi.fn(() => marker('mob')),
     createRouteOverlay: vi.fn(() => marker('route')),
+    createWayfindingOverlay: vi.fn(() => marker('wayfinding-plan')),
     createTidesOverlay: vi.fn(() => marker('tides')),
     createTimeTravelOverlay: vi.fn(() => marker('time-travel')),
     createTimeTravelTrackOverlay: vi.fn(() => marker('time-travel-track')),
@@ -81,6 +82,9 @@ vi.mock('$features/track-layer', () => ({
   createTrackOverlay: factories.createTrackOverlay,
 }));
 vi.mock('$features/vessel-layer', () => ({ createVesselOverlay: factories.createVesselOverlay }));
+vi.mock('$features/wayfinding', () => ({
+  createWayfindingOverlay: factories.createWayfindingOverlay,
+}));
 vi.mock('$features/waypoints', () => ({ createWaypointOverlay: factories.createWaypointOverlay }));
 vi.mock('$features/weather', () => ({
   createConditionsOverlay: factories.createConditionsOverlay,
@@ -112,6 +116,7 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     guidance: { name: 'guidance' },
     recorder: { name: 'recorder' },
     routeStore: { name: 'routes' },
+    wayfinding: { name: 'wayfinding' },
     tides: { name: 'tides' },
     weather: { name: 'weather' },
     units: { name: 'units', speedUnit: 'kn' },
@@ -153,6 +158,7 @@ describe('buildDynamicOverlays', () => {
       'anchor',
       'measure',
       'route',
+      'wayfinding-plan',
       'course',
       'waypoints',
       'notes',
@@ -184,6 +190,7 @@ describe('buildDynamicOverlays', () => {
       'anchor',
       'measure',
       'route',
+      'wayfinding-plan',
       'course',
       'waypoints',
       'notes',
@@ -248,6 +255,7 @@ describe('buildDynamicOverlays', () => {
     );
     expect(factories.createMeasureOverlay).toHaveBeenCalledWith(deps.measure, deps.units);
     expect(factories.createRouteOverlay).toHaveBeenCalledWith(deps.routeStore);
+    expect(factories.createWayfindingOverlay).toHaveBeenCalledWith(deps.wayfinding);
     expect(factories.createWaypointOverlay).toHaveBeenCalledWith(deps.waypoints, deps.symbols, {
       onSelect: deps.onWaypointSelect,
       interactionsAllowed: deps.interactionsAllowed,
