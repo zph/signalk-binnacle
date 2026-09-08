@@ -7,13 +7,10 @@ import {
   formatDurationParts,
   formatMonthDay,
   formatNm,
-  knotsToMetersPerSecond,
-  metersPerSecondToKnots,
   PLACEHOLDER,
 } from '$shared/lib';
 import { crossesLocalMidnight, etaSeconds, plannedArrivalMs } from '$shared/nav';
-import { MAX_PLANNING_SPEED_KN, type PersistedValue } from '$shared/settings';
-import { UnitField } from '$shared/ui';
+import type { PersistedValue } from '$shared/settings';
 
 interface Props {
   // The route currently under edit on the chart.
@@ -33,12 +30,6 @@ const { working, highlight, onHighlightLeg, planningSpeed }: Props = $props();
 // The persisted value is already bounded by its codec on both read and write, so this only guards
 // against a non-finite reaching the arithmetic below.
 const planSpeedMps = $derived(Number.isFinite(planningSpeed.value) ? planningSpeed.value : 0);
-// The field speaks knots; the store stays SI. Rounded to two decimals so a value that round-trips
-// through m/s does not render as 5.000000000000001.
-const boundedPlanningSpeed = $derived(
-  Math.round((metersPerSecondToKnots(planSpeedMps) ?? 0) * 100) / 100,
-);
-
 // The editable departure. Component state seeded to now on each mount, deliberately never
 // persisted: a stale date silently carried between unrelated plans would skew every arrival.
 function toLocalInputValue(epochMs: number): string {
@@ -113,26 +104,6 @@ function endpointName(fromIndex: number): string {
     <span class="unit"></span>
   </dd>
 </dl>
-<UnitField
-  label="Estimated average speed"
-  unit="kn"
-  value={boundedPlanningSpeed}
-  min={0}
-  max={MAX_PLANNING_SPEED_KN}
-  step={0.5}
-  inputWidth="4rem"
-  ariaLabel="Estimated average speed in knots, used only for route timing and not as motor speed"
-  ariaDescribedBy="estimated-speed-help"
-  onCommit={(speed) =>
-    planningSpeed.set(
-      knotsToMetersPerSecond(
-        Number.isFinite(speed) ? Math.min(MAX_PLANNING_SPEED_KN, Math.max(0, speed)) : 0,
-      ),
-    )}
-/>
-<p id="estimated-speed-help" class="field-help">
-  Used only to estimate duration and arrival times. This is not the motor-speed setting.
-</p>
 <label class="departure">
   <span class="caps-label">Departure</span>
   <input
@@ -248,11 +219,6 @@ function endpointName(fromIndex: number): string {
 }
 .departure input {
   min-block-size: var(--control-size);
-}
-.field-help {
-  margin: calc(-1 * var(--space-1)) 0 var(--space-1);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
 }
 /* The route-edit working-plan stats use the global .stat-grid system in app.css. */
 </style>
