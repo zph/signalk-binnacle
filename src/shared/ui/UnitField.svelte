@@ -32,10 +32,15 @@ const {
   onCommit,
 }: Props = $props();
 
-function commit(event: Event): void {
+function update(event: Event): void {
   const input = event.currentTarget as HTMLInputElement;
   const entered = Number(input.value);
   if (Number.isFinite(entered)) onCommit(entered);
+}
+
+function commit(event: Event): void {
+  const input = event.currentTarget as HTMLInputElement;
+  update(event);
   // Snap the text back to the effective value after the caller has had its say.
   void tick().then(() => {
     input.value = String(value);
@@ -58,6 +63,7 @@ function commit(event: Event): void {
     aria-label={ariaLabel ?? (unit ? `${label} in ${unit}` : label)}
     aria-describedby={ariaDescribedBy}
     style:inline-size={inputWidth}
+    oninput={update}
     onchange={commit}
   >
   {#if unit}
