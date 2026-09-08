@@ -351,8 +351,8 @@ const objectiveLabel = $derived(
           onCommit={(value) => (maximumOffshoreDistanceNm = Math.max(0, Math.min(1_000, value)))}
         />
         <p id="wayfinder-shore-help" class="muted-note muted-note--xs">
-          0 disables either limit. Shore distances use the configured GSHHG shoreline, not charted
-          hazards.
+          0 disables either limit. Shore distances use the best installed vector chart covering the
+          route, with GSHHG as a fallback. Charted hazards remain advisory.
         </p>
         <button
           class="btn btn-primary"
