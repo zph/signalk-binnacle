@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  normalizePropulsionOptions,
   normalizeShorelineConstraints,
   parseCapabilities,
   parseStatus,
@@ -109,10 +110,10 @@ describe('wayfinder API parsing', () => {
         maxHoursPerDay: 8,
         minimumShoreDistanceNm: 1,
         maximumOffshoreDistanceNm: 40,
-        objective: 'leastMotoring',
+        objective: 'fastest',
         alternativeCount: 10,
         motorSpeedKn: 6,
-        motorBelowKn: 2,
+        motorBelowKn: 0,
         vesselDraftM: 1.8,
       },
       fetchFn,
@@ -135,10 +136,10 @@ describe('wayfinder API parsing', () => {
         maxHoursPerDay: 8,
         minimumShoreDistanceNm: 1,
         maximumOffshoreDistanceNm: 40,
-        objective: 'leastMotoring',
+        objective: 'fastest',
         alternativeCount: 10,
         motorSpeedKn: 6,
-        motorBelowKn: 2,
+        motorBelowKn: 0,
         vesselDraftM: 1.8,
       },
     });
@@ -159,6 +160,45 @@ describe('wayfinder API parsing', () => {
       useLandAvoidance: true,
       useSafetyMargin: false,
       minimumShoreDistanceNm: 2,
+    });
+  });
+
+  it('removes propulsion options that the selected objective makes redundant', () => {
+    const constraints = {
+      useLandAvoidance: true,
+      useCurrentGrib: true,
+      waitForWind: true,
+      maxWindKn: 0,
+      maxWaveM: 0,
+      daylightOnly: false,
+      maxHoursPerDay: 0,
+      minimumShoreDistanceNm: 0.5,
+      maximumOffshoreDistanceNm: 0,
+      alternativeCount: 5,
+      motorSpeedKn: 6,
+      motorBelowKn: 2,
+      vesselDraftM: 1.8,
+    } as const;
+
+    expect(normalizePropulsionOptions({ ...constraints, objective: 'leastMotoring' })).toEqual({
+      motorSpeedKn: 0,
+      motorBelowKn: 0,
+      waitForWind: true,
+    });
+    expect(normalizePropulsionOptions({ ...constraints, objective: 'allMotoring' })).toEqual({
+      motorSpeedKn: 6,
+      motorBelowKn: 0,
+      waitForWind: false,
+    });
+    expect(normalizePropulsionOptions({ ...constraints, objective: 'bestWeather' })).toEqual({
+      motorSpeedKn: 0,
+      motorBelowKn: 0,
+      waitForWind: true,
+    });
+    expect(normalizePropulsionOptions({ ...constraints, objective: 'fastest' })).toEqual({
+      motorSpeedKn: 6,
+      motorBelowKn: 2,
+      waitForWind: false,
     });
   });
 

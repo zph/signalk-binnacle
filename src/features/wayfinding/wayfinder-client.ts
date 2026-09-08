@@ -62,6 +62,28 @@ export interface WayfinderPlanStartResult {
   error?: string;
 }
 
+export function normalizePropulsionOptions(constraints: WayfinderConstraints): {
+  motorSpeedKn: number;
+  motorBelowKn: number;
+  waitForWind: boolean;
+} {
+  if (constraints.objective === 'leastMotoring') {
+    return { motorSpeedKn: 0, motorBelowKn: 0, waitForWind: true };
+  }
+  if (constraints.objective === 'allMotoring') {
+    return { motorSpeedKn: constraints.motorSpeedKn, motorBelowKn: 0, waitForWind: false };
+  }
+  if (constraints.objective === 'bestWeather') {
+    return { motorSpeedKn: 0, motorBelowKn: 0, waitForWind: constraints.waitForWind };
+  }
+  return {
+    motorSpeedKn: constraints.motorSpeedKn,
+    motorBelowKn: constraints.motorBelowKn,
+    waitForWind:
+      constraints.waitForWind && !(constraints.motorSpeedKn > 0 && constraints.motorBelowKn > 0),
+  };
+}
+
 export function normalizeShorelineConstraints(
   useLandAvoidance: boolean,
   minimumShoreDistanceNm: number,
@@ -247,6 +269,7 @@ export async function startWayfinderPlan(
     constraints.useLandAvoidance,
     constraints.minimumShoreDistanceNm,
   );
+  const propulsion = normalizePropulsionOptions(constraints);
   const body = {
     start: { lat: start.position.latitude, lon: start.position.longitude },
     end: { lat: end.position.latitude, lon: end.position.longitude },
@@ -259,7 +282,7 @@ export async function startWayfinderPlan(
     useSafetyMargin: shoreline.useSafetyMargin,
     useCurrentGrib: constraints.useCurrentGrib,
     options: {
-      waitForWind: constraints.waitForWind,
+      waitForWind: propulsion.waitForWind,
       maxWindKn: constraints.maxWindKn,
       maxWaveM: constraints.maxWaveM,
       daylightOnly: constraints.daylightOnly,
@@ -268,8 +291,8 @@ export async function startWayfinderPlan(
       maximumOffshoreDistanceNm: constraints.maximumOffshoreDistanceNm,
       objective: constraints.objective,
       alternativeCount: constraints.alternativeCount,
-      motorSpeedKn: constraints.motorSpeedKn,
-      motorBelowKn: constraints.motorBelowKn,
+      motorSpeedKn: propulsion.motorSpeedKn,
+      motorBelowKn: propulsion.motorBelowKn,
       vesselDraftM: constraints.vesselDraftM,
     },
   };

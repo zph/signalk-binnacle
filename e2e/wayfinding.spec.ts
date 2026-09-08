@@ -159,7 +159,13 @@ test('Sail Wayfinder calculates, cancels, and saves without starting navigation'
   await expectInsideViewport(panel, page);
   await expectNoHorizontalOverflow(panel);
 
-  await panel.getByRole('combobox', { name: 'Routing objective' }).selectOption('bestWeather');
+  const objectiveSelect = panel.getByRole('combobox', { name: 'Routing objective' });
+  await objectiveSelect.selectOption('leastMotoring');
+  await expect(panel.getByText('Least motoring always waits for usable wind.')).toBeVisible();
+  await expect(panel.getByRole('checkbox', { name: 'Wait for wind' })).toHaveCount(0);
+  await objectiveSelect.selectOption('allMotoring');
+  await expect(panel.getByRole('checkbox', { name: 'Wait for wind' })).toHaveCount(0);
+  await objectiveSelect.selectOption('bestWeather');
   const draftPath = panel.getByRole('textbox', { name: 'Signal K draft path' });
   await expect(draftPath).toHaveValue('design.draft.current');
   await draftPath.fill('design.customDraft');

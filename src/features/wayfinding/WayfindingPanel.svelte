@@ -63,6 +63,10 @@ let draftPath = $state('design.draft.current');
 let selectedAlternativeIndex = $state(0);
 let saveName = $state('');
 const selected = $derived(routeStore.routeById(routeId));
+const canChooseWaitForWind = $derived(
+  objective === 'bestWeather' ||
+    (objective === 'fastest' && !(motorSpeedKn > 0 && motorBelowKn > 0)),
+);
 
 onMount(() => {
   if (!routeId && routeStore.routes[0]) routeId = routeStore.routes[0].id;
@@ -327,7 +331,11 @@ const objectiveLabel = $derived(
         </div>
         {#if objective === 'leastMotoring'}
           <p class="muted-note muted-note--xs">Least motoring always waits for usable wind.</p>
-        {:else}
+        {:else if objective === 'fastest' && !canChooseWaitForWind}
+          <p class="muted-note muted-note--xs">
+            Motor assistance replaces waiting below the selected sailing-speed threshold.
+          </p>
+        {:else if canChooseWaitForWind}
           <div class="constraint-row">
             <LayerToggle
               label="Wait for wind"
