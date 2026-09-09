@@ -378,8 +378,10 @@ describe('wayfinder API parsing', () => {
             distanceNm: 64.2,
             motorHours: 0,
             averageWaveHeightM: 0.8,
+            p95WaveHeightM: 1.2,
             maximumWaveHeightM: 1.4,
             averageWindKn: 14,
+            p95WindKn: 19,
             maximumWindKn: 21,
           },
         ],
@@ -387,6 +389,7 @@ describe('wayfinder API parsing', () => {
     ).toEqual({
       state: 'complete',
       progress: 100,
+      message: undefined,
       alternatives: [
         {
           index: 0,
@@ -395,8 +398,10 @@ describe('wayfinder API parsing', () => {
           distanceNm: 64.2,
           motorHours: 0,
           averageWaveHeightM: 0.8,
+          p95WaveHeightM: 1.2,
           maximumWaveHeightM: 1.4,
           averageWindKn: 14,
+          p95WindKn: 19,
           maximumWindKn: 21,
         },
       ],

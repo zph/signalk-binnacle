@@ -267,9 +267,13 @@ const objectiveLabel = $derived(
         )}
         {#if selectedAlternative}
           <p class="muted-note muted-note--xs">
-            Average wind {selectedAlternative.averageWindKn.toFixed(1)} kn,
+            Wind avg {selectedAlternative.averageWindKn.toFixed(1)} kn · P95
+            {selectedAlternative.p95WindKn?.toFixed(1) ?? PLACEHOLDER}
+            kn,
             {#if selectedAlternative.averageWaveHeightM !== null}
-              average waves {selectedAlternative.averageWaveHeightM.toFixed(1)} m.
+              waves avg {selectedAlternative.averageWaveHeightM.toFixed(1)} m · P95
+              {selectedAlternative.p95WaveHeightM?.toFixed(1) ?? PLACEHOLDER}
+              m.
             {:else}
               no wave field in the selected forecast.
             {/if}

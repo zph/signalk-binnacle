@@ -28,8 +28,10 @@ export interface WayfinderAlternative {
   distanceNm: number;
   motorHours: number;
   averageWaveHeightM: number | null;
+  p95WaveHeightM: number | null;
   maximumWaveHeightM: number | null;
   averageWindKn: number;
+  p95WindKn: number | null;
   maximumWindKn: number;
   warning?: string;
 }
@@ -250,9 +252,11 @@ function parseAlternatives(value: unknown): WayfinderAlternative[] | undefined {
       motorHours: item.motorHours,
       averageWaveHeightM:
         typeof item.averageWaveHeightM === 'number' ? item.averageWaveHeightM : null,
+      p95WaveHeightM: typeof item.p95WaveHeightM === 'number' ? item.p95WaveHeightM : null,
       maximumWaveHeightM:
         typeof item.maximumWaveHeightM === 'number' ? item.maximumWaveHeightM : null,
       averageWindKn: item.averageWindKn,
+      p95WindKn: typeof item.p95WindKn === 'number' ? item.p95WindKn : null,
       maximumWindKn: item.maximumWindKn,
       ...(typeof item.warning === 'string' ? { warning: item.warning } : {}),
     });
