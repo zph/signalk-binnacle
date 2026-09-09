@@ -679,9 +679,11 @@ const objectiveLabel = $derived(
           onCommit={(value) => (maximumOffshoreDistanceNm = Math.max(0, Math.min(1_000, value)))}
         />
         <p id="wayfinder-shore-help" class="muted-note muted-note--xs">
-          0 disables either limit. A 0.5 nm minimum uses Wayfinder's standard safety margin without
-          stacking a second clearance constraint. Shore distances use the best installed vector
-          chart covering the route, with GSHHG as a fallback. Charted hazards remain advisory.
+          0 disables either limit. A close departure uses a narrow 0.05 nm allowance until the route
+          first reaches the selected minimum; the larger clearance is required from then on. A 0.5
+          nm minimum uses Wayfinder's standard safety margin without stacking a second clearance
+          constraint. Shore distances use the best installed vector chart covering the route, with
+          GSHHG as a fallback. Charted hazards remain advisory.
         </p>
         <button
           class="btn btn-primary"
