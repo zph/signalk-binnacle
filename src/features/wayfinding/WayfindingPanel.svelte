@@ -56,6 +56,14 @@ const available = $derived(
     supportsShoreConstraints &&
     supportsAlternatives,
 );
+
+function formatDownloadElapsed(seconds: number): string {
+  const wholeSeconds = Math.max(0, Math.floor(seconds));
+  if (wholeSeconds < 60) return `${wholeSeconds} sec`;
+
+  const minutes = Math.floor(wholeSeconds / 60);
+  return `${minutes} min ${wholeSeconds % 60} sec`;
+}
 const reason = $derived(
   controller.error ??
     (controller.capabilities?.ready &&
@@ -233,7 +241,7 @@ const objectiveLabel = $derived(
         <span class="download-spinner"><LoaderCircle size={18} aria-hidden="true" /></span>
         <span>
           Fetching the maximum route-specific GRIB horizon ·
-          {formatDuration(controller.status.elapsedSeconds ?? 0)}
+          {formatDownloadElapsed(controller.status.elapsedSeconds ?? 0)}
           elapsed
         </span>
       </div>
