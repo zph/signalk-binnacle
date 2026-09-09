@@ -8,6 +8,8 @@ describe('buildWayfinderLegRows', () => {
         latitude: 38,
         longitude: -122,
         time: '2026-09-08T12:00:00Z',
+        windDir: 0,
+        tws: 12,
       },
       {
         latitude: 38.1,
@@ -16,7 +18,7 @@ describe('buildWayfinderLegRows', () => {
         heading: 315,
         windDir: 0,
         twa: 45,
-        tws: 12,
+        tws: 14,
         propulsion: 'sail',
       },
       {
@@ -26,7 +28,7 @@ describe('buildWayfinderLegRows', () => {
         heading: 45,
         windDir: 0,
         twa: 45,
-        tws: 14,
+        tws: 15,
         propulsion: 'sail',
       },
       {
@@ -36,7 +38,7 @@ describe('buildWayfinderLegRows', () => {
         heading: 135,
         windDir: 0,
         twa: 135,
-        tws: 15,
+        tws: 16,
         propulsion: 'sail',
       },
       {
@@ -46,7 +48,7 @@ describe('buildWayfinderLegRows', () => {
         heading: 225,
         windDir: 0,
         twa: 135,
-        tws: 16,
+        tws: 17,
         propulsion: 'sail',
       },
     ]);
@@ -66,7 +68,7 @@ describe('buildWayfinderLegRows', () => {
   it('does not invent timing or sailing maneuvers from incomplete metadata', () => {
     expect(
       buildWayfinderLegRows([
-        { latitude: 1, longitude: 2, time: 'invalid' },
+        { latitude: 1, longitude: 2, time: 'invalid', windDir: 180, tws: 10 },
         {
           latitude: 2,
           longitude: 3,
@@ -79,10 +81,24 @@ describe('buildWayfinderLegRows', () => {
     ).toEqual([
       {
         leg: 1,
+        windSpeedKn: 10,
         windDirectionDeg: 180,
         trueWindAngleDeg: 90,
         windSide: 'starboard',
       },
     ]);
+  });
+
+  it('keeps exact head-to-wind and downwind angles without inventing a side', () => {
+    const rows = buildWayfinderLegRows([
+      { latitude: 1, longitude: 2, windDir: 180, tws: 10 },
+      { latitude: 2, longitude: 3, heading: 180, windDir: 180, propulsion: 'sail' },
+      { latitude: 3, longitude: 4, heading: 0, propulsion: 'sail' },
+    ]);
+
+    expect(rows[0]).toMatchObject({ trueWindAngleDeg: 0 });
+    expect(rows[0]).not.toHaveProperty('windSide');
+    expect(rows[1]).toMatchObject({ trueWindAngleDeg: 180 });
+    expect(rows[1]).not.toHaveProperty('windSide');
   });
 });
