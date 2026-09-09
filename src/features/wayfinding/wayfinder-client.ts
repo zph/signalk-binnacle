@@ -37,8 +37,9 @@ export interface WayfinderAlternative {
 }
 
 export interface WayfinderStatus {
-  state: 'idle' | 'calculating' | 'complete' | 'failed';
+  state: 'idle' | 'downloading' | 'calculating' | 'complete' | 'failed';
   progress: number;
+  elapsedSeconds?: number;
   message?: string;
   alternatives?: WayfinderAlternative[];
   frontier?: LatLon[];
@@ -178,6 +179,17 @@ export function parseStatus(value: unknown): WayfinderStatus | undefined {
   const progress =
     typeof value.progress === 'number' ? Math.max(0, Math.min(100, value.progress)) : 0;
   if (value.status === 'idle') return { state: 'idle', progress };
+  if (value.status === 'downloading') {
+    const startedAt =
+      typeof value.phaseStartedAt === 'string' ? Date.parse(value.phaseStartedAt) : NaN;
+    return {
+      state: 'downloading',
+      progress: 0,
+      elapsedSeconds: Number.isFinite(startedAt)
+        ? Math.max(0, Math.floor((Date.now() - startedAt) / 1_000))
+        : 0,
+    };
+  }
   if (value.status === 'calculating') {
     const frontier = parseFrontier(value.frontier);
     return { state: 'calculating', progress, ...(frontier ? { frontier } : {}) };

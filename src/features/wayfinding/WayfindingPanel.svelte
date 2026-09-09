@@ -3,6 +3,7 @@
 // without activating it.
 
 import Compass from '@lucide/svelte/icons/compass';
+import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import { onMount, untrack } from 'svelte';
 import type { Route, RouteStore } from '$entities/route';
@@ -225,7 +226,22 @@ const objectiveLabel = $derived(
     activated automatically.
   </p>
 
-  {#if controller.status.state === 'calculating'}
+  {#if controller.status.state === 'downloading'}
+    <section aria-label="Forecast download progress" role="status" aria-live="polite">
+      <h3 class="caps-label">Downloading forecast</h3>
+      <div class="download-status">
+        <span class="download-spinner"><LoaderCircle size={18} aria-hidden="true" /></span>
+        <span>
+          Fetching the maximum route-specific GRIB horizon ·
+          {formatDuration(controller.status.elapsedSeconds ?? 0)}
+          elapsed
+        </span>
+      </div>
+      <p class="muted-note muted-note--xs">
+        Route calculation begins after the wind and wave forecast is cached.
+      </p>
+    </section>
+  {:else if controller.status.state === 'calculating'}
     <section aria-label="Calculation progress">
       <h3 class="caps-label">Calculating</h3>
       <progress max="100" value={controller.status.progress}>
@@ -758,6 +774,28 @@ const objectiveLabel = $derived(
 progress {
   inline-size: 100%;
   accent-color: var(--accent);
+}
+.download-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+.download-spinner {
+  flex: 0 0 auto;
+  animation: wayfinder-spin 1s linear infinite;
+}
+@keyframes wayfinder-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .download-spinner {
+    animation: none;
+  }
 }
 .route-table-disclosure {
   margin-block: var(--space-3);

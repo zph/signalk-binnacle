@@ -225,6 +225,16 @@ describe('wayfinder API parsing', () => {
   });
 
   it('normalizes the plugin calculation states', () => {
+    const now = Date.parse('2026-09-09T05:30:15Z');
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
+    expect(
+      parseStatus({
+        status: 'downloading',
+        progress: 0,
+        phaseStartedAt: '2026-09-09T05:30:00Z',
+      }),
+    ).toEqual({ state: 'downloading', progress: 0, elapsedSeconds: 15 });
+    nowSpy.mockRestore();
     expect(
       parseStatus({
         status: 'calculating',

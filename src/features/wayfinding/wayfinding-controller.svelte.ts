@@ -33,7 +33,13 @@ export function createWayfindingController(deps: {
   let selectedAlternativeIndex = $state(0);
   let lastFrontierProgress = -1;
   let operation = 0;
+  let downloadClock: ReturnType<typeof setInterval> | undefined;
   const error = new ErrorState();
+
+  function stopDownloadClock(): void {
+    if (downloadClock !== undefined) clearInterval(downloadClock);
+    downloadClock = undefined;
+  }
 
   async function refresh(draftPath?: string): Promise<void> {
     checking = true;
@@ -65,7 +71,17 @@ export function createWayfindingController(deps: {
     lastFrontierProgress = -1;
     selectedAlternativeIndex = 0;
     error.clear();
-    status = { state: 'calculating', progress: 0 };
+    const downloadStartedAt = Date.now();
+    status = { state: 'downloading', progress: 0, elapsedSeconds: 0 };
+    stopDownloadClock();
+    downloadClock = setInterval(() => {
+      if (sequence !== operation || status.state !== 'downloading') return;
+      status = {
+        state: 'downloading',
+        progress: 0,
+        elapsedSeconds: Math.max(0, Math.floor((Date.now() - downloadStartedAt) / 1_000)),
+      };
+    }, 1_000);
     const startResult = await startWayfinderPlan(
       deps.origin,
       deps.getToken(),
@@ -73,6 +89,8 @@ export function createWayfindingController(deps: {
       departureTime,
       constraints,
     );
+    stopDownloadClock();
+    if (sequence !== operation) return;
     if (!startResult.started) {
       if (sequence === operation) {
         busy = false;
@@ -84,6 +102,7 @@ export function createWayfindingController(deps: {
       }
       return;
     }
+    status = { state: 'calculating', progress: 0 };
     const wait =
       deps.wait ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
     while (sequence === operation) {
@@ -130,6 +149,7 @@ export function createWayfindingController(deps: {
 
   async function cancel(): Promise<void> {
     operation += 1;
+    stopDownloadClock();
     const cancelled = await cancelWayfinderPlan(deps.origin, deps.getToken());
     busy = false;
     status = { state: 'idle', progress: 0 };
