@@ -19,6 +19,7 @@ import type { Theme } from '$shared/ui';
 import { SEASCAPE_GROUP, type SeascapeDemSource } from './seascape-sources';
 
 const DEM_SOURCE_ID = 'seascape-dem';
+export const SEASCAPE_DEPTH_SHADING_OVERLAY_ID = 'seascape-depth-shading';
 const DEPTH_SHADING_LAYER_ID = 'seascape-depth-shading-layer';
 const HILLSHADE_LAYER_ID = 'seascape-hillshade-layer';
 const DEPTH_SHADING_OPACITY = 0.85;
@@ -90,7 +91,7 @@ function hillshadeColors(paint: MapThemePaint): { shadow: string; highlight: str
 // is only called at feature-teardown sites for deletable user charts).
 export function createSeascapeDemOverlay(source: SeascapeDemSource): SeascapeDemOverlays {
   const depthShading: OverlayModule = {
-    id: 'seascape-depth-shading',
+    id: SEASCAPE_DEPTH_SHADING_OVERLAY_ID,
     title: 'Seascape depth shading',
     description: 'Seabed depth shading, not reduced to chart datum, for reference only.',
     band: 'bathymetry',
@@ -143,7 +144,7 @@ export function createSeascapeDemOverlay(source: SeascapeDemSource): SeascapeDem
     description:
       'Seabed relief shading from the same depth model as Seascape depth shading, for reference only.',
     band: 'bathymetry',
-    parent: 'seascape-depth-shading',
+    parent: SEASCAPE_DEPTH_SHADING_OVERLAY_ID,
     group: SEASCAPE_GROUP,
     // No MapLibre hillshade paint property maps to a user opacity slider (hillshade-exaggeration is a
     // relief-strength control, not a fade), unlike color-relief's own color-relief-opacity.

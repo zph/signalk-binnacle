@@ -81,6 +81,23 @@ describe('LayerManager', () => {
     expect(overlay.events.at(-1)).toBe('visible:false');
   });
 
+  it('temporarily overrides rendered visibility without persisting it', async () => {
+    const changes: LayerSettings[] = [];
+    const overlay = { ...fakeOverlay('world'), defaultVisible: false };
+    const manager = new LayerManager(fakeCtx(), { onChange: (state) => changes.push(state) });
+    await manager.register(overlay);
+    overlay.events.length = 0;
+
+    manager.setVisibilityOverride('world', true);
+    expect(overlay.events.at(-1)).toBe('visible:true');
+    expect(manager.layers().find((layer) => layer.id === 'world')?.visible).toBe(false);
+    expect(changes).toEqual([]);
+
+    manager.setVisibilityOverride('world', undefined);
+    expect(overlay.events.at(-1)).toBe('visible:false');
+    expect(changes).toEqual([]);
+  });
+
   it('setOpacity drives setOpacity', async () => {
     const overlay = fakeOverlay('ais');
     const manager = new LayerManager(fakeCtx());

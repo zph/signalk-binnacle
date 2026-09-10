@@ -120,6 +120,9 @@ export class LayerManager {
   // in #state so an unavailable overlay is hidden on the map without losing the user's preference.
   #availability = new Map<string, boolean>();
   #renderedVisibility = new Map<string, boolean>();
+  // Runtime-only overrides support contextual layers such as the world bathymetry fallback. They
+  // affect rendering without rewriting the navigator's saved layer choice.
+  #visibilityOverrides = new Map<string, boolean>();
   // An async add can be canceled by unregister before it finishes. Keep its identity and completion
   // task separate from the public module map so a same-id replacement waits for the canceled add's
   // final cleanup, and a stale catch cannot delete the replacement's state.
@@ -433,6 +436,7 @@ export class LayerManager {
         this.#state.delete(module.id);
         this.#availability.delete(module.id);
         this.#renderedVisibility.delete(module.id);
+        this.#visibilityOverrides.delete(module.id);
       }
       throw error;
     }
@@ -471,6 +475,7 @@ export class LayerManager {
       this.#state.delete(id);
       this.#availability.delete(id);
       this.#renderedVisibility.delete(id);
+      this.#visibilityOverrides.delete(id);
     }
   }
 
@@ -493,6 +498,7 @@ export class LayerManager {
     this.#state.clear();
     this.#availability.clear();
     this.#renderedVisibility.clear();
+    this.#visibilityOverrides.clear();
     for (const module of modules) {
       try {
         module.remove(this.#ctx);
@@ -529,6 +535,23 @@ export class LayerManager {
     // or persisting their choices, so a parent off-on round trip survives reloads and refreshes.
     this.#syncChildren(id);
     this.#persist();
+  }
+
+  // Temporarily override one layer's rendered visibility. Clearing the override immediately
+  // restores the persisted state. This deliberately does not run exclusion or persistence because
+  // an automatic fallback is not a user layer choice.
+  setVisibilityOverride(id: string, visible: boolean | undefined): void {
+    const module = this.#modules.get(id);
+    const state = this.#state.get(id);
+    if (!module || !state) return;
+    const hasOverride = this.#visibilityOverrides.has(id);
+    if ((visible === undefined && !hasOverride) || this.#visibilityOverrides.get(id) === visible) {
+      return;
+    }
+    if (visible === undefined) this.#visibilityOverrides.delete(id);
+    else this.#visibilityOverrides.set(id, visible);
+    this.#syncVisibility(module, state, true);
+    this.#syncChildren(id);
   }
 
   #syncChildren(id: string): void {
@@ -871,7 +894,8 @@ export class LayerManager {
     const parentState = module.parent ? this.#state.get(module.parent) : undefined;
     const parentAvailable = module.parent ? (this.#availability.get(module.parent) ?? true) : true;
     const parentVisible = parentState ? parentAvailable && parentState.visible : true;
-    const renderedVisible = available && state.visible && parentVisible;
+    const desiredVisible = this.#visibilityOverrides.get(module.id) ?? state.visible;
+    const renderedVisible = available && desiredVisible && parentVisible;
     if (
       force ||
       this.#availability.get(module.id) !== available ||

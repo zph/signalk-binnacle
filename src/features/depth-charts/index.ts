@@ -4,7 +4,10 @@ export {
   noaaEncCoversPosition,
   shouldOfferNoaaEnc,
 } from './enc-coverage';
-export { createSeascapeDemOverlay } from './seascape-dem-overlay';
+export {
+  createSeascapeDemOverlay,
+  SEASCAPE_DEPTH_SHADING_OVERLAY_ID,
+} from './seascape-dem-overlay';
 export {
   SEASCAPE_DEM_SOURCES,
   SEASCAPE_VECTOR_SOURCES,

@@ -19,6 +19,7 @@ import type { WaypointsStore } from '$entities/waypoint';
 import { boundsToBbox, type WeatherStore } from '$entities/weather';
 import type { AisMotionUpdate, AisNameMode, AisVesselKindMode } from '$features/ais-layer';
 import { fetchChartsSnapshot } from '$features/charts';
+import { SEASCAPE_DEPTH_SHADING_OVERLAY_ID } from '$features/depth-charts';
 import { LayersView } from '$features/layers-panel';
 import { COLLISION_OVERLAY_ID } from '$features/lookout';
 import type { PpiLayer } from '$features/marine-radar';
@@ -47,7 +48,7 @@ import {
   WEATHER_LAYER_IDS,
   type WeatherLoader,
 } from '$features/weather';
-import type { LatLon } from '$shared/geo';
+import { type LatLon, lngLatBoundsToBbox4 } from '$shared/geo';
 import { createRetryableLazyUiLoader } from '$shared/lib';
 import {
   activeLayerHitCursor,
@@ -58,6 +59,7 @@ import {
   createMapTapRecognizer,
   createThemedMap,
   detectCompanion,
+  hasNavigationChartForView,
   type LayerSettings,
   type MapTapEvent,
   type SignalKChart,
@@ -295,6 +297,10 @@ let mapHandle: ThemedMapHandle | undefined;
 // "Loading chart" instead of sitting blank through the bounded Chart Locker probe. The
 // cannot-start notice (WebGL2, style failure) replaces it on the failure paths.
 let chartBooting = $state(true);
+// The automatic global reference layer is runtime-only. Its label follows rendered fallback state,
+// while the navigator's persisted Layers-panel choice remains untouched.
+let worldFallbackActive = $state(false);
+let syncWorldFallback = () => {};
 
 // One emitter keeps all server-chart load paths consistent for the host status surface.
 function emitChartsStatus(status: 'loading' | 'ready' | 'partial' | 'error'): void {
@@ -502,6 +508,7 @@ onMount(async () => {
       exclusive: [[...CHART_FORECAST_LAYER_IDS]],
       onChange: (settings) => {
         onLayersChange?.(settings);
+        syncWorldFallback();
         const nextForecastVisible = CHART_FORECAST_LAYER_IDS.some(
           (id) => settings[id]?.visible ?? false,
         );
@@ -807,6 +814,25 @@ onMount(async () => {
 
       const view = new LayersView(mgr);
       view.refresh();
+      syncWorldFallback = () => {
+        if (isDestroyed()) return;
+        const layers = mgr.layers();
+        const fallbackAvailable = layers.some(
+          (item) => item.id === SEASCAPE_DEPTH_SHADING_OVERLAY_ID && item.available,
+        );
+        const fallbackNeeded = !hasNavigationChartForView(
+          layers,
+          lngLatBoundsToBbox4(map.getBounds()),
+          map.getZoom(),
+        );
+        mgr.setVisibilityOverride(
+          SEASCAPE_DEPTH_SHADING_OVERLAY_ID,
+          fallbackNeeded ? true : undefined,
+        );
+        worldFallbackActive = fallbackNeeded && fallbackAvailable;
+      };
+      map.on('moveend', syncWorldFallback);
+      syncWorldFallback();
       onReady?.(view);
       forecastVisible = view.items.some(
         (item) => CHART_FORECAST_LAYER_IDS.some((id) => id === item.id) && item.visible,
@@ -889,6 +915,7 @@ onMount(async () => {
             }
           }
           view.refresh();
+          syncWorldFallback();
           return;
         }
         for (const result of results) {
@@ -904,6 +931,7 @@ onMount(async () => {
           }
         }
         view.refresh();
+        syncWorldFallback();
         const registrationFailed = results.some((result) => result.status === 'failed');
         registeredServerChartsPartial = !discovery.complete || registrationFailed;
         if (!registrationFailed) registeredServerChartsSignature = wantedSignature;
@@ -971,6 +999,7 @@ onMount(async () => {
           }
           if (isDestroyed()) return;
           view.refresh();
+          syncWorldFallback();
         },
         replace: async (chart) => {
           if (isDestroyed()) return;
@@ -993,11 +1022,13 @@ onMount(async () => {
           }
           if (isDestroyed()) return;
           view.refresh();
+          syncWorldFallback();
         },
         unregister: (identifier) => {
           if (isDestroyed()) return;
           mgr.unregister(chartSourceId(identifier));
           view.refresh();
+          syncWorldFallback();
         },
       };
       onUserChartsReady?.(userChartRegistrar);
@@ -1065,6 +1096,7 @@ onDestroy(() => {
   chartWind.destroy();
   if (serverChartDiscoveryTimer !== undefined) clearTimeout(serverChartDiscoveryTimer);
   onWindRetryReady?.(undefined);
+  syncWorldFallback = () => {};
   mapHandle?.destroy();
   onMapDestroyed?.();
 });
@@ -1075,6 +1107,9 @@ onDestroy(() => {
     <!-- The rest of the shell stays interactive; only the chart surface itself explains that it
          is starting rather than sitting blank through the companion probe. -->
     <div class="chart-booting" role="status">Loading chart…</div>
+  {/if}
+  {#if worldFallbackActive}
+    <div class="world-fallback-badge" role="status">Seascape · reference only</div>
   {/if}
   {#if showContextHint}
     <div class="context-hint popover-card action-note" role="status">
@@ -1130,6 +1165,22 @@ onDestroy(() => {
   place-items: center;
   color: var(--text-muted);
   font-size: var(--text-md);
+}
+
+.world-fallback-badge {
+  position: absolute;
+  inset-block-end: calc(var(--space-3) + var(--rail-clearance, 0px));
+  inset-inline-start: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+  z-index: var(--z-overlay);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  pointer-events: none;
 }
 
 .context-hint {

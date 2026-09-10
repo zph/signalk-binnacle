@@ -14,6 +14,7 @@ import {
   THEME_PAINT_KEY,
 } from './chart-adapter';
 import type { SignalKChart } from './chart-types';
+import { NAVIGATION_CHART_OVERZOOM_LEVELS } from './chart-view-status';
 import { createLayerHitHandlers, type LayerHitEvent } from './layer-hit-handlers';
 import { applyRasterTheme, colorProperty, DAY_PAINT, type MapColorKey } from './map-theme';
 import { removeLayersAndSources, setLayersVisibility, setPaintProp } from './overlay-helpers';
@@ -59,7 +60,6 @@ export interface ChartFeatureSelection {
 // off to the base map. S-57 ENC is deliberately exempt: MapLibre can overzoom its last vector tile
 // with crisp geometry, and hiding navigation features at close zoom is much worse than retaining
 // them. Vector geometry remains crisp while MapLibre overzooms the final native tile.
-const CHART_OVERZOOM_BUDGET = 1;
 
 const OPACITY_PROPERTIES = {
   circle: ['circle-opacity', 'circle-stroke-opacity'],
@@ -398,7 +398,11 @@ export function createChartOverlay(
     if (nativeMax === undefined) return false;
     for (const layer of layers) {
       if (map.getLayer(layer.id)) {
-        map.setLayerZoomRange(layer.id, layer.minzoom, nativeMax + CHART_OVERZOOM_BUDGET);
+        map.setLayerZoomRange(
+          layer.id,
+          layer.minzoom,
+          nativeMax + NAVIGATION_CHART_OVERZOOM_LEVELS,
+        );
       }
     }
     return true;
