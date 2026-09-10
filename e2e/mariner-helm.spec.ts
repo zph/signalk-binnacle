@@ -771,28 +771,27 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   await expect(angle.locator('.history-scale')).toHaveText(/P 52\s+P 46\s+P 40/);
   await expect(speed.locator('.history-delta')).toHaveText(/2\.3 Δ/);
   await expect(angle.locator('.history-delta')).toHaveText(/1[01]° Δ/);
-  await expect(speed.locator('.history-footer')).toHaveText('TWS');
-  await expect(angle.locator('.history-footer')).toHaveText('TWA');
+  await expect(speed.locator('.history-footer')).toHaveText(/TWS\s+2\.3 Δ/);
+  await expect(angle.locator('.history-footer')).toHaveText(/TWA\s+1[01]° Δ/);
   await expect(speed.locator('.squiggle--maximum')).toBeVisible();
   await expect(angle.locator('.time-axis')).toHaveText(/Now\s+-5m\s+-10m/);
   for (const tile of [speed, angle]) {
     const placement = await tile.locator('.history-delta').evaluate((delta) => {
-      const tileBox = delta.parentElement?.getBoundingClientRect();
+      const tileBox = delta.parentElement?.parentElement?.getBoundingClientRect();
       const deltaBox = delta.getBoundingClientRect();
-      const current = delta.parentElement?.querySelector('.history-readout .num');
+      const abbreviation = delta.parentElement?.querySelector('.abbr');
+      const abbreviationBox = abbreviation?.getBoundingClientRect();
+      const current = delta.parentElement?.parentElement?.querySelector('.history-readout .num');
       return {
-        position: getComputedStyle(delta).position,
-        rightGap: tileBox ? tileBox.right - deltaBox.right : Number.POSITIVE_INFINITY,
-        topGap: tileBox ? deltaBox.top - tileBox.top : Number.POSITIVE_INFINITY,
+        bottomGap: tileBox ? tileBox.bottom - deltaBox.bottom : Number.POSITIVE_INFINITY,
+        afterAbbreviation: abbreviationBox ? deltaBox.left >= abbreviationBox.right : false,
         fontSize: Number.parseFloat(getComputedStyle(delta).fontSize),
         currentFontSize: current ? Number.parseFloat(getComputedStyle(current).fontSize) : 0,
       };
     });
-    expect(placement.position).toBe('absolute');
-    expect(placement.rightGap).toBeGreaterThanOrEqual(0);
-    expect(placement.rightGap).toBeLessThanOrEqual(12);
-    expect(placement.topGap).toBeGreaterThanOrEqual(0);
-    expect(placement.topGap).toBeLessThanOrEqual(12);
+    expect(placement.afterAbbreviation).toBe(true);
+    expect(placement.bottomGap).toBeGreaterThanOrEqual(0);
+    expect(placement.bottomGap).toBeLessThanOrEqual(12);
     expect(placement.fontSize).toBeLessThan(placement.currentFontSize);
   }
   await expect

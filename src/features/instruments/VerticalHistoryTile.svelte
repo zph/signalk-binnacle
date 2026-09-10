@@ -77,9 +77,6 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
         <span class="unit">{reading.unit}</span>
       {/if}
     </span>
-    {#if geometry.deltaLabel}
-      <span class="history-delta num" aria-hidden="true">{geometry.deltaLabel}</span>
-    {/if}
     <span class="history-scale num" aria-hidden="true">
       <span>{geometry.scale[0]}</span>
       <span>{geometry.scale[1]}</span>
@@ -128,13 +125,15 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
       <span class="tile-secondary">{staleAgeText}</span>
     {/if}
     <span class="caps-label abbr">{abbr ?? labelText}</span>
+    {#if geometry.deltaLabel}
+      <span class="history-delta num" aria-hidden="true">{geometry.deltaLabel}</span>
+    {/if}
     <TileStateBadge state={reading.state} />
   </span>
 </button>
 
 <style>
 .tile--vertical-history {
-  position: relative;
   align-items: stretch;
   justify-content: flex-start;
   gap: var(--space-1);
@@ -144,9 +143,7 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 }
 
 .history-delta {
-  position: absolute;
-  inset-block-start: var(--space-2);
-  inset-inline-end: var(--space-2);
+  flex: 0 0 auto;
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: 700;
@@ -274,9 +271,6 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 }
 .tile--expanded .history-readout .num {
   font-size: clamp(4rem, 16vmin, 12rem);
-}
-.tile--expanded .history-delta {
-  font-size: clamp(var(--text-sm), 2.2vmin, var(--text-xl));
 }
 .tile--expanded .history-scale {
   grid-column: 2;
