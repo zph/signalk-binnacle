@@ -50,4 +50,18 @@ describe('windRoseSectorGeometry', () => {
     expect(starboardAngles[0]).toBeCloseTo(12 * DEG_TO_RAD, 5);
     expect(starboardAngles[1]).toBeCloseTo(28 * DEG_TO_RAD, 5);
   });
+
+  it('uses the complete asymmetric true-wind range on both perimeter bars', () => {
+    const geometry = windRoseSectorGeometry(40 * DEG_TO_RAD, {
+      portRad: 6 * DEG_TO_RAD,
+      starboardRad: 18 * DEG_TO_RAD,
+    });
+    const portAngles = arcAngles(geometry.portArcPath);
+    const starboardAngles = arcAngles(geometry.starboardArcPath);
+
+    expect(portAngles[0]).toBeCloseTo(-26 * DEG_TO_RAD, 5);
+    expect(portAngles[1]).toBeCloseTo(-2 * DEG_TO_RAD, 5);
+    expect(starboardAngles[0]).toBeCloseTo(14 * DEG_TO_RAD, 5);
+    expect(starboardAngles[1]).toBeCloseTo(38 * DEG_TO_RAD, 5);
+  });
 });

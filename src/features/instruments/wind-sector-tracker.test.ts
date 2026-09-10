@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWindSectorTracker } from './wind-sector-tracker';
+import { createWindDirectionRangeTracker, createWindSectorTracker } from '$shared/nav';
 
 const DEG = Math.PI / 180;
 
@@ -48,5 +48,47 @@ describe('wind sector tracker', () => {
     const filtered = tracker.push(20 * DEG, 1_000, 'true');
 
     expect(signedDegrees(filtered)).toBeCloseTo(20, 6);
+  });
+});
+
+describe('true-wind direction range tracker', () => {
+  it('keeps independent portward and starboard extents around the displayed direction', () => {
+    const tracker = createWindDirectionRangeTracker();
+    tracker.push(-12 * DEG, 1_000);
+    tracker.push(3 * DEG, 2_000);
+    tracker.push(24 * DEG, 3_000);
+
+    const range = tracker.rangeAround(0);
+    expect(signedDegrees(range.portRad)).toBeCloseTo(12, 6);
+    expect(signedDegrees(range.starboardRad)).toBeCloseTo(24, 6);
+  });
+
+  it('uses a narrow one-degree range for consistent wind', () => {
+    const tracker = createWindDirectionRangeTracker();
+    tracker.push(40 * DEG, 1_000);
+
+    const range = tracker.rangeAround(40 * DEG);
+    expect(signedDegrees(range.portRad)).toBeCloseTo(1, 6);
+    expect(signedDegrees(range.starboardRad)).toBeCloseTo(1, 6);
+  });
+
+  it('drops samples older than the rolling 60-second window', () => {
+    const tracker = createWindDirectionRangeTracker();
+    tracker.push(-45 * DEG, 1_000);
+    tracker.push(8 * DEG, 61_001);
+
+    const range = tracker.rangeAround(0);
+    expect(signedDegrees(range.portRad)).toBeCloseTo(1, 6);
+    expect(signedDegrees(range.starboardRad)).toBeCloseTo(8, 6);
+  });
+
+  it('crosses the signed-angle seam without drawing an almost complete circle', () => {
+    const tracker = createWindDirectionRangeTracker();
+    tracker.push(179 * DEG, 1_000);
+    tracker.push(-176 * DEG, 2_000);
+
+    const range = tracker.rangeAround(179 * DEG);
+    expect(signedDegrees(range.portRad)).toBeCloseTo(1, 6);
+    expect(signedDegrees(range.starboardRad)).toBeCloseTo(5, 6);
   });
 });

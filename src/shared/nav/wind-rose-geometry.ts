@@ -19,7 +19,8 @@ function moveTo(value: { x: number; y: number }): string {
 }
 
 function arc(fromRad: number, toRad: number): string {
-  return `${moveTo(point(fromRad))} A${RADIUS} ${RADIUS} 0 0 1 ${coordinate(point(toRad).x)} ${coordinate(point(toRad).y)}`;
+  const largeArc = toRad - fromRad > Math.PI ? 1 : 0;
+  return `${moveTo(point(fromRad))} A${RADIUS} ${RADIUS} 0 ${largeArc} 1 ${coordinate(point(toRad).x)} ${coordinate(point(toRad).y)}`;
 }
 
 function radialLine(to: { x: number; y: number }): string {
@@ -34,17 +35,24 @@ export interface WindRoseSectorGeometry {
   starboardBoundaryPath: string;
 }
 
+export interface WindRoseArcRange {
+  portRad: number;
+  starboardRad: number;
+}
+
 export function windRoseSectorGeometry(
   totalNoGoAngleRad: number,
-  arcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+  arcRange: number | WindRoseArcRange = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
 ): WindRoseSectorGeometry {
   const halfAngleRad = totalNoGoAngleRad / 2;
+  const portRad = typeof arcRange === 'number' ? arcRange : arcRange.portRad;
+  const starboardRad = typeof arcRange === 'number' ? arcRange : arcRange.starboardRad;
   const portBoundary = point(-halfAngleRad);
   const starboardBoundary = point(halfAngleRad);
   return {
     fillPath: `${arc(-halfAngleRad, halfAngleRad)} L${CENTER} ${CENTER} Z`,
-    portArcPath: arc(-halfAngleRad - arcMarginRad, -halfAngleRad + arcMarginRad),
-    starboardArcPath: arc(halfAngleRad - arcMarginRad, halfAngleRad + arcMarginRad),
+    portArcPath: arc(-halfAngleRad - portRad, -halfAngleRad + starboardRad),
+    starboardArcPath: arc(halfAngleRad - portRad, halfAngleRad + starboardRad),
     portBoundaryPath: radialLine(portBoundary),
     starboardBoundaryPath: radialLine(starboardBoundary),
   };

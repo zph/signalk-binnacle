@@ -4,7 +4,7 @@ import { DEG_TO_RAD } from '$shared/lib';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 describe('WindRoseSettings', () => {
-  it('shows and updates the per-side error arc margin in degrees', async () => {
+  it('shows and updates the apparent-wind fallback arc margin in degrees', async () => {
     const target = document.createElement('div');
     document.body.append(target);
     const onArcMarginChange = vi.fn();
@@ -28,7 +28,7 @@ describe('WindRoseSettings', () => {
     expect(slider?.getAttribute('aria-valuetext')).toBe(
       '15 degrees on each side, 30 degrees total per arc',
     );
-    if (!slider) throw new Error('Missing wind rose arc margin slider');
+    if (!slider) throw new Error('Missing wind rose fallback arc margin slider');
     slider.value = '10';
     slider.dispatchEvent(new Event('input', { bubbles: true }));
 

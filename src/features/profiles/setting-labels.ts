@@ -21,7 +21,7 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   instrumentTiles: 'Instrument dock',
   instrumentTileLayouts: 'Instrument tile layout',
   windRoseNoGoAngleRad: 'Wind rose no-go angle',
-  windRoseArcMarginRad: 'Wind rose arc margin',
+  windRoseArcMarginRad: 'Wind rose fallback arc margin',
   trendInstrumentIds: 'Data trends',
   anchorRadiusMeters: 'Anchor radius',
 };

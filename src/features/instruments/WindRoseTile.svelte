@@ -1,7 +1,14 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { formatSignedAngleOr, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
-import { windRoseSectorGeometry } from '$shared/nav';
+import {
+  createWindAngleAnimator,
+  createWindDirectionRangeTracker,
+  createWindSectorTracker,
+  type WindDirectionRange,
+  type WindSectorReference,
+  windRoseSectorGeometry,
+} from '$shared/nav';
 import {
   DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
@@ -9,8 +16,6 @@ import {
 import type { ZoneState } from '$shared/signalk';
 import TileStateBadge from './TileStateBadge.svelte';
 import type { InstrumentMetric, TileReading } from './tile-catalog';
-import { createWindAngleAnimator } from './wind-angle-animator';
-import { createWindSectorTracker, type WindSectorReference } from './wind-sector-tracker';
 
 interface Props {
   label: string;
@@ -40,7 +45,10 @@ const {
   arcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
 }: Props = $props();
 const rose = $derived(reading.windRose);
-const sectorGeometry = $derived(windRoseSectorGeometry(noGoAngleRad, arcMarginRad));
+let windDirectionRange = $state<WindDirectionRange>();
+const sectorGeometry = $derived(
+  windRoseSectorGeometry(noGoAngleRad, windDirectionRange ?? arcMarginRad),
+);
 const dialTicks = Array.from({ length: 36 }, (_, index) => ({
   angle: index * 10,
   major: index % 3 === 0,
@@ -99,6 +107,7 @@ const trueDeg = $derived((displayedTrueRad ?? rose?.trueWind.angleRad ?? 0) * RA
 const headingDeg = $derived((displayedHeadingRad ?? rose?.heading.siValue ?? 0) * RAD_TO_DEG);
 const cardRotation = $derived(-headingDeg);
 const sectorTracker = createWindSectorTracker();
+const directionRangeTracker = createWindDirectionRangeTracker();
 let filteredSectorAngleRad = $state<number>();
 let filteredSectorReference = $state<WindSectorReference>();
 const rawSectorReference = $derived.by(() => {
@@ -148,6 +157,8 @@ $effect(() => {
   const next = rawSectorReference;
   if (!next) {
     sectorTracker.reset();
+    directionRangeTracker.reset();
+    windDirectionRange = undefined;
     sectorAnimator.reset();
     filteredSectorAngleRad = undefined;
     filteredSectorReference = undefined;
@@ -158,6 +169,13 @@ $effect(() => {
     next.epochMs ?? Date.now(),
     next.reference,
   );
+  if (next.reference === 'true') {
+    directionRangeTracker.push(next.angleRad, next.epochMs ?? Date.now());
+    windDirectionRange = directionRangeTracker.rangeAround(filteredSectorAngleRad);
+  } else {
+    directionRangeTracker.reset();
+    windDirectionRange = undefined;
+  }
   sectorAnimator.push(filteredSectorAngleRad, next.epochMs ?? Date.now());
   filteredSectorReference = next.reference;
 });
@@ -235,6 +253,13 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
           <g
             class="wind-sectors"
             data-reference={sectorReference}
+            data-range-window-seconds={sectorReference === 'true' ? '60' : undefined}
+            data-port-range-degrees={windDirectionRange
+              ? (windDirectionRange.portRad * RAD_TO_DEG).toFixed(1)
+              : undefined}
+            data-starboard-range-degrees={windDirectionRange
+              ? (windDirectionRange.starboardRad * RAD_TO_DEG).toFixed(1)
+              : undefined}
             transform="rotate({sectorRotation} 500 500)"
           >
             <path class="port-sector" d={sectorGeometry.portArcPath} />

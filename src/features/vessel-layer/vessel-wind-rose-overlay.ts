@@ -1,7 +1,7 @@
 import { type Map as MapLibreMap, Marker } from 'maplibre-gl';
 
 import type { OwnVessel } from '$entities/vessel';
-import { headingDegrees, RAD_TO_DEG } from '$shared/lib';
+import { headingDegrees, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
 import {
   type MapThemePaint,
   mapThemePaint,
@@ -9,7 +9,14 @@ import {
   type OverlayModule,
   rgbaCss,
 } from '$shared/map';
-import { windRoseSectorGeometry } from '$shared/nav';
+import {
+  createWindAngleAnimator,
+  createWindDirectionRangeTracker,
+  createWindSectorTracker,
+  type WindDirectionRange,
+  type WindSectorReference,
+  windRoseSectorGeometry,
+} from '$shared/nav';
 import {
   DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
@@ -31,7 +38,17 @@ type WindRoseVessel = Pick<
   | 'windAngleTrueStale'
   | 'windDirectionTrueRad'
   | 'windDirectionTrueStale'
->;
+> &
+  Partial<
+    Pick<
+      OwnVessel,
+      | 'headingEpochMs'
+      | 'cogEpochMs'
+      | 'windAngleApparentEpochMs'
+      | 'windAngleTrueEpochMs'
+      | 'windDirectionTrueEpochMs'
+    >
+  >;
 
 export interface VesselWindRoseAngles {
   headingDeg?: number;
@@ -273,8 +290,8 @@ function createRoseDom(): RoseDom {
   for (const group of [card, sector, apparent, trueWind, boat]) {
     group.style.transformBox = 'view-box';
     group.style.transformOrigin = 'center';
-    group.style.transition = 'transform 260ms linear';
   }
+  card.style.transition = 'transform 260ms linear';
 
   return {
     root,
@@ -333,8 +350,12 @@ function applyTheme(dom: RoseDom, paint: MapThemePaint): void {
   dom.trueLabel.style.fill = paint.background;
 }
 
-function applySectorGeometry(dom: RoseDom, noGoAngleRad: number, arcMarginRad: number): void {
-  const geometry = windRoseSectorGeometry(noGoAngleRad, arcMarginRad);
+function applySectorGeometry(
+  dom: RoseDom,
+  noGoAngleRad: number,
+  arcRange: number | WindDirectionRange,
+): void {
+  const geometry = windRoseSectorGeometry(noGoAngleRad, arcRange);
   dom.sectorFill.setAttribute('d', geometry.fillPath);
   dom.portArc.setAttribute('d', geometry.portArcPath);
   dom.starboardArc.setAttribute('d', geometry.starboardArcPath);
@@ -349,7 +370,7 @@ export function createVesselWindRoseOverlay(
   let map: MapLibreMap | undefined;
   let marker: Marker | undefined;
   let dom: RoseDom | undefined;
-  let visible = true;
+  let visible = false;
   let acceptedOpacity = 1;
   let paint = mapThemePaint('day');
   let lastLon: number | undefined;
@@ -361,33 +382,39 @@ export function createVesselWindRoseOverlay(
   let apparentRotation: number | undefined;
   let trueRotation: number | undefined;
   let sectorRotation: number | undefined;
+  let displayedBoatRad: number | undefined;
+  let displayedApparentRad: number | undefined;
+  let displayedTrueRad: number | undefined;
+  let displayedSectorRad: number | undefined;
+  let sectorReference: WindSectorReference | undefined;
+  let windDirectionRange: WindDirectionRange | undefined;
+  const sectorTracker = createWindSectorTracker();
+  const directionRangeTracker = createWindDirectionRangeTracker();
 
-  function updateVisibility(): void {
-    if (!dom) return;
-    const hasPosition = vessel.position !== undefined;
-    dom.root.style.display = visible && hasPosition ? '' : 'none';
-    const reviewOpacity = options.reviewActive?.() ? 0.35 : 1;
-    dom.root.style.opacity = String(
-      acceptedOpacity * reviewOpacity * (vessel.positionStale ? 0.55 : 1),
-    );
-    dom.root.dataset.stale = String(vessel.positionStale);
-  }
-
-  function updateOrientation(): void {
+  const renderOrientation = (): void => {
     if (!dom || !map) return;
     const mapBearing = map.getBearing();
-    const angles = resolveVesselWindRoseAngles(vessel, mapBearing);
+    const screenDegrees = (angleRad: number | undefined): number | undefined =>
+      angleRad === undefined ? undefined : normalizeDegrees(angleRad * RAD_TO_DEG - mapBearing);
+    const boatDeg = screenDegrees(displayedBoatRad);
+    const apparentDeg = screenDegrees(displayedApparentRad);
+    const trueDeg = screenDegrees(displayedTrueRad);
+    const sectorDeg = screenDegrees(displayedSectorRad);
     dom.root.dataset.mapBearing = mapBearing.toFixed(2);
-    dom.root.dataset.heading = angles.headingDeg?.toFixed(2) ?? '';
-    dom.root.dataset.boatBearing = angles.boatDeg?.toFixed(2) ?? '';
-    dom.root.dataset.apparentBearing = angles.apparentDeg?.toFixed(2) ?? '';
-    dom.root.dataset.trueBearing = angles.trueDeg?.toFixed(2) ?? '';
+    dom.root.dataset.boatBearing = boatDeg?.toFixed(2) ?? '';
+    dom.root.dataset.apparentBearing = apparentDeg?.toFixed(2) ?? '';
+    dom.root.dataset.trueBearing = trueDeg?.toFixed(2) ?? '';
+    dom.root.dataset.rangeWindowSeconds = windDirectionRange ? '60' : '';
+    dom.root.dataset.portRangeDegrees = windDirectionRange
+      ? (windDirectionRange.portRad * RAD_TO_DEG).toFixed(1)
+      : '';
+    dom.root.dataset.starboardRangeDegrees = windDirectionRange
+      ? (windDirectionRange.starboardRad * RAD_TO_DEG).toFixed(1)
+      : '';
 
     cardRotation = nearestRotation(-mapBearing, cardRotation);
     setRotation(dom.card, cardRotation);
     for (const { angle, text } of dom.cardinalLabels) {
-      // Counter-rotate the glyph around its own baseline point: the compass position follows true
-      // north while the letter remains upright and glanceable during a heading-up turn.
       text.setAttribute('transform', `rotate(${-cardRotation - angle} 500 166)`);
     }
 
@@ -405,18 +432,113 @@ export function createVesselWindRoseOverlay(
       return rotation;
     };
 
-    boatRotation = applyOptionalRotation(dom.boat, undefined, angles.boatDeg, boatRotation);
+    boatRotation = applyOptionalRotation(dom.boat, undefined, boatDeg, boatRotation);
     apparentRotation = applyOptionalRotation(
       dom.apparent,
       dom.apparentLabel,
-      angles.apparentDeg,
+      apparentDeg,
       apparentRotation,
     );
-    trueRotation = applyOptionalRotation(dom.trueWind, dom.trueLabel, angles.trueDeg, trueRotation);
-    sectorRotation = applyOptionalRotation(dom.sector, undefined, angles.sectorDeg, sectorRotation);
+    trueRotation = applyOptionalRotation(dom.trueWind, dom.trueLabel, trueDeg, trueRotation);
+    sectorRotation = applyOptionalRotation(dom.sector, undefined, sectorDeg, sectorRotation);
+  };
+
+  const motionOptions = { reducedMotion: prefersReducedMotion };
+  const boatAnimator = createWindAngleAnimator((angleRad) => {
+    displayedBoatRad = angleRad;
+    renderOrientation();
+  }, motionOptions);
+  const apparentAnimator = createWindAngleAnimator((angleRad) => {
+    displayedApparentRad = angleRad;
+    renderOrientation();
+  }, motionOptions);
+  const trueAnimator = createWindAngleAnimator((angleRad) => {
+    displayedTrueRad = angleRad;
+    renderOrientation();
+  }, motionOptions);
+  const sectorAnimator = createWindAngleAnimator((angleRad) => {
+    displayedSectorRad = angleRad;
+    windDirectionRange =
+      angleRad !== undefined && sectorReference === 'true'
+        ? directionRangeTracker.rangeAround(angleRad)
+        : undefined;
+    if (dom) {
+      applySectorGeometry(
+        dom,
+        lastNoGoAngleRad ?? DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
+        windDirectionRange ?? lastArcMarginRad ?? DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
+      );
+    }
+    renderOrientation();
+  }, motionOptions);
+
+  function updateVisibility(): void {
+    if (!dom) return;
+    const hasPosition = vessel.position !== undefined;
+    dom.root.style.display = visible && hasPosition ? '' : 'none';
+    const reviewOpacity = options.reviewActive?.() ? 0.35 : 1;
+    dom.root.style.opacity = String(
+      acceptedOpacity * reviewOpacity * (vessel.positionStale ? 0.55 : 1),
+    );
+    dom.root.dataset.stale = String(vessel.positionStale);
   }
 
-  const onRotate = (): void => updateOrientation();
+  function updateMotionTargets(): void {
+    const now = Date.now();
+    const headingRad = !vessel.headingStale
+      ? vessel.headingRad
+      : !vessel.cogStale
+        ? vessel.cogRad
+        : undefined;
+    const headingEpoch = !vessel.headingStale ? vessel.headingEpochMs : vessel.cogEpochMs;
+    const apparentRad =
+      headingRad !== undefined &&
+      !vessel.windAngleApparentStale &&
+      finite(vessel.windAngleApparentRad)
+        ? headingRad + vessel.windAngleApparentRad
+        : undefined;
+    const apparentEpoch = Math.max(headingEpoch ?? 0, vessel.windAngleApparentEpochMs ?? 0);
+    let trueRad: number | undefined;
+    let trueEpoch = 0;
+    if (!vessel.windDirectionTrueStale && finite(vessel.windDirectionTrueRad)) {
+      trueRad = vessel.windDirectionTrueRad;
+      trueEpoch = vessel.windDirectionTrueEpochMs ?? 0;
+    } else if (
+      headingRad !== undefined &&
+      !vessel.windAngleTrueStale &&
+      finite(vessel.windAngleTrueRad)
+    ) {
+      trueRad = headingRad + vessel.windAngleTrueRad;
+      trueEpoch = Math.max(headingEpoch ?? 0, vessel.windAngleTrueEpochMs ?? 0);
+    }
+
+    if (headingRad === undefined) boatAnimator.reset();
+    else boatAnimator.push(headingRad, headingEpoch || now);
+    if (apparentRad === undefined) apparentAnimator.reset();
+    else apparentAnimator.push(apparentRad, apparentEpoch || now);
+    if (trueRad === undefined) trueAnimator.reset();
+    else trueAnimator.push(trueRad, trueEpoch || now);
+
+    const nextReference: WindSectorReference | undefined =
+      trueRad !== undefined ? 'true' : apparentRad !== undefined ? 'apparent' : undefined;
+    const sectorTarget = trueRad ?? apparentRad;
+    const sectorEpoch = trueRad !== undefined ? trueEpoch : apparentEpoch;
+    if (nextReference === undefined || sectorTarget === undefined) {
+      sectorReference = undefined;
+      sectorTracker.reset();
+      directionRangeTracker.reset();
+      windDirectionRange = undefined;
+      sectorAnimator.reset();
+      return;
+    }
+    sectorReference = nextReference;
+    const filtered = sectorTracker.push(sectorTarget, sectorEpoch || now, nextReference);
+    if (nextReference === 'true') directionRangeTracker.push(sectorTarget, sectorEpoch || now);
+    else directionRangeTracker.reset();
+    sectorAnimator.push(filtered, sectorEpoch || now);
+  }
+
+  const onRotate = (): void => renderOrientation();
 
   return {
     id: OWN_VESSEL_WIND_ROSE_OVERLAY_ID,
@@ -424,7 +546,8 @@ export function createVesselWindRoseOverlay(
     description:
       'A chart-anchored wind rose that follows the boat and stays correct in north-up, course-up, and heading-up views.',
     band: 'vessel',
-    listed: false,
+    listed: true,
+    defaultVisible: false,
     supportsOpacity: false,
     layerIds: [],
     add(ctx) {
@@ -449,10 +572,10 @@ export function createVesselWindRoseOverlay(
       if (noGoAngleRad !== lastNoGoAngleRad || arcMarginRad !== lastArcMarginRad) {
         lastNoGoAngleRad = noGoAngleRad;
         lastArcMarginRad = arcMarginRad;
-        applySectorGeometry(dom, noGoAngleRad, arcMarginRad);
+        applySectorGeometry(dom, noGoAngleRad, windDirectionRange ?? arcMarginRad);
       }
       updateVisibility();
-      updateOrientation();
+      updateMotionTargets();
     },
     setVisible(_ctx, next) {
       visible = next;
@@ -468,6 +591,10 @@ export function createVesselWindRoseOverlay(
     },
     remove() {
       map?.off('rotate', onRotate);
+      boatAnimator.destroy();
+      apparentAnimator.destroy();
+      trueAnimator.destroy();
+      sectorAnimator.destroy();
       marker?.remove();
       marker = undefined;
       dom = undefined;
@@ -483,6 +610,14 @@ export function createVesselWindRoseOverlay(
       apparentRotation = undefined;
       trueRotation = undefined;
       sectorRotation = undefined;
+      sectorReference = undefined;
+      windDirectionRange = undefined;
+      sectorTracker.reset();
+      directionRangeTracker.reset();
+      boatAnimator.reset();
+      apparentAnimator.reset();
+      trueAnimator.reset();
+      sectorAnimator.reset();
     },
   };
 }

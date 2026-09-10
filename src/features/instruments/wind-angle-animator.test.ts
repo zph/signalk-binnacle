@@ -3,7 +3,7 @@ import {
   createWindAngleAnimator,
   WIND_ANGLE_MAX_DURATION_MS,
   WIND_ANGLE_MIN_DURATION_MS,
-} from './wind-angle-animator';
+} from '$shared/nav';
 
 const DEG = Math.PI / 180;
 

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveVesselWindRoseAngles } from './vessel-wind-rose-overlay';
+import {
+  createVesselWindRoseOverlay,
+  resolveVesselWindRoseAngles,
+} from './vessel-wind-rose-overlay';
 
 function vessel(
   values: Partial<Parameters<typeof resolveVesselWindRoseAngles>[0]> = {},
@@ -79,5 +82,14 @@ describe('resolveVesselWindRoseAngles', () => {
       trueDeg: undefined,
       sectorDeg: undefined,
     });
+  });
+});
+
+describe('vessel wind rose layer defaults', () => {
+  it('is an opt-in layer that can be enabled from the Layers panel', () => {
+    const overlay = createVesselWindRoseOverlay(vessel());
+
+    expect(overlay.listed).toBe(true);
+    expect(overlay.defaultVisible).toBe(false);
   });
 });

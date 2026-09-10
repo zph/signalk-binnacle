@@ -2974,7 +2974,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     {
       id: 'wind-rose-settings',
       label: 'Wind rose settings',
-      description: `Set the no-go sector and arc margin, currently ${Math.round((windRoseNoGoAngleRad.value * 180) / Math.PI)}° and ±${Math.round((windRoseArcMarginRad.value * 180) / Math.PI)}°`,
+      description: `Set the no-go sector and apparent-wind fallback margin, currently ${Math.round((windRoseNoGoAngleRad.value * 180) / Math.PI)}° and ±${Math.round((windRoseArcMarginRad.value * 180) / Math.PI)}°`,
       group: 'Instruments',
       keywords: ['wind', 'rose', 'no-go', 'angle', 'sailing', 'configuration'],
       icon: Compass,

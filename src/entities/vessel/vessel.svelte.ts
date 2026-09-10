@@ -113,6 +113,26 @@ export class OwnVessel {
     return this.#num(SK_PATHS.windDirectionTrue);
   }
 
+  get headingEpochMs(): number | undefined {
+    return this.#epoch(SK_PATHS.headingTrue);
+  }
+
+  get cogEpochMs(): number | undefined {
+    return this.#epoch(SK_PATHS.courseOverGroundTrue);
+  }
+
+  get windAngleApparentEpochMs(): number | undefined {
+    return this.#epoch(SK_PATHS.windAngleApparent);
+  }
+
+  get windAngleTrueEpochMs(): number | undefined {
+    return this.#trueWindAnglePath ? this.#epoch(this.#trueWindAnglePath) : undefined;
+  }
+
+  get windDirectionTrueEpochMs(): number | undefined {
+    return this.#epoch(SK_PATHS.windDirectionTrue);
+  }
+
   // Outside air pressure in Pascals (SI), when a barometer publishes it.
   get outsidePressurePa(): number | undefined {
     return this.#num(SK_PATHS.outsidePressure);
@@ -280,6 +300,11 @@ export class OwnVessel {
   // numeric getter shares.
   #num(path: string): number | undefined {
     return asNumber(this.#raw(path));
+  }
+
+  #epoch(path: string): number | undefined {
+    const epoch = this.#store.cell(path).epoch;
+    return epoch > 0 ? epoch : undefined;
   }
 
   #pathStale(path: string): boolean {

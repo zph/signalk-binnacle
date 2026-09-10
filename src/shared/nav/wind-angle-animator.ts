@@ -1,9 +1,9 @@
 import { clamp, DEG_TO_RAD } from '$shared/lib';
 
-export const WIND_ANGLE_DEADBAND_RAD = DEG_TO_RAD;
+const WIND_ANGLE_DEADBAND_RAD = DEG_TO_RAD;
 export const WIND_ANGLE_MIN_DURATION_MS = 250;
 export const WIND_ANGLE_MAX_DURATION_MS = 1_200;
-export const WIND_ANGLE_DEFAULT_DURATION_MS = 750;
+const WIND_ANGLE_DEFAULT_DURATION_MS = 750;
 
 interface FrameScheduler {
   now(): number;
@@ -17,7 +17,7 @@ interface WindAngleAnimatorOptions {
   deadbandRad?: number;
 }
 
-export interface WindAngleAnimator {
+interface WindAngleAnimator {
   push(angleRad: number, epochMs: number): void;
   reset(angleRad?: number): void;
   destroy(): void;

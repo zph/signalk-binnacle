@@ -284,8 +284,9 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   AWA and TWA stay encoded by their pointers instead of consuming a second numeric line. Depth alone
   takes the depth path's Warning or Alarm tint, so a shallow-depth verdict does not recolor wind data.
   The profile-synced no-go angle controls the full gap between the red and green limit lines. Each
-  colored perimeter arc is centered on its line and extends by a separately profile-synced error
-  margin on both sides. The settings surface stores both angles in radians while displaying degrees.
+  colored perimeter arc spans the full asymmetric range of true-wind angles received during the
+  rolling prior 60 seconds. A separately profile-synced margin is used only as the apparent-wind
+  fallback. The settings surface stores both angles in radians while displaying degrees.
   The face carries no redundant Wind rose caption.
   Every instrument face is the zoom control: activating a tile expands that one face over the full
   Binnacle surface, and activating the expanded face restores the grid. Right-clicking an instrument

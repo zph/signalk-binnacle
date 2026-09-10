@@ -29,7 +29,7 @@ const maxArcMarginDeg = Math.round(MAX_WIND_ROSE_ARC_MARGIN_RAD * RAD_TO_DEG);
   <SubViewHeader title="Wind rose settings" backLabel="Back to instruments" {onBack} />
 
   <p class="muted-note">
-    Set the total no-go sector and the error margin shown around each limit line.
+    Set the total no-go sector and the fallback arc width used when true wind is unavailable.
   </p>
 
   <section class="panel-section" aria-label="No-go sector">
@@ -58,8 +58,8 @@ const maxArcMarginDeg = Math.round(MAX_WIND_ROSE_ARC_MARGIN_RAD * RAD_TO_DEG);
     </p>
   </section>
 
-  <section class="panel-section" aria-label="Error arcs">
-    <h3 class="caps-label">Error arcs</h3>
+  <section class="panel-section" aria-label="Fallback arcs">
+    <h3 class="caps-label">Fallback arcs</h3>
     <div class="angle-label">
       <label for="wind-rose-arc-margin">Margin on each side</label>
       <span class="num">{arcMarginDeg}°</span>
@@ -80,7 +80,8 @@ const maxArcMarginDeg = Math.round(MAX_WIND_ROSE_ARC_MARGIN_RAD * RAD_TO_DEG);
       <span>Broad</span>
     </div>
     <p class="muted-note muted-note--xs">
-      Each colored arc extends {arcMarginDeg}° to either side of its intersecting limit line.
+      With true wind, each arc shows the complete rolling 60-second direction range. This margin is
+      used only while the rose has apparent wind.
     </p>
   </section>
 </div>

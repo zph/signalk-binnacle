@@ -30,4 +30,15 @@ export {
   steerSide,
   vmgMps,
 } from './route-geometry';
+export {
+  createWindAngleAnimator,
+  WIND_ANGLE_MAX_DURATION_MS,
+  WIND_ANGLE_MIN_DURATION_MS,
+} from './wind-angle-animator';
 export { windRoseSectorGeometry } from './wind-rose-geometry';
+export {
+  createWindDirectionRangeTracker,
+  createWindSectorTracker,
+  type WindDirectionRange,
+  type WindSectorReference,
+} from './wind-sector-tracker';

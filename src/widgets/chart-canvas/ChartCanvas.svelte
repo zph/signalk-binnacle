@@ -39,7 +39,7 @@ import type { RouteEditor } from '$features/route-edit';
 import { createWorkingRouteOverlay, type WorkingRouteOverlay } from '$features/route-layer';
 import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
-import { OWN_VESSEL_OVERLAY_ID, OWN_VESSEL_WIND_ROSE_OVERLAY_ID } from '$features/vessel-layer';
+import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import type { WayfindingVisualizationSource } from '$features/wayfinding';
 import {
   CHART_FORECAST_LAYER_IDS,
@@ -519,13 +519,9 @@ onMount(async () => {
       onOrderChange,
       // The own vessel, an active MOB mark, and active collision alarms stay pinned on top so a
       // chart or traffic can never hide them; bottom to top, collision, then the MOB mark, then
-      // the vessel itself.
-      pinned: [
-        COLLISION_OVERLAY_ID,
-        MOB_OVERLAY_ID,
-        OWN_VESSEL_WIND_ROSE_OVERLAY_ID,
-        OWN_VESSEL_OVERLAY_ID,
-      ],
+      // the vessel itself. The optional vessel wind rose still renders in the vessel band, but is
+      // deliberately not locked here so the Layers panel can turn its default-off state on.
+      pinned: [COLLISION_OVERLAY_ID, MOB_OVERLAY_ID, OWN_VESSEL_OVERLAY_ID],
     },
     onView: (view) => onViewChange?.(view),
     onUserPan: () => onUserPan?.(),
