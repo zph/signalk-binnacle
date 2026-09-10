@@ -15,7 +15,30 @@ const METERS_PER_NAUTICAL_MILE = 1852;
 // the map edge with no second padding inset.
 export const AIS_RADAR_MAP_PADDING_PX = 0;
 export const AIS_RADAR_POSITION_MAX_INTERVAL_MS = 5_000;
+export const AIS_RADAR_LAYOUT_REFIT_DELAY_MS = 150;
 const AIS_RADAR_FALLBACK_DIAMETER_PX = 400;
+const AIS_RADAR_SCALE_REFIT_DRIFT_PX = 1;
+const MAX_MERCATOR_LATITUDE = 85.051_129;
+
+interface RefitScheduler {
+  request(callback: () => void, delayMs: number): number | undefined;
+  cancel(id: number): void;
+}
+
+interface AisRadarCameraController {
+  sync(position: LatLon, rangeNm: AisRadarRangeNm, diameterPx: number): void;
+  destroy(): void;
+}
+
+const defaultRefitScheduler: RefitScheduler = {
+  request(callback, delayMs) {
+    if (typeof window === 'undefined') return undefined;
+    return window.setTimeout(callback, delayMs);
+  },
+  cancel(id) {
+    if (typeof window !== 'undefined') window.clearTimeout(id);
+  },
+};
 
 /**
  * Build the smallest useful Chart Locker style for the radar. Loading the complete basemap and
@@ -172,22 +195,38 @@ export function aisRadarPositionRenderMeters(rangeNm: AisRadarRangeNm, diameterP
   );
 }
 
-export function shouldFitAisRadarSeascape(
+function normalizedRadarDiameter(diameterPx: number): number {
+  return Math.max(1, Math.round(diameterPx > 0 ? diameterPx : AIS_RADAR_FALLBACK_DIAMETER_PX));
+}
+
+function mercatorScale(latitude: number): number {
+  const boundedLatitude = Math.max(
+    -MAX_MERCATOR_LATITUDE,
+    Math.min(MAX_MERCATOR_LATITUDE, latitude),
+  );
+  return 1 / Math.cos((boundedLatitude * Math.PI) / 180);
+}
+
+function radarScaleDriftPx(fittedLatitude: number, latitude: number, diameterPx: number): number {
+  return Math.abs(mercatorScale(latitude) / mercatorScale(fittedLatitude) - 1) * diameterPx;
+}
+
+export function shouldMoveAisRadarSeascape(
   gate: PositionRenderGate,
   position: LatLon,
   rangeNm: AisRadarRangeNm,
   diameterPx: number,
 ): boolean {
-  const roundedDiameter = Math.max(1, Math.round(diameterPx || AIS_RADAR_FALLBACK_DIAMETER_PX));
+  const roundedDiameter = normalizedRadarDiameter(diameterPx);
   return gate.shouldRender(position, {
     minDistanceMeters: aisRadarPositionRenderMeters(rangeNm, roundedDiameter),
     maxIntervalMs: AIS_RADAR_POSITION_MAX_INTERVAL_MS,
-    variant: `${rangeNm}:${roundedDiameter}`,
+    minTrailingDistanceMeters: POSITION_RENDER_DEADBAND_METERS,
   });
 }
 
-export function createAisRadarPositionRenderGate(now: () => number = Date.now) {
-  return createPositionRenderGate(now);
+export function centerAisRadarSeascape(map: MapLibreMap, position: LatLon): void {
+  map.setCenter([position.longitude, position.latitude]);
 }
 
 /** Keep the radar's existing north-up geometry and fit the selected range inside its outer ring. */
@@ -202,4 +241,80 @@ export function fitAisRadarSeascape(
     padding: AIS_RADAR_MAP_PADDING_PX,
     duration: 0,
   });
+}
+
+export function createAisRadarCameraController(
+  map: MapLibreMap,
+  options: { now?: () => number; scheduler?: RefitScheduler } = {},
+): AisRadarCameraController {
+  const positionGate = createPositionRenderGate(options.now);
+  const scheduler = options.scheduler ?? defaultRefitScheduler;
+  let fittedRangeNm: AisRadarRangeNm | undefined;
+  let fittedDiameterPx: number | undefined;
+  let fittedLatitude: number | undefined;
+  let pendingRefitId: number | undefined;
+  let latest: { position: LatLon; rangeNm: AisRadarRangeNm; diameterPx: number } | undefined;
+
+  function cancelPendingRefit(): void {
+    if (pendingRefitId === undefined) return;
+    scheduler.cancel(pendingRefitId);
+    pendingRefitId = undefined;
+  }
+
+  function recordFittedPosition(
+    position: LatLon,
+    rangeNm: AisRadarRangeNm,
+    diameterPx: number,
+  ): void {
+    positionGate.reset();
+    positionGate.shouldRender(position, {
+      minDistanceMeters: aisRadarPositionRenderMeters(rangeNm, diameterPx),
+      maxIntervalMs: AIS_RADAR_POSITION_MAX_INTERVAL_MS,
+      minTrailingDistanceMeters: POSITION_RENDER_DEADBAND_METERS,
+    });
+  }
+
+  function refit(input: NonNullable<typeof latest>): void {
+    cancelPendingRefit();
+    fitAisRadarSeascape(map, input.position, input.rangeNm);
+    fittedRangeNm = input.rangeNm;
+    fittedDiameterPx = input.diameterPx;
+    fittedLatitude = input.position.latitude;
+    recordFittedPosition(input.position, input.rangeNm, input.diameterPx);
+  }
+
+  function scheduleRefit(): void {
+    cancelPendingRefit();
+    pendingRefitId = scheduler.request(() => {
+      pendingRefitId = undefined;
+      if (latest) refit(latest);
+    }, AIS_RADAR_LAYOUT_REFIT_DELAY_MS);
+    if (pendingRefitId === undefined && latest) refit(latest);
+  }
+
+  return {
+    sync(position, rangeNm, diameterPx) {
+      const normalizedDiameterPx = normalizedRadarDiameter(diameterPx);
+      latest = { position, rangeNm, diameterPx: normalizedDiameterPx };
+      if (fittedRangeNm === undefined || fittedRangeNm !== rangeNm) {
+        refit(latest);
+        return;
+      }
+      if (
+        fittedLatitude === undefined ||
+        radarScaleDriftPx(fittedLatitude, position.latitude, normalizedDiameterPx) >=
+          AIS_RADAR_SCALE_REFIT_DRIFT_PX
+      ) {
+        refit(latest);
+        return;
+      }
+      if (fittedDiameterPx !== normalizedDiameterPx) scheduleRefit();
+      if (shouldMoveAisRadarSeascape(positionGate, position, rangeNm, normalizedDiameterPx)) {
+        centerAisRadarSeascape(map, position);
+      }
+    },
+    destroy() {
+      cancelPendingRefit();
+    },
+  };
 }

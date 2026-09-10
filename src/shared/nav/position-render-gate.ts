@@ -9,6 +9,9 @@ export const POSITION_RENDER_DEADBAND_METERS = 0.75;
 interface PositionRenderGateOptions {
   minDistanceMeters?: number;
   maxIntervalMs?: number;
+  // A trailing render can use a smaller floor than the normal display threshold without letting
+  // tiny stationary sensor jitter wake an otherwise idle renderer.
+  minTrailingDistanceMeters?: number;
   // A layout or camera-mode change can require a render even at an unchanged coordinate.
   variant?: string | number;
 }
@@ -31,6 +34,7 @@ export function createPositionRenderGate(now: () => number = Date.now): Position
       );
       const maxIntervalMs =
         options.maxIntervalMs === undefined ? undefined : Math.max(0, options.maxIntervalMs);
+      const minTrailingDistanceMeters = Math.max(0, options.minTrailingDistanceMeters ?? 0);
       const distanceMeters = renderedPosition
         ? haversineMeters(
             renderedPosition.latitude,
@@ -41,7 +45,10 @@ export function createPositionRenderGate(now: () => number = Date.now): Position
         : Number.POSITIVE_INFINITY;
       const variantChanged = options.variant !== renderedVariant;
       const overdueMovedPosition =
-        distanceMeters > 0 && maxIntervalMs !== undefined && now() - renderedAt >= maxIntervalMs;
+        distanceMeters >= minTrailingDistanceMeters &&
+        distanceMeters > 0 &&
+        maxIntervalMs !== undefined &&
+        now() - renderedAt >= maxIntervalMs;
       if (
         renderedPosition &&
         !variantChanged &&

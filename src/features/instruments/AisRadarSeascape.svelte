@@ -7,9 +7,7 @@ import type { AisRadarRangeNm } from './ais-radar-model';
 import {
   aisRadarSeascapeStyle,
   applyAisRadarSeascape,
-  createAisRadarPositionRenderGate,
-  fitAisRadarSeascape,
-  shouldFitAisRadarSeascape,
+  createAisRadarCameraController,
 } from './ais-radar-seascape';
 
 interface Props {
@@ -28,13 +26,10 @@ let map = $state<NonNullable<ThemedMapHandle['map']>>();
 let ready = $state(false);
 let width = $state(0);
 let height = $state(0);
-const positionRenderGate = createAisRadarPositionRenderGate();
+let cameraController: ReturnType<typeof createAisRadarCameraController> | undefined;
 
 function syncPosition(): void {
-  if (!map) return;
-  const diameter = Math.min(width, height);
-  if (!shouldFitAisRadarSeascape(positionRenderGate, position, rangeNm, diameter)) return;
-  fitAisRadarSeascape(map, position, rangeNm);
+  cameraController?.sync(position, rangeNm, Math.min(width, height));
 }
 
 onMount(() => {
@@ -54,11 +49,15 @@ onMount(() => {
     onLoad: (api) => {
       map = api.map;
       applyAisRadarSeascape(api.map, theme);
+      cameraController = createAisRadarCameraController(api.map);
       syncPosition();
       ready = true;
     },
   });
-  return () => mapHandle?.destroy();
+  return () => {
+    cameraController?.destroy();
+    mapHandle?.destroy();
+  };
 });
 
 $effect(() => {

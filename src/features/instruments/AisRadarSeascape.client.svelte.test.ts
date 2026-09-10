@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     setPaintProperty: vi.fn(),
     setBearing: vi.fn(),
     setPitch: vi.fn(),
+    setCenter: vi.fn(),
     fitBounds: vi.fn(),
   };
   const destroy = vi.fn();
@@ -90,6 +91,12 @@ describe('AIS radar seascape component', () => {
       };
       flushSync();
     }
+    expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits);
+    expect(mocks.map.setCenter).not.toHaveBeenCalled();
+
+    props.position = { latitude: 38.041, longitude: -122.19 };
+    flushSync();
+    expect(mocks.map.setCenter).toHaveBeenCalledExactlyOnceWith([-122.19, 38.041]);
     expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits);
 
     props.rangeNm = 12;

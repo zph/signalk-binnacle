@@ -59,4 +59,24 @@ describe('position render gate', () => {
     now = 20_000;
     expect(gate.shouldRender({ ...smallMove }, { maxIntervalMs: 5_000 })).toBe(false);
   });
+
+  it('does not treat sub-deadband sensor jitter as trailing motion', () => {
+    let now = 0;
+    const gate = createPositionRenderGate(() => now);
+    const position = { latitude: 38, longitude: -122 };
+    const options = {
+      minDistanceMeters: 50,
+      minTrailingDistanceMeters: POSITION_RENDER_DEADBAND_METERS,
+      maxIntervalMs: 5_000,
+    };
+
+    expect(gate.shouldRender(position, options)).toBe(true);
+    now = 60_000;
+    expect(
+      gate.shouldRender(
+        { latitude: position.latitude + 0.000_001, longitude: position.longitude },
+        options,
+      ),
+    ).toBe(false);
+  });
 });
