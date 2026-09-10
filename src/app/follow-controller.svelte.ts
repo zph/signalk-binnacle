@@ -1,4 +1,5 @@
 import type { OwnVessel } from '$entities/vessel';
+import { createPositionRenderGate } from '$shared/nav';
 import type { MapCommands } from '$widgets/chart-canvas';
 
 interface FollowControllerDeps {
@@ -16,14 +17,17 @@ interface FollowControllerDeps {
 // fresh fix, instead of silently disarming at the moment the navigator most needs chart tracking.
 export function createFollowController(deps: FollowControllerDeps) {
   let following = $state(false);
+  const renderGate = createPositionRenderGate();
 
   $effect(() => {
     if (!following) return;
     const position = deps.vessel.position;
     if (!position || deps.vessel.positionStale) return;
-    deps
-      .commands()
-      ?.recenterOnVessel(position.latitude, position.longitude, deps.lookAheadPx?.() ?? 0);
+    const commands = deps.commands();
+    if (!commands) return;
+    const lookAheadPx = deps.lookAheadPx?.() ?? 0;
+    if (!renderGate.shouldRender(position, { variant: lookAheadPx })) return;
+    commands.recenterOnVessel(position.latitude, position.longitude, lookAheadPx);
   });
 
   return {
@@ -31,10 +35,12 @@ export function createFollowController(deps: FollowControllerDeps) {
       return following;
     },
     toggle(): void {
+      if (!following) renderGate.reset();
       following = !following;
     },
     release(): void {
       following = false;
+      renderGate.reset();
     },
   };
 }

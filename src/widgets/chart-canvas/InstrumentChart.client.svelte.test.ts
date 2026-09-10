@@ -1,4 +1,4 @@
-import { flushSync, mount, unmount } from 'svelte';
+import { type ComponentProps, flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createThemedMap } from '$shared/map';
 import InstrumentChart from './InstrumentChart.svelte';
@@ -73,47 +73,51 @@ afterEach(() => {
 
 describe('map instrument chart', () => {
   it('owns an independent camera and exposes zoom, follow, pan release, and expansion', async () => {
-    const onFollowingChange = vi.fn();
     const onViewChange = vi.fn();
     const onOpen = vi.fn();
-    const vessel = {
+    const vessel = $state({
       position: { latitude: 38.0667, longitude: -122.2133 },
       positionStale: false,
-    };
+    });
+    const props = $state<ComponentProps<typeof InstrumentChart>>({
+      origin: 'http://localhost:3000',
+      vessel: vessel as never,
+      aisTargets: { list: () => [], version: 0 } as never,
+      aisAssessment: () => ({ contacts: [] }) as never,
+      aisKindMode: 'type-specific',
+      aisNameMode: 'off',
+      units: { depthUnit: 'm' } as never,
+      thresholds: { value: { shallowDepthMeters: 2 } } as never,
+      userCharts: { sources: [] } as never,
+      theme: 'day',
+      companionBase: null,
+      companionTiles: () => null,
+      initialView: { lat: 38, lon: -122, zoom: 9 },
+      savedLayers: {},
+      savedOrder: [],
+      mapRenderingQuality: 'balanced',
+      qualityOverride: null,
+      onQualityOverrideChange: vi.fn(),
+      mainMapAisVisible: true,
+      aisVisibilityOverride: null,
+      onAisVisibilityOverrideChange: vi.fn(),
+      following: false,
+      onFollowingChange: () => {},
+      onViewChange,
+      actionLabel: 'Expand instrument',
+      onOpen,
+    });
+    const onFollowingChange = vi.fn((following: boolean) => {
+      props.following = following;
+    });
+    props.onFollowingChange = onFollowingChange;
     const target = document.createElement('div');
     document.body.append(target);
     let component!: ReturnType<typeof mount>;
     flushSync(() => {
       component = mount(InstrumentChart, {
         target,
-        props: {
-          origin: 'http://localhost:3000',
-          vessel: vessel as never,
-          aisTargets: { list: () => [], version: 0 } as never,
-          aisAssessment: () => ({ contacts: [] }) as never,
-          aisKindMode: 'type-specific',
-          aisNameMode: 'off',
-          units: { depthUnit: 'm' } as never,
-          thresholds: { value: { shallowDepthMeters: 2 } } as never,
-          userCharts: { sources: [] } as never,
-          theme: 'day',
-          companionBase: null,
-          companionTiles: () => null,
-          initialView: { lat: 38, lon: -122, zoom: 9 },
-          savedLayers: {},
-          savedOrder: [],
-          mapRenderingQuality: 'balanced',
-          qualityOverride: null,
-          onQualityOverrideChange: vi.fn(),
-          mainMapAisVisible: true,
-          aisVisibilityOverride: null,
-          onAisVisibilityOverrideChange: vi.fn(),
-          following: false,
-          onFollowingChange,
-          onViewChange,
-          actionLabel: 'Expand instrument',
-          onOpen,
-        },
+        props,
       });
     });
     mounted.push(() => {
@@ -136,6 +140,22 @@ describe('map instrument chart', () => {
 
     flushSync(() => target.querySelector<HTMLButtonElement>('[aria-label="Follow boat"]')?.click());
     expect(onFollowingChange).toHaveBeenCalledWith(true);
+    expect(mocks.map.setCenter).toHaveBeenCalledExactlyOnceWith([-122.2133, 38.0667]);
+    mocks.map.setCenter.mockClear();
+
+    for (let index = 0; index < 1_000; index += 1) {
+      const sign = index % 2 === 0 ? 1 : -1;
+      vessel.position = {
+        latitude: 38.0667 + sign * 0.000_001,
+        longitude: -122.2133 - sign * 0.000_001,
+      };
+      flushSync();
+    }
+    expect(mocks.map.setCenter).not.toHaveBeenCalled();
+
+    vessel.position = { latitude: 38.0677, longitude: -122.2133 };
+    flushSync();
+    expect(mocks.map.setCenter).toHaveBeenCalledExactlyOnceWith([-122.2133, 38.0677]);
 
     mocks.options?.onUserPan?.();
     expect(onFollowingChange).toHaveBeenLastCalledWith(false);

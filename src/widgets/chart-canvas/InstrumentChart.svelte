@@ -28,6 +28,7 @@ import {
   type LayerSettings,
   type ThemedMapHandle,
 } from '$shared/map';
+import { createPositionRenderGate } from '$shared/nav';
 import {
   DEFAULT_THRESHOLDS,
   MAP_RENDERING_QUALITIES,
@@ -110,6 +111,7 @@ let recolor = $state<((theme: Theme) => void) | undefined>();
 let ready = $state(false);
 let chartWarning = $state(false);
 let layerManager: LayerManager | undefined;
+const followRenderGate = createPositionRenderGate();
 
 const effectiveQuality = $derived(qualityOverride ?? mapRenderingQuality);
 const effectiveQualityLabel = $derived(qualityLabel(effectiveQuality));
@@ -319,9 +321,14 @@ $effect(() => {
 // Follow only changes the center. The independent zoom survives every GPS fix, which is what lets
 // this viewport stay close-in while the primary chart remains an overview, or vice versa.
 $effect(() => {
-  if (!following || !map) return;
+  if (!following) {
+    followRenderGate.reset();
+    return;
+  }
+  if (!map) return;
   const position = vessel.position;
   if (!position || vessel.positionStale) return;
+  if (!followRenderGate.shouldRender(position)) return;
   map.setCenter([position.longitude, position.latitude]);
 });
 </script>

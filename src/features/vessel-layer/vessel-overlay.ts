@@ -19,7 +19,7 @@ import {
   setPaintProp,
   setSourceData,
 } from '$shared/map';
-import { geodesicDestination, haversineMeters } from '$shared/nav';
+import { geodesicDestination, haversineMeters, POSITION_RENDER_DEADBAND_METERS } from '$shared/nav';
 import { staleVesselBadgeImage, VESSEL_ICON_ID, vesselIconImage } from './vessel-icon';
 
 const SOURCE_ID = 'binnacle-own-vessel';
@@ -38,7 +38,6 @@ const STALE_ICON_ID = 'binnacle-vessel-stale-badge';
 // MapLibre reparses a GeoJSON source and schedules a full map render after setData(). Ignore sensor
 // noise that cannot move the marker or vector meaningfully on screen. Navigation calculations keep
 // consuming the unfiltered Signal K values; these thresholds affect display invalidation only.
-const POSITION_REDRAW_METERS = 0.75;
 const HEADING_REDRAW_DEGREES = 1;
 const VECTOR_SOG_REDRAW_MPS = knotsToMetersPerSecond(0.1);
 const VECTOR_COG_REDRAW_RADIANS = Math.PI / 180;
@@ -74,7 +73,8 @@ function positionChanged(
     return latitude !== priorLatitude || longitude !== priorLongitude;
   }
   return (
-    haversineMeters(priorLatitude, priorLongitude, latitude, longitude) >= POSITION_REDRAW_METERS
+    haversineMeters(priorLatitude, priorLongitude, latitude, longitude) >=
+    POSITION_RENDER_DEADBAND_METERS
   );
 }
 

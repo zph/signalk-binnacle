@@ -532,6 +532,94 @@ test('accelerated helm soak keeps rendering, heap, and mounted UI work bounded',
   expect(idleFrames).toBeLessThan(60);
 });
 
+test('instrument layouts keep WebGL contexts and live transform commits bounded', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openApp(page);
+  await sendDelta(page, OWN_WIND);
+  await sendDelta(page, CLOSING_TARGET, TARGET_CONTEXT);
+
+  // Hidden instruments own no secondary MapLibre context.
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
+
+  await page.keyboard.press('Control+K');
+  const palette = page.getByRole('dialog', { name: 'Command palette' });
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('Edit screen instruments');
+  await palette.getByRole('option', { name: 'Edit screen instruments' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+
+  const screen = page.locator('.instrument-screen-layer');
+  await expect(screen.locator('.floating-frame')).toHaveCount(2);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+
+  // Responsive relayout must resize the existing contexts, not mount replacements that survive.
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1194, height: 834 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+  }
+
+  const radar = screen.getByRole('button', { name: /AIS radar.*Expand instrument/ });
+  await radar.click();
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+  await screen.getByRole('button', { name: 'Collapse instrument', exact: true }).first().click();
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+
+  await page.evaluate(() => {
+    const rose = document.querySelector('.instrument-screen-layer .tile--wind-rose');
+    if (!rose) throw new Error('Wind rose was not mounted.');
+    const probe = { transformMutations: 0, observer: undefined as MutationObserver | undefined };
+    probe.observer = new MutationObserver((records) => {
+      probe.transformMutations += records.length;
+    });
+    probe.observer.observe(rose, {
+      attributes: true,
+      attributeFilter: ['transform'],
+      subtree: true,
+    });
+    Object.assign(window, { __binnacleInstrumentRenderProbe: probe });
+  });
+
+  // Twenty updates at the live 5 Hz heading and apparent-wind ceiling exercise four concurrent
+  // wind-rose channels. Their transforms are coalesced to 4 Hz instead of committing at display
+  // rate, while the latest target remains animated.
+  for (let index = 0; index < 20; index += 1) {
+    await sendDelta(page, [
+      ...OWN_FIX,
+      { path: 'navigation.headingTrue', value: Math.PI / 2 + index * 0.02 },
+      { path: 'environment.wind.angleApparent', value: -Math.PI / 6 + index * 0.025 },
+      { path: 'environment.wind.angleTrueWater', value: Math.PI / 4 + index * 0.02 },
+    ]);
+    await page.waitForTimeout(200);
+  }
+  await page.waitForTimeout(1_250);
+  const transformMutations = await page.evaluate(() => {
+    const probe = (
+      window as unknown as Window & {
+        __binnacleInstrumentRenderProbe: {
+          transformMutations: number;
+          observer?: MutationObserver;
+        };
+      }
+    ).__binnacleInstrumentRenderProbe;
+    probe.observer?.disconnect();
+    return probe.transformMutations;
+  });
+  expect(transformMutations).toBeLessThan(180);
+
+  // Hide, show, and edit transitions must tear the passive map down and recreate exactly one.
+  await page.getByRole('button', { name: 'Edit instruments', exact: true }).click();
+  await page.getByRole('button', { name: 'Hide instruments', exact: true }).click();
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Show instruments', exact: true }).click();
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+});
+
 test('expanded numeric instruments prioritize the live value at helm distance', async ({
   page,
 }) => {

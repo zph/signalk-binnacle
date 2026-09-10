@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { mapThemePaint } from '$shared/map';
 import {
   AIS_RADAR_MAP_PADDING_PX,
+  AIS_RADAR_POSITION_MAX_INTERVAL_MS,
   aisRadarBounds,
+  aisRadarPositionRenderMeters,
   aisRadarSeascapeStyle,
   applyAisRadarSeascape,
+  createAisRadarPositionRenderGate,
   fitAisRadarSeascape,
+  shouldFitAisRadarSeascape,
 } from './ais-radar-seascape';
 
 function fakeMap() {
@@ -109,5 +113,48 @@ describe('AIS radar seascape', () => {
     const [[west], [east]] = aisRadarBounds({ latitude: 0, longitude: 179.99 }, 24);
     expect(east).toBeGreaterThan(west);
     expect(east).toBeGreaterThan(180);
+  });
+
+  it('uses the displayed layout and range to gate passive coastline movement', () => {
+    expect(aisRadarPositionRenderMeters(6, 180)).toBeCloseTo(61.73, 1);
+    expect(aisRadarPositionRenderMeters(6, 440)).toBeCloseTo(25.25, 1);
+    expect(aisRadarPositionRenderMeters(0.5, 440)).toBeCloseTo(2.1, 1);
+  });
+
+  it('coalesces compact and expanded radar movement with a bounded trailing update', () => {
+    let now = 0;
+    const gate = createAisRadarPositionRenderGate(() => now);
+    const position = { latitude: 38, longitude: -122 };
+
+    expect(shouldFitAisRadarSeascape(gate, position, 6, 180)).toBe(true);
+    expect(shouldFitAisRadarSeascape(gate, { ...position }, 6, 180)).toBe(false);
+    expect(
+      shouldFitAisRadarSeascape(
+        gate,
+        { latitude: position.latitude + 0.000_01, longitude: position.longitude },
+        6,
+        180,
+      ),
+    ).toBe(false);
+
+    now = AIS_RADAR_POSITION_MAX_INTERVAL_MS;
+    expect(
+      shouldFitAisRadarSeascape(
+        gate,
+        { latitude: position.latitude + 0.000_01, longitude: position.longitude },
+        6,
+        180,
+      ),
+    ).toBe(true);
+
+    // Expanding the same radar changes its pixel scale and forces one corrective fit.
+    expect(
+      shouldFitAisRadarSeascape(
+        gate,
+        { latitude: position.latitude + 0.000_01, longitude: position.longitude },
+        6,
+        440,
+      ),
+    ).toBe(true);
   });
 });

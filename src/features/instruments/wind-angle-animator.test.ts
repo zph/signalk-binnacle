@@ -3,6 +3,7 @@ import {
   createWindAngleAnimator,
   WIND_ANGLE_MAX_DURATION_MS,
   WIND_ANGLE_MIN_DURATION_MS,
+  WIND_ANGLE_RENDER_INTERVAL_MS,
 } from '$shared/nav';
 
 const DEG = Math.PI / 180;
@@ -11,12 +12,14 @@ function createScheduler() {
   let nowMs = 0;
   let nextId = 1;
   const callbacks = new Map<number, (nowMs: number) => void>();
+  const delays: number[] = [];
   return {
     scheduler: {
       now: () => nowMs,
-      request(callback: (frameNowMs: number) => void) {
+      request(callback: (frameNowMs: number) => void, delayMs: number) {
         const id = nextId++;
         callbacks.set(id, callback);
+        delays.push(delayMs);
         return id;
       },
       cancel(id: number) {
@@ -30,6 +33,7 @@ function createScheduler() {
       for (const callback of pending) callback(nowMs);
     },
     pending: () => callbacks.size,
+    delays,
   };
 }
 
@@ -61,6 +65,32 @@ describe('wind angle animator', () => {
 
     animator.push(11.2 * DEG, 3_000);
     expect(frames.pending()).toBe(1);
+  });
+
+  it('coalesces sustained sensor input onto a single four-hertz render timer', () => {
+    const frames = createScheduler();
+    const onChange = vi.fn();
+    const animator = createWindAngleAnimator(onChange, { scheduler: frames.scheduler });
+
+    animator.push(0, 1_000);
+    for (let index = 1; index <= 1_000; index += 1) {
+      animator.push((index % 90) * DEG, 1_000 + index * 200);
+      expect(frames.pending()).toBe(1);
+    }
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(frames.delays.every((delay) => delay === WIND_ANGLE_RENDER_INTERVAL_MS)).toBe(true);
+  });
+
+  it('does not emit repeated resets for an unavailable instrument channel', () => {
+    const onChange = vi.fn();
+    const animator = createWindAngleAnimator(onChange);
+
+    animator.reset();
+    animator.reset();
+    animator.reset();
+
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('crosses the angular seam through the shortest arc', () => {

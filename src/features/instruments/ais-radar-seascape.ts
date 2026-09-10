@@ -1,7 +1,12 @@
 import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import type { LatLon } from '$shared/geo';
 import { mapThemePaint } from '$shared/map';
-import { geodesicDestination } from '$shared/nav';
+import {
+  createPositionRenderGate,
+  geodesicDestination,
+  POSITION_RENDER_DEADBAND_METERS,
+  type PositionRenderGate,
+} from '$shared/nav';
 import type { Theme } from '$shared/ui';
 import type { AisRadarRangeNm } from './ais-radar-model';
 
@@ -9,6 +14,8 @@ const METERS_PER_NAUTICAL_MILE = 1852;
 // The map element itself is inset to the radar's 176 px outer ring, so the range bounds belong at
 // the map edge with no second padding inset.
 export const AIS_RADAR_MAP_PADDING_PX = 0;
+export const AIS_RADAR_POSITION_MAX_INTERVAL_MS = 5_000;
+const AIS_RADAR_FALLBACK_DIAMETER_PX = 400;
 
 /**
  * Build the smallest useful Chart Locker style for the radar. Loading the complete basemap and
@@ -152,6 +159,35 @@ export function aisRadarBounds(
     [west, south],
     [unwrappedEast, north],
   ];
+}
+
+// Moving the passive coastline by less than one rendered pixel cannot improve what the radar face
+// communicates. The physical threshold grows with range and shrinks when the instrument expands.
+export function aisRadarPositionRenderMeters(rangeNm: AisRadarRangeNm, diameterPx: number): number {
+  const usableDiameter =
+    Number.isFinite(diameterPx) && diameterPx > 0 ? diameterPx : AIS_RADAR_FALLBACK_DIAMETER_PX;
+  return Math.max(
+    POSITION_RENDER_DEADBAND_METERS,
+    (rangeNm * METERS_PER_NAUTICAL_MILE) / usableDiameter,
+  );
+}
+
+export function shouldFitAisRadarSeascape(
+  gate: PositionRenderGate,
+  position: LatLon,
+  rangeNm: AisRadarRangeNm,
+  diameterPx: number,
+): boolean {
+  const roundedDiameter = Math.max(1, Math.round(diameterPx || AIS_RADAR_FALLBACK_DIAMETER_PX));
+  return gate.shouldRender(position, {
+    minDistanceMeters: aisRadarPositionRenderMeters(rangeNm, roundedDiameter),
+    maxIntervalMs: AIS_RADAR_POSITION_MAX_INTERVAL_MS,
+    variant: `${rangeNm}:${roundedDiameter}`,
+  });
+}
+
+export function createAisRadarPositionRenderGate(now: () => number = Date.now) {
+  return createPositionRenderGate(now);
 }
 
 /** Keep the radar's existing north-up geometry and fit the selected range inside its outer ring. */

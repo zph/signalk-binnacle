@@ -7,7 +7,9 @@ import type { AisRadarRangeNm } from './ais-radar-model';
 import {
   aisRadarSeascapeStyle,
   applyAisRadarSeascape,
+  createAisRadarPositionRenderGate,
   fitAisRadarSeascape,
+  shouldFitAisRadarSeascape,
 } from './ais-radar-seascape';
 
 interface Props {
@@ -24,6 +26,16 @@ let container = $state<HTMLElement>();
 let mapHandle: ThemedMapHandle | undefined;
 let map = $state<NonNullable<ThemedMapHandle['map']>>();
 let ready = $state(false);
+let width = $state(0);
+let height = $state(0);
+const positionRenderGate = createAisRadarPositionRenderGate();
+
+function syncPosition(): void {
+  if (!map) return;
+  const diameter = Math.min(width, height);
+  if (!shouldFitAisRadarSeascape(positionRenderGate, position, rangeNm, diameter)) return;
+  fitAisRadarSeascape(map, position, rangeNm);
+}
 
 onMount(() => {
   if (!container) return;
@@ -42,7 +54,7 @@ onMount(() => {
     onLoad: (api) => {
       map = api.map;
       applyAisRadarSeascape(api.map, theme);
-      fitAisRadarSeascape(api.map, position, rangeNm);
+      syncPosition();
       ready = true;
     },
   });
@@ -55,12 +67,18 @@ $effect(() => {
 });
 
 $effect(() => {
-  if (!map) return;
-  fitAisRadarSeascape(map, position, rangeNm);
+  syncPosition();
 });
 </script>
 
-<div class="seascape" class:ready bind:this={container} aria-hidden="true"></div>
+<div
+  class="seascape"
+  class:ready
+  bind:this={container}
+  bind:clientWidth={width}
+  bind:clientHeight={height}
+  aria-hidden="true"
+></div>
 
 <style>
 .seascape {

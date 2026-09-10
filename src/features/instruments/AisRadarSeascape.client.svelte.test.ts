@@ -1,4 +1,4 @@
-import { flushSync, mount, unmount } from 'svelte';
+import { type ComponentProps, flushSync, mount, unmount } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createThemedMap } from '$shared/map';
 import AisRadarSeascape from './AisRadarSeascape.svelte';
@@ -44,17 +44,18 @@ describe('AIS radar seascape component', () => {
   it('mounts a passive coastline map, styles it, fits the range, and tears it down', () => {
     const target = document.createElement('div');
     document.body.append(target);
+    const props = $state<ComponentProps<typeof AisRadarSeascape>>({
+      position: { latitude: 38.04, longitude: -122.19 },
+      rangeNm: 6,
+      theme: 'day',
+      companionBase: 'http://localhost/plugins/signalk-chart-locker',
+      getToken: () => 'token',
+    });
     let component!: ReturnType<typeof mount>;
     flushSync(() => {
       component = mount(AisRadarSeascape, {
         target,
-        props: {
-          position: { latitude: 38.04, longitude: -122.19 },
-          rangeNm: 6,
-          theme: 'day',
-          companionBase: 'http://localhost/plugins/signalk-chart-locker',
-          getToken: () => 'token',
-        },
+        props,
       });
     });
     mounted.push(() => {
@@ -79,6 +80,21 @@ describe('AIS radar seascape component', () => {
       duration: 0,
     });
     expect(target.querySelector('.seascape.ready')).not.toBeNull();
+
+    const initialFits = mocks.map.fitBounds.mock.calls.length;
+    for (let index = 0; index < 1_000; index += 1) {
+      const sign = index % 2 === 0 ? 1 : -1;
+      props.position = {
+        latitude: 38.04 + sign * 0.000_001,
+        longitude: -122.19 - sign * 0.000_001,
+      };
+      flushSync();
+    }
+    expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits);
+
+    props.rangeNm = 12;
+    flushSync();
+    expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits + 1);
 
     flushSync(() => void unmount(component));
     mounted.pop();

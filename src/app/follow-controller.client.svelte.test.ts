@@ -5,7 +5,7 @@ import { createFollowController } from './follow-controller.svelte';
 
 const mountedCleanups: Array<() => void> = [];
 
-function mount(options: { commandsReady?: boolean } = {}) {
+function mount(options: { commandsReady?: boolean; lookAheadPx?: number } = {}) {
   const vessel = $state<{ position: LatLon | undefined; positionStale: boolean }>({
     position: undefined,
     positionStale: false,
@@ -14,6 +14,7 @@ function mount(options: { commandsReady?: boolean } = {}) {
   const commands = $state<{ current: { recenterOnVessel: typeof recenterOnVessel } | undefined }>({
     current: options.commandsReady === false ? undefined : { recenterOnVessel },
   });
+  const lookAhead = $state({ value: options.lookAheadPx ?? 0 });
   let controller!: ReturnType<typeof createFollowController>;
   let disposeRoot!: () => void;
   flushSync(() => {
@@ -21,11 +22,12 @@ function mount(options: { commandsReady?: boolean } = {}) {
       controller = createFollowController({
         vessel,
         commands: () => commands.current,
+        lookAheadPx: () => lookAhead.value,
       });
     });
   });
   mountedCleanups.push(disposeRoot);
-  return { vessel, recenterOnVessel, commands, controller };
+  return { vessel, recenterOnVessel, commands, lookAhead, controller };
 }
 
 afterEach(() => {
@@ -48,6 +50,46 @@ describe('createFollowController', () => {
     flushSync();
     expect(test.recenterOnVessel).toHaveBeenCalledTimes(2);
     expect(test.recenterOnVessel).toHaveBeenLastCalledWith(60.001, 24.001, 0);
+  });
+
+  it('coalesces stationary GPS noise but follows meaningful underway motion', () => {
+    const test = mount();
+    const position = { latitude: 60, longitude: 24 };
+    test.vessel.position = position;
+    test.controller.toggle();
+    flushSync();
+    test.recenterOnVessel.mockClear();
+
+    for (let index = 0; index < 1_000; index += 1) {
+      const sign = index % 2 === 0 ? 1 : -1;
+      test.vessel.position = {
+        latitude: position.latitude + sign * 0.000_001,
+        longitude: position.longitude - sign * 0.000_001,
+      };
+      flushSync();
+    }
+    expect(test.recenterOnVessel).not.toHaveBeenCalled();
+
+    test.vessel.position = { latitude: 60.001, longitude: 24 };
+    flushSync();
+    expect(test.recenterOnVessel).toHaveBeenCalledExactlyOnceWith(60.001, 24, 0);
+  });
+
+  it('recenters when the look-ahead layout changes or follow is re-enabled', () => {
+    const test = mount({ lookAheadPx: 0 });
+    test.vessel.position = { latitude: 60, longitude: 24 };
+    test.controller.toggle();
+    flushSync();
+    test.recenterOnVessel.mockClear();
+
+    test.lookAhead.value = 140;
+    flushSync();
+    expect(test.recenterOnVessel).toHaveBeenCalledExactlyOnceWith(60, 24, 140);
+
+    test.controller.toggle();
+    test.controller.toggle();
+    flushSync();
+    expect(test.recenterOnVessel).toHaveBeenCalledTimes(2);
   });
 
   it('stays armed through a stale fix and resumes when the fix recovers', () => {

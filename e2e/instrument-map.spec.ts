@@ -13,11 +13,21 @@ test('the map instrument opens from Command K with an independent interactive vi
   await page.keyboard.press('Control+K');
 
   const palette = page.getByRole('dialog', { name: 'Command palette' });
-  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('map instrument');
-  await palette.getByRole('option', { name: /Map instrument/ }).click();
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('Edit screen instruments');
+  await palette.getByRole('option', { name: 'Edit screen instruments' }).click();
+  await page.getByRole('button', { name: 'Add instrument', exact: true }).click();
+  await page
+    .getByRole('menu', { name: 'Add instrument to chart' })
+    .getByRole('menuitem', { name: 'Map', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await page
+    .locator('.floating-frame[data-instrument-id="map"]')
+    .getByRole('button', { name: 'Expand instrument', exact: true })
+    .click();
 
-  const instrument = page.getByRole('dialog', { name: 'Map full-screen instrument' });
-  await expect(instrument).toBeVisible();
+  const instrument = page.locator('.floating-frame[data-instrument-id="map"]');
+  await expect(instrument).toHaveClass(/floating-frame--expanded/);
   await expect(instrument.locator('.instrument-map canvas')).toBeVisible();
   await expect(instrument.getByRole('button', { name: 'Zoom in' })).toBeVisible();
   await expect(instrument.getByRole('button', { name: 'Zoom out' })).toBeVisible();
@@ -38,11 +48,22 @@ test('the map instrument opens from Command K with an independent interactive vi
   await expect(instrument.getByRole('button', { name: 'Follow boat' })).toBeDisabled();
   await expect(instrument.getByRole('button', { name: 'Collapse instrument' })).toBeVisible();
 
-  // The primary chart remains mounted behind the full-screen instrument, proving this is a second
+  // The primary chart remains mounted behind the expanded instrument, proving this is a second
   // MapLibre camera rather than a reskinned or relocated primary viewport.
   await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
   await instrument.getByRole('button', { name: 'Zoom in' }).click();
   await instrument.getByRole('button', { name: 'Zoom out' }).click();
   await instrument.getByRole('button', { name: 'Collapse instrument' }).click();
+  await expect(instrument).not.toHaveClass(/floating-frame--expanded/);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+
+  // Removing the map instrument must destroy its independent MapLibre context. Repeatedly adding
+  // map instruments must not leave invisible WebGL canvases consuming renderer and GPU time.
+  await page.keyboard.press('Control+K');
+  await palette.getByRole('searchbox', { name: 'Search commands' }).fill('Edit screen instruments');
+  await palette.getByRole('option', { name: 'Edit screen instruments' }).click();
+  await instrument.getByRole('button', { name: 'Remove Map from chart' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(instrument).toHaveCount(0);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
 });
