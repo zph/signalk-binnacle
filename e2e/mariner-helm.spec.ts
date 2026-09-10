@@ -679,6 +679,42 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   page,
 }) => {
   await page.setViewportSize({ width: 1200, height: 800 });
+  await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ 'signalk-questdb': { isDefault: true } }),
+    }),
+  );
+  await page.route(/\/signalk\/v2\/api\/history\/values/, async (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get('duration') !== '600') {
+      await route.fulfill({ status: 500, body: 'history unavailable' });
+      return;
+    }
+    const paths = (params.get('paths') ?? '').split(',').filter(Boolean);
+    const now = Date.now();
+    const valueFor = (path: string, older: boolean): number | null => {
+      if (path === 'environment.wind.speedTrue') return older ? 3.2 : 3.8;
+      if (path === 'environment.wind.angleTrueWater') return older ? -0.9 : -0.75;
+      return null;
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        range: {
+          from: new Date(now - 600_000).toISOString(),
+          to: new Date(now).toISOString(),
+        },
+        values: paths.map((path) => ({ path, method: 'average' })),
+        data: [
+          [new Date(now - 60_000).toISOString(), ...paths.map((path) => valueFor(path, true))],
+          [new Date(now - 30_000).toISOString(), ...paths.map((path) => valueFor(path, false))],
+        ],
+      }),
+    });
+  });
   await openApp(page);
   await sendDelta(page, [
     ...OWN_FIX,
@@ -707,6 +743,12 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   await expect(speed.locator('.history-scale')).toContainText('0');
   await expect(angle.locator('.history-scale')).toContainText('P 180');
   await expect(angle.locator('.history-scale')).toContainText('S 180');
+  await expect(speed.locator('.history-footer')).toHaveText('TWS');
+  await expect(angle.locator('.history-footer')).toHaveText('TWA');
+  await expect(angle.locator('.time-axis')).toHaveText(/Now\s+-5m\s+-10m/);
+  await expect
+    .poll(async () => angle.locator('.squiggle').first().getAttribute('d'))
+    .toContain('L');
 
   await page.waitForTimeout(5_100);
   await sendDelta(page, [

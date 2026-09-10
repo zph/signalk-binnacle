@@ -1,0 +1,81 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { TileDef } from './tile-catalog';
+import { createTileHistory } from './tile-history.svelte';
+import { backfillVerticalTileHistory } from './vertical-history-loader';
+
+const angleDef = {
+  id: 'twa-history',
+  paths: ['environment.wind.angleTrueWater', 'environment.wind.angleTrueGround'],
+  zonesPath: 'environment.wind.angleTrueWater',
+  viz: 'vertical-angle',
+} as TileDef;
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('backfillVerticalTileHistory', () => {
+  it('fills the tile from the first populated fallback path at five-second resolution', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          range: {
+            from: '2026-09-10T18:00:00.000Z',
+            to: '2026-09-10T18:10:00.000Z',
+          },
+          values: [
+            { path: 'environment.wind.angleTrueWater', method: '' },
+            { path: 'environment.wind.angleTrueGround', method: '' },
+          ],
+          data: [
+            ['2026-09-10T18:00:00.000Z', null, 0.25],
+            ['2026-09-10T18:00:05.000Z', null, 0.5],
+          ],
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const history = createTileHistory();
+
+    await backfillVerticalTileHistory(
+      history,
+      [angleDef],
+      { origin: 'http://boat.test', token: 'token', providers: { ids: ['questdb'] } },
+      new AbortController().signal,
+    );
+
+    expect(history.series('twa-history')).toEqual([0.25, 0.5]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const requestUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestUrl).toContain('duration=600');
+    expect(requestUrl).toContain('resolution=5');
+  });
+
+  it('does not merge a response after cancellation', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          range: {
+            from: '2026-09-10T18:00:00.000Z',
+            to: '2026-09-10T18:10:00.000Z',
+          },
+          values: [{ path: 'environment.wind.angleTrueWater', method: '' }],
+          data: [['2026-09-10T18:00:00.000Z', 0.25]],
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const history = createTileHistory();
+    const controller = new AbortController();
+    controller.abort();
+
+    await backfillVerticalTileHistory(
+      history,
+      [angleDef],
+      { origin: 'http://boat.test', providers: { ids: ['questdb'] } },
+      controller.signal,
+    );
+
+    expect(history.series('twa-history')).toEqual([]);
+  });
+});

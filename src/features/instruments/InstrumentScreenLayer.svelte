@@ -12,6 +12,7 @@ import {
   DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
 } from '$shared/settings';
+import type { HistoryProviders } from '$shared/signalk';
 import { AnchoredMenu, registerDismiss, rovingFocus, type Theme } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
 import {
@@ -33,6 +34,7 @@ import {
   isSessionHistoryViz,
   isVerticalHistoryViz,
 } from './tile-history.svelte';
+import { backfillVerticalTileHistory } from './vertical-history-loader';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
@@ -57,6 +59,8 @@ interface Props {
   // A long press on a locked chart instrument is the touch shortcut back into this same editor.
   onEdit?: () => void;
   overlayOpacity?: number;
+  historyOrigin?: string;
+  historyProviders?: HistoryProviders;
   instrumentAliases?: readonly InstrumentAlias[];
 }
 
@@ -79,6 +83,8 @@ const {
   onDone = () => {},
   onEdit = () => {},
   overlayOpacity = 1,
+  historyOrigin,
+  historyProviders,
   instrumentAliases = [],
 }: Props = $props();
 
@@ -269,6 +275,18 @@ const hasAddableEntry = $derived(addable.length > 0 || instrumentAliases.length 
 
 // Session tile history, sampled on the shared reactive clock exactly as the dock does.
 const history = createTileHistory();
+$effect(() => {
+  const controller = new AbortController();
+  void backfillVerticalTileHistory(
+    history,
+    floatingTiles.map(({ def }) => def).filter((def) => isVerticalHistoryViz(def.viz)),
+    historyOrigin && historyProviders
+      ? { origin: historyOrigin, token: chartToken, providers: historyProviders }
+      : undefined,
+    controller.signal,
+  );
+  return () => controller.abort();
+});
 $effect(() => {
   const now = deps.clock.now;
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch set, never rendered

@@ -10,6 +10,7 @@ export interface TileHistoryPoint {
 
 export interface TileHistory {
   sample(id: string, value: number | undefined, nowMs: number): void;
+  merge(id: string, points: readonly TileHistoryPoint[]): void;
   series(id: string): number[];
   timedSeries(id: string): TileHistoryPoint[];
   prune(liveIds: Set<string>): void;
@@ -29,8 +30,8 @@ export function isVerticalHistoryViz(viz: string | undefined): boolean {
   return viz === 'vertical-speed' || viz === 'vertical-angle';
 }
 
-// Session-only per-tile ring buffers for sparkline and vertical history. The caller drives
-// sample() from its own clock, so this owns no timers and never persists.
+// Per-tile ring buffers for sparkline and vertical history. The caller drives sample() from its
+// own clock and can merge a stored prefix before live sampling continues.
 export function createTileHistory(opts: TileHistoryOptions = {}): TileHistory {
   const capacity = opts.capacity ?? TILE_HISTORY_CAPACITY;
   const minSpacingMs = opts.minSpacingMs ?? TILE_HISTORY_MIN_SPACING_MS;
@@ -57,6 +58,24 @@ export function createTileHistory(opts: TileHistoryOptions = {}): TileHistory {
     if (buf.length > capacity) buf.shift();
   }
 
+  function merge(id: string, points: readonly TileHistoryPoint[]): void {
+    const combined = new Map<number, TileHistoryPoint>();
+    for (const point of points) {
+      if (Number.isFinite(point.atMs) && Number.isFinite(point.value)) {
+        combined.set(point.atMs, point);
+      }
+    }
+    // A live sample already accepted while the request was in flight wins over a stored sample
+    // with the same timestamp.
+    for (const point of buffers[id] ?? []) combined.set(point.atMs, point);
+    const merged = [...combined.values()]
+      .sort((left, right) => left.atMs - right.atMs)
+      .slice(-capacity);
+    buffers[id] = merged;
+    const latest = merged.at(-1);
+    if (latest) lastMs.set(id, latest.atMs);
+  }
+
   function series(id: string): number[] {
     return (buffers[id] ?? []).map((point) => point.value);
   }
@@ -74,5 +93,5 @@ export function createTileHistory(opts: TileHistoryOptions = {}): TileHistory {
     }
   }
 
-  return { sample, series, timedSeries, prune };
+  return { sample, merge, series, timedSeries, prune };
 }

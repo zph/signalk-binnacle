@@ -44,6 +44,8 @@ const accessibleLabel = $derived(
   `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.`,
 );
 const geometry = $derived(verticalHistoryGeometry(points, nowMs, mode, TILE_HISTORY_WINDOW_MS));
+const midpointMinutes = TILE_HISTORY_WINDOW_MS / 2 / 60_000;
+const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 </script>
 
 <button
@@ -99,9 +101,9 @@ const geometry = $derived(verticalHistoryGeometry(points, nowMs, mode, TILE_HIST
         {/if}
       </svg>
       <span class="time-axis num">
-        <span>0</span>
-        <span>5</span>
-        <span>10m</span>
+        <span>Now</span>
+        <span>-{midpointMinutes}m</span>
+        <span>-{windowMinutes}m</span>
       </span>
     </span>
   {/if}
@@ -110,12 +112,7 @@ const geometry = $derived(verticalHistoryGeometry(points, nowMs, mode, TILE_HIST
     {#if reading.state !== 'never' && staleAgeText}
       <span class="tile-secondary">{staleAgeText}</span>
     {/if}
-    <span class="caps-label">
-      {#if abbr}
-        <span class="abbr">{abbr}</span>
-      {/if}
-      {labelText}
-    </span>
+    <span class="caps-label abbr">{abbr ?? labelText}</span>
     <TileStateBadge state={reading.state} />
   </span>
 </button>

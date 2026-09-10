@@ -9,6 +9,7 @@ import {
   DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
 } from '$shared/settings';
+import type { HistoryProviders } from '$shared/signalk';
 import type { Theme } from '$shared/ui';
 import { createReorder, dialog, trapFocus } from '$shared/ui';
 import { type AisRadarRangeNm, DEFAULT_AIS_RADAR_RANGE_NM } from './ais-radar-model';
@@ -31,6 +32,7 @@ import {
   type instrumentTileSizeFor,
   resizeInstrumentTile,
 } from './tile-layout';
+import { backfillVerticalTileHistory } from './vertical-history-loader';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 const TOUCH_DRAG_THRESHOLD_PX = 10;
@@ -89,6 +91,8 @@ interface Props {
   overlayOpacity?: number;
   onOverlayOpacityChange?: (opacity: number) => void;
   instrumentAliases?: readonly InstrumentAlias[];
+  historyOrigin?: string;
+  historyProviders?: HistoryProviders;
 }
 
 const {
@@ -129,6 +133,8 @@ const {
   overlayOpacity = 1,
   onOverlayOpacityChange = () => {},
   instrumentAliases = [],
+  historyOrigin,
+  historyProviders,
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -432,6 +438,18 @@ function placeInstrumentOnChart(): void {
 // untracked so the effect re-runs on the 1 Hz clock and selection changes, not on every delta
 // flush. Stale retained values are not appended as if they were fresh observations.
 const history = createTileHistory();
+$effect(() => {
+  const controller = new AbortController();
+  void backfillVerticalTileHistory(
+    history,
+    tiles.filter((def) => isVerticalHistoryViz(def.viz)),
+    historyOrigin && historyProviders
+      ? { origin: historyOrigin, token: chartToken, providers: historyProviders }
+      : undefined,
+    controller.signal,
+  );
+  return () => controller.abort();
+});
 $effect(() => {
   const now = deps.clock.now;
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch set, never rendered

@@ -4346,6 +4346,8 @@ const plotterActions = {
             theme={theme.theme}
             {companionBase}
             chartToken={chartsToken}
+            historyOrigin={origin}
+            {historyProviders}
             {mapInstrument}
             onOpenTideSettings={openTideStationSettings}
             windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
@@ -4565,6 +4567,8 @@ const plotterActions = {
           theme={theme.theme}
           {companionBase}
           chartToken={chartsToken}
+          historyOrigin={origin}
+          {historyProviders}
           {mapInstrument}
           initialExpandedRequest={instrumentExpandedRequest}
           onExpandedRequestHandled={() => (instrumentExpandedRequest = undefined)}

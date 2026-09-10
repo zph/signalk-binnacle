@@ -113,7 +113,9 @@ describe('VerticalHistoryTile', () => {
 
     expect(html).toContain('tile--vertical-history');
     expect(html).toContain('class="squiggle ');
-    expect(html).toContain('>10m<');
+    expect(html).toContain('>Now<');
+    expect(html).toContain('>-5m<');
+    expect(html).toContain('>-10m<');
     expect(html).toContain('>TWS<');
     expect(html).toContain('Ten-minute vertical history, newest at top.');
   });
@@ -138,6 +140,8 @@ describe('VerticalHistoryTile', () => {
     expect(html).toContain('>P 180<');
     expect(html).toContain('>S 180<');
     expect(html).toContain('center-reference');
+    expect(html).toContain('class="caps-label abbr');
+    expect(html).not.toContain('>True wind angle history</span>');
   });
 });
 
@@ -191,5 +195,21 @@ describe('createTileHistory', () => {
     hist.sample('a', 3, 2000);
     hist.sample('a', 4, 3000);
     expect(hist.series('a')).toEqual([2, 3, 4]);
+  });
+
+  it('merges sorted historical points without overwriting an in-flight live sample', () => {
+    const hist = createTileHistory({ capacity: 4 });
+    hist.sample('a', 40, 4000);
+    hist.merge('a', [
+      { atMs: 3000, value: 30 },
+      { atMs: 1000, value: 10 },
+      { atMs: 4000, value: -1 },
+      { atMs: Number.NaN, value: 20 },
+    ]);
+    expect(hist.timedSeries('a')).toEqual([
+      { atMs: 1000, value: 10 },
+      { atMs: 3000, value: 30 },
+      { atMs: 4000, value: 40 },
+    ]);
   });
 });
