@@ -48,7 +48,7 @@ function deltaLabel(values: readonly number[], mode: VerticalHistoryMode): strin
   if (values.length === 0) return undefined;
   if (mode === 'angle') return `${Math.round(circularAngleSpan(values))}° Δ`;
   const delta = Math.max(...values) - Math.min(...values);
-  return `${speedLabel(delta)} kn Δ`;
+  return `${speedLabel(delta)} Δ`;
 }
 
 export function verticalHistoryGeometry(

@@ -769,7 +769,7 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   await expect(angle).toBeVisible();
   await expect(speed.locator('.history-scale')).toHaveText(/6\.2\s+7\.4\s+8\.6/);
   await expect(angle.locator('.history-scale')).toHaveText(/P 52\s+P 46\s+P 40/);
-  await expect(speed.locator('.history-delta')).toHaveText(/2\.3 kn Δ/);
+  await expect(speed.locator('.history-delta')).toHaveText(/2\.3 Δ/);
   await expect(angle.locator('.history-delta')).toHaveText(/1[01]° Δ/);
   await expect(speed.locator('.history-footer')).toHaveText('TWS');
   await expect(angle.locator('.history-footer')).toHaveText('TWA');

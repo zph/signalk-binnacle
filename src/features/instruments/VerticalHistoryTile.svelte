@@ -45,8 +45,13 @@ const labelText = $derived(
 const geometry = $derived(
   verticalHistoryGeometry(points, nowMs, mode, TILE_HISTORY_WINDOW_MS, maximumPoints),
 );
+const accessibleDelta = $derived(
+  geometry.deltaLabel
+    ? `${geometry.deltaLabel.replace(' Δ', '')}${mode === 'speed' ? ' knots' : ''}`
+    : undefined,
+);
 const accessibleLabel = $derived(
-  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.${geometry.deltaLabel ? ` Historical range ${geometry.deltaLabel.replace(' Δ', '')}.` : ''}${mode === 'speed' ? ' Solid line average, dashed line five-second maximum.' : ''}`,
+  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.${accessibleDelta ? ` Historical range ${accessibleDelta}.` : ''}${mode === 'speed' ? ' Solid line average, dashed line five-second maximum.' : ''}`,
 );
 const midpointMinutes = TILE_HISTORY_WINDOW_MS / 2 / 60_000;
 const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;

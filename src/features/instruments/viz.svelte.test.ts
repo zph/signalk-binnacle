@@ -124,8 +124,8 @@ describe('VerticalHistoryTile', () => {
     expect(html).toContain('>TWS<');
     expect(html).toContain('>3.9<');
     expect(html).toContain('>6.0<');
-    expect(html).toContain('>3.9 kn Δ<');
-    expect(html).toContain('Historical range 3.9 kn.');
+    expect(html).toContain('>3.9 Δ<');
+    expect(html).toContain('Historical range 3.9 knots.');
     expect(html).toContain('Ten-minute vertical history, newest at top.');
   });
 

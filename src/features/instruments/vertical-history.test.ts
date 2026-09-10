@@ -19,7 +19,7 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.scale).toEqual(['2.0', '6.0', '10']);
-    expect(geometry.deltaLabel).toBe('8.0 kn Δ');
+    expect(geometry.deltaLabel).toBe('8.0 Δ');
     expect(geometry.paths).toEqual(['M100 0', 'M37.5 50', 'M0 100']);
     expect(geometry.current).toEqual({ x: 100, y: 0 });
   });
@@ -88,7 +88,7 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.scale).toEqual(['5.0', '5.0', '5.0']);
-    expect(geometry.deltaLabel).toBe('0.0 kn Δ');
+    expect(geometry.deltaLabel).toBe('0.0 Δ');
     expect(geometry.paths).toEqual(['M50 0 L50 0.83']);
   });
 
@@ -108,7 +108,7 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.scale).toEqual(['5.0', '7.0', '9.0']);
-    expect(geometry.deltaLabel).toBe('4.0 kn Δ');
+    expect(geometry.deltaLabel).toBe('4.0 Δ');
     expect(geometry.maximumPaths).toEqual(['M100 0 L75 0.83']);
   });
 
