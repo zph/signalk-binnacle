@@ -175,7 +175,9 @@ function createRoseDom(): RoseDom {
   card.classList.add('vessel-wind-rose-card');
   const ring = svg('circle');
   attributes(ring, { cx: '500', cy: '500', r: '444', 'stroke-width': '14' });
-  ring.style.fillOpacity = '0.72';
+  // Keep chart and hazards readable beneath the vessel-attached instrument. The dial furniture
+  // stays opaque, so reducing only the face fill does not weaken bearings or wind-range arcs.
+  ring.style.fillOpacity = '0.4';
   card.append(ring);
 
   const dialParts: SVGElement[] = [ring];
