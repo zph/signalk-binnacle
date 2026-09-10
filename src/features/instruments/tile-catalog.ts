@@ -37,6 +37,7 @@ import {
 } from '$shared/lib';
 import type { MetaZone, SignalKStore } from '$shared/signalk';
 import { SK_PATHS } from '$shared/signalk';
+import type { ShallowAheadMonitor } from './shallow-ahead.svelte';
 
 export interface TileDeps {
   vessel: OwnVessel;
@@ -45,6 +46,7 @@ export interface TileDeps {
   clock: ReactiveClock;
   course: CourseGuidance;
   tides?: TidesStore;
+  shallowAhead?: ShallowAheadMonitor;
 }
 
 export type TileValueState = 'never' | 'placeholder' | 'stale' | 'live';
@@ -67,6 +69,10 @@ export interface TileReading {
   // The Signal K path this reading actually resolved on a fallback-chain tile, so the detail view
   // names the path, source, and age of the value shown rather than the first populated path.
   activePath?: string;
+  // Computed and external-reference instruments can name their actual provider instead of making
+  // the first Signal K input path look like the source of the whole result.
+  sourceLabel?: string;
+  sourceEpoch?: number;
   windRose?: {
     apparent: InstrumentMetric;
     trueWind: InstrumentMetric;
@@ -479,6 +485,76 @@ const DEPTH_DEF: TileDef = {
       siValue: reading.meters,
       referenceLabel: reading.source ? DEPTH_SOURCE_LABELS[reading.source] : undefined,
       activePath: reading.path,
+    };
+  },
+};
+
+const SHALLOW_AHEAD_DEF: TileDef = {
+  id: 'shallow-ahead',
+  label: 'Shallow water ahead',
+  abbr: 'CPA',
+  description:
+    'Distance and time to the first Seascape depth below twice the Signal K vessel draft on the current course. Seascape is reference bathymetry, is not reduced to chart datum, and must not replace an official chart or depth sounder.',
+  sensorGloss: 'No shallow-water estimate',
+  paths: [
+    SK_PATHS.position,
+    SK_PATHS.courseOverGroundTrue,
+    SK_PATHS.speedOverGround,
+    SK_PATHS.draftCurrent,
+    SK_PATHS.draftMaximum,
+    SK_PATHS.draftMinimum,
+  ],
+  zonesPath: SK_PATHS.draftCurrent,
+  category: 'depth',
+  kind: 'numeric',
+  read({ shallowAhead, units }) {
+    const reading = shallowAhead?.reading;
+    if (!reading || reading.state === 'inactive') {
+      return { state: 'never', value: PLACEHOLDER, unit: '' };
+    }
+    const source = {
+      sourceLabel: 'Seascape reference bathymetry',
+      sourceEpoch: reading.updatedAtMs,
+    };
+    if (reading.state === 'hazard') {
+      const depth = formatLengthOr(reading.depthM, units.mode);
+      return {
+        state: 'live',
+        value: formatMetersOrNm(reading.distanceM, units.mode),
+        unit: '',
+        secondary: `TCPA ${formatDuration(reading.tcpaSeconds ?? 0)} · depth ${depth} ${lengthUnit(units.mode)}`,
+        referenceLabel: 'SEASCAPE',
+        ...source,
+      };
+    }
+    if (reading.state === 'none-found') {
+      return {
+        state: 'live',
+        value: 'None found',
+        unit: '',
+        secondary: `Scanned ${formatMetersOrNm(reading.lookaheadDistanceM, units.mode)}`,
+        referenceLabel: 'SEASCAPE',
+        ...source,
+      };
+    }
+    if (reading.state === 'coverage-gap') {
+      const coverage = Math.round((reading.coverageFraction ?? 0) * 100);
+      return {
+        state: 'placeholder',
+        value: 'Coverage gap',
+        unit: '',
+        secondary: `${coverage}% of projected course sampled`,
+        referenceLabel: 'SEASCAPE',
+        ...source,
+      };
+    }
+    return {
+      state: 'placeholder',
+      value: reading.state === 'loading' ? 'Checking' : PLACEHOLDER,
+      unit: '',
+      secondary: reading.message,
+      referenceLabel: 'SEASCAPE',
+      ...source,
     };
   },
 };
@@ -1182,6 +1258,7 @@ export const TILE_CATALOG: readonly TileDef[] = [
   HDG_DEF,
   HEADING_COMPASS_DEF,
   DEPTH_DEF,
+  SHALLOW_AHEAD_DEF,
   WIND_APPARENT_DEF,
   STW_DEF,
   WIND_TRUE_DEF,

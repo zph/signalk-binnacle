@@ -109,6 +109,24 @@ describe('tile catalog structure', () => {
     expect(DEFAULT_TILES).not.toContain('map');
   });
 
+  it('offers shallow water ahead using navigation and Signal K draft inputs', () => {
+    expect(tileById('shallow-ahead')).toMatchObject({
+      label: 'Shallow water ahead',
+      abbr: 'CPA',
+      kind: 'numeric',
+      category: 'depth',
+      paths: [
+        SK_PATHS.position,
+        SK_PATHS.courseOverGroundTrue,
+        SK_PATHS.speedOverGround,
+        SK_PATHS.draftCurrent,
+        SK_PATHS.draftMaximum,
+        SK_PATHS.draftMinimum,
+      ],
+    });
+    expect(DEFAULT_TILES).not.toContain('shallow-ahead');
+  });
+
   it('ALL_CATALOG_PATHS contains every path from every def', () => {
     const all = new Set(ALL_CATALOG_PATHS);
     for (const def of TILE_CATALOG) {
@@ -206,6 +224,54 @@ describe('state grading', () => {
     const reading = readTile('sog', deps);
     expect(reading.state).toBe('stale');
     expect(reading.value).not.toBe(PLACEHOLDER);
+  });
+});
+
+describe('shallow water ahead tile', () => {
+  it('shows CPA, TCPA, and the shallow depth from the Seascape profile', () => {
+    const deps: TileDeps = {
+      ...makeDeps({ now: 10_000 }),
+      shallowAhead: {
+        reading: {
+          state: 'hazard',
+          message: 'Shallow water ahead.',
+          distanceM: 926,
+          tcpaSeconds: 600,
+          depthM: 3.5,
+          updatedAtMs: 10_000,
+        },
+        dispose() {},
+      },
+    };
+
+    expect(readTile('shallow-ahead', deps)).toMatchObject({
+      state: 'live',
+      value: '926 m',
+      secondary: 'TCPA 10 min · depth 3.5 m',
+      referenceLabel: 'SEASCAPE',
+      sourceLabel: 'Seascape reference bathymetry',
+    });
+  });
+
+  it('calls incomplete source coverage a gap, never clear water', () => {
+    const deps: TileDeps = {
+      ...makeDeps({ now: 10_000 }),
+      shallowAhead: {
+        reading: {
+          state: 'coverage-gap',
+          message: 'Coverage is incomplete.',
+          coverageFraction: 0.42,
+          updatedAtMs: 10_000,
+        },
+        dispose() {},
+      },
+    };
+
+    expect(readTile('shallow-ahead', deps)).toMatchObject({
+      state: 'placeholder',
+      value: 'Coverage gap',
+      secondary: '42% of projected course sampled',
+    });
   });
 });
 

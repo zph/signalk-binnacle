@@ -76,13 +76,18 @@ import {
   type PlaceSearchItem,
   searchPlaces,
 } from '$features/command-palette';
-import { NOAA_ENC_SOURCE_ID, shouldOfferNoaaEnc } from '$features/depth-charts';
+import {
+  NOAA_ENC_SOURCE_ID,
+  SEASCAPE_DEM_SOURCES,
+  shouldOfferNoaaEnc,
+} from '$features/depth-charts';
 import { createHandoffClient, createHandoffController } from '$features/handoff';
 import {
   type AisRadarRangeNm,
   BINNACLE_INSTRUMENT_PLUGIN,
   createInstrumentRegistry,
   createInstrumentsController,
+  createShallowAheadMonitor,
   DEFAULT_AIS_RADAR_RANGE_NM,
   DEFAULT_INSTRUMENT_DOCK_WIDTH_PX,
   DEFAULT_TILES,
@@ -200,7 +205,7 @@ import {
   Toast,
 } from '$shared/lib';
 import type { CompanionProbeResult, LayerSettings } from '$shared/map';
-import { DEFAULT_OVERLAY_STATE, probeCompanion } from '$shared/map';
+import { DEFAULT_OVERLAY_STATE, probeCompanion, proxiedSources } from '$shared/map';
 import { binnacleStorageKey } from '$shared/persistence';
 import {
   BINNACLE_PRIVACY_CHANNEL,
@@ -1321,6 +1326,23 @@ const companionBase = $derived(
 const companionTileBase = $derived(
   companionProbe?.state === 'present' ? companionProbe.base : null,
 );
+const shallowAhead = createShallowAheadMonitor({
+  vessel,
+  store,
+  clock,
+  active: () =>
+    (instruments.open || instruments.screenEditing) &&
+    (instruments.selectedIds.includes('shallow-ahead') || instruments.isFloating('shallow-ahead')),
+  source: () => {
+    const source = proxiedSources(SEASCAPE_DEM_SOURCES, companionTileBase)[0];
+    if (!source?.tiles[0]) throw new Error('Seascape depth source is unavailable');
+    return {
+      template: source.tiles[0],
+      proxied: companionTileBase !== null,
+      ...(companionTileBase !== null && authToken ? { token: authToken } : {}),
+    };
+  },
+});
 let companionProbeGeneration = 0;
 
 // Probed at mount (unauthenticated, so map init is never blocked on auth resolving) and retried
@@ -4006,6 +4028,7 @@ onDestroy(() => {
   profilesController.dispose();
   void marineRadar.dispose();
   instruments.dispose();
+  shallowAhead.dispose();
   net.dispose();
   clock.dispose();
   void client.disconnect();
@@ -4291,7 +4314,15 @@ const plotterActions = {
         <ErrorBoundary>
           <module.default
             controller={instruments}
-            deps={{ vessel, store, units, clock, course: courseGuidance, tides: tidesStore }}
+            deps={{
+              vessel,
+              store,
+              units,
+              clock,
+              course: courseGuidance,
+              tides: tidesStore,
+              shallowAhead,
+            }}
             {aisTargets}
             {collision}
             aisRadarRangeNm={aisRadarRangeNm.value}
@@ -4493,7 +4524,15 @@ const plotterActions = {
       <ErrorBoundary>
         <module.default
           controller={instruments}
-          deps={{ vessel, store, units, clock, course: courseGuidance, tides: tidesStore }}
+          deps={{
+            vessel,
+            store,
+            units,
+            clock,
+            course: courseGuidance,
+            tides: tidesStore,
+            shallowAhead,
+          }}
           {aisTargets}
           {collision}
           aisRadarRangeNm={aisRadarRangeNm.value}

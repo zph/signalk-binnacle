@@ -31,6 +31,10 @@ export {
 } from './instrument-registry.svelte';
 export type { InstrumentsController } from './instruments-controller.svelte';
 export { createInstrumentsController } from './instruments-controller.svelte';
+export {
+  createShallowAheadMonitor,
+  type ShallowAheadMonitor,
+} from './shallow-ahead.svelte';
 export { DEFAULT_TILES } from './tile-catalog';
 export {
   type InstrumentTileLayouts,

@@ -59,7 +59,8 @@ const primaryPath = $derived(primaryPathFor(deps, def, reading));
 const primaryCell = $derived(primaryPath ? deps.store.cell(primaryPath) : undefined);
 
 const sourceLabel = $derived(
-  def.paths.length === 0 ? 'Computed in Binnacle' : (primaryCell?.source?.label ?? 'Unknown'),
+  reading.sourceLabel ??
+    (def.paths.length === 0 ? 'Computed in Binnacle' : (primaryCell?.source?.label ?? 'Unknown')),
 );
 // The recent-handoff cue for the shown value's own path (never a cross-reference comparison).
 // Signal K remains the source authority; this only reports what the server sent recently.
@@ -74,9 +75,11 @@ const cueText = $derived.by(() => {
 // While the server declares the path timed out, age from the last good value's own epoch (the
 // declaration itself is not an update); with no declaration the fallback is the same epoch.
 const age = $derived(
-  primaryCell
-    ? ageLabel(primaryCell.serverStale?.lastValueEpoch ?? primaryCell.epoch)
-    : 'Not streamed',
+  reading.sourceEpoch !== undefined
+    ? ageLabel(reading.sourceEpoch)
+    : primaryCell
+      ? ageLabel(primaryCell.serverStale?.lastValueEpoch ?? primaryCell.epoch)
+      : 'Not streamed',
 );
 // Both stale flavors answer the navigator's question identically, so the badge stays plain
 // "Stale"; who noticed first belongs in the explanation sentence below, not in the label.
