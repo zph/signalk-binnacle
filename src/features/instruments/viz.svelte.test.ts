@@ -124,6 +124,8 @@ describe('VerticalHistoryTile', () => {
     expect(html).toContain('>TWS<');
     expect(html).toContain('>3.9<');
     expect(html).toContain('>6.0<');
+    expect(html).toContain('>3.9 kn Δ<');
+    expect(html).toContain('Historical range 3.9 kn.');
     expect(html).toContain('Ten-minute vertical history, newest at top.');
   });
 
@@ -146,6 +148,8 @@ describe('VerticalHistoryTile', () => {
 
     expect(html).toContain('>P 60<');
     expect(html).toContain('>P 45<');
+    expect(html).toContain('>15° Δ<');
+    expect(html).toContain('Historical range 15°.');
     expect(html).toContain('center-reference');
     expect(html).toContain('class="caps-label abbr');
     expect(html).not.toContain('>True wind angle history</span>');

@@ -8,6 +8,9 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
+- True wind angle and true wind speed history instruments now show their ten-minute range in a
+  compact top-right delta readout. Angle range follows the shortest circular span across the stern,
+  and speed range includes the displayed five-second maximum trace.
 - Collision alarms now offer Narrow waters, Coastal, and Offshore policies in the Alarms panel.
   CPA and TCPA remain editable per active profile, any edit becomes Custom, and setting either
   value in a severity band to zero visibly disables that band. The fixed close and imminent

@@ -8,6 +8,7 @@ export interface VerticalHistoryGeometry {
   maximumPaths: string[];
   current?: { x: number; y: number };
   scale: [string, string, string];
+  deltaLabel?: string;
 }
 
 const VIEWBOX_SIZE = 100;
@@ -28,6 +29,26 @@ function speedLabel(value: number): string {
 function angleLabel(value: number): string {
   const rounded = Math.round(value);
   return rounded < 0 ? `P ${Math.abs(rounded)}` : rounded > 0 ? `S ${rounded}` : '0';
+}
+
+function circularAngleSpan(values: readonly number[]): number {
+  if (values.length < 2) return 0;
+  const normalized = values.map((value) => ((value % 360) + 360) % 360).toSorted((a, b) => a - b);
+  let largestGap = 0;
+  for (let index = 1; index < normalized.length; index += 1) {
+    largestGap = Math.max(largestGap, normalized[index] - normalized[index - 1]);
+  }
+  const first = normalized[0] ?? 0;
+  const last = normalized.at(-1) ?? first;
+  largestGap = Math.max(largestGap, 360 - last + first);
+  return 360 - largestGap;
+}
+
+function deltaLabel(values: readonly number[], mode: VerticalHistoryMode): string | undefined {
+  if (values.length === 0) return undefined;
+  if (mode === 'angle') return `${Math.round(circularAngleSpan(values))}° Δ`;
+  const delta = Math.max(...values) - Math.min(...values);
+  return `${speedLabel(delta)} kn Δ`;
 }
 
 export function verticalHistoryGeometry(
@@ -101,5 +122,6 @@ export function verticalHistoryGeometry(
       mode === 'speed'
         ? [speedLabel(minimum), speedLabel((minimum + maximum) / 2), speedLabel(maximum)]
         : [angleLabel(minimum), angleLabel((minimum + maximum) / 2), angleLabel(maximum)],
+    deltaLabel: deltaLabel(scaleValues, mode),
   };
 }

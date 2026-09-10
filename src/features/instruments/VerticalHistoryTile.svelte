@@ -42,11 +42,11 @@ const {
 const labelText = $derived(
   `${label}${reading.referenceLabel ? ` (${reading.referenceLabel})` : ''}`,
 );
-const accessibleLabel = $derived(
-  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.${mode === 'speed' ? ' Solid line average, dashed line five-second maximum.' : ''}`,
-);
 const geometry = $derived(
   verticalHistoryGeometry(points, nowMs, mode, TILE_HISTORY_WINDOW_MS, maximumPoints),
+);
+const accessibleLabel = $derived(
+  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.${geometry.deltaLabel ? ` Historical range ${geometry.deltaLabel.replace(' Δ', '')}.` : ''}${mode === 'speed' ? ' Solid line average, dashed line five-second maximum.' : ''}`,
 );
 const midpointMinutes = TILE_HISTORY_WINDOW_MS / 2 / 60_000;
 const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
@@ -72,6 +72,9 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
         <span class="unit">{reading.unit}</span>
       {/if}
     </span>
+    {#if geometry.deltaLabel}
+      <span class="history-delta num" aria-hidden="true">{geometry.deltaLabel}</span>
+    {/if}
     <span class="history-scale num" aria-hidden="true">
       <span>{geometry.scale[0]}</span>
       <span>{geometry.scale[1]}</span>
@@ -126,12 +129,24 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 
 <style>
 .tile--vertical-history {
+  position: relative;
   align-items: stretch;
   justify-content: flex-start;
   gap: var(--space-1);
   overflow: hidden;
   padding: var(--space-2);
   text-align: start;
+}
+
+.history-delta {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .history-readout {
@@ -254,6 +269,9 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 }
 .tile--expanded .history-readout .num {
   font-size: clamp(4rem, 16vmin, 12rem);
+}
+.tile--expanded .history-delta {
+  font-size: clamp(var(--text-sm), 2.2vmin, var(--text-xl));
 }
 .tile--expanded .history-scale {
   grid-column: 2;

@@ -19,6 +19,7 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.scale).toEqual(['2.0', '6.0', '10']);
+    expect(geometry.deltaLabel).toBe('8.0 kn Δ');
     expect(geometry.paths).toEqual(['M100 0', 'M37.5 50', 'M0 100']);
     expect(geometry.current).toEqual({ x: 100, y: 0 });
   });
@@ -54,6 +55,7 @@ describe('verticalHistoryGeometry', () => {
 
     expect(geometry.scale).toEqual(['P 175', 'P 2', 'S 170']);
     expect(geometry.paths).toEqual(['M2.9 0 L0 0.83', 'M100 1.67']);
+    expect(geometry.deltaLabel).toBe('25° Δ');
   });
 
   it('omits expired samples and breaks continuity across a data gap', () => {
@@ -86,6 +88,7 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.scale).toEqual(['5.0', '5.0', '5.0']);
+    expect(geometry.deltaLabel).toBe('0.0 kn Δ');
     expect(geometry.paths).toEqual(['M50 0 L50 0.83']);
   });
 
@@ -105,6 +108,21 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.scale).toEqual(['5.0', '7.0', '9.0']);
+    expect(geometry.deltaLabel).toBe('4.0 kn Δ');
     expect(geometry.maximumPaths).toEqual(['M100 0 L75 0.83']);
+  });
+
+  it('measures TWA across the stern wrap as the shortest circular span', () => {
+    const geometry = verticalHistoryGeometry(
+      [
+        { atMs: 595_000, value: (170 * Math.PI) / 180 },
+        { atMs: 600_000, value: (-170 * Math.PI) / 180 },
+      ],
+      600_000,
+      'angle',
+      WINDOW_MS,
+    );
+
+    expect(geometry.deltaLabel).toBe('20° Δ');
   });
 });
