@@ -426,6 +426,18 @@ function addAt(at: { x?: number; y?: number }, id: string): void {
   controller.addFloating(id, at);
 }
 
+function addFromMenu(id: string): void {
+  const verticalCount = controller.floating.filter((box) =>
+    isVerticalHistoryViz(controller.resolve(box.id)?.viz),
+  ).length;
+  addAt(
+    isVerticalHistoryViz(controller.resolve(id)?.viz)
+      ? { x: 0.6 + verticalCount * (VERTICAL_HISTORY_FLOATING_WIDTH + 0.02), y: 0.12 }
+      : { x: 0.6, y: 0.12 },
+    id,
+  );
+}
+
 function toggleAddMenu(): void {
   addMenuOpen = !addMenuOpen;
   helpOpen = false;
@@ -660,7 +672,7 @@ function finishEditing(): void {
               class="menu-item"
               disabled={atFloatingCap}
               onclick={() => {
-                addAt({ x: 0.6, y: 0.12 }, entry.def.id);
+                addFromMenu(entry.def.id);
                 addMenuOpen = false;
               }}
             >

@@ -724,6 +724,11 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
     const box = await frame.boundingBox();
     expect(box?.height).toBeGreaterThan(box?.width ?? 0);
   }
+  const [speedBox, angleBox] = await Promise.all([
+    speedFrame.boundingBox(),
+    angleFrame.boundingBox(),
+  ]);
+  expect(Math.abs((speedBox?.x ?? 0) - (angleBox?.x ?? 0))).toBeGreaterThan(10);
 
   await editor.getByRole('button', { name: 'Done' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
