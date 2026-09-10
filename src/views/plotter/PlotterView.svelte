@@ -173,6 +173,7 @@ interface FlatProps {
   aisNameMode: import('$shared/settings').PersistedValue<AisNameMode>;
   aisRetentionMinutes: import('$shared/settings').PersistedValue<number>;
   routeDistanceToGoMeters: number | undefined;
+  activeProfileName: string | undefined;
 
   // Chart state
   chartsToken: string | undefined;
@@ -472,6 +473,7 @@ let {
   controllers,
   entities,
   routeDistanceToGoMeters,
+  activeProfileName,
   chartsToken,
   chartCatalogRevision,
   savedView,
@@ -1818,6 +1820,7 @@ $effect(() => {
               {auth}
               connectionPhase={store.connection.phase}
               {thresholds}
+              {activeProfileName}
               {alarmLocation}
               {units}
               collisionMuted={collisionMute.active}

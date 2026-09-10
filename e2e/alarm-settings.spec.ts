@@ -1,52 +1,89 @@
-import { expect, test } from '@playwright/test';
-import { openMenuItem, stubVesselsSelf } from './helpers';
+import { expect, type Page, test } from '@playwright/test';
+import { expectNoHorizontalOverflow, stubVesselsSelf } from './helpers';
 
 test.use({ serviceWorkers: 'block' });
 
-test('collision alarm thresholds survive a hard reload through plugin storage', async ({
+async function openAlarms(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Open alarms', exact: true }).click();
+}
+
+test('collision alarm policy survives a hard reload through the active profile', async ({
   page,
 }) => {
-  let stored = {
-    dangerCpaMeters: 463,
-    dangerTcpaSeconds: 480,
-    warningCpaMeters: 1_852,
-    warningTcpaSeconds: 1_200,
-  };
-  let writes = 0;
   await stubVesselsSelf(page);
-  await page.route(/\/plugins\/binnacle-custom\/api\/settings\/collision$/, async (route) => {
-    if (route.request().method() === 'PUT') {
-      const body = route.request().postDataJSON() as { thresholds: typeof stored };
-      stored = body.thresholds;
-      writes += 1;
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ thresholds: stored }),
-    });
-  });
   await page.addInitScript(() => {
-    localStorage.clear();
+    if (!sessionStorage.getItem('collision-policy-test-initialized')) {
+      localStorage.clear();
+      sessionStorage.setItem('collision-policy-test-initialized', 'true');
+    }
     localStorage.setItem('binnacle-custom:help-orientation', 'true');
   });
 
   await page.goto('/');
-  await openMenuItem(page, 'Alarms');
+  await openAlarms(page);
+  const policy = page.getByRole('group', { name: 'Collision alarm policy' });
+  await expect(policy.getByRole('button', { name: 'Coastal' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await policy.getByRole('button', { name: 'Offshore' }).click();
   await page.getByRole('button', { name: 'Adjust collision alarm sensitivity' }).click();
   const warningTime = page.getByRole('spinbutton', { name: 'Warning time to closest pass' });
-  await expect(warningTime).toHaveValue('20');
+  await expect(warningTime).toHaveValue('30');
   await warningTime.fill('33');
   await warningTime.press('Tab');
-  await expect.poll(() => writes).toBe(1);
+  await expect(
+    page.getByRole('complementary', { name: 'Alarms' }).getByText(/Custom:/),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const device = JSON.parse(
+          localStorage.getItem('binnacle-custom:profile-device') ?? '{}',
+        ) as { activeId?: string };
+        const library = JSON.parse(localStorage.getItem('binnacle-custom:profiles') ?? '{}') as {
+          profiles?: Array<{
+            id: string;
+            settings: { thresholds?: { warningTcpaSeconds?: number } };
+          }>;
+        };
+        return library.profiles?.find(({ id }) => id === device.activeId)?.settings.thresholds
+          ?.warningTcpaSeconds;
+      }),
+    )
+    .toBe(1_980);
 
-  await page.evaluate(() => localStorage.removeItem('binnacle-custom:lookout-thresholds'));
-  await page.reload();
-  await openMenuItem(page, 'Alarms');
+  await page.getByRole('button', { name: 'Close alarms panel' }).click();
+  await page.getByRole('button', { name: 'Profile Coastal day, switch profile' }).click();
+  await page.getByRole('menuitem', { name: 'Night passage' }).click();
+  await openAlarms(page);
+  await page.getByRole('button', { name: 'Adjust collision alarm sensitivity' }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Warning time to closest pass' })).toHaveValue(
+    '20',
+  );
+  await page.getByRole('button', { name: 'Close alarms panel' }).click();
+  await page.getByRole('button', { name: 'Profile Night passage, switch profile' }).click();
+  await page.getByRole('menuitem', { name: 'Coastal day' }).click();
+  await openAlarms(page);
   await page.getByRole('button', { name: 'Adjust collision alarm sensitivity' }).click();
   await expect(page.getByRole('spinbutton', { name: 'Warning time to closest pass' })).toHaveValue(
     '33',
   );
+  await page.getByRole('button', { name: 'Close alarms panel' }).click();
+
+  await page.reload();
+  await openAlarms(page);
+  await page.getByRole('button', { name: 'Adjust collision alarm sensitivity' }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Warning time to closest pass' })).toHaveValue(
+    '33',
+  );
+  await page.getByRole('spinbutton', { name: 'Warning time to closest pass' }).fill('0');
+  await page.getByRole('spinbutton', { name: 'Warning time to closest pass' }).press('Tab');
+  await expect(
+    page.locator('.group').filter({ hasText: 'Warning' }).getByText('Disabled'),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expectNoHorizontalOverflow(page.getByRole('complementary', { name: 'Alarms' }));
 });
 
 test('alarm location survives cleared browser storage through plugin storage', async ({ page }) => {
@@ -71,7 +108,7 @@ test('alarm location survives cleared browser storage through plugin storage', a
   });
 
   await page.goto('/');
-  await openMenuItem(page, 'Alarms');
+  await openAlarms(page);
   const location = page.getByRole('group', { name: 'Alarm location' });
   await expect(location.getByRole('button', { name: 'Bottom' })).toHaveAttribute(
     'aria-pressed',
@@ -82,7 +119,7 @@ test('alarm location survives cleared browser storage through plugin storage', a
   await expect.poll(() => writes).toBe(1);
 
   await page.reload();
-  await openMenuItem(page, 'Alarms');
+  await openAlarms(page);
   await expect(
     page.getByRole('group', { name: 'Alarm location' }).getByRole('button', { name: 'Center' }),
   ).toHaveAttribute('aria-pressed', 'true');

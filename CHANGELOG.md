@@ -8,6 +8,10 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
+- Collision alarms now offer Narrow waters, Coastal, and Offshore policies in the Alarms panel.
+  CPA and TCPA remain editable per active profile, any edit becomes Custom, and setting either
+  value in a severity band to zero visibly disables that band. The fixed close and imminent
+  emergency escalation remains active independently.
 - Web view instrument tiles sourced from the App Launcher plugin. Installed apps and admin-curated
   links appear in the dock's Customize list under an Apps category, can be framed and reloaded on
   the tile, and open with the standard full-screen instrument view. The Command K "Customize

@@ -3,7 +3,7 @@ import {
   loadAlarmLocationSettings,
   saveAlarmLocationSettings,
 } from './alarm-location-settings-client';
-import { createServerSettingSync, type ServerSettingSync } from './collision-settings-sync';
+import { createServerSettingSync, type ServerSettingSync } from './server-setting-sync';
 
 interface AlarmLocationSettingsSyncDeps {
   origin: string;

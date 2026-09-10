@@ -29,6 +29,11 @@ A profile contains:
 
 Stored settings remain in SI units. Conversion happens only at the display boundary.
 
+Collision CPA and TCPA are owned by the active profile. The Alarms panel offers Narrow waters,
+Coastal, and Offshore starting policies. Editing any of their four values creates a custom policy
+for that profile. A zero CPA or TCPA disables its warning or danger band. The fixed close and
+imminent emergency escalation remains independent of profile settings.
+
 The Data trends selection is independent from the instrument dock selection. New starter profiles
 and legacy profiles without a stored trends selection resolve to Depth, Apparent wind, Barometer,
 and Speed over ground in that order. A profile can deliberately save no trends. Saved dynamic

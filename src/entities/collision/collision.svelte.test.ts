@@ -292,6 +292,25 @@ describe('assessContacts with custom Thresholds', () => {
     expect(r.contacts).toHaveLength(0);
     expect(r.worst).toBe('clear');
   });
+
+  it('treats zero as disabled even when the computed CPA is exactly zero', () => {
+    const crossing = target({ id: 'crossing', cpaMeters: 0, tcpaSeconds: 60 });
+    const dangerDisabled = { ...DEFAULT_THRESHOLDS, dangerCpaMeters: 0 };
+    const allDisabled = { ...dangerDisabled, warningTcpaSeconds: 0 };
+
+    expect(assessContacts(ownStationary, [crossing], dangerDisabled).contacts[0]?.severity).toBe(
+      'warning',
+    );
+    expect(assessContacts(ownStationary, [crossing], allDisabled).contacts).toHaveLength(0);
+    expect(
+      assessContacts(
+        ownStationary,
+        [crossing],
+        allDisabled,
+        new Map([['crossing', 'danger' as const]]),
+      ).contacts,
+    ).toHaveLength(0);
+  });
 });
 
 describe('CollisionAssessment acknowledge', () => {

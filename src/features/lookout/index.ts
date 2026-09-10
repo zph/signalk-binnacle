@@ -13,7 +13,6 @@ export { CollisionMute } from './collision-mute.svelte';
 export type { SkNotification } from './collision-notification';
 export { CollisionNotifier, NOTIFICATION_PATH } from './collision-notification';
 export { COLLISION_OVERLAY_ID, createCollisionOverlay } from './collision-overlay';
-export { createCollisionSettingsSync } from './collision-settings-sync';
 export { default as DangerStrip } from './DangerStrip.svelte';
 export { GenericAlarm, selectGenericAlarms } from './generic-alarm.svelte';
 export { LookoutAlarm } from './lookout-alarm';

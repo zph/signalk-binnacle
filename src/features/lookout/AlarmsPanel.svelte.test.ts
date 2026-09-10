@@ -66,6 +66,7 @@ function renderPanel(
         onToggleCollisionMute: () => {},
         arrivalMuted: false,
         onToggleArrivalMute: () => {},
+        activeProfileName: 'Coastal day',
         onClose: () => {},
       },
     })

@@ -30,8 +30,15 @@ import {
   type Thresholds,
 } from '$shared/settings';
 import { type AuthController, type ConnectionPhase, isConnectionDown } from '$shared/signalk';
-import { Disclosure, InlineConfirm, SlideOver, UnitField, WriteAccessNote } from '$shared/ui';
+import { Disclosure, SlideOver, UnitField, WriteAccessNote } from '$shared/ui';
 import { ALARM_SILENCE_HOURS, type AlarmSilenceHours } from './alarm-silence.svelte';
+import {
+  applyCollisionPolicy,
+  COLLISION_POLICY_PRESETS,
+  type CollisionPolicyPresetId,
+  collisionBandDisabled,
+  collisionPolicyId,
+} from './collision-policy';
 import {
   canAcknowledgeNotification,
   canSilenceNotification,
@@ -75,6 +82,7 @@ interface Props {
   onToggleCollisionMute: () => void;
   arrivalMuted: boolean;
   onToggleArrivalMute: () => void;
+  activeProfileName?: string;
   onClose: () => void;
   onBack?: () => void;
 }
@@ -100,14 +108,20 @@ const {
   onToggleCollisionMute,
   arrivalMuted,
   onToggleArrivalMute,
+  activeProfileName,
   onClose,
   onBack,
 }: Props = $props();
 
 const t = $derived(thresholds.value);
+const activeCollisionPolicyId = $derived(collisionPolicyId(t));
+const activeCollisionPolicy = $derived(
+  COLLISION_POLICY_PRESETS.find((preset) => preset.id === activeCollisionPolicyId),
+);
+const dangerDisabled = $derived(collisionBandDisabled(t, 'danger'));
+const warningDisabled = $derived(collisionBandDisabled(t, 'warning'));
 const alerts = $derived(notifications.list());
 let pendingAction = $state<string | undefined>();
-let confirmingReset = $state(false);
 
 const localTime = (timestamp: string | undefined): string | undefined => {
   const ms = timestamp ? Date.parse(timestamp) : Number.NaN;
@@ -127,6 +141,10 @@ function setSeconds(key: 'dangerTcpaSeconds' | 'warningTcpaSeconds', minutes: nu
   const seconds = minutes * 60;
   if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_COLLISION_TCPA_SECONDS) return;
   thresholds.set({ ...thresholds.value, [key]: seconds });
+}
+
+function setCollisionPolicy(presetId: CollisionPolicyPresetId): void {
+  thresholds.set(applyCollisionPolicy(thresholds.value, presetId));
 }
 
 const cpaNm = (meters: number): number => metersToNauticalMiles(meters) ?? 0;
@@ -381,9 +399,36 @@ $effect(() => {
       Warn me when another vessel will pass closer than this distance (the closest pass) within this
       much time.
     </p>
+    <p class="muted-note">
+      These settings save automatically to
+      {activeProfileName ? `the ${activeProfileName} profile` : 'the current profile'}.
+    </p>
+    <div class="segmented collision-policies" role="group" aria-label="Collision alarm policy">
+      {#each COLLISION_POLICY_PRESETS as preset (preset.id)}
+        <button
+          type="button"
+          class="btn"
+          class:is-on={activeCollisionPolicyId === preset.id}
+          aria-pressed={activeCollisionPolicyId === preset.id}
+          onclick={() => setCollisionPolicy(preset.id)}
+        >
+          {preset.label}
+        </button>
+      {/each}
+    </div>
+    <p class="muted-note policy-summary" role="status">
+      <strong>{activeCollisionPolicy?.label ?? 'Custom'}:</strong>
+      {activeCollisionPolicy?.description ?? 'Values tuned for this profile.'}
+      Editing any value makes a custom policy.
+    </p>
     <Disclosure label="Adjust collision alarm sensitivity">
       <div class="group card-frame">
-        <span class="group-title caps-label danger">Danger</span>
+        <div class="group-heading">
+          <span class="group-title caps-label danger">Danger</span>
+          {#if dangerDisabled}
+            <span class="band-state">Disabled</span>
+          {/if}
+        </div>
         <UnitField
           label="Closest pass (CPA)"
           unit="nm"
@@ -406,7 +451,12 @@ $effect(() => {
         />
       </div>
       <div class="group card-frame">
-        <span class="group-title caps-label warning">Warning</span>
+        <div class="group-heading">
+          <span class="group-title caps-label warning">Warning</span>
+          {#if warningDisabled}
+            <span class="band-state">Disabled</span>
+          {/if}
+        </div>
         <UnitField
           label="Closest pass (CPA)"
           unit="nm"
@@ -430,23 +480,6 @@ $effect(() => {
       </div>
       {#if caution}
         <p class="muted-note sev-warning" role="status">{caution}</p>
-      {/if}
-      <!-- Reset discards four tuned safety thresholds and the shallow depth at once, so it takes the
-           deliberate second tap every other destructive action here takes. -->
-      {#if confirmingReset}
-        <InlineConfirm
-          question="Reset all thresholds?"
-          confirmLabel="Reset"
-          onConfirm={() => {
-            thresholds.set({ ...DEFAULT_THRESHOLDS });
-            confirmingReset = false;
-          }}
-          onCancel={() => (confirmingReset = false)}
-        />
-      {:else}
-        <button type="button" class="btn btn-ghost reset" onclick={() => (confirmingReset = true)}>
-          Reset to defaults
-        </button>
       {/if}
     </Disclosure>
   </section>
@@ -578,15 +611,35 @@ $effect(() => {
   gap: var(--space-1);
   padding: var(--space-2);
 }
+.collision-policies {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.collision-policies .btn {
+  min-inline-size: 0;
+  padding-inline: var(--space-1);
+}
+.policy-summary strong {
+  color: var(--text);
+}
+.group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.band-state {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 /* The base look is the shared .caps-label; only the per-severity color is overridden here. */
 .group-title.danger {
   color: var(--alarm);
 }
 .group-title.warning {
   color: var(--warning);
-}
-.reset {
-  align-self: flex-start;
-  margin-block-start: 0.1rem;
 }
 </style>

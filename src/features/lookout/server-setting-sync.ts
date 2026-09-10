@@ -1,13 +1,6 @@
 import { createLatestWriter } from '$shared/lib';
-import { DEFAULT_THRESHOLDS, type PersistedValue, type Thresholds } from '$shared/settings';
+import type { PersistedValue } from '$shared/settings';
 import type { ResourceMutationResult } from '$shared/signalk';
-import {
-  type CollisionThresholdSettings,
-  collisionThresholdSettings,
-  loadCollisionSettings,
-  mergeCollisionThresholdSettings,
-  saveCollisionSettings,
-} from './collision-settings-client';
 
 export type ServerSettingLoad<T> =
   | { state: 'configured'; value: T }
@@ -120,42 +113,4 @@ export function createServerSettingSync<TLocal, TRemote>(
       writer.dispose();
     },
   };
-}
-
-interface CollisionSettingsSyncDeps {
-  origin: string;
-  thresholds: PersistedValue<Thresholds>;
-  getToken: () => string | undefined;
-}
-
-function collisionSignature(value: CollisionThresholdSettings): string {
-  return `${value.dangerCpaMeters}:${value.dangerTcpaSeconds}:${value.warningCpaMeters}:${value.warningTcpaSeconds}`;
-}
-
-export function createCollisionSettingsSync(
-  deps: CollisionSettingsSyncDeps,
-): ServerSettingSync<Thresholds> {
-  return createServerSettingSync({
-    store: deps.thresholds,
-    toRemote: collisionThresholdSettings,
-    merge: mergeCollisionThresholdSettings,
-    signature: collisionSignature,
-    load: async () => {
-      const result = await loadCollisionSettings(deps.origin, deps.getToken());
-      return result.state === 'configured'
-        ? { state: 'configured', value: result.thresholds }
-        : result;
-    },
-    save: (value) => saveCollisionSettings(deps.origin, deps.getToken(), value),
-    writeError: 'Collision settings write failed',
-    // Early server-backed builds could seed the plugin with factory defaults before reading an
-    // existing browser customization. Treat only that exact legacy shape as unconfigured so the
-    // user's narrower or disabled CPA thresholds survive an upgrade. Once the server contains any
-    // non-default value, it remains authoritative across displays.
-    preferLocal: (local, remote) =>
-      collisionSignature(remote) ===
-        collisionSignature(collisionThresholdSettings(DEFAULT_THRESHOLDS)) &&
-      collisionSignature(local) !==
-        collisionSignature(collisionThresholdSettings(DEFAULT_THRESHOLDS)),
-  });
 }

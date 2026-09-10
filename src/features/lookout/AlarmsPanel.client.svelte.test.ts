@@ -10,10 +10,13 @@ import {
 } from '$shared/settings';
 import type { AuthController } from '$shared/signalk';
 import AlarmsPanel from './AlarmsPanel.svelte';
+import { applyCollisionPolicy } from './collision-policy';
 
 const mounted: Array<() => void> = [];
 
-function mountPanel() {
+function mountPanel(
+  initialThresholds: Thresholds = { ...DEFAULT_THRESHOLDS, dangerCpaMeters: 1000 },
+) {
   const set = vi.fn();
   const alarmLocationSet = vi.fn();
   const target = document.createElement('div');
@@ -27,7 +30,7 @@ function mountPanel() {
         connectionPhase: 'open',
         notifications: { list: () => [] } as unknown as NotificationsStore,
         thresholds: {
-          value: { ...DEFAULT_THRESHOLDS, dangerCpaMeters: 1000 },
+          value: initialThresholds,
           set,
         } as unknown as PersistedValue<Thresholds>,
         alarmLocation: {
@@ -44,6 +47,7 @@ function mountPanel() {
         onToggleCollisionMute: () => {},
         arrivalMuted: false,
         onToggleArrivalMute: () => {},
+        activeProfileName: 'Bay sailing',
         onClose: () => {},
       },
     });
@@ -72,22 +76,28 @@ afterEach(() => {
   for (const dispose of mounted.splice(0).reverse()) dispose();
 });
 
-describe('AlarmsPanel threshold reset', () => {
-  it('discards tuned thresholds only after the confirm step', () => {
+describe('AlarmsPanel collision policies', () => {
+  it('offers the three presets and applies one without changing shallow water', () => {
     const panel = mountPanel();
+    expect(panel.target.textContent).toContain('Narrow waters');
+    expect(panel.target.textContent).toContain('Coastal');
+    expect(panel.target.textContent).toContain('Offshore');
+    expect(panel.target.textContent).toContain('the Bay sailing profile');
+    expect(panel.target.textContent).toContain('Custom:');
 
-    panel.click('Reset to defaults');
-    expect(panel.target.textContent).toContain('Reset all thresholds?');
-    expect(panel.set).not.toHaveBeenCalled();
+    panel.click('Narrow waters');
+    expect(panel.set).toHaveBeenCalledWith(applyCollisionPolicy(DEFAULT_THRESHOLDS, 'narrow'));
+  });
 
-    panel.click('Cancel');
-    expect(panel.target.textContent).not.toContain('Reset all thresholds?');
-    expect(panel.set).not.toHaveBeenCalled();
-
-    panel.click('Reset to defaults');
-    panel.click('Reset');
-    expect(panel.set).toHaveBeenCalledWith(DEFAULT_THRESHOLDS);
-    expect(panel.target.textContent).not.toContain('Reset all thresholds?');
+  it('labels either zero value as a disabled alarm band', () => {
+    const panel = mountPanel({
+      ...DEFAULT_THRESHOLDS,
+      dangerCpaMeters: 0,
+      warningTcpaSeconds: 0,
+    });
+    const text = panel.target.textContent?.replaceAll(/\s+/g, ' ') ?? '';
+    expect(text).toContain('Danger Disabled');
+    expect(text).toContain('Warning Disabled');
   });
 });
 

@@ -349,7 +349,9 @@ function schema() {
     additionalProperties: false,
     properties: {
       collisionThresholds: {
-        title: 'Collision alarm thresholds',
+        title: 'Legacy collision alarm thresholds',
+        description:
+          'Compatibility for older Binnacle clients. Current clients store collision policies in profiles.',
         type: 'object',
         additionalProperties: false,
         required: [
@@ -511,8 +513,8 @@ module.exports = function createBinnaclePlugin(app) {
         info: { title: 'Binnacle Custom settings API', version: '1.0.0' },
         paths: {
           '/api/settings/collision': {
-            get: { summary: 'Read collision alarm thresholds' },
-            put: { summary: 'Store collision alarm thresholds' },
+            get: { summary: 'Read legacy collision alarm thresholds' },
+            put: { summary: 'Store legacy collision alarm thresholds' },
           },
           '/api/settings/alarm-location': {
             get: { summary: 'Read alarm location' },

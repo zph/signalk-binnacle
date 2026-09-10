@@ -87,8 +87,20 @@ Object.freeze(EMPTY_ASSESSMENT.unassessed);
 const STATIONARY_NAV_STATES = new Set(['anchored', 'moored', 'aground']);
 
 function immediateSeverity(cpaMeters: number, tcpaSeconds: number, t: Thresholds): Severity {
-  if (cpaMeters <= t.dangerCpaMeters && tcpaSeconds <= t.dangerTcpaSeconds) return 'danger';
-  if (cpaMeters <= t.warningCpaMeters && tcpaSeconds <= t.warningTcpaSeconds) return 'warning';
+  if (
+    t.dangerCpaMeters > 0 &&
+    t.dangerTcpaSeconds > 0 &&
+    cpaMeters <= t.dangerCpaMeters &&
+    tcpaSeconds <= t.dangerTcpaSeconds
+  )
+    return 'danger';
+  if (
+    t.warningCpaMeters > 0 &&
+    t.warningTcpaSeconds > 0 &&
+    cpaMeters <= t.warningCpaMeters &&
+    tcpaSeconds <= t.warningTcpaSeconds
+  )
+    return 'warning';
   return 'clear';
 }
 
@@ -104,6 +116,8 @@ function classify(
   }
   if (
     previous === 'danger' &&
+    t.dangerCpaMeters > 0 &&
+    t.dangerTcpaSeconds > 0 &&
     cpaMeters <= t.dangerCpaMeters * DOWNGRADE_MARGIN &&
     tcpaSeconds <= t.dangerTcpaSeconds * DOWNGRADE_MARGIN
   ) {
@@ -113,6 +127,8 @@ function classify(
   // outside the danger margin but still sits inside the warning margin steps down one level
   // rather than snapping straight to clear.
   if (
+    t.warningCpaMeters > 0 &&
+    t.warningTcpaSeconds > 0 &&
     cpaMeters <= t.warningCpaMeters * DOWNGRADE_MARGIN &&
     tcpaSeconds <= t.warningTcpaSeconds * DOWNGRADE_MARGIN
   ) {

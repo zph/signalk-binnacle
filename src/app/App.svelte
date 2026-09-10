@@ -112,7 +112,6 @@ import {
   CollisionMute,
   createAlarmLocationSettingsSync,
   createAlarmSilenceController,
-  createCollisionSettingsSync,
   createShallowController,
   GenericAlarm,
   isRaisedNotification,
@@ -341,11 +340,6 @@ const accessResolved = $derived(auth.status === 'authenticated' || auth.status =
 const net = new OnlineStatus();
 const thresholds = createThresholds();
 const alarmLocation = createAlarmLocation();
-const collisionSettingsSync = createCollisionSettingsSync({
-  origin,
-  thresholds,
-  getToken: () => authToken,
-});
 const alarmLocationSettingsSync = createAlarmLocationSettingsSync({
   origin,
   alarmLocation,
@@ -3688,7 +3682,6 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
   shallowController.refreshMeta();
   if (untrack(() => companionBase === null)) refreshCompanionProbe();
   void units.syncFromServer(origin);
-  void collisionSettingsSync.hydrate();
   void alarmLocationSettingsSync.hydrate();
   // The MOB replay decision reads the mirror, so it runs behind the mirror reconcile: before
   // it, the pre-outage mirror still shows the raise a restarted server has already lost, and
@@ -3763,10 +3756,6 @@ async function refreshWeatherProvider(token: string | undefined): Promise<void> 
 // Keyed on the auth token rather than run once at first connect, so a token that arrives later
 // (an approval from another tab) or changes re-detects with the right credentials.
 $effect(() => {
-  collisionSettingsSync.observe(thresholds.value);
-});
-
-$effect(() => {
   alarmLocationSettingsSync.observe(alarmLocation.value);
 });
 
@@ -3789,7 +3778,6 @@ $effect(() => {
   // Resolve the server's unit preferences with the same trigger: per-user resolution rides on the
   // session credentials that exist once access has resolved.
   void units.syncFromServer(origin);
-  void collisionSettingsSync.hydrate();
   void alarmLocationSettingsSync.hydrate();
   // Capability discovery; a transport failure keeps the current value so one bad probe cannot
   // drop the session back to v1 transports.
@@ -4016,7 +4004,6 @@ onMount(() => {
 });
 
 onDestroy(() => {
-  collisionSettingsSync.dispose();
   alarmLocationSettingsSync.dispose();
   privacyActivity.dispose();
   companionStatus.stop();
@@ -4237,6 +4224,7 @@ const plotterActions = {
     controllers={plotterControllers}
     entities={plotterEntities}
     actions={plotterActions}
+    activeProfileName={profileStore.active?.name}
     {routeDistanceToGoMeters}
     {chartsToken}
     {chartCatalogRevision}
