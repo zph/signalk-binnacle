@@ -101,6 +101,29 @@ describe('anchor overlay', () => {
     expect(pointSource.data).toBe(pointBefore);
   });
 
+  it('does not upload GeoJSON during a long unchanged Signal K stream', async () => {
+    const { store, anchor, map, overlay, ctx } = setup();
+    await overlay.add(ctx);
+    anchor.dropLocal({ latitude: 1, longitude: 2 }, 50);
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1.001, longitude: 2.001 } }));
+    overlay.sync(ctx);
+    const shapeSource = map.sources.get('binnacle-anchor-shapes');
+    const pointSource = map.sources.get('binnacle-anchor-point');
+    if (!shapeSource?.setData || !pointSource?.setData) throw new Error('missing anchor source');
+    const setShapeData = vi.spyOn(shapeSource, 'setData');
+    const setPointData = vi.spyOn(pointSource, 'setData');
+
+    // Four overlay ticks per second for more than four minutes. Each frame deliberately allocates a
+    // fresh position object, matching Signal K even while a boat is stationary.
+    for (let tick = 0; tick < 1_000; tick += 1) {
+      store.applyFrame(frame({ 'navigation.position': { latitude: 1.001, longitude: 2.001 } }));
+      overlay.sync(ctx);
+    }
+
+    expect(setShapeData).not.toHaveBeenCalled();
+    expect(setPointData).not.toHaveBeenCalled();
+  });
+
   it('marks the features as dragging once the watch latches', async () => {
     const { store, anchor, map, overlay, ctx } = setup();
     await overlay.add(ctx);

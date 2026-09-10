@@ -50,6 +50,12 @@ Dependency-cruiser enforces the rule.
 - Reuse helpers from `$shared/lib`, `$shared/map`, `$shared/geo`, `$shared/signalk`, `$shared/ui`,
   and existing entity stores before creating new helpers.
 - Keep overlays idempotent: stable source ids, layer ids, teardown, theme application, and reset paths.
+- Treat map source mutations as rendering work. Never call `setData`, `triggerRepaint`, or an
+  equivalent GPU-invalidating API from a timer or Signal K update unless a visual input changed by
+  value. Signal K commonly replaces objects even when their coordinates are unchanged, so object
+  identity is not valid change detection for hot paths.
+- Add a steady-state resource regression test for every polling or streaming map feature. Feed many
+  unchanged updates as fresh objects, and assert that source mutation and repaint calls stay at zero.
 - Register protocols and global browser hooks once at startup, not inside components.
 
 ## Writing Rules

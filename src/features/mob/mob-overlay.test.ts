@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MobStore } from '$entities/mob';
 import { OwnVessel } from '$entities/vessel';
 import { SignalKStore } from '$shared/signalk';
@@ -63,6 +63,26 @@ describe('mob overlay', () => {
     overlay.sync(ctx);
 
     expect(source.data).toBe(before);
+  });
+
+  it('does not upload GeoJSON during a long unchanged Signal K stream', async () => {
+    const { store, mob, overlay, map, ctx } = setup();
+    await overlay.add(ctx);
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1, longitude: 2 } }));
+    mob.trigger();
+    overlay.sync(ctx);
+    const source = map.sources.get('binnacle-mob');
+    if (!source?.setData) throw new Error('missing MOB source');
+    const setData = vi.spyOn(source, 'setData');
+
+    // This covers both the object-allocation pattern and the sustained duration that previously
+    // invalidated the full chart canvas on every overlay tick.
+    for (let tick = 0; tick < 1_000; tick += 1) {
+      store.applyFrame(frame({ 'navigation.position': { latitude: 1, longitude: 2 } }));
+      overlay.sync(ctx);
+    }
+
+    expect(setData).not.toHaveBeenCalled();
   });
 
   it('splits the return line when the boat crosses the antimeridian', async () => {
