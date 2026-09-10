@@ -9,6 +9,77 @@
 
 A WebGL chartplotter for [Signal K](https://signalk.org).
 
+<details>
+<summary><strong>How this fork differs from upstream</strong></summary>
+
+This repository is a fork of Nearl Crews'
+[upstream Binnacle Chartplotter](https://github.com/NearlCrews/signalk-binnacle). Thank you to Nearl
+and the upstream contributors for the foundation this work builds on.
+
+This inventory compares the fork with
+[`upstream/main` at `9b8bf071`](https://github.com/NearlCrews/signalk-binnacle/commit/9b8bf071e6247e35fbc3c0ca4fe6d5b44cac52dc).
+The histories diverged after
+[`23afddf4`](https://github.com/NearlCrews/signalk-binnacle/commit/23afddf4eae7392712a3c06d66d82754342a4b34).
+Upstream has also advanced since that common ancestor, so this table documents the fork's lasting
+additions rather than claiming that later upstream work has been merged. Key implementation and
+follow-up commits are listed below; the
+[complete implementation commit range](https://github.com/zph/signalk-binnacle/compare/23afddf4eae7392712a3c06d66d82754342a4b34...c2f90d8cc0265aa86dfdb69b8f80ac90b3c2648d)
+contains the mechanical, test-only, and smaller corrective commits too.
+
+## Major features and changes
+
+| Difference | Key commits |
+| --- | --- |
+| Native S-57 ENC portrayal, controllable ENC facets, chart-source stacking, lean reference-map controls, and retained overzoomed charts | `d191191d`, `e0591806`, `41f109b2`, `0241fa1f`, `2ce1a21a`, `dc427dde`, `62d9631d` |
+| Bathymetry cell inspection, source evidence, local label sizing, NOAA-style colors, display controls, and global Seascape fallback | `469f96a8`, `341e7fd6`, `91115b3c`, `05bca91e`, `4105ef53`, `09261a08`, `5021edc0`, `950d8997` |
+| Extensible instrument registry with declarative plugin manifests, App Launcher web views, independent chart instruments, and chart-placed instrument screens | `ca05f5c9`, `60c4f7d0`, `aac333ec`, `947da9db`, `bde03b57`, `2f43007b` |
+| Cockpit instrument suite with a configurable wind rose, AIS radar and Seascape view, tide and battery faces, helm-distance gauges, and shallow-water-ahead estimates | `8529891c`, `85276f20`, `df0e9eac`, `b5a0836d`, `4bca68c7`, `380299ae`, `3d1ea3b1`, `185ccfc9` |
+| Vertical true-wind histories backed by Signal K history, live continuation, five-second maximum traces, dynamic ranges, and circular TWA bounds | `c72e5f4d`, `5d42d1db`, `2c310d9a`, `b9165a74`, `aa7a0c8b`, `ce686f03` |
+| AIS motion estimation, between-report projection, calculated-versus-reported motion, per-vessel display controls, richer target symbols, and cached vessel names | `d3d7f456`, `38cb90b3`, `3cb5efe1`, `e8771757`, `4df4b574`, `6978f2ed` |
+| Viewport and destination-area AISStream coverage that remains separate from the boat-centered feed and survives connection handoffs and chart pans | `68315b72`, `0563192b`, `90ff9344`, `802102d0`, `3f8fdef4`, `e4bcb312`, `490a13ec` |
+| NOAA ENC mooring discovery with AIS-assisted occupancy clues, explainable matching, destination feeds, and 90-day charted-position retention | `d9349994`, `0f1e06e5`, `363d24a7`, `f8be89f5`, `ca62aedd`, `19ddfec3` |
+| Primary-chart weather with selectable sources, continuous wind fields and barbs, observed weather stations, combined forecast conditions, currents, and tide timing | `e3409775`, `69d2a02a`, `216b76cb`, `7037db48`, `0691f5ff`, `19c277a5`, `1ce8b039`, `0295185b` |
+| Sail Wayfinder integration with capability discovery, chart-centered passage planning, complete routing controls, safety constraints, schedules, live search traces, alternatives, validation, and weather statistics | `cce0c972`, `c45e15f5`, `3e1f259d`, `796fa048`, `4cb04bb7`, `adc5b980`, `2debc1cf`, `39568e4b`, `d3eec90c`, `af451a3f` |
+| Daily trip logs and server-history-backed track rendering with bounded history queries | `63c608b5`, `341eadd7`, `78fd314a` |
+| Profile-owned helm setups and collision policies, server-persisted collision thresholds, shared alert settings, timed alarm silence, and quiet acknowledgments | `58616f97`, `466775b4`, `1c667065`, `d58124e6`, `540687f2`, `d598b44f` |
+| Boat Friends chart overlay and automatic refresh of chart providers installed or changed while Binnacle is open | `c323e83b`, `3ef3c6de`, `4d1cdcba`, `a8d26aa6`, `2835f7ab` |
+
+## UI improvements
+
+| Difference | Key commits |
+| --- | --- |
+| A Command K palette opens settings, instruments, and chart actions directly, including actions that may be hidden or offscreen | `b164b126`, `7159e9b4`, `5426ea1c`, `a2190e3d` |
+| A responsive instrument dock supports resizing, reordering, maximizing, detail menus, and free placement over the chart | `c747a6f9`, `82c03de5`, `169fc9ff`, `4ce4c091`, `83ba7913`, `04505348` |
+| Helm actions are consolidated into bottom toolbars and a contextual radial action menu with view history and consistent back behavior | `beed675c`, `c1413191`, `7d58740c`, `b73e21c4`, `0773c29c`, `054ffc4d`, `d107348d` |
+| A persistent interface lock, fullscreen controls, screen wake lock, update feedback, and one-minute update checks make the PWA practical at the helm | `750977a8`, `819d54c7`, `412d76f2`, `a9eb2f06`, `b5e5d0e7` |
+| Desktop, iPad, and phone receive dedicated instrument, chart-control, safe-area, and touch-interaction refinements | `ed82cd85`, `32e50819`, `84b1fc12`, `ff0611d8`, `1555de27`, `f399f3e6` |
+| Wind rose and numeric instruments use larger cockpit-readable faces, smoother motion, clearer true-wind geometry, configurable sectors, and responsive edge spacing | `1abc2a6d`, `8ff4119a`, `6d2ff3d0`, `a4f85e37`, `3e6d3494`, `4302eb84`, `e745315a` |
+| Chart controls expose layer opacity, ordering, bathymetry portrayal, weather overlays, chart instruments, and a fixed center-on-vessel action without obscuring the map | `4fbab0d1`, `a970365b`, `864d3b26`, `09261a08`, `ea98fd35` |
+| Wayfinder presents forecast-download timing, live and pruned search traces, comparable alternatives, route weather percentiles, and precise departure-aware leg forecasts | `34538789`, `cb4f8bf5`, `ad2413bf`, `c5dafd32`, `af451a3f`, `24f43067` |
+
+## Performance optimizations
+
+| Difference | Key commits |
+| --- | --- |
+| Map opacity updates are coalesced, the base-map cache is retained, and unchanged safety overlays and vessel positions no longer trigger redraws | `36da7285`, `e79e5f7b`, `c2f90d8c`, `2d88dc67` |
+| Map resolution adapts during gestures, expensive overlay synchronization stays out of active gestures, and sustained drags remain responsive | `d0742743`, `8d7bf0f0`, `1d04e226` |
+| Long-running render work is bounded so busy chart and instrument workloads yield instead of monopolizing the main thread | `264eadca` |
+| Continuous wind uses a GPU-oriented field renderer with viewport-aware density and refresh behavior | `69d2a02a`, `d1edc322`, `a18e8b31`, `ffd19c89` |
+| AIS names are cached for 24 hours outside reactive state, while target projection and freshness handling avoid unnecessary churn between reports | `6978f2ed`, `19950a4a`, `3cb5efe1`, `20ce67a6`, `827ddca7` |
+| Viewport AIS reuses padded subscriptions, retains contacts during handoff, and expires them deliberately instead of rebuilding the layer on ordinary pans | `68315b72`, `90ff9344`, `802102d0`, `3f8fdef4`, `490a13ec` |
+| Chart-provider discovery uses startup backoff, periodic refresh, bounded attempts, and last-complete-result retention | `3ef3c6de`, `4d1cdcba`, `64477d72`, `2835f7ab` |
+| Track history prefers the server provider and splits long ranges into bounded queries | `341eadd7`, `78fd314a` |
+
+## Documentation and engineering changes
+
+| Difference | Key commits |
+| --- | --- |
+| New documentation covers the instrument plugin contract, visual components, mooring behavior, observed wind stations, profiles, tracks, and cross-platform support | `ca05f5c9`, `60c4f7d0`, `d9349994`, `7037db48`, `32e50819` |
+| Browser gates cover the responsive helm, instrument placement, wind rose, S-57 charts, command palette, weather cycle, moorings, and steady-state map resource behavior | `3f78c60b`, `004e58b9`, `2d88dc67` |
+| Repository policy and package checks strengthen architectural boundaries, platform requirements, and safe contribution workflows | `4b5f026c`, `32e50819`, `aa70cf95`, `d37f0583` |
+
+</details>
+
 > **It has not been field-tested at any scale.** It has been developed and verified against a single
 > Signal K server, never across a fleet or a range of real-world boats, hardware, and conditions. It
 > is also not certified for safety-of-life navigation. Always carry redundant means of navigation,
