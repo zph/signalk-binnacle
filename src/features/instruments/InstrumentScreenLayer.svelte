@@ -21,11 +21,17 @@ import {
   type FloatingInstrumentBox,
   fitFloatingBoxToViewport,
   MAX_FLOATING_INSTRUMENTS,
+  VERTICAL_HISTORY_FLOATING_HEIGHT,
+  VERTICAL_HISTORY_FLOATING_WIDTH,
 } from './floating-layout';
 import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { instrumentOptionLabels, staleAgeText, type TileDeps } from './tile-catalog';
-import { createTileHistory } from './tile-history.svelte';
+import {
+  createTileHistory,
+  isSessionHistoryViz,
+  isVerticalHistoryViz,
+} from './tile-history.svelte';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
@@ -257,20 +263,17 @@ const addable = $derived.by(() => {
     .map((def) => ({ def, title: optionLabels.get(def.id) ?? controller.resolvedLabel(def) }));
 });
 
-// Session sparkline history, sampled on the shared reactive clock exactly as the dock does.
+// Session tile history, sampled on the shared reactive clock exactly as the dock does.
 const history = createTileHistory();
 $effect(() => {
   const now = deps.clock.now;
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch set, never rendered
   const liveIds = new Set<string>();
   for (const { def } of floatingTiles) {
-    if (def.viz !== 'spark') continue;
+    if (!isSessionHistoryViz(def.viz)) continue;
     liveIds.add(def.id);
-    history.sample(
-      def.id,
-      untrack(() => def.read(deps).siValue),
-      now,
-    );
+    const reading = untrack(() => def.read(deps));
+    history.sample(def.id, reading.state === 'live' ? reading.siValue : undefined, now);
   }
   history.prune(liveIds);
 });
@@ -496,10 +499,17 @@ function placeAt(id: string, clientX: number, clientY: number): void {
     );
     return;
   }
+  const def = controller.resolve(id);
+  const width = isVerticalHistoryViz(def?.viz)
+    ? VERTICAL_HISTORY_FLOATING_WIDTH
+    : DEFAULT_FLOATING_WIDTH;
+  const height = isVerticalHistoryViz(def?.viz)
+    ? VERTICAL_HISTORY_FLOATING_HEIGHT
+    : DEFAULT_FLOATING_HEIGHT;
   addAt(
     {
-      x: point.x - DEFAULT_FLOATING_WIDTH / 2,
-      y: point.y - DEFAULT_FLOATING_HEIGHT / 2,
+      x: point.x - width / 2,
+      y: point.y - height / 2,
     },
     id,
   );
@@ -510,8 +520,11 @@ function previewAt(id: string, clientX: number, clientY: number): void {
   if (!point) return;
   const current = controller.floating.find((box) => box.id === id);
   const visible = current ? displayedBox(current) : undefined;
-  const width = visible?.width ?? DEFAULT_FLOATING_WIDTH;
-  const height = visible?.height ?? DEFAULT_FLOATING_HEIGHT;
+  const vertical = isVerticalHistoryViz(controller.resolve(id)?.viz);
+  const width =
+    visible?.width ?? (vertical ? VERTICAL_HISTORY_FLOATING_WIDTH : DEFAULT_FLOATING_WIDTH);
+  const height =
+    visible?.height ?? (vertical ? VERTICAL_HISTORY_FLOATING_HEIGHT : DEFAULT_FLOATING_HEIGHT);
   dropPreview = clampFloatingBox({
     id,
     width,
@@ -749,6 +762,10 @@ function finishEditing(): void {
         {depthZone}
         staleAgeText={staleAge}
         sparkPoints={entry.def.viz === 'spark' ? history.series(entry.def.id) : undefined}
+        historyPoints={isVerticalHistoryViz(entry.def.viz)
+          ? history.timedSeries(entry.def.id)
+          : undefined}
+        historyNowMs={deps.clock.now}
         {aisRadar}
         mapInstrument={editing ? undefined : mapInstrument}
         {windRoseNoGoAngleRad}

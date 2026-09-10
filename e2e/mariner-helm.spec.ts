@@ -675,6 +675,70 @@ test('numeric drawer tiles fill their faces above bottom-pinned labels', async (
   }
 });
 
+test('vertical TWS and TWA instruments plot rolling live history responsively', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await openApp(page);
+  await sendDelta(page, [
+    ...OWN_FIX,
+    { path: 'environment.wind.speedTrue', value: 4.2 },
+    { path: 'environment.wind.angleTrueWater', value: -0.7 },
+  ]);
+  await page.getByRole('button', { name: 'Show instruments' }).click();
+  await page.getByRole('button', { name: 'Edit instruments' }).click();
+
+  const editor = page.getByRole('group', { name: 'Instrument screen layout editing' });
+  await expect(editor).toBeVisible();
+  for (const name of ['True wind speed history', 'True wind angle history']) {
+    await editor.getByRole('button', { name: 'Add instrument' }).click();
+    await page
+      .getByRole('menu', { name: 'Add instrument to chart' })
+      .getByRole('menuitem', { name, exact: true })
+      .click();
+  }
+
+  const speedFrame = page.locator('.floating-frame[data-instrument-id="tws-history"]');
+  const angleFrame = page.locator('.floating-frame[data-instrument-id="twa-history"]');
+  const speed = speedFrame.getByRole('button', { name: /^True wind speed history,/ });
+  const angle = angleFrame.getByRole('button', { name: /^True wind angle history,/ });
+  await expect(speed).toBeVisible();
+  await expect(angle).toBeVisible();
+  await expect(speed.locator('.history-scale')).toContainText('0');
+  await expect(angle.locator('.history-scale')).toContainText('P 180');
+  await expect(angle.locator('.history-scale')).toContainText('S 180');
+
+  await page.waitForTimeout(5_100);
+  await sendDelta(page, [
+    { path: 'environment.wind.speedTrue', value: 6.1 },
+    { path: 'environment.wind.angleTrueWater', value: 0.5 },
+  ]);
+  await expect
+    .poll(async () => speed.locator('.squiggle').first().getAttribute('d'))
+    .toContain('L');
+  await expect
+    .poll(async () => angle.locator('.squiggle').first().getAttribute('d'))
+    .toContain('L');
+
+  for (const frame of [speedFrame, angleFrame]) {
+    const box = await frame.boundingBox();
+    expect(box?.height).toBeGreaterThan(box?.width ?? 0);
+  }
+
+  await editor.getByRole('button', { name: 'Done' }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const frame of [speedFrame, angleFrame]) {
+    await expect(frame).toBeInViewport();
+    const box = await frame.boundingBox();
+    expect(box?.width).toBeGreaterThan(90);
+    expect(box?.height).toBeGreaterThan(box?.width ?? 0);
+  }
+
+  await angle.click();
+  await expect(angleFrame).toHaveClass(/floating-frame--expanded/);
+  await expect(angleFrame.locator('.history-trace')).toBeInViewport();
+});
+
 test('the alarm panel can move a centered alert on a short landscape display', async ({ page }) => {
   await page.setViewportSize({ width: 568, height: 320 });
   await openApp(page);

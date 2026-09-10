@@ -16,6 +16,8 @@ export interface FloatingInstrumentBox {
 export const MAX_FLOATING_INSTRUMENTS = 12;
 export const DEFAULT_FLOATING_WIDTH = 0.26;
 export const DEFAULT_FLOATING_HEIGHT = 0.2;
+export const VERTICAL_HISTORY_FLOATING_WIDTH = 0.16;
+export const VERTICAL_HISTORY_FLOATING_HEIGHT = 0.48;
 export const MIN_FLOATING_WIDTH = 0.08;
 export const MIN_FLOATING_HEIGHT = 0.08;
 
@@ -148,12 +150,13 @@ export function fitFloatingBoxToViewport(
 export function defaultFloatingBox(
   at?: { x?: number; y?: number },
   id?: string,
+  size?: { width: number; height: number },
 ): FloatingInstrumentBox {
   return clampFloatingBox({
     id: id ?? '',
     x: at?.x ?? 0.62,
     y: at?.y ?? 0.12,
-    width: DEFAULT_FLOATING_WIDTH,
-    height: DEFAULT_FLOATING_HEIGHT,
+    width: size?.width ?? DEFAULT_FLOATING_WIDTH,
+    height: size?.height ?? DEFAULT_FLOATING_HEIGHT,
   });
 }

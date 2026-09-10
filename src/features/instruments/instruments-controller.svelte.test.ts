@@ -950,6 +950,23 @@ describe('createInstrumentsController screen layout', () => {
     ctrl.dispose();
   });
 
+  it('adds vertical history instruments with a narrow, tall chart footprint', () => {
+    stubSilentDiscovery();
+    const deps = makeDeps();
+    const ctrl = createInstrumentsController(deps);
+
+    ctrl.addFloating('tws-history', { x: 0.2, y: 0.1 });
+
+    expect(ctrl.floating.find((box) => box.id === 'tws-history')).toEqual({
+      id: 'tws-history',
+      x: 0.2,
+      y: 0.1,
+      width: 0.16,
+      height: 0.48,
+    });
+    ctrl.dispose();
+  });
+
   it('seeds an empty chart with only wind rose and AIS radar', () => {
     stubSilentDiscovery();
     const deps = makeDeps({ tiles: ['sog', 'depth', 'stw'] });

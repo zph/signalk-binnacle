@@ -23,6 +23,7 @@ import {
   formatNmOr,
   formatPercent,
   formatPressureOr,
+  formatSignedAngleOr,
   formatTemperatureOr,
   isRecord,
   JOULES_PER_KWH,
@@ -141,7 +142,7 @@ export interface TileDef {
   // admin-curated http/https page.
   webview?: { url: string; kind: 'app' | 'link' };
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
-  viz?: 'spark' | 'battery' | 'rot';
+  viz?: 'spark' | 'battery' | 'rot' | 'vertical-speed' | 'vertical-angle';
   trend?: {
     candidates: readonly InstrumentTrendCandidate[];
     aggregate: InstrumentTrendAggregate;
@@ -644,6 +645,51 @@ const WIND_TRUE_DEF: TileDef = {
   },
 };
 
+const TWS_HISTORY_DEF: TileDef = {
+  id: 'tws-history',
+  label: 'True wind speed history',
+  abbr: 'TWS',
+  description: 'Rolling ten-minute true wind speed trace, with the newest sample at the top.',
+  sensorGloss: 'No true wind data',
+  paths: WIND_TRUE_DEF.paths,
+  zonesPath: SK_PATHS.windSpeedTrue,
+  category: 'wind',
+  kind: 'numeric',
+  viz: 'vertical-speed',
+  formatSample: sampleKnots,
+  read: WIND_TRUE_DEF.read,
+};
+
+const TWA_HISTORY_DEF: TileDef = {
+  id: 'twa-history',
+  label: 'True wind angle history',
+  abbr: 'TWA',
+  description:
+    'Rolling ten-minute bow-relative true wind angle trace, with port to the left, starboard to the right, and the newest sample at the top.',
+  sensorGloss: 'No true wind angle data',
+  paths: [SK_PATHS.windAngleTrueWater, SK_PATHS.windAngleTrueGround],
+  zonesPath: SK_PATHS.windAngleTrueWater,
+  additionalZonePaths: [SK_PATHS.windAngleTrueGround],
+  category: 'wind',
+  kind: 'numeric',
+  viz: 'vertical-angle',
+  read({ store, clock }) {
+    const waterCell = store.cell(SK_PATHS.windAngleTrueWater);
+    const groundCell = store.cell(SK_PATHS.windAngleTrueGround);
+    const angleCell = waterCell.epoch > 0 ? waterCell : groundCell;
+    const state = grade(angleCell, clock);
+    const angleRad = asNumber(angleCell.value);
+    return {
+      state,
+      value: formatSignedAngleOr(angleRad),
+      unit: '°',
+      siValue: angleRad,
+      angleRad,
+      referenceLabel: angleCell === groundCell ? 'GND' : undefined,
+    };
+  },
+};
+
 const WIND_ROSE_DEF: TileDef = {
   id: 'wind-rose',
   label: 'Wind rose',
@@ -1139,6 +1185,8 @@ export const TILE_CATALOG: readonly TileDef[] = [
   WIND_APPARENT_DEF,
   STW_DEF,
   WIND_TRUE_DEF,
+  TWS_HISTORY_DEF,
+  TWA_HISTORY_DEF,
   WIND_ROSE_DEF,
   PRESSURE_DEF,
   POSITION_DEF,

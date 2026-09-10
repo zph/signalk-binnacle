@@ -14,6 +14,8 @@ import HeelTile from './HeelTile.svelte';
 import NumericTile from './NumericTile.svelte';
 import TideTile from './TideTile.svelte';
 import type { TileDef, TileReading } from './tile-catalog';
+import type { TileHistoryPoint } from './tile-history.svelte';
+import VerticalHistoryTile from './VerticalHistoryTile.svelte';
 import WebViewTile from './WebViewTile.svelte';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
@@ -27,6 +29,8 @@ interface Props {
   attitudeZones?: { pitch: ZoneState; roll: ZoneState };
   staleAgeText?: string;
   sparkPoints?: number[];
+  historyPoints?: readonly TileHistoryPoint[];
+  historyNowMs?: number;
   expanded?: boolean;
   aisRadar?: {
     vessel: OwnVessel;
@@ -54,6 +58,8 @@ const {
   attitudeZones = { pitch: 'normal', roll: 'normal' },
   staleAgeText,
   sparkPoints,
+  historyPoints = [],
+  historyNowMs = 0,
   expanded = false,
   aisRadar,
   mapInstrument,
@@ -126,6 +132,21 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     sensorGloss={def.sensorGloss}
     kind={def.kind}
     abbr={def.abbr}
+    {staleAgeText}
+    {expanded}
+    {actionLabel}
+    onOpen={onActivate}
+  />
+{:else if def.viz === 'vertical-speed' || def.viz === 'vertical-angle'}
+  <VerticalHistoryTile
+    {label}
+    {reading}
+    {zone}
+    sensorGloss={def.sensorGloss}
+    abbr={def.abbr}
+    mode={def.viz === 'vertical-speed' ? 'speed' : 'angle'}
+    points={historyPoints}
+    nowMs={historyNowMs}
     {staleAgeText}
     {expanded}
     {actionLabel}

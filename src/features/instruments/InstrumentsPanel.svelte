@@ -20,10 +20,14 @@ import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { staleAgeText, type TileDeps } from './tile-catalog';
-import { createTileHistory } from './tile-history.svelte';
+import {
+  createTileHistory,
+  isSessionHistoryViz,
+  isVerticalHistoryViz,
+} from './tile-history.svelte';
 import {
   type InstrumentTileLayouts,
-  instrumentTileSizeFor,
+  type instrumentTileSizeFor,
   resizeInstrumentTile,
 } from './tile-layout';
 import WindRoseSettings from './WindRoseSettings.svelte';
@@ -228,21 +232,25 @@ function spansWholeRow(kind: string, state: string): boolean {
 }
 
 function tileSize(
-  id: string,
-  kind: string,
+  def: { id: string; kind: string; viz?: string },
   state: string,
 ): ReturnType<typeof instrumentTileSizeFor> {
-  return spansWholeRow(kind, state) ? 'wide' : instrumentTileSizeFor(tileLayouts, id);
+  if (spansWholeRow(def.kind, state)) return 'wide';
+  return tileLayouts[def.id] ?? (isVerticalHistoryViz(def.viz) ? 'tall' : 'normal');
 }
 
-function beginTileResize(id: string, kind: string, state: string, event: PointerEvent): void {
-  if (!reordering || event.button !== 0 || spansWholeRow(kind, state)) return;
+function beginTileResize(
+  def: { id: string; kind: string; viz?: string },
+  state: string,
+  event: PointerEvent,
+): void {
+  if (!reordering || event.button !== 0 || spansWholeRow(def.kind, state)) return;
   tileResize = {
-    id,
+    id: def.id,
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
-    size: instrumentTileSizeFor(tileLayouts, id),
+    size: tileSize(def, state),
   };
   if (event.currentTarget instanceof Element)
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -264,7 +272,8 @@ function finishTileResize(event: PointerEvent): void {
   );
   if (next === resize.size) return;
   const layouts = { ...tileLayouts };
-  if (next === 'normal') delete layouts[resize.id];
+  if (next === 'normal' && !isVerticalHistoryViz(controller.resolve(resize.id)?.viz))
+    delete layouts[resize.id];
   else layouts[resize.id] = next;
   onTileLayoutsChange(layouts);
 }
@@ -415,23 +424,20 @@ function placeInstrumentOnChart(): void {
   controller.addFloating(id);
 }
 
-// Session-only sparkline history: sampled here on the shared reactive clock so the buffers only
+// Session-only tile history: sampled here on the shared reactive clock so the buffers only
 // accumulate while the dock is mounted, matching the subscription lifecycle. The reads are
 // untracked so the effect re-runs on the 1 Hz clock and selection changes, not on every delta
-// flush; the 5 s sample spacing makes up to a second of staleness invisible.
+// flush. Stale retained values are not appended as if they were fresh observations.
 const history = createTileHistory();
 $effect(() => {
   const now = deps.clock.now;
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local scratch set, never rendered
   const liveIds = new Set<string>();
   for (const def of tiles) {
-    if (def.viz !== 'spark') continue;
+    if (!isSessionHistoryViz(def.viz)) continue;
     liveIds.add(def.id);
-    history.sample(
-      def.id,
-      untrack(() => def.read(deps).siValue),
-      now,
-    );
+    const reading = untrack(() => def.read(deps));
+    history.sample(def.id, reading.state === 'live' ? reading.siValue : undefined, now);
   }
   history.prune(liveIds);
 });
@@ -553,7 +559,7 @@ $effect(() => {
             ? controller.zoneState(depthDef, reading.windRose.depth.siValue)
             : 'normal'}
         {@const resolvedLabel = controller.resolvedLabel(def)}
-        {@const size = tileSize(def.id, def.kind, reading.state)}
+        {@const size = tileSize(def, reading.state)}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           data-tile-row={def.id}
@@ -581,6 +587,10 @@ $effect(() => {
             {depthZone}
             staleAgeText={staleAge}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
+            historyPoints={isVerticalHistoryViz(def.viz)
+              ? history.timedSeries(def.id)
+              : undefined}
+            historyNowMs={deps.clock.now}
             {aisRadar}
             mapInstrument={expandedId === def.id ? undefined : mapInstrument}
             {windRoseNoGoAngleRad}
@@ -606,7 +616,7 @@ $effect(() => {
                 class="icon-btn handle tile-resize-handle"
                 aria-label={`Resize ${resolvedLabel} in dock`}
                 aria-describedby="instrument-reorder-instruction"
-                onpointerdown={(event) => beginTileResize(def.id, def.kind, reading.state, event)}
+                onpointerdown={(event) => beginTileResize(def, reading.state, event)}
                 onpointerup={finishTileResize}
                 onpointercancel={() => (tileResize = undefined)}
               >
@@ -659,6 +669,10 @@ $effect(() => {
         {depthZone}
         staleAgeText={staleAge}
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
+        historyPoints={isVerticalHistoryViz(expandedDef.viz)
+          ? history.timedSeries(expandedDef.id)
+          : undefined}
+        historyNowMs={deps.clock.now}
         {aisRadar}
         {mapInstrument}
         {windRoseNoGoAngleRad}

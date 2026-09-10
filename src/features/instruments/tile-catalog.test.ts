@@ -519,6 +519,42 @@ describe('wind-true tile', () => {
   });
 });
 
+describe('vertical true-wind history tiles', () => {
+  it('uses true wind speed for the TWS history trace', () => {
+    const clock = { now: 1000 };
+    const deps = makeDeps(clock);
+    deps.store.applyFrame(skFrame({ [SK_PATHS.windSpeedTrue]: 6 }, 1000));
+
+    const def = tileById('tws-history');
+    const reading = readTile('tws-history', deps);
+    expect(def?.viz).toBe('vertical-speed');
+    expect(reading).toMatchObject({ state: 'live', value: '11.7', unit: 'kn', siValue: 6 });
+  });
+
+  it('prefers water-referenced TWA and falls back to a labeled ground reference', () => {
+    const waterClock = { now: 1000 };
+    const waterDeps = makeDeps(waterClock);
+    waterDeps.store.applyFrame(skFrame({ [SK_PATHS.windAngleTrueWater]: -Math.PI / 4 }, 1000));
+    expect(readTile('twa-history', waterDeps)).toMatchObject({
+      state: 'live',
+      value: 'P 45',
+      unit: '°',
+      siValue: -Math.PI / 4,
+    });
+
+    const groundClock = { now: 1000 };
+    const groundDeps = makeDeps(groundClock);
+    groundDeps.store.applyFrame(skFrame({ [SK_PATHS.windAngleTrueGround]: Math.PI / 3 }, 1000));
+    expect(readTile('twa-history', groundDeps)).toMatchObject({
+      state: 'live',
+      value: 'S 60',
+      unit: '°',
+      referenceLabel: 'GND',
+    });
+    expect(tileById('twa-history')?.viz).toBe('vertical-angle');
+  });
+});
+
 describe('wind rose tile', () => {
   it('combines apparent wind, true wind, heading, speed over ground, and resolved depth', () => {
     const clock = { now: 1000 };

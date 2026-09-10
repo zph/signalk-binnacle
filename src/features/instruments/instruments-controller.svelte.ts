@@ -16,6 +16,8 @@ import {
   defaultFloatingBox,
   type FloatingInstrumentBox,
   MAX_FLOATING_INSTRUMENTS,
+  VERTICAL_HISTORY_FLOATING_HEIGHT,
+  VERTICAL_HISTORY_FLOATING_WIDTH,
 } from './floating-layout';
 import {
   discoverHistoricalInstrumentInstances,
@@ -64,6 +66,7 @@ import {
   tankDefsFor,
   trendDescriptorFor,
 } from './tile-catalog';
+import { isVerticalHistoryViz } from './tile-history.svelte';
 
 export interface InstrumentsDeps {
   store: SignalKStore;
@@ -590,7 +593,13 @@ export function createInstrumentsController(deps: InstrumentsDeps): InstrumentsC
     if (!Array.isArray(current) || current.length >= MAX_FLOATING_INSTRUMENTS) return;
     if (current.some((box) => box?.id === id)) return;
     ensureFloatingCells(def);
-    deps.floatingStore.set([...current, defaultFloatingBox(at, id)]);
+    const preferredSize = isVerticalHistoryViz(def.viz)
+      ? {
+          width: VERTICAL_HISTORY_FLOATING_WIDTH,
+          height: VERTICAL_HISTORY_FLOATING_HEIGHT,
+        }
+      : undefined;
+    deps.floatingStore.set([...current, defaultFloatingBox(at, id, preferredSize)]);
     syncSubscriptions();
     fetchMetaForSelected();
   }

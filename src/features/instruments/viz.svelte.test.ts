@@ -4,6 +4,7 @@ import BatteryBar from './BatteryBar.svelte';
 import RotNeedle from './RotNeedle.svelte';
 import Sparkline from './Sparkline.svelte';
 import { createTileHistory } from './tile-history.svelte';
+import VerticalHistoryTile from './VerticalHistoryTile.svelte';
 
 // SSR-only suite (node environment, no DOM). Assertions are substring checks on the rendered body.
 
@@ -92,14 +93,72 @@ describe('RotNeedle', () => {
   });
 });
 
+describe('VerticalHistoryTile', () => {
+  it('renders a newest-first ten-minute TWS squiggle with scale labels', () => {
+    const html = render(VerticalHistoryTile, {
+      props: {
+        label: 'True wind speed history',
+        reading: { state: 'live', value: '6.0', unit: 'kn', siValue: 3.0867 },
+        zone: 'normal',
+        sensorGloss: 'No true wind data',
+        abbr: 'TWS',
+        mode: 'speed',
+        points: [
+          { atMs: 595_000, value: 2 },
+          { atMs: 600_000, value: 3.0867 },
+        ],
+        nowMs: 600_000,
+      },
+    }).body;
+
+    expect(html).toContain('tile--vertical-history');
+    expect(html).toContain('class="squiggle ');
+    expect(html).toContain('>10m<');
+    expect(html).toContain('>TWS<');
+    expect(html).toContain('Ten-minute vertical history, newest at top.');
+  });
+
+  it('renders the fixed port-to-starboard TWA scale', () => {
+    const html = render(VerticalHistoryTile, {
+      props: {
+        label: 'True wind angle history',
+        reading: { state: 'live', value: 'P 45', unit: '°', siValue: -Math.PI / 4 },
+        zone: 'normal',
+        sensorGloss: 'No true wind angle data',
+        abbr: 'TWA',
+        mode: 'angle',
+        points: [
+          { atMs: 595_000, value: -Math.PI / 3 },
+          { atMs: 600_000, value: -Math.PI / 4 },
+        ],
+        nowMs: 600_000,
+      },
+    }).body;
+
+    expect(html).toContain('>P 180<');
+    expect(html).toContain('>S 180<');
+    expect(html).toContain('center-reference');
+  });
+});
+
 describe('createTileHistory', () => {
   it('trims the buffer to the capacity, oldest first', () => {
     const hist = createTileHistory();
-    for (let i = 0; i < 65; i++) hist.sample('a', i, i * 5000);
+    for (let i = 0; i < 125; i++) hist.sample('a', i, i * 5000);
     const series = hist.series('a');
-    expect(series.length).toBe(60);
-    expect(series[0]).toBe(5);
-    expect(series[59]).toBe(64);
+    expect(series.length).toBe(121);
+    expect(series[0]).toBe(4);
+    expect(series[120]).toBe(124);
+  });
+
+  it('retains timestamps for time-scaled vertical traces', () => {
+    const hist = createTileHistory();
+    hist.sample('a', 10, 1000);
+    hist.sample('a', 20, 6000);
+    expect(hist.timedSeries('a')).toEqual([
+      { atMs: 1000, value: 10 },
+      { atMs: 6000, value: 20 },
+    ]);
   });
 
   it('drops a sample taken sooner than the min spacing', () => {

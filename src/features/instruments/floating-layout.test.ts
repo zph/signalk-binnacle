@@ -101,6 +101,18 @@ describe('defaultFloatingBox', () => {
     expect(defaultFloatingBox(undefined, 'depth').x).toBeGreaterThan(0);
     expect(defaultFloatingBox(undefined, 'depth').y).toBeGreaterThan(0);
   });
+
+  it('accepts a specialized default footprint', () => {
+    expect(
+      defaultFloatingBox({ x: 0.2, y: 0.1 }, 'tws-history', { width: 0.16, height: 0.48 }),
+    ).toEqual({
+      id: 'tws-history',
+      x: 0.2,
+      y: 0.1,
+      width: 0.16,
+      height: 0.48,
+    });
+  });
 });
 
 describe('fitFloatingBoxToViewport', () => {

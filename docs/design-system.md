@@ -240,6 +240,14 @@ Reach for these before writing scoped CSS. Each lives in the named module.
   `currentColor`, never brighter than the value: `Sparkline` (recent-history polyline for continuous
   numerics), `BatteryBar` (charge fraction, zone-tinted), and `RotNeedle` (turn-rate half-dial);
   circular and stepped values carry no mark. The
+  TWS and TWA history instruments are narrow, vertical trace faces modeled after offshore sailing
+  displays. They retain ten minutes of fresh session samples, put the newest sample at the top, and
+  label 0, 5, and 10 minutes down the side. TWS uses an automatic zero-based knot scale with a
+  familiar rounded ceiling. TWA uses a fixed port 180 through bow zero to starboard 180 scale, and
+  breaks its trace across the stern wrap so a jibe never draws a false line across the full plot.
+  Gaps in fresh data also break the trace instead of inventing continuity. Both are available from
+  Customize instruments and can be placed and resized over the chart like other instrument faces.
+  The
   position tile is the one hero-size exception (`--text-readout`, the secondary readout), because two
   coordinate lines at hero size would double the tile. Other numeric faces use container-relative,
   value-length tiers so short SOG and depth values fill most of their tile without letting longer
