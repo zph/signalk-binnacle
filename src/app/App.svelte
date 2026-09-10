@@ -4029,6 +4029,8 @@ const plotterServices = {
   weatherSource,
   pointConditionsLoader,
   planningSpeedMps,
+  windRoseNoGoAngleRad,
+  windRoseArcMarginRad,
   thresholds,
   alarmLocation,
   trackSettings,

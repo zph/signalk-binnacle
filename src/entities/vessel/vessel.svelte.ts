@@ -70,6 +70,10 @@ export class OwnVessel {
       SK_PATHS.depthBelowKeel,
       SK_PATHS.depthBelowSurface,
       SK_PATHS.windSpeedApparent,
+      SK_PATHS.windAngleApparent,
+      SK_PATHS.windAngleTrueWater,
+      SK_PATHS.windAngleTrueGround,
+      SK_PATHS.windDirectionTrue,
       SK_PATHS.outsidePressure,
     ]);
   }
@@ -92,6 +96,21 @@ export class OwnVessel {
   // Apparent wind speed in m/s (SI), when an anemometer publishes it.
   get windSpeedApparentMps(): number | undefined {
     return this.#num(SK_PATHS.windSpeedApparent);
+  }
+
+  // Bow-relative wind angles in radians. The true-water angle wins when both references publish,
+  // matching the wind instruments; true direction is absolute clockwise from true north.
+  get windAngleApparentRad(): number | undefined {
+    return this.#num(SK_PATHS.windAngleApparent);
+  }
+
+  get windAngleTrueRad(): number | undefined {
+    const path = this.#trueWindAnglePath;
+    return path ? this.#num(path) : undefined;
+  }
+
+  get windDirectionTrueRad(): number | undefined {
+    return this.#num(SK_PATHS.windDirectionTrue);
   }
 
   // Outside air pressure in Pascals (SI), when a barometer publishes it.
@@ -180,6 +199,10 @@ export class OwnVessel {
   #surfaceDepthStale = $derived(this.#pathStale(SK_PATHS.depthBelowSurface));
   #transducerDepthStale = $derived(this.#pathStale(SK_PATHS.depthBelowTransducer));
   #windStale = $derived(this.#pathStale(SK_PATHS.windSpeedApparent));
+  #windAngleApparentStale = $derived(this.#pathStale(SK_PATHS.windAngleApparent));
+  #windAngleTrueWaterStale = $derived(this.#pathStale(SK_PATHS.windAngleTrueWater));
+  #windAngleTrueGroundStale = $derived(this.#pathStale(SK_PATHS.windAngleTrueGround));
+  #windDirectionTrueStale = $derived(this.#pathStale(SK_PATHS.windDirectionTrue));
   #pressureStale = $derived(this.#pathStale(SK_PATHS.outsidePressure));
 
   get positionStale(): boolean {
@@ -202,6 +225,20 @@ export class OwnVessel {
     return this.#windStale;
   }
 
+  get windAngleApparentStale(): boolean {
+    return this.#windAngleApparentStale;
+  }
+
+  get windAngleTrueStale(): boolean {
+    return this.#trueWindAnglePath === SK_PATHS.windAngleTrueWater
+      ? this.#windAngleTrueWaterStale
+      : this.#windAngleTrueGroundStale;
+  }
+
+  get windDirectionTrueStale(): boolean {
+    return this.#windDirectionTrueStale;
+  }
+
   get pressureStale(): boolean {
     return this.#pressureStale;
   }
@@ -210,6 +247,13 @@ export class OwnVessel {
   // sounder at all.
   #firstPublishedDepth(priority: readonly DepthSource[]): DepthSource | undefined {
     return priority.find((source) => this.#store.cell(DEPTH_SOURCE_PATHS[source]).epoch > 0);
+  }
+
+  get #trueWindAnglePath(): string | undefined {
+    if (this.#store.cell(SK_PATHS.windAngleTrueWater).epoch > 0) return SK_PATHS.windAngleTrueWater;
+    if (this.#store.cell(SK_PATHS.windAngleTrueGround).epoch > 0)
+      return SK_PATHS.windAngleTrueGround;
+    return undefined;
   }
 
   // One reading against one reference. With no source resolved the reading grades on the

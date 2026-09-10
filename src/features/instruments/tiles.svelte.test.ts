@@ -1,5 +1,6 @@
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
+import { windRoseSectorGeometry } from '$shared/nav';
 import { DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD } from '$shared/settings';
 import type { ZoneState } from '$shared/signalk';
 import AttitudeTile from './AttitudeTile.svelte';
@@ -11,7 +12,6 @@ import TideTile from './TideTile.svelte';
 import type { TileReading } from './tile-catalog';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
-import { windRoseSectorGeometry } from './wind-rose-geometry';
 
 // SSR-only suite (node environment, no DOM). Assertions are substring checks on the rendered body.
 

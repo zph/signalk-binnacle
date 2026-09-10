@@ -48,6 +48,12 @@ const SUBSCRIPTIONS = [
   { path: SK_PATHS.depthBelowKeel, policy: 'instant' as const, minPeriod: 1000 },
   { path: SK_PATHS.depthBelowSurface, policy: 'instant' as const, minPeriod: 1000 },
   { path: SK_PATHS.windSpeedApparent, policy: 'instant' as const, minPeriod: 1000 },
+  // The vessel-anchored wind rose is always present on the main chart, independent of whether the
+  // instrument dock is open, so its direction references belong to the fixed helm subscription.
+  { path: SK_PATHS.windAngleApparent, policy: 'instant' as const, minPeriod: 200 },
+  { path: SK_PATHS.windAngleTrueWater, policy: 'instant' as const, minPeriod: 500 },
+  { path: SK_PATHS.windAngleTrueGround, policy: 'instant' as const, minPeriod: 500 },
+  { path: SK_PATHS.windDirectionTrue, policy: 'instant' as const, minPeriod: 500 },
   { path: SK_PATHS.outsidePressure, policy: 'instant' as const, minPeriod: 5000 },
   { path: SK_PATHS.name, policy: 'instant' as const, minPeriod: 5000 },
   { path: SK_PATHS.mmsi, policy: 'instant' as const, minPeriod: 5000 },

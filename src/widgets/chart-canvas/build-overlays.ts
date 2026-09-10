@@ -37,7 +37,7 @@ import {
 } from '$features/time-travel';
 import { createHistoryTrackOverlay, createTrackOverlay } from '$features/track-layer';
 import type { TripLogController } from '$features/tracks';
-import { createVesselOverlay } from '$features/vessel-layer';
+import { createVesselOverlay, createVesselWindRoseOverlay } from '$features/vessel-layer';
 import { createWayfindingOverlay, type WayfindingVisualizationSource } from '$features/wayfinding';
 import { createWaypointOverlay } from '$features/waypoints';
 import {
@@ -65,6 +65,8 @@ export interface DynamicOverlaysDeps {
   getToken: () => string | undefined;
   store: SignalKStore;
   vessel: OwnVessel;
+  windRoseNoGoAngleRad: () => number;
+  windRoseArcMarginRad: () => number;
   aisTargets: AisTargets;
   destinationAisAvailable: () => boolean;
   onAisSelect?: (id: string) => void;
@@ -115,6 +117,8 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     getToken,
     store,
     vessel,
+    windRoseNoGoAngleRad,
+    windRoseArcMarginRad,
     aisTargets,
     destinationAisAvailable,
     onAisSelect,
@@ -200,6 +204,11 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
       return (providers?.ids?.length ?? 0) === 0 && useLocalTrackFallback(trackSettings.value);
     }),
     createTimeTravelTrackOverlay(timeTravel),
+    createVesselWindRoseOverlay(vessel, {
+      noGoAngleRad: windRoseNoGoAngleRad,
+      arcMarginRad: windRoseArcMarginRad,
+      reviewActive: () => timeTravel.active,
+    }),
     createVesselOverlay(vessel, () => timeTravel.active),
     createTimeTravelOverlay(timeTravel),
     ...(marineRadarLayer ? [marineRadarLayer] : []),

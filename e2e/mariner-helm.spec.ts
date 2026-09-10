@@ -68,6 +68,13 @@ const OWN_FIX: DeltaValue[] = [
   { path: 'navigation.headingTrue', value: 0 },
 ];
 
+const OWN_WIND: DeltaValue[] = [
+  ...OWN_FIX,
+  { path: 'navigation.headingTrue', value: Math.PI / 2 },
+  { path: 'environment.wind.angleApparent', value: -Math.PI / 6 },
+  { path: 'environment.wind.angleTrueWater', value: Math.PI / 4 },
+];
+
 const MOB_ALARM: DeltaValue = {
   path: 'notifications.mob',
   value: {
@@ -116,9 +123,16 @@ async function openApp(page: Page): Promise<void> {
   await stubRestApis(page);
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
-  await expect(page.locator('.status-strip .conn')).toHaveAttribute('title', /Connected/, {
-    timeout: 20_000,
-  });
+  // Read the fixture's transport state rather than depending on whichever responsive shell surface
+  // currently presents connectivity. The browser contract this helper needs is the worker socket
+  // being ready to receive the next scripted delta.
+  await expect
+    .poll(async () => {
+      const state = await page.request.get(`${FIXTURE_SERVER}/__fixture__/state`);
+      const body = (await state.json()) as { connections: number };
+      return body.connections;
+    })
+    .toBeGreaterThan(0);
 }
 
 async function raiseMob(page: Page): Promise<Locator> {
@@ -294,6 +308,55 @@ test('stream fixture feeds the worker: subscriptions arrive and deltas render', 
   const state = await page.request.get(`${FIXTURE_SERVER}/__fixture__/state`);
   const body = (await state.json()) as { received: Array<{ subscribe?: unknown }> };
   expect(body.received.some((message) => Array.isArray(message.subscribe))).toBe(true);
+});
+
+test('the vessel wind rose stays on the boat and becomes bow-up with a heading-up chart', async ({
+  page,
+}) => {
+  await openApp(page);
+  await sendDelta(page, OWN_WIND);
+
+  const rose = page.locator('.vessel-wind-rose-marker');
+  await expect(rose).toBeVisible();
+  await expect(rose).toHaveAttribute('data-heading', '90.00');
+  await expect(rose).toHaveAttribute('data-boat-bearing', '90.00');
+  await expect(rose).toHaveAttribute('data-apparent-bearing', '60.00');
+  await expect(rose).toHaveAttribute('data-true-bearing', '135.00');
+
+  // Follow centers the geographic marker; two orientation taps select heading-up. The chart then
+  // rotates under the instrument, leaving its boat bow at screen-up and both wind arrows at their
+  // familiar bow-relative angles.
+  const menuButton = page.getByRole('button', { name: /^(?:Menu|Open supermenu)$/ });
+  await menuButton.click();
+  await page.getByRole('menuitem', { name: 'Navigate', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Follow boat', exact: true }).click();
+  await menuButton.click();
+  await page.getByRole('menuitem', { name: 'Navigate', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Orientation', exact: true }).click();
+  await menuButton.click();
+  await page.getByRole('menuitem', { name: 'Navigate', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Orientation', exact: true }).click();
+
+  await expect.poll(() => rose.getAttribute('data-map-bearing').then(Number)).toBeCloseTo(90, 0);
+  await expect.poll(() => rose.getAttribute('data-boat-bearing').then(Number)).toBeCloseTo(0, 0);
+  await expect(rose).toHaveAttribute('data-apparent-bearing', '330.00');
+  await expect(rose).toHaveAttribute('data-true-bearing', '45.00');
+
+  const [roseBox, canvasBox] = await Promise.all([
+    rose.boundingBox(),
+    page.locator('.maplibregl-canvas').boundingBox(),
+  ]);
+  expect(roseBox).not.toBeNull();
+  expect(canvasBox).not.toBeNull();
+  if (!roseBox || !canvasBox) return;
+  const roseOffsetFromCenter = Math.hypot(
+    roseBox.x + roseBox.width / 2 - (canvasBox.x + canvasBox.width / 2),
+    roseBox.y + roseBox.height / 2 - (canvasBox.y + canvasBox.height / 2),
+  );
+  // Follow mode's look-ahead is expressed in map coordinates, so its on-screen direction rotates
+  // with the map. The wind rose must remain on that same 140 px vessel anchor in every orientation.
+  expect(roseOffsetFromCenter).toBeGreaterThan(136);
+  expect(roseOffsetFromCenter).toBeLessThan(144);
 });
 
 test('fixed alarm button grades active notifications and always opens the alarm nest', async ({

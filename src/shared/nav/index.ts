@@ -30,3 +30,4 @@ export {
   steerSide,
   vmgMps,
 } from './route-geometry';
+export { windRoseSectorGeometry } from './wind-rose-geometry';

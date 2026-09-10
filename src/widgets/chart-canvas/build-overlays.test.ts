@@ -43,6 +43,7 @@ const factories = vi.hoisted(() => {
     createVesselOverlay: vi.fn((_vessel: unknown, _reviewActive: () => boolean) =>
       marker('vessel'),
     ),
+    createVesselWindRoseOverlay: vi.fn(() => marker('vessel-wind-rose')),
     createWaypointOverlay: vi.fn(() => marker('waypoints')),
     createWindOverlay: vi.fn(
       (_weather: unknown, _makeCanvas: unknown, _getSpeedUnit: () => string) =>
@@ -81,7 +82,10 @@ vi.mock('$features/track-layer', () => ({
   createHistoryTrackOverlay: factories.createHistoryTrackOverlay,
   createTrackOverlay: factories.createTrackOverlay,
 }));
-vi.mock('$features/vessel-layer', () => ({ createVesselOverlay: factories.createVesselOverlay }));
+vi.mock('$features/vessel-layer', () => ({
+  createVesselOverlay: factories.createVesselOverlay,
+  createVesselWindRoseOverlay: factories.createVesselWindRoseOverlay,
+}));
 vi.mock('$features/wayfinding', () => ({
   createWayfindingOverlay: factories.createWayfindingOverlay,
 }));
@@ -102,6 +106,8 @@ function setup(marineRadarLayer?: { id: string }, interactionsAllowed?: () => bo
     getToken: vi.fn(() => 'live-token'),
     store: { selfContext: 'vessels.self' },
     vessel: { name: 'vessel' },
+    windRoseNoGoAngleRad: vi.fn(() => Math.PI / 4),
+    windRoseArcMarginRad: vi.fn(() => Math.PI / 12),
     aisTargets: { name: 'ais-targets' },
     destinationAisAvailable: vi.fn(() => true),
     onAisSelect: vi.fn(),
@@ -171,6 +177,7 @@ describe('buildDynamicOverlays', () => {
       'history-track',
       'track',
       'time-travel-track',
+      'vessel-wind-rose',
       'vessel',
       'time-travel',
       'marine-radar',
@@ -203,6 +210,7 @@ describe('buildDynamicOverlays', () => {
       'history-track',
       'track',
       'time-travel-track',
+      'vessel-wind-rose',
       'vessel',
       'time-travel',
     ]);

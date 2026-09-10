@@ -220,6 +220,10 @@ describe('OwnVessel', () => {
       'environment.depth.belowKeel',
       'environment.depth.belowSurface',
       'environment.wind.speedApparent',
+      'environment.wind.angleApparent',
+      'environment.wind.angleTrueWater',
+      'environment.wind.angleTrueGround',
+      'environment.wind.directionTrue',
       'environment.outside.pressure',
     ]);
   });

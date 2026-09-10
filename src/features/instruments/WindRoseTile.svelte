@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { formatSignedAngleOr, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
+import { windRoseSectorGeometry } from '$shared/nav';
 import {
   DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
@@ -9,7 +10,6 @@ import type { ZoneState } from '$shared/signalk';
 import TileStateBadge from './TileStateBadge.svelte';
 import type { InstrumentMetric, TileReading } from './tile-catalog';
 import { createWindAngleAnimator } from './wind-angle-animator';
-import { windRoseSectorGeometry } from './wind-rose-geometry';
 import { createWindSectorTracker, type WindSectorReference } from './wind-sector-tracker';
 
 interface Props {

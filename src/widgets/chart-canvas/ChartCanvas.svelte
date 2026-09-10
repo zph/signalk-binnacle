@@ -39,7 +39,7 @@ import type { RouteEditor } from '$features/route-edit';
 import { createWorkingRouteOverlay, type WorkingRouteOverlay } from '$features/route-layer';
 import type { TideStationSelectionEvent } from '$features/tides';
 import type { TimeTravelController } from '$features/time-travel';
-import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
+import { OWN_VESSEL_OVERLAY_ID, OWN_VESSEL_WIND_ROSE_OVERLAY_ID } from '$features/vessel-layer';
 import type { WayfindingVisualizationSource } from '$features/wayfinding';
 import {
   CHART_FORECAST_LAYER_IDS,
@@ -93,6 +93,8 @@ interface Props {
   // window.location here, so the widget stays testable without a real location.
   origin: string;
   vessel: OwnVessel;
+  windRoseNoGoAngleRad: number;
+  windRoseArcMarginRad: number;
   aisTargets: AisTargets;
   selectedAisId?: string;
   onAisSelect?: (id: string) => void;
@@ -216,6 +218,8 @@ const {
   store,
   origin,
   vessel,
+  windRoseNoGoAngleRad,
+  windRoseArcMarginRad,
   aisTargets,
   selectedAisId,
   onAisSelect,
@@ -516,7 +520,12 @@ onMount(async () => {
       // The own vessel, an active MOB mark, and active collision alarms stay pinned on top so a
       // chart or traffic can never hide them; bottom to top, collision, then the MOB mark, then
       // the vessel itself.
-      pinned: [COLLISION_OVERLAY_ID, MOB_OVERLAY_ID, OWN_VESSEL_OVERLAY_ID],
+      pinned: [
+        COLLISION_OVERLAY_ID,
+        MOB_OVERLAY_ID,
+        OWN_VESSEL_WIND_ROSE_OVERLAY_ID,
+        OWN_VESSEL_OVERLAY_ID,
+      ],
     },
     onView: (view) => onViewChange?.(view),
     onUserPan: () => onUserPan?.(),
@@ -645,6 +654,8 @@ onMount(async () => {
         getToken: () => chartsToken,
         store,
         vessel,
+        windRoseNoGoAngleRad: () => windRoseNoGoAngleRad,
+        windRoseArcMarginRad: () => windRoseArcMarginRad,
         aisTargets,
         destinationAisAvailable: destinationAisAvailable ?? (() => false),
         selectedAisId: () => selectedAisId,

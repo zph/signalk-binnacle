@@ -163,6 +163,8 @@ interface FlatProps {
   >;
   pointConditionsLoader: ReturnType<typeof import('$features/weather').createPointConditionsLoader>;
   planningSpeedMps: import('$shared/settings').PersistedValue<number>;
+  windRoseNoGoAngleRad: import('$shared/settings').PersistedValue<number>;
+  windRoseArcMarginRad: import('$shared/settings').PersistedValue<number>;
   thresholds: import('$shared/settings').PersistedValue<import('$shared/settings').Thresholds>;
   alarmLocation: import('$shared/settings').PersistedValue<
     import('$shared/settings').AlarmLocation
@@ -350,6 +352,8 @@ type ServiceKey =
   | 'weatherSource'
   | 'pointConditionsLoader'
   | 'planningSpeedMps'
+  | 'windRoseNoGoAngleRad'
+  | 'windRoseArcMarginRad'
   | 'thresholds'
   | 'alarmLocation'
   | 'aisIconMode'
@@ -546,6 +550,8 @@ const {
   weatherSource,
   pointConditionsLoader,
   planningSpeedMps,
+  windRoseNoGoAngleRad,
+  windRoseArcMarginRad,
   thresholds,
   alarmLocation,
   aisIconMode,
@@ -909,6 +915,8 @@ $effect(() => {
     {timeTravel}
     {store}
     {vessel}
+    windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
+    windRoseArcMarginRad={windRoseArcMarginRad.value}
     {aisTargets}
     {selectedAisId}
     aisKindMode={() => aisIconMode.value}
