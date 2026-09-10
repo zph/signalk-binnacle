@@ -105,8 +105,10 @@ export function createAnchorOverlay(
   // back briefly until the stream confirms the PUT, which is honest about who owns the state.
   let dragPreview: LatLon | undefined;
   let needsRedraw = false;
-  let lastAnchor: LatLon | undefined;
-  let lastVessel: LatLon | undefined;
+  let lastAnchorLat: number | undefined;
+  let lastAnchorLon: number | undefined;
+  let lastVesselLat: number | undefined;
+  let lastVesselLon: number | undefined;
   let lastRadius: number | undefined;
   let lastDragging = false;
   // add() can run again after a base-style swap; the map keeps its listeners across that, so the
@@ -268,21 +270,29 @@ export function createAnchorOverlay(
     sync(ctx) {
       if (!canInteract()) cancelActiveDrag?.();
       const anchorPos = dragPreview ?? anchor.position;
-      const vesselPos = vessel.position;
+      // With no anchor there is no rode line, so own-vessel updates cannot change either source.
+      // Compare coordinates rather than object identity because Signal K delivers a fresh position
+      // object for every report, including equal fixes. An identity check made an idle anchor watch
+      // invalidate and repaint the whole MapLibre canvas on every overlay tick.
+      const vesselPos = anchorPos ? vessel.position : undefined;
       const radius = anchor.radiusMeters;
       const dragging = anchor.dragging;
       if (
         !needsRedraw &&
-        anchorPos === lastAnchor &&
-        vesselPos === lastVessel &&
+        anchorPos?.latitude === lastAnchorLat &&
+        anchorPos?.longitude === lastAnchorLon &&
+        vesselPos?.latitude === lastVesselLat &&
+        vesselPos?.longitude === lastVesselLon &&
         radius === lastRadius &&
         dragging === lastDragging
       ) {
         return;
       }
       needsRedraw = false;
-      lastAnchor = anchorPos;
-      lastVessel = vesselPos;
+      lastAnchorLat = anchorPos?.latitude;
+      lastAnchorLon = anchorPos?.longitude;
+      lastVesselLat = vesselPos?.latitude;
+      lastVesselLon = vesselPos?.longitude;
       lastRadius = radius;
       lastDragging = dragging;
       setSourceData(ctx.map, SHAPE_SRC, shapeFeatures(anchorPos, radius, vesselPos, dragging));

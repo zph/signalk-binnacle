@@ -54,8 +54,10 @@ export interface MobOverlay extends OverlayModule, Syncable {}
 // back to it, the on-chart counterpart of the strip's bearing and range.
 export function createMobOverlay(mob: MobStore, vessel: OwnVessel): MobOverlay {
   let paint = mapThemePaint('day');
-  let lastMark: LatLon | undefined;
-  let lastVessel: LatLon | undefined;
+  let lastMarkLat: number | undefined;
+  let lastMarkLon: number | undefined;
+  let lastVesselLat: number | undefined;
+  let lastVesselLon: number | undefined;
   let needsRedraw = false;
 
   // Invalidate the change-detection cache so the next sync repopulates from scratch. The manager
@@ -126,11 +128,24 @@ export function createMobOverlay(mob: MobStore, vessel: OwnVessel): MobOverlay {
     reset,
     sync(ctx) {
       const mark = mob.position;
-      const boat = vessel.position;
-      if (!needsRedraw && mark === lastMark && boat === lastVessel) return;
+      // No mark means there is no return line, so position reports cannot change this empty source.
+      // Compare scalar coordinates when a mark exists because Signal K creates new position objects
+      // for equal reports. Object identity caused a full chart repaint on every overlay tick.
+      const boat = mark ? vessel.position : undefined;
+      if (
+        !needsRedraw &&
+        mark?.latitude === lastMarkLat &&
+        mark?.longitude === lastMarkLon &&
+        boat?.latitude === lastVesselLat &&
+        boat?.longitude === lastVesselLon
+      ) {
+        return;
+      }
       needsRedraw = false;
-      lastMark = mark;
-      lastVessel = boat;
+      lastMarkLat = mark?.latitude;
+      lastMarkLon = mark?.longitude;
+      lastVesselLat = boat?.latitude;
+      lastVesselLon = boat?.longitude;
       setSourceData(ctx.map, SRC, features(mark, boat));
     },
     setVisible(ctx, visible) {

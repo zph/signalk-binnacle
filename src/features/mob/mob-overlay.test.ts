@@ -24,10 +24,16 @@ function setup() {
 
 describe('mob overlay', () => {
   it('renders nothing without a mark', async () => {
-    const { overlay, map, ctx } = setup();
+    const { store, overlay, map, ctx } = setup();
     await overlay.add(ctx);
     overlay.sync(ctx);
+    const source = map.sources.get('binnacle-mob');
+    if (!source) throw new Error('missing MOB source');
+    const before = source.data;
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1, longitude: 2 } }));
+    overlay.sync(ctx);
     expect(sourceFeatures(map, 'binnacle-mob')).toHaveLength(0);
+    expect(source.data).toBe(before);
   });
 
   it('renders the mark and the line back from the boat', async () => {
@@ -41,6 +47,22 @@ describe('mob overlay', () => {
         .map((f) => f.geometry.type)
         .sort(),
     ).toEqual(['LineString', 'Point']);
+  });
+
+  it('does not repaint for a new position object with unchanged coordinates', async () => {
+    const { store, mob, overlay, map, ctx } = setup();
+    await overlay.add(ctx);
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1, longitude: 2 } }));
+    mob.trigger();
+    overlay.sync(ctx);
+    const source = map.sources.get('binnacle-mob');
+    if (!source) throw new Error('missing MOB source');
+    const before = source.data;
+
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1, longitude: 2 } }));
+    overlay.sync(ctx);
+
+    expect(source.data).toBe(before);
   });
 
   it('splits the return line when the boat crosses the antimeridian', async () => {

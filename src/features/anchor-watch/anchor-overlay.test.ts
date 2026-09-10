@@ -82,6 +82,25 @@ describe('anchor overlay', () => {
     expect(sourceFeatures(map, 'binnacle-anchor-shapes')).toHaveLength(0);
   });
 
+  it('does not repaint for a new position object with unchanged coordinates', async () => {
+    const { store, anchor, map, overlay, ctx } = setup();
+    await overlay.add(ctx);
+    anchor.dropLocal({ latitude: 1, longitude: 2 }, 50);
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1.001, longitude: 2.001 } }));
+    overlay.sync(ctx);
+    const shapeSource = map.sources.get('binnacle-anchor-shapes');
+    const pointSource = map.sources.get('binnacle-anchor-point');
+    if (!shapeSource || !pointSource) throw new Error('missing anchor source');
+    const shapeBefore = shapeSource.data;
+    const pointBefore = pointSource.data;
+
+    store.applyFrame(frame({ 'navigation.position': { latitude: 1.001, longitude: 2.001 } }));
+    overlay.sync(ctx);
+
+    expect(shapeSource.data).toBe(shapeBefore);
+    expect(pointSource.data).toBe(pointBefore);
+  });
+
   it('marks the features as dragging once the watch latches', async () => {
     const { store, anchor, map, overlay, ctx } = setup();
     await overlay.add(ctx);
