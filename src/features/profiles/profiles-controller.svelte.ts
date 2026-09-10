@@ -118,6 +118,10 @@ export function createProfilesController(deps: ProfilesControllerDeps) {
     if (changed.length > 0) {
       if (id === provisionalProfileId) provisionalChanged = true;
       scheduleAutosave(id, current, changed);
+      // Collision and shallow-water thresholds are safety settings. A preset click or field commit
+      // must reach the active profile before the navigator can leave Alarms or switch context;
+      // otherwise the debounce window can let the previous profile value replace the visible edit.
+      if (changed.includes('thresholds')) flushAutosave();
     }
   }
 

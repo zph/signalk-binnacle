@@ -39,6 +39,10 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Fixed
 
+- Collision and shallow-water threshold changes now save to the active profile immediately, so
+  leaving the Alarms panel or switching between Narrow waters and Coastal cannot restore the prior
+  policy during the general profile autosave delay.
+
 - Mooring occupancy no longer reports a retained AIS target from the previous viewport as a
   multi-million-metre nearest vessel while destination-area AIS catches up after a pan.
 - Center on vessel is now an always-present fixed control at the right end of the lower helm row

@@ -26,6 +26,16 @@ test('collision alarm policy survives a hard reload through the active profile',
     'aria-pressed',
     'true',
   );
+  await policy.getByRole('button', { name: 'Narrow waters' }).click();
+  await expect(policy.getByRole('button', { name: 'Narrow waters' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await policy.getByRole('button', { name: 'Coastal' }).click();
+  await expect(policy.getByRole('button', { name: 'Coastal' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await policy.getByRole('button', { name: 'Offshore' }).click();
   await page.getByRole('button', { name: 'Adjust collision alarm sensitivity' }).click();
   const warningTime = page.getByRole('spinbutton', { name: 'Warning time to closest pass' });

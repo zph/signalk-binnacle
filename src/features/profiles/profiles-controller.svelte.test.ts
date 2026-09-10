@@ -181,6 +181,42 @@ describe('createProfilesController', () => {
     vi.useRealTimers();
   });
 
+  it('saves alarm thresholds into the active profile without waiting for the debounce', async () => {
+    vi.useFakeTimers();
+    const existing = profile('local', 'Local helm', 4);
+    const store = new ProfileStore(
+      localAdapter({
+        profiles: [existing],
+        activeId: existing.id,
+        defaultId: undefined,
+      }),
+    );
+    const bound = bindings(existing.settings);
+    const controller = createProfilesController({
+      store,
+      bindings: bound.bindings,
+      applyRuntime: () => undefined,
+      autosaveMs: 350,
+    });
+    await controller.initialize();
+    await tick();
+
+    const narrow = {
+      ...existing.settings.thresholds,
+      dangerCpaMeters: 370,
+      dangerTcpaSeconds: 300,
+      warningCpaMeters: 926,
+      warningTcpaSeconds: 600,
+    };
+    bound.set(settings({ thresholds: narrow }));
+    controller.observeSettings();
+
+    expect(store.active?.settings.thresholds).toEqual(narrow);
+    expect(vi.getTimerCount()).toBe(0);
+    controller.dispose();
+    vi.useRealTimers();
+  });
+
   it('does not apply a remote active-profile update until the navigator accepts it', async () => {
     const local = profile('p1', 'Helm', 1, { theme: 'day' });
     const remote = profile('p1', 'Helm', 5, { theme: 'night-red' });
