@@ -4,6 +4,7 @@ import RotateCw from '@lucide/svelte/icons/rotate-cw';
 import Trash2 from '@lucide/svelte/icons/trash-2';
 import { cleanBoundedText } from '$shared/lib';
 import { CustomizeCategory, createReorder, LayerToggle, UnavailableHint } from '$shared/ui';
+import type { InstrumentAlias } from './instrument-alias';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { instrumentOptionLabels, type TileDef, type TileDeps } from './tile-catalog';
 import { cleanWebviewUrl } from './webview-sources';
@@ -13,9 +14,16 @@ interface Props {
   deps: TileDeps;
   overlayOpacity?: number;
   onOverlayOpacityChange?: (opacity: number) => void;
+  aliases?: readonly InstrumentAlias[];
 }
 
-const { controller, deps, overlayOpacity = 1, onOverlayOpacityChange = () => {} }: Props = $props();
+const {
+  controller,
+  deps,
+  overlayOpacity = 1,
+  onOverlayOpacityChange = () => {},
+  aliases = [],
+}: Props = $props();
 
 let listEl: HTMLElement | undefined = $state(undefined);
 let webviewTitle = $state('');
@@ -42,8 +50,10 @@ function addWebview(): void {
 // catalog order as add-only rows. Rendering the catalog order here instead would divorce the
 // visible rows from the movable list, so a drag would commit but never appear to move.
 const shown = $derived(controller.tiles);
+const shownAliases = $derived(aliases.filter((alias) => alias.visible));
 const selectedIds = $derived(new Set(controller.selectedIds));
 const available = $derived(controller.catalog.filter((def) => !selectedIds.has(def.id)));
+const availableAliases = $derived(aliases.filter((alias) => !alias.visible));
 const optionLabels = $derived(instrumentOptionLabels(controller.catalog));
 const categoryTitles = {
   navigation: 'Navigation',
@@ -59,7 +69,8 @@ const categoryTitles = {
 const availableGroups = $derived.by(() =>
   Object.entries(categoryTitles).flatMap(([id, title]) => {
     const rows = available.filter((def) => def.category === id);
-    return rows.length > 0 ? [{ id, title, rows }] : [];
+    const aliasRows = availableAliases.filter((alias) => alias.category === id);
+    return rows.length > 0 || aliasRows.length > 0 ? [{ id, title, rows, aliasRows }] : [];
   }),
 );
 
@@ -188,6 +199,16 @@ const webviewStatusMessage = $derived.by(() => {
   </section>
   <h3 class="caps-label section-label">Shown</h3>
   <ul class="tile-list bare-list">
+    {#each shownAliases as alias (alias.id)}
+      <li class="row-interactive is-on" data-instrument-alias={alias.id}>
+        <LayerToggle
+          label={alias.label}
+          description={alias.description}
+          visible={true}
+          onToggle={() => alias.onToggle(false)}
+        />
+      </li>
+    {/each}
     {#each shown as def, i (def.id)}
       {@const indicator = reorder.indicatorFor(def.id)}
       {@const title = optionTitle(def)}
@@ -257,6 +278,16 @@ const webviewStatusMessage = $derived.by(() => {
     {#each availableGroups as group (group.id)}
       <CustomizeCategory id={`instrument-category-${group.id}`} label={group.title}>
         <ul class="tile-list bare-list">
+          {#each group.aliasRows as alias (alias.id)}
+            <li class="row-interactive" data-instrument-alias={alias.id}>
+              <LayerToggle
+                label={alias.label}
+                description={alias.description}
+                visible={false}
+                onToggle={() => alias.onToggle(true)}
+              />
+            </li>
+          {/each}
           {#each group.rows as def (def.id)}
             {@const title = optionTitle(def)}
             {@const historicalOnly = controller.isHistoricalOnly(def.id) && neverReported(def.paths)}

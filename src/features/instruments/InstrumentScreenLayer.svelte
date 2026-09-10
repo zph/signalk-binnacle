@@ -25,6 +25,7 @@ import {
   VERTICAL_HISTORY_FLOATING_WIDTH,
 } from './floating-layout';
 import InstrumentTile from './InstrumentTile.svelte';
+import type { InstrumentAlias } from './instrument-alias';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { instrumentOptionLabels, staleAgeText, type TileDeps } from './tile-catalog';
 import {
@@ -56,6 +57,7 @@ interface Props {
   // A long press on a locked chart instrument is the touch shortcut back into this same editor.
   onEdit?: () => void;
   overlayOpacity?: number;
+  instrumentAliases?: readonly InstrumentAlias[];
 }
 
 const {
@@ -77,6 +79,7 @@ const {
   onDone = () => {},
   onEdit = () => {},
   overlayOpacity = 1,
+  instrumentAliases = [],
 }: Props = $props();
 
 const DRAG_MIME = 'text/x-binnacle-instrument';
@@ -262,6 +265,7 @@ const addable = $derived.by(() => {
     .filter((def) => !placed.has(def.id))
     .map((def) => ({ def, title: optionLabels.get(def.id) ?? controller.resolvedLabel(def) }));
 });
+const hasAddableEntry = $derived(addable.length > 0 || instrumentAliases.length > 0);
 
 // Session tile history, sampled on the shared reactive clock exactly as the dock does.
 const history = createTileHistory();
@@ -660,11 +664,30 @@ function finishEditing(): void {
         onFocusLeft={() => (addMenuOpen = false)}
       >
         <div class="add-menu-scroll" use:rovingFocus={'[role="menuitem"]'}>
-          {#if atFloatingCap}
+          {#if atFloatingCap && addable.length > 0}
             <p class="muted-note">Remove an instrument from the screen first.</p>
-          {:else if addable.length === 0}
+          {:else if !hasAddableEntry}
             <p class="muted-note">Every instrument is already on the screen.</p>
           {/if}
+          {#each instrumentAliases as alias (alias.id)}
+            <button
+              type="button"
+              role="menuitem"
+              class="menu-item"
+              onclick={() => {
+                alias.onToggle(!alias.visible);
+                addMenuOpen = false;
+              }}
+            >
+              {#if alias.visible}
+                <X size={16} aria-hidden="true" />
+                Remove {alias.label}
+              {:else}
+                <Plus size={16} aria-hidden="true" />
+                Add {alias.label}
+              {/if}
+            </button>
+          {/each}
           {#each addable as entry (entry.def.id)}
             <button
               type="button"

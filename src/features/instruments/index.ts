@@ -16,6 +16,7 @@ export {
 } from './dock-width';
 export type { FloatingInstrumentBox } from './floating-layout';
 export { floatingInstrumentBoxesCodec } from './floating-layout';
+export type { InstrumentAlias } from './instrument-alias';
 export {
   parseInstrumentPluginManifest,
   SIGNALK_INSTRUMENT_PLUGINS_PATH,

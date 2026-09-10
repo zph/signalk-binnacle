@@ -18,6 +18,7 @@ import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentDockResize from './InstrumentDockResize.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentTile from './InstrumentTile.svelte';
+import type { InstrumentAlias } from './instrument-alias';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import { staleAgeText, type TileDeps } from './tile-catalog';
 import {
@@ -87,6 +88,7 @@ interface Props {
   screenEditing?: boolean;
   overlayOpacity?: number;
   onOverlayOpacityChange?: (opacity: number) => void;
+  instrumentAliases?: readonly InstrumentAlias[];
 }
 
 const {
@@ -126,6 +128,7 @@ const {
   screenEditing = false,
   overlayOpacity = 1,
   onOverlayOpacityChange = () => {},
+  instrumentAliases = [],
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -526,7 +529,13 @@ $effect(() => {
     <div class="customize-instruction">
       <span class="muted-note">Tap an instrument to show or hide. Drag to reorder.</span>
     </div>
-    <InstrumentsCustomize {controller} {deps} {overlayOpacity} {onOverlayOpacityChange} />
+    <InstrumentsCustomize
+      {controller}
+      {deps}
+      {overlayOpacity}
+      {onOverlayOpacityChange}
+      aliases={instrumentAliases}
+    />
   {:else}
     <div class="instrument-config-action">
       <button type="button" class="btn btn-ghost" onclick={toggleCustomizing}>

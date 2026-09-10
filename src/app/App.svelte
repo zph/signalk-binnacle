@@ -93,6 +93,7 @@ import {
   DEFAULT_TILES,
   type FloatingInstrumentBox,
   floatingInstrumentBoxesCodec,
+  type InstrumentAlias,
   type InstrumentTileLayouts,
   instrumentTileLayoutsCodec,
   isAisRadarRangeNm,
@@ -170,6 +171,7 @@ import {
 import { createTimeTravelController } from '$features/time-travel';
 import { createTrackController, createTripLogController } from '$features/tracks';
 import { createTrendsController } from '$features/trends';
+import { OWN_VESSEL_WIND_ROSE_OVERLAY_ID } from '$features/vessel-layer';
 import { createWayfindingController } from '$features/wayfinding';
 import { createWaypointsController, WaypointDialog } from '$features/waypoints';
 import {
@@ -1767,6 +1769,20 @@ function setLayerVisible(id: string, visible: boolean): void {
   layerSettings.set(next);
   mapCommands?.applyLayers(next, layerOrder.value);
 }
+
+// The chart-anchored rose is offered alongside normal instruments without becoming a second tile.
+// Its checkbox reads and writes the same layer setting as Layers, so either surface stays current.
+const instrumentAliases = $derived.by<readonly InstrumentAlias[]>(() => [
+  {
+    type: 'alias',
+    id: OWN_VESSEL_WIND_ROSE_OVERLAY_ID,
+    label: 'Vessel wind rose (following)',
+    description: 'Show the smoothed wind rose pinned over your vessel on the chart.',
+    category: 'wind',
+    visible: layerSettings.value[OWN_VESSEL_WIND_ROSE_OVERLAY_ID]?.visible ?? false,
+    onToggle: (visible) => setLayerVisible(OWN_VESSEL_WIND_ROSE_OVERLAY_ID, visible),
+  },
+]);
 
 const HELM_WEATHER_LAYER_IDS = [
   WEATHER_LAYER_IDS.conditions,
@@ -4339,6 +4355,7 @@ const plotterActions = {
             topBannerPresent={showHelpWelcome || showEncPrompt || arrivalBanner !== undefined}
             onDone={exitScreenInstrumentEditing}
             onEdit={startScreenInstrumentEditing}
+            {instrumentAliases}
             overlayOpacity={instrumentOverlayOpacity.value}
           />
 
@@ -4565,6 +4582,7 @@ const plotterActions = {
           onViewTrend={openFocusedTrend}
           onTrendFocusRestored={() => (trendReturnInstrumentId = undefined)}
           screenEditing={instruments.screenEditing}
+          {instrumentAliases}
           overlayOpacity={instrumentOverlayOpacity.value}
           onOverlayOpacityChange={(opacity) => instrumentOverlayOpacity.set(opacity)}
         />

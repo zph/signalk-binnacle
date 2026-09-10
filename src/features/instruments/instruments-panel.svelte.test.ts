@@ -6,6 +6,7 @@ import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentsPanel from './InstrumentsPanel.svelte';
 import INSTRUMENTS_PANEL_SOURCE from './InstrumentsPanel.svelte?raw';
+import type { InstrumentAlias } from './instrument-alias';
 import type { InstrumentsController } from './instruments-controller.svelte';
 import type { TileDeps, TileReading } from './tile-catalog';
 import { TILE_CATALOG, tileById } from './tile-catalog';
@@ -345,6 +346,49 @@ describe('InstrumentsPanel', () => {
     for (const def of TILE_CATALOG.filter((d) => !SELECTED_IDS.includes(d.id))) {
       expect(body).not.toContain(`Move ${def.label}, position`);
     }
+  });
+
+  it('lists an overlay alias as an instrument without giving it a tile reorder handle', () => {
+    const alias: InstrumentAlias = {
+      type: 'alias',
+      id: 'own-vessel-wind-rose',
+      label: 'Vessel wind rose (following)',
+      description: 'Show the wind rose over the vessel.',
+      category: 'wind',
+      visible: true,
+      onToggle: () => {},
+    };
+    const { body } = render(InstrumentsCustomize, {
+      props: { controller: makeController(), deps: makeDeps(), aliases: [alias] },
+    });
+
+    expect(body).toContain('data-instrument-alias="own-vessel-wind-rose"');
+    expect(body).toContain('Vessel wind rose (following)');
+    expect(body).toContain('Show the wind rose over the vessel.');
+    expect(body).not.toContain('Move Vessel wind rose (following)');
+  });
+
+  it('keeps a hidden overlay alias available in its instrument category', () => {
+    const alias: InstrumentAlias = {
+      type: 'alias',
+      id: 'own-vessel-wind-rose',
+      label: 'Vessel wind rose (following)',
+      description: 'Show the wind rose over the vessel.',
+      category: 'wind',
+      visible: false,
+      onToggle: () => {},
+    };
+    const { body } = render(InstrumentsCustomize, {
+      props: {
+        controller: makeController({ selectedIds: [], catalog: [] }),
+        deps: makeDeps(),
+        aliases: [alias],
+      },
+    });
+
+    expect(body).toContain('Wind');
+    expect(body).toContain('Vessel wind rose (following)');
+    expect(body).not.toContain('No other instruments found yet.');
   });
 
   it('keeps repeated future catalog labels visibly and accessibly distinct', () => {
