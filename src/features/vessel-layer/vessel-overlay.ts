@@ -19,7 +19,7 @@ import {
   setPaintProp,
   setSourceData,
 } from '$shared/map';
-import { geodesicDestination } from '$shared/nav';
+import { geodesicDestination, haversineMeters } from '$shared/nav';
 import { staleVesselBadgeImage, VESSEL_ICON_ID, vesselIconImage } from './vessel-icon';
 
 const SOURCE_ID = 'binnacle-own-vessel';
@@ -35,6 +35,13 @@ const VECTOR_WIDTH = 2;
 const VECTOR_OPACITY = 0.8;
 const SECONDS_PER_MINUTE = 60;
 const STALE_ICON_ID = 'binnacle-vessel-stale-badge';
+// MapLibre reparses a GeoJSON source and schedules a full map render after setData(). Ignore sensor
+// noise that cannot move the marker or vector meaningfully on screen. Navigation calculations keep
+// consuming the unfiltered Signal K values; these thresholds affect display invalidation only.
+const POSITION_REDRAW_METERS = 0.75;
+const HEADING_REDRAW_DEGREES = 1;
+const VECTOR_SOG_REDRAW_MPS = knotsToMetersPerSecond(0.1);
+const VECTOR_COG_REDRAW_RADIANS = Math.PI / 180;
 // The transient color shown for the single frame before the first recolor; taken from the day theme
 // so there is one source for the day own-vessel color rather than a literal that could drift.
 const DEFAULT_COLOR: Rgba = mapThemePaint('day').ownVessel;
@@ -46,6 +53,49 @@ export const OWN_VESSEL_OVERLAY_ID = 'own-vessel';
 const REVIEW_DIM_OPACITY = 0.35;
 
 type VectorHorizon = '10-minute' | '5-minute' | '2.5-minute';
+
+function circularDifference(value: number, prior: number, fullTurn: number): number {
+  const delta = Math.abs(value - prior) % fullTurn;
+  return Math.min(delta, fullTurn - delta);
+}
+
+function positionChanged(
+  latitude: number | undefined,
+  longitude: number | undefined,
+  priorLatitude: number | undefined,
+  priorLongitude: number | undefined,
+): boolean {
+  if (
+    latitude === undefined ||
+    longitude === undefined ||
+    priorLatitude === undefined ||
+    priorLongitude === undefined
+  ) {
+    return latitude !== priorLatitude || longitude !== priorLongitude;
+  }
+  return (
+    haversineMeters(priorLatitude, priorLongitude, latitude, longitude) >= POSITION_REDRAW_METERS
+  );
+}
+
+function valueChanged(
+  value: number | undefined,
+  prior: number | undefined,
+  deadband: number,
+): boolean {
+  if (value === undefined || prior === undefined) return value !== prior;
+  return Math.abs(value - prior) >= deadband;
+}
+
+function angleChanged(
+  value: number | undefined,
+  prior: number | undefined,
+  fullTurn: number,
+  deadband: number,
+): boolean {
+  if (value === undefined || prior === undefined) return value !== prior;
+  return circularDifference(value, prior, fullTurn) >= deadband;
+}
 
 function darker(color: Rgba, factor: number): Rgba {
   return {
@@ -115,6 +165,7 @@ export function createVesselOverlay(
   let lastVectorSog: number | undefined;
   let lastVectorCog: number | undefined;
   let lastVectorStale: boolean | undefined;
+  let lastVectorVisible: boolean | undefined;
 
   // Heading drives icon-rotate (degrees), falling back to course over ground, then north.
   const resolveHeading = (): number => headingDegrees(vessel.headingRad, vessel.cogRad);
@@ -137,7 +188,11 @@ export function createVesselOverlay(
     const lat = position?.latitude;
     const heading = position ? resolveHeading() : undefined;
     const stale = vessel.positionStale;
-    if (lon === lastLon && lat === lastLat && heading === lastHeading && stale === lastStale) {
+    if (
+      !positionChanged(lat, lon, lastLat, lastLon) &&
+      !angleChanged(heading, lastHeading, 360, HEADING_REDRAW_DEGREES) &&
+      stale === lastStale
+    ) {
       return false;
     }
     lastLon = lon;
@@ -154,11 +209,20 @@ export function createVesselOverlay(
     const sog = vessel.sogMps;
     const cog = vessel.cogRad;
     const stale = vessel.positionStale || vessel.sogStale || vessel.cogStale;
+    const vectorVisible =
+      position !== undefined &&
+      sog !== undefined &&
+      cog !== undefined &&
+      sog > VECTOR_MIN_SOG_MPS &&
+      !stale;
+    // Below the vector's minimum speed, position, speed, and course noise all produce the same
+    // empty feature collection. Upload it once on the visible-to-hidden edge, not on every fix.
+    if (!vectorVisible && lastVectorVisible === false) return false;
     if (
-      lon === lastVectorLon &&
-      lat === lastVectorLat &&
-      sog === lastVectorSog &&
-      cog === lastVectorCog &&
+      vectorVisible === lastVectorVisible &&
+      !positionChanged(lat, lon, lastVectorLat, lastVectorLon) &&
+      !valueChanged(sog, lastVectorSog, VECTOR_SOG_REDRAW_MPS) &&
+      !angleChanged(cog, lastVectorCog, Math.PI * 2, VECTOR_COG_REDRAW_RADIANS) &&
       stale === lastVectorStale
     ) {
       return false;
@@ -168,6 +232,7 @@ export function createVesselOverlay(
     lastVectorSog = sog;
     lastVectorCog = cog;
     lastVectorStale = stale;
+    lastVectorVisible = vectorVisible;
     return true;
   }
 

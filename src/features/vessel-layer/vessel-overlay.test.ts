@@ -8,6 +8,7 @@ import { createFakeMap, fakeOverlayContext, sourceFeatures } from '$shared/testi
 import { buildOwnVesselVectorFeatures, createVesselOverlay } from './vessel-overlay';
 
 const VECTOR_SOURCE_ID = 'binnacle-own-vessel-vector';
+const VESSEL_SOURCE_ID = 'binnacle-own-vessel';
 const VECTOR_FAR_LAYER_ID = 'binnacle-own-vessel-vector-10-minute';
 const VECTOR_MIDDLE_LAYER_ID = 'binnacle-own-vessel-vector-5-minute';
 const VECTOR_NEAR_LAYER_ID = 'binnacle-own-vessel-vector-2-5-minute';
@@ -128,6 +129,53 @@ describe('vessel overlay', () => {
     applyMotion(store, knotsToMetersPerSecond(0.1));
     overlay.sync(ctx);
     expect(sourceFeatures(map, VECTOR_SOURCE_ID)).toHaveLength(0);
+  });
+
+  it('does not upload marker or empty-vector GeoJSON for sustained dockside sensor noise', async () => {
+    const store = new SignalKStore();
+    const overlay = createVesselOverlay(new OwnVessel(store));
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    store.applyFrame({
+      self: new Map<string, unknown>([
+        ['navigation.position', { latitude: 36.8, longitude: -121.7 }],
+        ['navigation.headingTrue', 0],
+        ['navigation.speedOverGround', 0],
+        ['navigation.courseOverGroundTrue', 0],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: 1,
+    });
+    await overlay.add(ctx);
+    overlay.sync(ctx);
+    const vesselSource = map.sources.get(VESSEL_SOURCE_ID);
+    const vectorSource = map.sources.get(VECTOR_SOURCE_ID);
+    if (!vesselSource?.setData || !vectorSource?.setData) throw new Error('missing vessel source');
+    const setVesselData = vi.spyOn(vesselSource, 'setData');
+    const setVectorData = vi.spyOn(vectorSource, 'setData');
+
+    // Four overlay ticks per second for more than four minutes. Values vary as fresh Signal K
+    // objects, but stay below the display deadbands and below the vector's minimum speed.
+    for (let tick = 0; tick < 1_000; tick += 1) {
+      const sign = tick % 2 === 0 ? 1 : -1;
+      store.applyFrame({
+        self: new Map<string, unknown>([
+          [
+            'navigation.position',
+            { latitude: 36.8 + sign * 0.000_001, longitude: -121.7 - sign * 0.000_001 },
+          ],
+          ['navigation.headingTrue', sign * 0.005],
+          ['navigation.speedOverGround', 0.02],
+          ['navigation.courseOverGroundTrue', sign * 0.005],
+        ]),
+        connection: { phase: 'open', attempt: 0 },
+        epoch: tick + 2,
+      });
+      overlay.sync(ctx);
+    }
+
+    expect(setVesselData).not.toHaveBeenCalled();
+    expect(setVectorData).not.toHaveBeenCalled();
   });
 
   it('shows the unrotated question badge when the retained fix becomes stale', async () => {
