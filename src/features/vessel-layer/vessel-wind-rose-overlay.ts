@@ -85,6 +85,8 @@ interface RoseDom {
   apparentPath: SVGPathElement;
   truePath: SVGPathElement;
   twaReadout: SVGTextElement;
+  twaSide: SVGTSpanElement;
+  twaDigits: SVGTSpanElement;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -306,6 +308,15 @@ function createRoseDom(): RoseDom {
     'font-weight': '800',
   });
   twaReadout.classList.add('vessel-wind-rose-twa');
+  const twaLabel = svg('tspan');
+  twaLabel.textContent = 'TWA ';
+  const twaSide = svg('tspan');
+  attributes(twaSide, { 'font-size': '33' });
+  twaSide.classList.add('vessel-wind-rose-twa-side');
+  const twaDigits = svg('tspan');
+  attributes(twaDigits, { dx: '5.5' });
+  twaDigits.classList.add('vessel-wind-rose-twa-digits');
+  twaReadout.append(twaLabel, twaSide, twaDigits);
   face.append(twaReadout);
 
   const boat = svg('g');
@@ -346,6 +357,8 @@ function createRoseDom(): RoseDom {
     apparentPath,
     truePath,
     twaReadout,
+    twaSide,
+    twaDigits,
   };
 }
 
@@ -527,7 +540,12 @@ export function createVesselWindRoseOverlay(
     const headingEpoch = !vessel.headingStale ? vessel.headingEpochMs : vessel.cogEpochMs;
     const twaRad = trueWindAngleRad(vessel, headingRad);
     if (dom) {
-      dom.twaReadout.textContent = `TWA ${twaRad === undefined ? '---' : `${formatSignedAngleOr(twaRad)}°`}`;
+      const twaText = twaRad === undefined ? '---' : formatSignedAngleOr(twaRad);
+      const hasSide = /^[SP] /.test(twaText);
+      dom.twaSide.textContent = hasSide ? twaText.slice(0, 1) : '';
+      dom.twaDigits.textContent =
+        twaRad === undefined ? twaText : `${hasSide ? twaText.slice(2) : twaText}°`;
+      dom.twaDigits.setAttribute('dx', hasSide ? '5.5' : '0');
     }
     const apparentRad =
       headingRad !== undefined &&

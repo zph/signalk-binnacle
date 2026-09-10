@@ -195,6 +195,11 @@ const sectorRotation = $derived(
 const headingValue = $derived(rose?.heading.value ?? '---');
 const headingHasDegree = $derived(headingValue.endsWith('°'));
 const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : headingValue);
+const twaText = $derived(
+  rose?.trueWind.angleRad === undefined ? '---' : formatSignedAngleOr(rose.trueWind.angleRad),
+);
+const twaSide = $derived(/^[SP] /.test(twaText) ? twaText.slice(0, 1) : undefined);
+const twaDigits = $derived(twaSide ? twaText.slice(2) : twaText);
 </script>
 
 <button
@@ -211,11 +216,12 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
     <div class="rose-readouts rose-readouts--top" aria-hidden="true">
       <div class="rose-readout rose-readout--twa">
         <span class="readout-title"><span>TWA</span> <span class="readout-unit">(°)</span></span>
-        <span class="num"
-          >{rose?.trueWind.angleRad === undefined
-            ? '---'
-            : formatSignedAngleOr(rose.trueWind.angleRad)}</span
-        >
+        <span class="num rose-twa-value">
+          {#if twaSide}
+            <span class="rose-twa-side">{twaSide}</span>
+          {/if}
+          <span class="rose-twa-digits">{twaDigits}</span>
+        </span>
       </div>
       <div
         class="rose-readout rose-readout--tws"
@@ -592,6 +598,14 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   font-size: 8.8cqi;
   font-weight: 900;
   line-height: var(--leading-tight);
+}
+.rose-twa-value {
+  display: inline-flex;
+  align-items: baseline;
+  column-gap: 0.33ch;
+}
+.rose-twa-side {
+  font-size: 0.5em;
 }
 .readout-title {
   display: inline-flex;

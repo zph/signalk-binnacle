@@ -328,7 +328,9 @@ test('the vessel wind rose stays on the boat and becomes bow-up with a heading-u
   await expect(rose).toHaveAttribute('data-boat-bearing', '90.00');
   await expect(rose).toHaveAttribute('data-apparent-bearing', '60.00');
   await expect(rose).toHaveAttribute('data-true-bearing', '135.00');
-  await expect(rose.locator('.vessel-wind-rose-twa')).toHaveText('TWA S 45°');
+  await expect(rose.locator('.vessel-wind-rose-twa')).toHaveText('TWA S45°');
+  await expect(rose.locator('.vessel-wind-rose-twa-side')).toHaveAttribute('font-size', '33');
+  await expect(rose.locator('.vessel-wind-rose-twa-digits')).toHaveAttribute('dx', '5.5');
 
   // Follow centers the geographic marker; two orientation taps select heading-up. The chart then
   // rotates under the instrument, leaving its boat bow at screen-up and both wind arrows at their

@@ -521,6 +521,8 @@ describe('purpose-built instrument faces', () => {
     expect(html).toContain('>TWA<');
     expect(html).not.toContain('>AWS<');
     expect(html).toContain('True wind angle S 40°');
+    expect(html).toMatch(/class="rose-twa-side [^"]+">S<\/span>/);
+    expect(html).toContain('class="rose-twa-digits">40</span>');
     expect(html).toContain('(kn)');
     expect(html).toContain('(m)');
     expect(html).not.toContain('>Warning<');
