@@ -26,13 +26,14 @@ import {
   createTileHistory,
   isSessionHistoryViz,
   isVerticalHistoryViz,
+  maximumHistoryId,
 } from './tile-history.svelte';
 import {
   type InstrumentTileLayouts,
   type instrumentTileSizeFor,
   resizeInstrumentTile,
 } from './tile-layout';
-import { backfillVerticalTileHistory } from './vertical-history-loader';
+import { pollVerticalTileHistory } from './vertical-history-loader';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 const TOUCH_DRAG_THRESHOLD_PX = 10;
@@ -439,16 +440,13 @@ function placeInstrumentOnChart(): void {
 // flush. Stale retained values are not appended as if they were fresh observations.
 const history = createTileHistory();
 $effect(() => {
-  const controller = new AbortController();
-  void backfillVerticalTileHistory(
+  return pollVerticalTileHistory(
     history,
     tiles.filter((def) => isVerticalHistoryViz(def.viz)),
     historyOrigin && historyProviders
       ? { origin: historyOrigin, token: chartToken, providers: historyProviders }
       : undefined,
-    controller.signal,
   );
-  return () => controller.abort();
 });
 $effect(() => {
   const now = deps.clock.now;
@@ -457,8 +455,12 @@ $effect(() => {
   for (const def of tiles) {
     if (!isSessionHistoryViz(def.viz)) continue;
     liveIds.add(def.id);
+    if (def.viz === 'vertical-speed') liveIds.add(maximumHistoryId(def.id));
     const reading = untrack(() => def.read(deps));
-    history.sample(def.id, reading.state === 'live' ? reading.siValue : undefined, now);
+    const value = reading.state === 'live' ? reading.siValue : undefined;
+    if (isVerticalHistoryViz(def.viz)) {
+      history.sampleBucket(def.id, value, now, def.viz === 'vertical-speed');
+    } else history.sample(def.id, value, now);
   }
   history.prune(liveIds);
 });
@@ -617,6 +619,9 @@ $effect(() => {
             historyPoints={isVerticalHistoryViz(def.viz)
               ? history.timedSeries(def.id)
               : undefined}
+            historyMaximumPoints={def.viz === 'vertical-speed'
+              ? history.timedSeries(maximumHistoryId(def.id))
+              : undefined}
             historyNowMs={deps.clock.now}
             {aisRadar}
             mapInstrument={expandedId === def.id ? undefined : mapInstrument}
@@ -698,6 +703,9 @@ $effect(() => {
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
         historyPoints={isVerticalHistoryViz(expandedDef.viz)
           ? history.timedSeries(expandedDef.id)
+          : undefined}
+        historyMaximumPoints={expandedDef.viz === 'vertical-speed'
+          ? history.timedSeries(maximumHistoryId(expandedDef.id))
           : undefined}
         historyNowMs={deps.clock.now}
         {aisRadar}

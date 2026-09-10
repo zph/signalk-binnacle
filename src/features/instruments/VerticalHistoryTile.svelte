@@ -15,6 +15,7 @@ interface Props {
   abbr?: string;
   mode: VerticalHistoryMode;
   points: readonly TileHistoryPoint[];
+  maximumPoints?: readonly TileHistoryPoint[];
   nowMs: number;
   staleAgeText?: string;
   expanded?: boolean;
@@ -30,6 +31,7 @@ const {
   abbr,
   mode,
   points,
+  maximumPoints = [],
   nowMs,
   staleAgeText,
   expanded = false,
@@ -41,9 +43,11 @@ const labelText = $derived(
   `${label}${reading.referenceLabel ? ` (${reading.referenceLabel})` : ''}`,
 );
 const accessibleLabel = $derived(
-  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.`,
+  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.${mode === 'speed' ? ' Solid line average, dashed line five-second maximum.' : ''}`,
 );
-const geometry = $derived(verticalHistoryGeometry(points, nowMs, mode, TILE_HISTORY_WINDOW_MS));
+const geometry = $derived(
+  verticalHistoryGeometry(points, nowMs, mode, TILE_HISTORY_WINDOW_MS, maximumPoints),
+);
 const midpointMinutes = TILE_HISTORY_WINDOW_MS / 2 / 60_000;
 const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 </script>
@@ -95,6 +99,9 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
         {/each}
         {#each geometry.paths as path (path)}
           <path class="squiggle" d={path} />
+        {/each}
+        {#each geometry.maximumPaths as path (path)}
+          <path class="squiggle squiggle--maximum" d={path} />
         {/each}
         {#if geometry.current}
           <circle class="current" cx={geometry.current.x} cy={geometry.current.y} r="2.25" />
@@ -188,6 +195,11 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
   stroke-linejoin: round;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
+}
+.squiggle--maximum {
+  stroke-dasharray: 4 3;
+  stroke-width: 1.5;
+  opacity: 0.72;
 }
 .current {
   fill: var(--select);

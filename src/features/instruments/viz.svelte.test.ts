@@ -107,20 +107,27 @@ describe('VerticalHistoryTile', () => {
           { atMs: 595_000, value: 2 },
           { atMs: 600_000, value: 3.0867 },
         ],
+        maximumPoints: [
+          { atMs: 595_000, value: 3 },
+          { atMs: 600_000, value: 4 },
+        ],
         nowMs: 600_000,
       },
     }).body;
 
     expect(html).toContain('tile--vertical-history');
     expect(html).toContain('class="squiggle ');
+    expect(html).toContain('squiggle--maximum');
     expect(html).toContain('>Now<');
     expect(html).toContain('>-5m<');
     expect(html).toContain('>-10m<');
     expect(html).toContain('>TWS<');
+    expect(html).toContain('>3.9<');
+    expect(html).toContain('>6.0<');
     expect(html).toContain('Ten-minute vertical history, newest at top.');
   });
 
-  it('renders the fixed port-to-starboard TWA scale', () => {
+  it('renders a measured port-to-starboard TWA scale', () => {
     const html = render(VerticalHistoryTile, {
       props: {
         label: 'True wind angle history',
@@ -137,8 +144,8 @@ describe('VerticalHistoryTile', () => {
       },
     }).body;
 
-    expect(html).toContain('>P 180<');
-    expect(html).toContain('>S 180<');
+    expect(html).toContain('>P 60<');
+    expect(html).toContain('>P 45<');
     expect(html).toContain('center-reference');
     expect(html).toContain('class="caps-label abbr');
     expect(html).not.toContain('>True wind angle history</span>');
@@ -146,6 +153,22 @@ describe('VerticalHistoryTile', () => {
 });
 
 describe('createTileHistory', () => {
+  it('updates a live five-second average and maximum on every sample', () => {
+    const hist = createTileHistory();
+    hist.sampleBucket('tws-history', 4, 10_000, true);
+    hist.sampleBucket('tws-history', 8, 11_000, true);
+    hist.sampleBucket('tws-history', 6, 15_000, true);
+
+    expect(hist.timedSeries('tws-history')).toEqual([
+      { atMs: 10_000, value: 6 },
+      { atMs: 15_000, value: 6 },
+    ]);
+    expect(hist.timedSeries('tws-history:maximum')).toEqual([
+      { atMs: 10_000, value: 8 },
+      { atMs: 15_000, value: 6 },
+    ]);
+  });
+
   it('trims the buffer to the capacity, oldest first', () => {
     const hist = createTileHistory();
     for (let i = 0; i < 125; i++) hist.sample('a', i, i * 5000);
@@ -211,5 +234,12 @@ describe('createTileHistory', () => {
       { atMs: 3000, value: 30 },
       { atMs: 4000, value: 40 },
     ]);
+  });
+
+  it('lets a polled finalized aggregate replace its matching live bucket', () => {
+    const hist = createTileHistory();
+    hist.sampleBucket('a', 4, 5_000);
+    hist.merge('a', [{ atMs: 5_000, value: 3.5 }], true);
+    expect(hist.timedSeries('a')).toEqual([{ atMs: 5_000, value: 3.5 }]);
   });
 });

@@ -1,7 +1,7 @@
 import { type Map as MapLibreMap, Marker } from 'maplibre-gl';
 
 import type { OwnVessel } from '$entities/vessel';
-import { headingDegrees, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
+import { formatSignedAngleOr, headingDegrees, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
 import {
   type MapThemePaint,
   mapThemePaint,
@@ -84,6 +84,7 @@ interface RoseDom {
   boatPath: SVGPathElement;
   apparentPath: SVGPathElement;
   truePath: SVGPathElement;
+  twaReadout: SVGTextElement;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -102,6 +103,24 @@ function finite(value: number | undefined): value is number {
 
 function normalizeDegrees(value: number): number {
   return ((value % 360) + 360) % 360;
+}
+
+function trueWindAngleRad(
+  vessel: WindRoseVessel,
+  headingRad: number | undefined,
+): number | undefined {
+  if (!vessel.windAngleTrueStale && finite(vessel.windAngleTrueRad)) {
+    return vessel.windAngleTrueRad;
+  }
+  if (
+    headingRad !== undefined &&
+    !vessel.windDirectionTrueStale &&
+    finite(vessel.windDirectionTrueRad)
+  ) {
+    const difference = vessel.windDirectionTrueRad - headingRad;
+    return ((((difference + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
+  }
+  return undefined;
 }
 
 // The map bearing is the amount true north has rotated clockwise away from screen-up. Subtracting
@@ -278,6 +297,17 @@ function createRoseDom(): RoseDom {
   trueWind.append(truePath, trueLabel);
   face.append(trueWind);
 
+  const twaReadout = svg('text');
+  attributes(twaReadout, {
+    x: '500',
+    y: '925',
+    'text-anchor': 'middle',
+    'font-size': '66',
+    'font-weight': '800',
+  });
+  twaReadout.classList.add('vessel-wind-rose-twa');
+  face.append(twaReadout);
+
   const boat = svg('g');
   boat.classList.add('vessel-wind-rose-boat');
   const boatPath = svg('path');
@@ -315,6 +345,7 @@ function createRoseDom(): RoseDom {
     boatPath,
     apparentPath,
     truePath,
+    twaReadout,
   };
 }
 
@@ -350,6 +381,7 @@ function applyTheme(dom: RoseDom, paint: MapThemePaint): void {
   dom.truePath.style.fill = paint.warning;
   dom.truePath.style.stroke = paint.background;
   dom.trueLabel.style.fill = paint.background;
+  dom.twaReadout.style.fill = paint.label;
 }
 
 function applySectorGeometry(
@@ -493,6 +525,10 @@ export function createVesselWindRoseOverlay(
         ? vessel.cogRad
         : undefined;
     const headingEpoch = !vessel.headingStale ? vessel.headingEpochMs : vessel.cogEpochMs;
+    const twaRad = trueWindAngleRad(vessel, headingRad);
+    if (dom) {
+      dom.twaReadout.textContent = `TWA ${twaRad === undefined ? '---' : `${formatSignedAngleOr(twaRad)}°`}`;
+    }
     const apparentRad =
       headingRad !== undefined &&
       !vessel.windAngleApparentStale &&

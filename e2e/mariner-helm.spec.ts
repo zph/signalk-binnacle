@@ -314,14 +314,21 @@ test('the vessel wind rose stays on the boat and becomes bow-up with a heading-u
   page,
 }) => {
   await openApp(page);
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'binnacle-custom:layers',
+      JSON.stringify({ 'own-vessel-wind-rose': { visible: true, opacity: 1 } }),
+    ),
+  );
+  await page.reload();
   await sendDelta(page, OWN_WIND);
 
   const rose = page.locator('.vessel-wind-rose-marker');
   await expect(rose).toBeVisible();
-  await expect(rose).toHaveAttribute('data-heading', '90.00');
   await expect(rose).toHaveAttribute('data-boat-bearing', '90.00');
   await expect(rose).toHaveAttribute('data-apparent-bearing', '60.00');
   await expect(rose).toHaveAttribute('data-true-bearing', '135.00');
+  await expect(rose.locator('.vessel-wind-rose-twa')).toHaveText('TWA S 45°');
 
   // Follow centers the geographic marker; two orientation taps select heading-up. The chart then
   // rotates under the instrument, leaving its boat bow at screen-up and both wind arrows at their
@@ -688,14 +695,26 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   );
   await page.route(/\/signalk\/v2\/api\/history\/values/, async (route) => {
     const params = new URL(route.request().url()).searchParams;
-    if (params.get('duration') !== '600') {
+    if (params.get('resolution') !== '5') {
       await route.fulfill({ status: 500, body: 'history unavailable' });
       return;
     }
-    const paths = (params.get('paths') ?? '').split(',').filter(Boolean);
+    const requests = (params.get('paths') ?? '')
+      .split(',')
+      .filter(Boolean)
+      .map((request) => {
+        const separator = request.lastIndexOf(':');
+        return {
+          path: separator >= 0 ? request.slice(0, separator) : request,
+          method: separator >= 0 ? request.slice(separator + 1) : '',
+        };
+      });
     const now = Date.now();
-    const valueFor = (path: string, older: boolean): number | null => {
-      if (path === 'environment.wind.speedTrue') return older ? 3.2 : 3.8;
+    const valueFor = (path: string, method: string, older: boolean): number | null => {
+      if (path === 'environment.wind.speedTrue') {
+        if (method === 'max') return older ? 4 : 4.4;
+        return older ? 3.2 : 3.8;
+      }
       if (path === 'environment.wind.angleTrueWater') return older ? -0.9 : -0.75;
       return null;
     };
@@ -707,10 +726,16 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
           from: new Date(now - 600_000).toISOString(),
           to: new Date(now).toISOString(),
         },
-        values: paths.map((path) => ({ path, method: 'average' })),
+        values: requests,
         data: [
-          [new Date(now - 60_000).toISOString(), ...paths.map((path) => valueFor(path, true))],
-          [new Date(now - 30_000).toISOString(), ...paths.map((path) => valueFor(path, false))],
+          [
+            new Date(now - 10_000).toISOString(),
+            ...requests.map(({ path, method }) => valueFor(path, method, true)),
+          ],
+          [
+            new Date(now - 5_000).toISOString(),
+            ...requests.map(({ path, method }) => valueFor(path, method, false)),
+          ],
         ],
       }),
     });
@@ -740,11 +765,11 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   const angle = angleFrame.getByRole('button', { name: /^True wind angle history,/ });
   await expect(speed).toBeVisible();
   await expect(angle).toBeVisible();
-  await expect(speed.locator('.history-scale')).toContainText('0');
-  await expect(angle.locator('.history-scale')).toContainText('P 180');
-  await expect(angle.locator('.history-scale')).toContainText('S 180');
+  await expect(speed.locator('.history-scale')).toHaveText(/6\.2\s+7\.4\s+8\.6/);
+  await expect(angle.locator('.history-scale')).toHaveText(/P 52\s+P 46\s+P 40/);
   await expect(speed.locator('.history-footer')).toHaveText('TWS');
   await expect(angle.locator('.history-footer')).toHaveText('TWA');
+  await expect(speed.locator('.squiggle--maximum')).toBeVisible();
   await expect(angle.locator('.time-axis')).toHaveText(/Now\s+-5m\s+-10m/);
   await expect
     .poll(async () => angle.locator('.squiggle').first().getAttribute('d'))

@@ -42,7 +42,7 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   const layout = focused.locator('.rose-layout');
   await expect(layout).toBeVisible();
   await expect(focused.getByText('AWA', { exact: true })).toHaveCount(0);
-  await expect(focused.getByText('TWA', { exact: true })).toHaveCount(0);
+  await expect(focused.getByText('TWA', { exact: true })).toBeVisible();
   await expect(focused.getByText('Wind rose', { exact: true })).toHaveCount(0);
 
   const bounds = await layout.boundingBox();
@@ -63,8 +63,8 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
     tileBox,
     topRowBox,
     bottomRowBox,
-    awsTitleBox,
-    awsBox,
+    twaTitleBox,
+    twaBox,
     twsTitleBox,
     twsBox,
     sogBox,
@@ -73,8 +73,8 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
     focused.locator('.tile--wind-rose').boundingBox(),
     focused.locator('.rose-readouts--top').boundingBox(),
     focused.locator('.rose-readouts--bottom').boundingBox(),
-    focused.locator('.rose-readout--aws .readout-title').boundingBox(),
-    focused.locator('.rose-readout--aws .num').boundingBox(),
+    focused.locator('.rose-readout--twa .readout-title').boundingBox(),
+    focused.locator('.rose-readout--twa .num').boundingBox(),
     focused.locator('.rose-readout--tws .readout-title').boundingBox(),
     focused.locator('.rose-readout--tws .num').boundingBox(),
     focused.locator('.rose-readout--sog .num').boundingBox(),
@@ -83,8 +83,8 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expect(tileBox).not.toBeNull();
   expect(topRowBox).not.toBeNull();
   expect(bottomRowBox).not.toBeNull();
-  expect(awsTitleBox).not.toBeNull();
-  expect(awsBox).not.toBeNull();
+  expect(twaTitleBox).not.toBeNull();
+  expect(twaBox).not.toBeNull();
   expect(twsTitleBox).not.toBeNull();
   expect(twsBox).not.toBeNull();
   expect(sogBox).not.toBeNull();
@@ -93,8 +93,8 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
     !tileBox ||
     !topRowBox ||
     !bottomRowBox ||
-    !awsTitleBox ||
-    !awsBox ||
+    !twaTitleBox ||
+    !twaBox ||
     !twsTitleBox ||
     !twsBox ||
     !sogBox ||
@@ -106,7 +106,7 @@ test('the compact full-screen wind rose keeps every readout and compass visible'
   expectTinyEdgeGap(tileBox.x + tileBox.width - (topRowBox.x + topRowBox.width));
   expectTinyEdgeGap(bottomRowBox.x - tileBox.x);
   expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
-  expectBalancedEdgeGap(awsBox.x - tileBox.x, awsTitleBox.y - tileBox.y);
+  expectBalancedEdgeGap(twaBox.x - tileBox.x, twaTitleBox.y - tileBox.y);
   expectBalancedEdgeGap(
     tileBox.x + tileBox.width - (twsBox.x + twsBox.width),
     twsTitleBox.y - tileBox.y,
@@ -141,7 +141,7 @@ test('the wide full-screen wind rose fills its four corner gutters with large re
     headingBox,
     topRowBox,
     bottomRowBox,
-    awsValueBox,
+    twaValueBox,
     twsValueBox,
     sogValueBox,
     depthValueBox,
@@ -152,7 +152,7 @@ test('the wide full-screen wind rose fills its four corner gutters with large re
     focused.locator('.heading-digits').boundingBox(),
     focused.locator('.rose-readouts--top').boundingBox(),
     focused.locator('.rose-readouts--bottom').boundingBox(),
-    focused.locator('.rose-readout--aws .num').boundingBox(),
+    focused.locator('.rose-readout--twa .num').boundingBox(),
     focused.locator('.rose-readout--tws .num').boundingBox(),
     focused.locator('.rose-readout--sog .num').boundingBox(),
     focused.locator('.rose-readout--depth .num').boundingBox(),
@@ -164,7 +164,7 @@ test('the wide full-screen wind rose fills its four corner gutters with large re
   expect(headingBox).not.toBeNull();
   expect(topRowBox).not.toBeNull();
   expect(bottomRowBox).not.toBeNull();
-  expect(awsValueBox).not.toBeNull();
+  expect(twaValueBox).not.toBeNull();
   expect(twsValueBox).not.toBeNull();
   expect(sogValueBox).not.toBeNull();
   expect(depthValueBox).not.toBeNull();
@@ -175,7 +175,7 @@ test('the wide full-screen wind rose fills its four corner gutters with large re
     !headingBox ||
     !topRowBox ||
     !bottomRowBox ||
-    !awsValueBox ||
+    !twaValueBox ||
     !twsValueBox ||
     !sogValueBox ||
     !depthValueBox
@@ -193,7 +193,7 @@ test('the wide full-screen wind rose fills its four corner gutters with large re
     Math.abs(headingBox.y + headingBox.height / 2 - (compassBox.y + compassBox.height / 2)),
   ).toBeLessThan(compassBox.height * 0.035);
   await expect(focused.getByText('HDG', { exact: true })).toHaveCount(0);
-  expect(awsValueBox.x + awsValueBox.width).toBeLessThan(compassBox.x);
+  expect(twaValueBox.x + twaValueBox.width).toBeLessThan(compassBox.x);
   expect(twsValueBox.x).toBeGreaterThan(compassBox.x + compassBox.width);
   expect(sogValueBox.x + sogValueBox.width).toBeLessThan(compassBox.x);
   expect(depthValueBox.x).toBeGreaterThan(compassBox.x + compassBox.width);
@@ -202,7 +202,7 @@ test('the wide full-screen wind rose fills its four corner gutters with large re
   expectPinnedToCorners(topRowBox, bottomRowBox, tileBox);
 
   const valueSize = await focused
-    .locator('.rose-readout--aws .num')
+    .locator('.rose-readout--twa .num')
     .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   expect(valueSize).toBeGreaterThanOrEqual(120);
 });
@@ -228,13 +228,13 @@ test('a half-page docked wind rose reserves gutters for its corner readouts', as
   await page.getByRole('slider', { name: 'Resize instruments dock' }).press('End');
 
   const tile = page.getByRole('button', { name: /^Wind rose\./ });
-  const [tileBox, compassBox, topRowBox, bottomRowBox, awsBox, twsBox, sogBox, depthBox] =
+  const [tileBox, compassBox, topRowBox, bottomRowBox, twaBox, twsBox, sogBox, depthBox] =
     await Promise.all([
       tile.boundingBox(),
       tile.locator('svg.rose').boundingBox(),
       tile.locator('.rose-readouts--top').boundingBox(),
       tile.locator('.rose-readouts--bottom').boundingBox(),
-      tile.locator('.rose-readout--aws .num').boundingBox(),
+      tile.locator('.rose-readout--twa .num').boundingBox(),
       tile.locator('.rose-readout--tws .num').boundingBox(),
       tile.locator('.rose-readout--sog .num').boundingBox(),
       tile.locator('.rose-readout--depth .num').boundingBox(),
@@ -243,7 +243,7 @@ test('a half-page docked wind rose reserves gutters for its corner readouts', as
   expect(compassBox).not.toBeNull();
   expect(topRowBox).not.toBeNull();
   expect(bottomRowBox).not.toBeNull();
-  expect(awsBox).not.toBeNull();
+  expect(twaBox).not.toBeNull();
   expect(twsBox).not.toBeNull();
   expect(sogBox).not.toBeNull();
   expect(depthBox).not.toBeNull();
@@ -252,7 +252,7 @@ test('a half-page docked wind rose reserves gutters for its corner readouts', as
     !compassBox ||
     !topRowBox ||
     !bottomRowBox ||
-    !awsBox ||
+    !twaBox ||
     !twsBox ||
     !sogBox ||
     !depthBox
@@ -260,7 +260,7 @@ test('a half-page docked wind rose reserves gutters for its corner readouts', as
     return;
   expect(compassBox.height).toBeGreaterThan(tileBox.height * 0.9);
   expect(compassBox.width).toBeLessThan(tileBox.width * 0.85);
-  expect(awsBox.x + awsBox.width).toBeLessThanOrEqual(compassBox.x);
+  expect(twaBox.x + twaBox.width).toBeLessThanOrEqual(compassBox.x);
   expect(sogBox.x + sogBox.width).toBeLessThanOrEqual(compassBox.x);
   expect(twsBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
   expect(depthBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
@@ -283,7 +283,7 @@ test('a half-width short wind rose shrinks its side values around the compass', 
     headingBox,
     topRowBox,
     bottomRowBox,
-    awsBox,
+    twaBox,
     twsBox,
     sogBox,
     depthBox,
@@ -293,7 +293,7 @@ test('a half-width short wind rose shrinks its side values around the compass', 
     focused.locator('.heading-digits').boundingBox(),
     focused.locator('.rose-readouts--top').boundingBox(),
     focused.locator('.rose-readouts--bottom').boundingBox(),
-    focused.locator('.rose-readout--aws .num').boundingBox(),
+    focused.locator('.rose-readout--twa .num').boundingBox(),
     focused.locator('.rose-readout--tws .num').boundingBox(),
     focused.locator('.rose-readout--sog .num').boundingBox(),
     focused.locator('.rose-readout--depth .num').boundingBox(),
@@ -304,7 +304,7 @@ test('a half-width short wind rose shrinks its side values around the compass', 
   expect(headingBox).not.toBeNull();
   expect(topRowBox).not.toBeNull();
   expect(bottomRowBox).not.toBeNull();
-  expect(awsBox).not.toBeNull();
+  expect(twaBox).not.toBeNull();
   expect(twsBox).not.toBeNull();
   expect(sogBox).not.toBeNull();
   expect(depthBox).not.toBeNull();
@@ -314,14 +314,14 @@ test('a half-width short wind rose shrinks its side values around the compass', 
     !headingBox ||
     !topRowBox ||
     !bottomRowBox ||
-    !awsBox ||
+    !twaBox ||
     !twsBox ||
     !sogBox ||
     !depthBox
   )
     return;
 
-  expect(awsBox.x + awsBox.width).toBeLessThanOrEqual(compassBox.x);
+  expect(twaBox.x + twaBox.width).toBeLessThanOrEqual(compassBox.x);
   expect(sogBox.x + sogBox.width).toBeLessThanOrEqual(compassBox.x);
   expect(twsBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
   expect(depthBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width);
@@ -344,7 +344,7 @@ test('a half-width short wind rose shrinks its side values around the compass', 
   ).toBeLessThan(compassBox.height * 0.035);
 
   const valueSize = await focused
-    .locator('.rose-readout--aws .num')
+    .locator('.rose-readout--twa .num')
     .evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   expect(valueSize).toBeGreaterThanOrEqual(56);
   expect(valueSize).toBeLessThan(100);

@@ -33,8 +33,9 @@ import {
   createTileHistory,
   isSessionHistoryViz,
   isVerticalHistoryViz,
+  maximumHistoryId,
 } from './tile-history.svelte';
-import { backfillVerticalTileHistory } from './vertical-history-loader';
+import { pollVerticalTileHistory } from './vertical-history-loader';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
@@ -276,16 +277,13 @@ const hasAddableEntry = $derived(addable.length > 0 || instrumentAliases.length 
 // Session tile history, sampled on the shared reactive clock exactly as the dock does.
 const history = createTileHistory();
 $effect(() => {
-  const controller = new AbortController();
-  void backfillVerticalTileHistory(
+  return pollVerticalTileHistory(
     history,
     floatingTiles.map(({ def }) => def).filter((def) => isVerticalHistoryViz(def.viz)),
     historyOrigin && historyProviders
       ? { origin: historyOrigin, token: chartToken, providers: historyProviders }
       : undefined,
-    controller.signal,
   );
-  return () => controller.abort();
 });
 $effect(() => {
   const now = deps.clock.now;
@@ -294,8 +292,12 @@ $effect(() => {
   for (const { def } of floatingTiles) {
     if (!isSessionHistoryViz(def.viz)) continue;
     liveIds.add(def.id);
+    if (def.viz === 'vertical-speed') liveIds.add(maximumHistoryId(def.id));
     const reading = untrack(() => def.read(deps));
-    history.sample(def.id, reading.state === 'live' ? reading.siValue : undefined, now);
+    const value = reading.state === 'live' ? reading.siValue : undefined;
+    if (isVerticalHistoryViz(def.viz)) {
+      history.sampleBucket(def.id, value, now, def.viz === 'vertical-speed');
+    } else history.sample(def.id, value, now);
   }
   history.prune(liveIds);
 });
@@ -817,6 +819,9 @@ function finishEditing(): void {
         sparkPoints={entry.def.viz === 'spark' ? history.series(entry.def.id) : undefined}
         historyPoints={isVerticalHistoryViz(entry.def.viz)
           ? history.timedSeries(entry.def.id)
+          : undefined}
+        historyMaximumPoints={entry.def.viz === 'vertical-speed'
+          ? history.timedSeries(maximumHistoryId(entry.def.id))
           : undefined}
         historyNowMs={deps.clock.now}
         {aisRadar}

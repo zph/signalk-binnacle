@@ -68,17 +68,20 @@ const dialLabels = [
   { angle: 330, label: '330' },
 ];
 
-function metricText(metric: InstrumentMetric | undefined, angle = false): string {
+function metricText(metric: InstrumentMetric | undefined): string {
   if (!metric || metric.state === 'never') return 'Unavailable';
-  const value = `${metric.value}${metric.unit ? ` ${metric.unit}` : ''}`;
-  return angle && metric.angleRad !== undefined
-    ? `${value}, ${formatSignedAngleOr(metric.angleRad)} degrees`
-    : value;
+  return `${metric.value}${metric.unit ? ` ${metric.unit}` : ''}`;
+}
+
+function angleText(metric: InstrumentMetric | undefined): string {
+  return metric?.angleRad === undefined
+    ? 'Unavailable'
+    : `${formatSignedAngleOr(metric.angleRad)}°`;
 }
 
 const accessibleLabel = $derived(
   rose
-    ? `${label}. Heading ${metricText(rose.heading)}. Apparent wind ${metricText(rose.apparent, true)}. True wind ${metricText(rose.trueWind, true)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. ${actionLabel}`
+    ? `${label}. Heading ${metricText(rose.heading)}. True wind angle ${angleText(rose.trueWind)}. True wind speed ${metricText(rose.trueWind)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. ${actionLabel}`
     : `${label}, ${sensorGloss}. ${actionLabel}`,
 );
 let displayedApparentRad = $state<number>();
@@ -206,18 +209,13 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
 >
   <div class="rose-layout">
     <div class="rose-readouts rose-readouts--top" aria-hidden="true">
-      <div
-        class="rose-readout rose-readout--aws"
-        class:rose-readout--warning={zone === 'warning'}
-        class:rose-readout--alarm={zone === 'alarm'}
-      >
-        <span class="readout-title"
-          ><span>AWS</span>
-          {#if rose?.apparent.unit}
-            <span class="readout-unit">({rose.apparent.unit})</span>
-          {/if}</span
+      <div class="rose-readout rose-readout--twa">
+        <span class="readout-title"><span>TWA</span> <span class="readout-unit">(°)</span></span>
+        <span class="num"
+          >{rose?.trueWind.angleRad === undefined
+            ? '---'
+            : formatSignedAngleOr(rose.trueWind.angleRad)}</span
         >
-        <span class="num">{rose?.apparent.value ?? '---'}</span>
       </div>
       <div
         class="rose-readout rose-readout--tws"
@@ -696,7 +694,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   .rose-readout:not(.rose-readout--warning):not(.rose-readout--alarm) {
     background: transparent;
   }
-  .rose-readout--aws,
+  .rose-readout--twa,
   .rose-readout--sog {
     align-items: flex-start;
     justify-self: start;
@@ -729,7 +727,7 @@ const headingDigits = $derived(headingHasDegree ? headingValue.slice(0, -1) : he
   .rose-readout {
     inline-size: fit-content;
   }
-  .rose-readout--aws,
+  .rose-readout--twa,
   .rose-readout--sog {
     align-items: flex-start;
     justify-self: start;

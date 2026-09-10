@@ -30,6 +30,7 @@ interface Props {
   staleAgeText?: string;
   sparkPoints?: number[];
   historyPoints?: readonly TileHistoryPoint[];
+  historyMaximumPoints?: readonly TileHistoryPoint[];
   historyNowMs?: number;
   expanded?: boolean;
   aisRadar?: {
@@ -59,6 +60,7 @@ const {
   staleAgeText,
   sparkPoints,
   historyPoints = [],
+  historyMaximumPoints = [],
   historyNowMs = 0,
   expanded = false,
   aisRadar,
@@ -146,6 +148,7 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     abbr={def.abbr}
     mode={def.viz === 'vertical-speed' ? 'speed' : 'angle'}
     points={historyPoints}
+    maximumPoints={historyMaximumPoints}
     nowMs={historyNowMs}
     {staleAgeText}
     {expanded}

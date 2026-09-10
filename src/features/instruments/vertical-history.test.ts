@@ -18,8 +18,8 @@ describe('verticalHistoryGeometry', () => {
       WINDOW_MS,
     );
 
-    expect(geometry.scale).toEqual(['0', '5.0', '10']);
-    expect(geometry.paths).toEqual(['M100 0', 'M50 50', 'M20 100']);
+    expect(geometry.scale).toEqual(['2.0', '6.0', '10']);
+    expect(geometry.paths).toEqual(['M100 0', 'M37.5 50', 'M0 100']);
     expect(geometry.current).toEqual({ x: 100, y: 0 });
   });
 
@@ -36,7 +36,8 @@ describe('verticalHistoryGeometry', () => {
     );
 
     expect(geometry.paths).toHaveLength(1);
-    expect(geometry.paths[0]).toBe('M60 0 L80 0.83 L40 1.67');
+    expect(geometry.scale).toEqual(['2.0', '3.0', '4.0']);
+    expect(geometry.paths[0]).toBe('M50 0 L100 0.83 L0 1.67');
   });
 
   it('breaks TWA at the stern wrap instead of drawing across the plot', () => {
@@ -51,8 +52,8 @@ describe('verticalHistoryGeometry', () => {
       WINDOW_MS,
     );
 
-    expect(geometry.scale).toEqual(['P 180', '0', 'S 180']);
-    expect(geometry.paths).toEqual(['M4.17 0 L1.39 0.83', 'M97.22 1.67']);
+    expect(geometry.scale).toEqual(['P 175', 'P 2', 'S 170']);
+    expect(geometry.paths).toEqual(['M2.9 0 L0 0.83', 'M100 1.67']);
   });
 
   it('omits expired samples and breaks continuity across a data gap', () => {
@@ -71,5 +72,39 @@ describe('verticalHistoryGeometry', () => {
     expect(geometry.paths).toHaveLength(2);
     expect(geometry.paths[0]).toContain(' L');
     expect(geometry.paths[1]).not.toContain(' L');
+  });
+
+  it('centers an unchanged value in a zero-width measured range', () => {
+    const geometry = verticalHistoryGeometry(
+      [
+        { atMs: 595_000, value: knotsToMetersPerSecond(5) },
+        { atMs: 600_000, value: knotsToMetersPerSecond(5) },
+      ],
+      600_000,
+      'speed',
+      WINDOW_MS,
+    );
+
+    expect(geometry.scale).toEqual(['5.0', '5.0', '5.0']);
+    expect(geometry.paths).toEqual(['M50 0 L50 0.83']);
+  });
+
+  it('includes the five-second maximum trace in the speed scale', () => {
+    const geometry = verticalHistoryGeometry(
+      [
+        { atMs: 595_000, value: knotsToMetersPerSecond(5) },
+        { atMs: 600_000, value: knotsToMetersPerSecond(6) },
+      ],
+      600_000,
+      'speed',
+      WINDOW_MS,
+      [
+        { atMs: 595_000, value: knotsToMetersPerSecond(8) },
+        { atMs: 600_000, value: knotsToMetersPerSecond(9) },
+      ],
+    );
+
+    expect(geometry.scale).toEqual(['5.0', '7.0', '9.0']);
+    expect(geometry.maximumPaths).toEqual(['M100 0 L75 0.83']);
   });
 });
