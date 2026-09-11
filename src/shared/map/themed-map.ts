@@ -194,6 +194,10 @@ export function createThemedMap(opts: ThemedMapOptions): ThemedMapHandle {
       pixelRatio: opts.pixelRatio,
       interactive: opts.interactive ?? true,
       trackResize: false,
+      // Dynamic navigation sources update continuously. MapLibre's default symbol-placement fade
+      // keeps the renderer awake for hundreds of milliseconds after every AIS update, even though
+      // Binnacle's own icon and opacity transitions already communicate state changes.
+      fadeDuration: 0,
       canvasContextAttributes: MAP_CONTEXT_ATTRIBUTES,
       // MapLibre 6 defaults to 4. Undefined preserves v5 vector rendering and query behavior.
       zoomLevelsToOverscale: undefined,

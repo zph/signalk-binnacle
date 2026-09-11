@@ -323,6 +323,12 @@ describe('createThemedMap onLoad', () => {
     expect((await lastMap()).options.pixelRatio).toBe(1.5);
   });
 
+  it('disables symbol fades so dynamic navigation sources settle promptly', async () => {
+    createThemedMap({ container, onLoad: () => {} });
+
+    expect((await lastMap()).options.fadeDuration).toBe(0);
+  });
+
   it('defers an observed resize until active map movement ends', async () => {
     let notifyResize = () => {};
     vi.stubGlobal(
