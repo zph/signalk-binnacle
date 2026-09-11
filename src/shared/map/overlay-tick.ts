@@ -1,4 +1,5 @@
 import type * as maplibregl from 'maplibre-gl';
+import { createMapPerformanceProfiler } from './map-performance-profiler';
 import type { OverlayContext } from './types';
 
 // How often store-driven overlays (AIS prune, tides, radar advance, collision) are synced while the
@@ -36,6 +37,7 @@ export function createOverlayTick(
   // teardown, then a no-op again once it has run. runTick reassigns this, so the returned stopTick
   // delegates through it rather than capturing a stale value.
   let teardown = () => {};
+  const profiler = createMapPerformanceProfiler(map);
 
   const runTick = (overlays: ReadonlyArray<Syncable>, onStatus?: OverlaySyncStatus) => {
     // A second call must not orphan the first camera listeners, interval, and visibilitychange
@@ -54,7 +56,8 @@ export function createOverlayTick(
       for (const overlay of overlays) {
         if (isDestroyed()) return;
         try {
-          overlay.sync(ctx);
+          if (profiler) profiler.runOverlay(syncableId(overlay), () => overlay.sync(ctx));
+          else overlay.sync(ctx);
           if (failedOverlays.delete(overlay)) onStatus?.(syncableId(overlay), undefined);
         } catch (error) {
           // A broken optional overlay must never prevent later navigation overlays from updating.
@@ -120,6 +123,9 @@ export function createOverlayTick(
 
   return {
     runTick,
-    stopTick: () => teardown(),
+    stopTick: () => {
+      teardown();
+      profiler?.destroy();
+    },
   };
 }

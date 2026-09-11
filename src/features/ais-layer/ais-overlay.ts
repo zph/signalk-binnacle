@@ -107,6 +107,7 @@ export function createAisOverlay(
   let lastProjectionVersion = -1;
   let lastProjectionPositionVersion = -1;
   let lastProjectionRefreshAt = Number.NEGATIVE_INFINITY;
+  let lastProjectionKey: string | undefined;
   let lastContacts: Assessment['contacts'] | undefined;
   let lastStaleRepaintAt = Number.NEGATIVE_INFINITY;
   const severityById = new Map<string, Severity>();
@@ -272,7 +273,16 @@ export function createAisOverlay(
   }
 
   function refreshProjection(ctx: OverlayContext): void {
-    setSourceData(ctx.map, PROJECTION_SOURCE_ID, projectionFeatures(ctx));
+    const data = projectionFeatures(ctx);
+    const key = JSON.stringify(data);
+    // MapLibre treats even an identical empty FeatureCollection as a fresh source revision. That
+    // wakes symbol placement and a short render burst every second while there is nothing useful to
+    // project. Keep advancing the clock/version gate below, but only invalidate the source when the
+    // rendered projection itself changed.
+    if (key !== lastProjectionKey) {
+      setSourceData(ctx.map, PROJECTION_SOURCE_ID, data);
+      lastProjectionKey = key;
+    }
     recordProjectionRefresh();
   }
 
@@ -389,11 +399,13 @@ export function createAisOverlay(
         );
       }
       if (!ctx.map.getSource(PROJECTION_SOURCE_ID)) {
+        const data = projectionFeatures(ctx);
         const source: GeoJSONSourceSpecification = {
           type: 'geojson',
-          data: projectionFeatures(ctx),
+          data,
         };
         ctx.map.addSource(PROJECTION_SOURCE_ID, source);
+        lastProjectionKey = JSON.stringify(data);
         recordProjectionRefresh();
       }
       if (ctx.map.getLayer(LAYER_ID)) {

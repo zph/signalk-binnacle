@@ -39,9 +39,14 @@ export interface SymbolOverlayConfig {
 
 export function createSymbolOverlay(config: SymbolOverlayConfig): SymbolOverlay {
   const pixelRatio = config.pixelRatio ?? 1;
+  let lastFeatureKey: string | undefined;
 
   function refresh(ctx: OverlayContext): void {
-    setSourceData(ctx.map, config.sourceId, config.features());
+    const data = config.features();
+    const key = JSON.stringify(data);
+    if (key === lastFeatureKey) return;
+    setSourceData(ctx.map, config.sourceId, data);
+    lastFeatureKey = key;
   }
 
   return {
@@ -54,8 +59,14 @@ export function createSymbolOverlay(config: SymbolOverlayConfig): SymbolOverlay 
     add(ctx) {
       setMapImage(ctx.map, config.iconId, config.iconImage(config.defaultColor), pixelRatio);
       if (!ctx.map.getSource(config.sourceId)) {
-        const source: GeoJSONSourceSpecification = { type: 'geojson', data: config.features() };
+        const data = config.features();
+        const source: GeoJSONSourceSpecification = { type: 'geojson', data };
         ctx.map.addSource(config.sourceId, source);
+        lastFeatureKey = JSON.stringify(data);
+      } else {
+        // The caller may have reattached to a source whose current contents are not observable.
+        // Force the next requested refresh to establish the cache from authoritative feature data.
+        lastFeatureKey = undefined;
       }
       if (!ctx.map.getLayer(config.layerId)) {
         const layer: SymbolLayerSpecification = {
@@ -76,6 +87,9 @@ export function createSymbolOverlay(config: SymbolOverlayConfig): SymbolOverlay 
     sync(ctx) {
       config.beforeSync?.();
       if (config.shouldRefresh()) refresh(ctx);
+    },
+    reset() {
+      lastFeatureKey = undefined;
     },
     applyTheme(ctx, paint) {
       const image = config.iconImage(config.paintColor(paint));

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFakeMap, fakeOverlayContext } from '$shared/testing';
 import { createSymbolOverlay, type SymbolOverlayConfig } from './symbol-overlay';
 
@@ -63,5 +63,35 @@ describe('createSymbolOverlay', () => {
     await overlay.add(ctx);
     map.images.delete('binnacle-ais-icon');
     expect(() => overlay.remove(ctx)).not.toThrow();
+  });
+
+  it('does not invalidate a source for fresh collections with unchanged visual values', async () => {
+    let longitude = 1;
+    const configured = config();
+    configured.shouldRefresh = () => true;
+    configured.features = () => ({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [longitude, 2] },
+          properties: { heading: 90 },
+        },
+      ],
+    });
+    const overlay = createSymbolOverlay(configured);
+    const map = fakeSymbolMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    const source = map.sources.get('binnacle-ais-source');
+    if (!source?.setData) throw new Error('symbol source was not added');
+    const setData = vi.spyOn(source, 'setData');
+
+    for (let update = 0; update < 20; update += 1) overlay.sync(ctx);
+    expect(setData).not.toHaveBeenCalled();
+
+    longitude = 1.001;
+    overlay.sync(ctx);
+    expect(setData).toHaveBeenCalledOnce();
   });
 });

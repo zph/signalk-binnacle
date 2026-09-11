@@ -436,6 +436,68 @@ describe('ais overlay', () => {
     expect((connector?.geometry as GeoJSON.LineString | undefined)?.coordinates[0][0]).toBe(0.001);
   });
 
+  it('does not invalidate MapLibre while the periodic projection remains empty', async () => {
+    let now = 10_000;
+    const store = new SignalKStore();
+    const targets = new AisTargets(store, () => now);
+    const overlay = createAisOverlay(targets, { now: () => now });
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    const projection = map.sources.get('binnacle-ais-position-projection');
+    if (!projection?.setData) throw new Error('AIS projection source was not added');
+    const setData = vi.spyOn(projection, 'setData');
+
+    for (let tick = 0; tick < 10; tick += 1) {
+      now += 1_000;
+      overlay.sync(ctx);
+    }
+
+    expect(setData).not.toHaveBeenCalled();
+  });
+
+  it('does not repaint fresh AIS objects whose rendered values remain unchanged', async () => {
+    let now = 20_000;
+    const store = new SignalKStore();
+    const targets = new AisTargets(store, () => now);
+    const overlay = createAisOverlay(targets, { now: () => now });
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    const unchangedFrame = (): SKFrame => ({
+      self: new Map(),
+      ais: new Map([
+        [
+          'vessels.stationary',
+          new Map<string, unknown>([
+            ['navigation.position', { latitude: 1, longitude: 2 }],
+            ['navigation.courseOverGroundTrue', 0],
+            ['navigation.speedOverGround', 0],
+          ]),
+        ],
+      ]),
+      connection: { phase: 'open', attempt: 0 },
+      epoch: now,
+    });
+    store.applyFrame(unchangedFrame());
+    await overlay.add(ctx);
+    const aisSource = map.sources.get('binnacle-ais');
+    const projectionSource = map.sources.get('binnacle-ais-position-projection');
+    if (!aisSource?.setData || !projectionSource?.setData) {
+      throw new Error('AIS sources were not added');
+    }
+    const setAisData = vi.spyOn(aisSource, 'setData');
+    const setProjectionData = vi.spyOn(projectionSource, 'setData');
+
+    for (let update = 0; update < 20; update += 1) {
+      now += 1_000;
+      store.applyFrame(unchangedFrame());
+      overlay.sync(ctx);
+    }
+
+    expect(setAisData).not.toHaveBeenCalled();
+    expect(setProjectionData).not.toHaveBeenCalled();
+  });
+
   it('resets the projection clock when an identical position is republished', async () => {
     let now = 20_000;
     const store = new SignalKStore();
