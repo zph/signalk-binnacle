@@ -34,6 +34,12 @@ import {
   resizeInstrumentTile,
 } from './tile-layout';
 import { pollVerticalTileHistory } from './vertical-history-loader';
+import {
+  type InstrumentHistoryWindows,
+  VERTICAL_HISTORY_BUFFER_CAPACITY,
+  type VerticalHistoryWindowMinutes,
+  verticalHistoryWindowMinutesFor,
+} from './vertical-history-window';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 const TOUCH_DRAG_THRESHOLD_PX = 10;
@@ -94,6 +100,8 @@ interface Props {
   instrumentAliases?: readonly InstrumentAlias[];
   historyOrigin?: string;
   historyProviders?: HistoryProviders;
+  historyWindows?: InstrumentHistoryWindows;
+  onHistoryWindowChange?: (id: string, minutes: VerticalHistoryWindowMinutes) => void;
 }
 
 const {
@@ -136,6 +144,8 @@ const {
   instrumentAliases = [],
   historyOrigin,
   historyProviders,
+  historyWindows = {},
+  onHistoryWindowChange = () => {},
 }: Props = $props();
 
 const depthDef = $derived(controller.resolve('depth'));
@@ -439,13 +449,15 @@ function placeInstrumentOnChart(): void {
 // untracked so the effect re-runs on the 1 Hz clock and selection changes, not on every delta
 // flush. Stale retained values are not appended as if they were fresh observations.
 const history = createTileHistory();
+const verticalHistory = createTileHistory({ capacity: VERTICAL_HISTORY_BUFFER_CAPACITY });
 $effect(() => {
   return pollVerticalTileHistory(
-    history,
+    verticalHistory,
     tiles.filter((def) => isVerticalHistoryViz(def.viz)),
     historyOrigin && historyProviders
       ? { origin: historyOrigin, token: chartToken, providers: historyProviders }
       : undefined,
+    historyWindows,
   );
 });
 $effect(() => {
@@ -459,10 +471,11 @@ $effect(() => {
     const reading = untrack(() => def.read(deps));
     const value = reading.state === 'live' ? reading.siValue : undefined;
     if (isVerticalHistoryViz(def.viz)) {
-      history.sampleBucket(def.id, value, now, def.viz === 'vertical-speed');
+      verticalHistory.sampleBucket(def.id, value, now, def.viz === 'vertical-speed');
     } else history.sample(def.id, value, now);
   }
   history.prune(liveIds);
+  verticalHistory.prune(liveIds);
 });
 </script>
 
@@ -617,12 +630,18 @@ $effect(() => {
             staleAgeText={staleAge}
             sparkPoints={def.viz === 'spark' ? history.series(def.id) : undefined}
             historyPoints={isVerticalHistoryViz(def.viz)
-              ? history.timedSeries(def.id)
+              ? verticalHistory.timedSeries(def.id)
               : undefined}
             historyMaximumPoints={def.viz === 'vertical-speed'
-              ? history.timedSeries(maximumHistoryId(def.id))
+              ? verticalHistory.timedSeries(maximumHistoryId(def.id))
               : undefined}
             historyNowMs={deps.clock.now}
+            historyWindowMinutes={isVerticalHistoryViz(def.viz)
+              ? verticalHistoryWindowMinutesFor(historyWindows, def.id)
+              : undefined}
+            onHistoryWindowChange={isVerticalHistoryViz(def.viz)
+              ? (minutes) => onHistoryWindowChange(def.id, minutes)
+              : undefined}
             {aisRadar}
             mapInstrument={expandedId === def.id ? undefined : mapInstrument}
             {windRoseNoGoAngleRad}
@@ -702,12 +721,18 @@ $effect(() => {
         staleAgeText={staleAge}
         sparkPoints={expandedDef.viz === 'spark' ? history.series(expandedDef.id) : undefined}
         historyPoints={isVerticalHistoryViz(expandedDef.viz)
-          ? history.timedSeries(expandedDef.id)
+          ? verticalHistory.timedSeries(expandedDef.id)
           : undefined}
         historyMaximumPoints={expandedDef.viz === 'vertical-speed'
-          ? history.timedSeries(maximumHistoryId(expandedDef.id))
+          ? verticalHistory.timedSeries(maximumHistoryId(expandedDef.id))
           : undefined}
         historyNowMs={deps.clock.now}
+        historyWindowMinutes={isVerticalHistoryViz(expandedDef.viz)
+          ? verticalHistoryWindowMinutesFor(historyWindows, expandedDef.id)
+          : undefined}
+        onHistoryWindowChange={isVerticalHistoryViz(expandedDef.viz)
+          ? (minutes) => onHistoryWindowChange(expandedDef.id, minutes)
+          : undefined}
         {aisRadar}
         {mapInstrument}
         {windRoseNoGoAngleRad}

@@ -8,6 +8,9 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
+- TWA and TWS history instruments now include a device-local time-window slider from 10 minutes to
+  24 hours, with adaptive history resolution for longer views.
+
 - True wind angle and true wind speed history instruments now show their ten-minute range beside
   TWA or TWS in the footer. Angle range follows the shortest circular span across the stern, and
   speed range includes the displayed five-second maximum trace without repeating the obvious unit.

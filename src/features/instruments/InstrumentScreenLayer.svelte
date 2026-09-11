@@ -36,6 +36,12 @@ import {
   maximumHistoryId,
 } from './tile-history.svelte';
 import { pollVerticalTileHistory } from './vertical-history-loader';
+import {
+  type InstrumentHistoryWindows,
+  VERTICAL_HISTORY_BUFFER_CAPACITY,
+  type VerticalHistoryWindowMinutes,
+  verticalHistoryWindowMinutesFor,
+} from './vertical-history-window';
 import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
@@ -62,6 +68,8 @@ interface Props {
   overlayOpacity?: number;
   historyOrigin?: string;
   historyProviders?: HistoryProviders;
+  historyWindows?: InstrumentHistoryWindows;
+  onHistoryWindowChange?: (id: string, minutes: VerticalHistoryWindowMinutes) => void;
   instrumentAliases?: readonly InstrumentAlias[];
 }
 
@@ -86,6 +94,8 @@ const {
   overlayOpacity = 1,
   historyOrigin,
   historyProviders,
+  historyWindows = {},
+  onHistoryWindowChange = () => {},
   instrumentAliases = [],
 }: Props = $props();
 
@@ -276,13 +286,15 @@ const hasAddableEntry = $derived(addable.length > 0 || instrumentAliases.length 
 
 // Session tile history, sampled on the shared reactive clock exactly as the dock does.
 const history = createTileHistory();
+const verticalHistory = createTileHistory({ capacity: VERTICAL_HISTORY_BUFFER_CAPACITY });
 $effect(() => {
   return pollVerticalTileHistory(
-    history,
+    verticalHistory,
     floatingTiles.map(({ def }) => def).filter((def) => isVerticalHistoryViz(def.viz)),
     historyOrigin && historyProviders
       ? { origin: historyOrigin, token: chartToken, providers: historyProviders }
       : undefined,
+    historyWindows,
   );
 });
 $effect(() => {
@@ -296,10 +308,11 @@ $effect(() => {
     const reading = untrack(() => def.read(deps));
     const value = reading.state === 'live' ? reading.siValue : undefined;
     if (isVerticalHistoryViz(def.viz)) {
-      history.sampleBucket(def.id, value, now, def.viz === 'vertical-speed');
+      verticalHistory.sampleBucket(def.id, value, now, def.viz === 'vertical-speed');
     } else history.sample(def.id, value, now);
   }
   history.prune(liveIds);
+  verticalHistory.prune(liveIds);
 });
 
 // While editing, Escape peels the add instrument menu first (it registers later) and then exits
@@ -818,12 +831,18 @@ function finishEditing(): void {
         staleAgeText={staleAge}
         sparkPoints={entry.def.viz === 'spark' ? history.series(entry.def.id) : undefined}
         historyPoints={isVerticalHistoryViz(entry.def.viz)
-          ? history.timedSeries(entry.def.id)
+          ? verticalHistory.timedSeries(entry.def.id)
           : undefined}
         historyMaximumPoints={entry.def.viz === 'vertical-speed'
-          ? history.timedSeries(maximumHistoryId(entry.def.id))
+          ? verticalHistory.timedSeries(maximumHistoryId(entry.def.id))
           : undefined}
         historyNowMs={deps.clock.now}
+        historyWindowMinutes={isVerticalHistoryViz(entry.def.viz)
+          ? verticalHistoryWindowMinutesFor(historyWindows, entry.def.id)
+          : undefined}
+        onHistoryWindowChange={isVerticalHistoryViz(entry.def.viz)
+          ? (minutes) => onHistoryWindowChange(entry.def.id, minutes)
+          : undefined}
         {aisRadar}
         mapInstrument={editing ? undefined : mapInstrument}
         {windRoseNoGoAngleRad}

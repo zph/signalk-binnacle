@@ -127,7 +127,31 @@ describe('VerticalHistoryTile', () => {
     expect(html).toContain('>3.9 Δ<');
     expect(html.indexOf('>TWS<')).toBeLessThan(html.indexOf('>3.9 Δ<'));
     expect(html).toContain('Historical range 3.9 knots.');
-    expect(html).toContain('Ten-minute vertical history, newest at top.');
+    expect(html).toContain('10m vertical history, newest at top.');
+    expect(html).toContain('aria-label="TWS history window"');
+    expect(html).toContain('max="6"');
+  });
+
+  it('renders a full-day TWA history window and time scale', () => {
+    const html = render(VerticalHistoryTile, {
+      props: {
+        label: 'True wind angle history',
+        reading: { state: 'live', value: 'S 30', unit: '°', siValue: Math.PI / 6 },
+        zone: 'normal',
+        sensorGloss: 'No true wind angle data',
+        abbr: 'TWA',
+        mode: 'angle',
+        points: [],
+        nowMs: 86_400_000,
+        windowMinutes: 1_440,
+      },
+    }).body;
+
+    expect(html).toContain('>Now<');
+    expect(html).toContain('>-12h<');
+    expect(html).toContain('>-24h<');
+    expect(html).toContain('>24h</output>');
+    expect(html).toContain('24h vertical history, newest at top.');
   });
 
   it('renders a measured port-to-starboard TWA scale', () => {

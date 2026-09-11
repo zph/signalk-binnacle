@@ -780,6 +780,7 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   page,
 }) => {
   await page.setViewportSize({ width: 1200, height: 800 });
+  const historyResolutions: string[] = [];
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
     route.fulfill({
       status: 200,
@@ -789,7 +790,9 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   );
   await page.route(/\/signalk\/v2\/api\/history\/values/, async (route) => {
     const params = new URL(route.request().url()).searchParams;
-    if (params.get('resolution') !== '5') {
+    const resolution = params.get('resolution');
+    if (resolution) historyResolutions.push(resolution);
+    if (resolution !== '5' && resolution !== '120') {
       await route.fulfill({ status: 500, body: 'history unavailable' });
       return;
     }
@@ -867,6 +870,17 @@ test('vertical TWS and TWA instruments plot rolling live history responsively', 
   await expect(angle.locator('.history-footer')).toHaveText(/TWA\s+1[01]° Δ/);
   await expect(speed.locator('.squiggle--maximum')).toBeVisible();
   await expect(angle.locator('.time-axis')).toHaveText(/Now\s+-5m\s+-10m/);
+  const speedWindow = speedFrame.getByRole('slider', { name: 'TWS history window' });
+  await expect(speedWindow).toHaveAttribute('aria-valuetext', '10m');
+  await speedWindow.press('End');
+  await expect(speedWindow).toHaveAttribute('aria-valuetext', '24h');
+  await expect(speed.locator('.time-axis')).toHaveText(/Now\s+-12h\s+-24h/);
+  await expect.poll(() => historyResolutions).toContain('120');
+  await expect
+    .poll(() =>
+      page.evaluate(() => localStorage.getItem('binnacle-custom:instrument-history-windows')),
+    )
+    .toBe('{"tws-history":1440}');
   for (const tile of [speed, angle]) {
     const placement = await tile.locator('.history-delta').evaluate((delta) => {
       const tileBox = delta.parentElement?.parentElement?.getBoundingClientRect();

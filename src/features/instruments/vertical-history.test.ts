@@ -41,6 +41,23 @@ describe('verticalHistoryGeometry', () => {
     expect(geometry.paths[0]).toBe('M50 0 L100 0.83 L0 1.67');
   });
 
+  it('keeps adaptive two-minute samples connected in a 24-hour view', () => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const geometry = verticalHistoryGeometry(
+      [
+        { atMs: dayMs - 240_000, value: knotsToMetersPerSecond(4) },
+        { atMs: dayMs - 120_000, value: knotsToMetersPerSecond(6) },
+        { atMs: dayMs, value: knotsToMetersPerSecond(5) },
+      ],
+      dayMs,
+      'speed',
+      dayMs,
+    );
+
+    expect(geometry.paths).toHaveLength(1);
+    expect(geometry.paths[0]).toContain(' L');
+  });
+
   it('breaks TWA at the stern wrap instead of drawing across the plot', () => {
     const geometry = verticalHistoryGeometry(
       [

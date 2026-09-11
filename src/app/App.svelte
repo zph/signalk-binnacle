@@ -94,7 +94,9 @@ import {
   type FloatingInstrumentBox,
   floatingInstrumentBoxesCodec,
   type InstrumentAlias,
+  type InstrumentHistoryWindows,
   type InstrumentTileLayouts,
+  instrumentHistoryWindowsCodec,
   instrumentTileLayoutsCodec,
   isAisRadarRangeNm,
   loadInstrumentScreenLayer,
@@ -1133,6 +1135,14 @@ const instrumentTileLayouts = new PersistedValue<InstrumentTileLayouts>(
   {},
   undefined,
   instrumentTileLayoutsCodec,
+);
+// History span is a device-local viewing preference. It is shared by dock and chart instruments,
+// but does not alter a portable navigation profile or the underlying Signal K history.
+const instrumentHistoryWindows = new PersistedValue<InstrumentHistoryWindows>(
+  binnacleStorageKey('instrumentHistoryWindows'),
+  {},
+  undefined,
+  instrumentHistoryWindowsCodec,
 );
 const aisRadarRangeNm = new PersistedValue<AisRadarRangeNm>(
   binnacleStorageKey('aisRadarRangeNm'),
@@ -4365,6 +4375,9 @@ const plotterActions = {
             chartToken={chartsToken}
             historyOrigin={origin}
             {historyProviders}
+            historyWindows={instrumentHistoryWindows.value}
+            onHistoryWindowChange={(id, minutes) =>
+              instrumentHistoryWindows.set({ ...instrumentHistoryWindows.value, [id]: minutes })}
             {mapInstrument}
             onOpenTideSettings={openTideStationSettings}
             windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
@@ -4588,6 +4601,9 @@ const plotterActions = {
           chartToken={chartsToken}
           historyOrigin={origin}
           {historyProviders}
+          historyWindows={instrumentHistoryWindows.value}
+          onHistoryWindowChange={(id, minutes) =>
+            instrumentHistoryWindows.set({ ...instrumentHistoryWindows.value, [id]: minutes })}
           {mapInstrument}
           initialExpandedRequest={instrumentExpandedRequest}
           onExpandedRequestHandled={() => (instrumentExpandedRequest = undefined)}

@@ -725,7 +725,7 @@ const TWS_HISTORY_DEF: TileDef = {
   id: 'tws-history',
   label: 'True wind speed history',
   abbr: 'TWS',
-  description: 'Rolling ten-minute true wind speed trace, with the newest sample at the top.',
+  description: 'Adjustable true wind speed history, with the newest sample at the top.',
   sensorGloss: 'No true wind data',
   paths: WIND_TRUE_DEF.paths,
   zonesPath: SK_PATHS.windSpeedTrue,
@@ -741,7 +741,7 @@ const TWA_HISTORY_DEF: TileDef = {
   label: 'True wind angle history',
   abbr: 'TWA',
   description:
-    'Rolling ten-minute bow-relative true wind angle trace, with port to the left, starboard to the right, and the newest sample at the top.',
+    'Adjustable bow-relative true wind angle history, with port to the left, starboard to the right, and the newest sample at the top.',
   sensorGloss: 'No true wind angle data',
   paths: [SK_PATHS.windAngleTrueWater, SK_PATHS.windAngleTrueGround],
   zonesPath: SK_PATHS.windAngleTrueWater,

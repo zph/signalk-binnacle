@@ -16,6 +16,7 @@ import TideTile from './TideTile.svelte';
 import type { TileDef, TileReading } from './tile-catalog';
 import type { TileHistoryPoint } from './tile-history.svelte';
 import VerticalHistoryTile from './VerticalHistoryTile.svelte';
+import type { VerticalHistoryWindowMinutes } from './vertical-history-window';
 import WebViewTile from './WebViewTile.svelte';
 import WindRoseTile from './WindRoseTile.svelte';
 import WindTile from './WindTile.svelte';
@@ -32,6 +33,8 @@ interface Props {
   historyPoints?: readonly TileHistoryPoint[];
   historyMaximumPoints?: readonly TileHistoryPoint[];
   historyNowMs?: number;
+  historyWindowMinutes?: VerticalHistoryWindowMinutes;
+  onHistoryWindowChange?: (minutes: VerticalHistoryWindowMinutes) => void;
   expanded?: boolean;
   aisRadar?: {
     vessel: OwnVessel;
@@ -62,6 +65,8 @@ const {
   historyPoints = [],
   historyMaximumPoints = [],
   historyNowMs = 0,
+  historyWindowMinutes,
+  onHistoryWindowChange,
   expanded = false,
   aisRadar,
   mapInstrument,
@@ -150,6 +155,8 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
     points={historyPoints}
     maximumPoints={historyMaximumPoints}
     nowMs={historyNowMs}
+    windowMinutes={historyWindowMinutes}
+    onWindowChange={onHistoryWindowChange}
     {staleAgeText}
     {expanded}
     {actionLabel}

@@ -4,8 +4,13 @@ import TileStateBadge from './TileStateBadge.svelte';
 import { tileAccessibleLabel } from './tile-accessibility';
 import type { TileReading } from './tile-catalog';
 import type { TileHistoryPoint } from './tile-history.svelte';
-import { TILE_HISTORY_WINDOW_MS } from './tile-history.svelte';
 import { type VerticalHistoryMode, verticalHistoryGeometry } from './vertical-history';
+import {
+  DEFAULT_VERTICAL_HISTORY_WINDOW_MINUTES,
+  VERTICAL_HISTORY_WINDOW_MINUTES,
+  type VerticalHistoryWindowMinutes,
+  verticalHistoryWindowLabel,
+} from './vertical-history-window';
 
 interface Props {
   label: string;
@@ -17,6 +22,8 @@ interface Props {
   points: readonly TileHistoryPoint[];
   maximumPoints?: readonly TileHistoryPoint[];
   nowMs: number;
+  windowMinutes?: VerticalHistoryWindowMinutes;
+  onWindowChange?: (minutes: VerticalHistoryWindowMinutes) => void;
   staleAgeText?: string;
   expanded?: boolean;
   actionLabel?: string;
@@ -33,6 +40,8 @@ const {
   points,
   maximumPoints = [],
   nowMs,
+  windowMinutes = DEFAULT_VERTICAL_HISTORY_WINDOW_MINUTES,
+  onWindowChange = () => {},
   staleAgeText,
   expanded = false,
   actionLabel = 'Expand instrument',
@@ -43,7 +52,7 @@ const labelText = $derived(
   `${label}${reading.referenceLabel ? ` (${reading.referenceLabel})` : ''}`,
 );
 const geometry = $derived(
-  verticalHistoryGeometry(points, nowMs, mode, TILE_HISTORY_WINDOW_MS, maximumPoints),
+  verticalHistoryGeometry(points, nowMs, mode, windowMinutes * 60_000, maximumPoints),
 );
 const accessibleDelta = $derived(
   geometry.deltaLabel
@@ -51,86 +60,112 @@ const accessibleDelta = $derived(
     : undefined,
 );
 const accessibleLabel = $derived(
-  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} Ten-minute vertical history, newest at top.${accessibleDelta ? ` Historical range ${accessibleDelta}.` : ''}${mode === 'speed' ? ' Solid line average, dashed line five-second maximum.' : ''}`,
+  `${tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel)} ${verticalHistoryWindowLabel(windowMinutes)} vertical history, newest at top.${accessibleDelta ? ` Historical range ${accessibleDelta}.` : ''}${mode === 'speed' ? ' Solid line average, dashed line maximum.' : ''}`,
 );
-const midpointMinutes = TILE_HISTORY_WINDOW_MS / 2 / 60_000;
-const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
+const midpointLabel = $derived(verticalHistoryWindowLabel(windowMinutes / 2));
+const windowLabel = $derived(verticalHistoryWindowLabel(windowMinutes));
+const windowIndex = $derived(Math.max(0, VERTICAL_HISTORY_WINDOW_MINUTES.indexOf(windowMinutes)));
+
+function changeWindow(event: Event): void {
+  const index = Number((event.currentTarget as HTMLInputElement).value);
+  const minutes = VERTICAL_HISTORY_WINDOW_MINUTES[index];
+  if (minutes !== undefined) onWindowChange(minutes);
+}
 </script>
 
-<button
-  type="button"
+<div
   class="tile card-frame tile--vertical-history"
   class:tile--warning={zone === 'warning'}
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
   class:tile--empty={reading.state === 'never'}
   class:tile--expanded={expanded}
-  aria-label={accessibleLabel}
-  onclick={onOpen}
 >
-  {#if reading.state === 'never'}
-    <span class="value"><span class="muted-note">{sensorGloss}</span></span>
-  {:else}
-    <span class="history-readout">
-      <span class="num">{reading.value}</span>
-      {#if reading.unit}
-        <span class="unit">{reading.unit}</span>
-      {/if}
-    </span>
-    <span class="history-scale num" aria-hidden="true">
-      <span>{geometry.scale[0]}</span>
-      <span>{geometry.scale[1]}</span>
-      <span>{geometry.scale[2]}</span>
-    </span>
-    <span class="history-plot" aria-hidden="true">
-      <svg
-        class="history-trace"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <title>{abbr ?? label} ten-minute history</title>
-        {#each [0, 20, 40, 60, 80, 100] as y (y)}
-          <line class="time-grid" x1="0" x2="100" y1={y} y2={y} />
-        {/each}
-        {#each [0, 50, 100] as x (x)}
-          <line
-            class:center-reference={mode === 'angle' && x === 50}
-            x1={x}
-            x2={x}
-            y1="0"
-            y2="100"
-          />
-        {/each}
-        {#each geometry.paths as path (path)}
-          <path class="squiggle" d={path} />
-        {/each}
-        {#each geometry.maximumPaths as path (path)}
-          <path class="squiggle squiggle--maximum" d={path} />
-        {/each}
-        {#if geometry.current}
-          <circle class="current" cx={geometry.current.x} cy={geometry.current.y} r="2.25" />
+  <button type="button" class="history-activate" aria-label={accessibleLabel} onclick={onOpen}>
+    {#if reading.state === 'never'}
+      <span class="value"><span class="muted-note">{sensorGloss}</span></span>
+    {:else}
+      <span class="history-readout">
+        <span class="num">{reading.value}</span>
+        {#if reading.unit}
+          <span class="unit">{reading.unit}</span>
         {/if}
-      </svg>
-      <span class="time-axis num">
-        <span>Now</span>
-        <span>-{midpointMinutes}m</span>
-        <span>-{windowMinutes}m</span>
       </span>
-    </span>
-  {/if}
+      <span class="history-scale num" aria-hidden="true">
+        <span>{geometry.scale[0]}</span>
+        <span>{geometry.scale[1]}</span>
+        <span>{geometry.scale[2]}</span>
+      </span>
+      <span class="history-plot" aria-hidden="true">
+        <svg
+          class="history-trace"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title>{abbr ?? label} {windowLabel} history</title>
+          {#each [0, 20, 40, 60, 80, 100] as y (y)}
+            <line class="time-grid" x1="0" x2="100" y1={y} y2={y} />
+          {/each}
+          {#each [0, 50, 100] as x (x)}
+            <line
+              class:center-reference={mode === 'angle' && x === 50}
+              x1={x}
+              x2={x}
+              y1="0"
+              y2="100"
+            />
+          {/each}
+          {#each geometry.paths as path (path)}
+            <path class="squiggle" d={path} />
+          {/each}
+          {#each geometry.maximumPaths as path (path)}
+            <path class="squiggle squiggle--maximum" d={path} />
+          {/each}
+          {#if geometry.current}
+            <circle class="current" cx={geometry.current.x} cy={geometry.current.y} r="2.25" />
+          {/if}
+        </svg>
+        <span class="time-axis num">
+          <span>Now</span>
+          <span>-{midpointLabel}</span>
+          <span>-{windowLabel}</span>
+        </span>
+      </span>
+    {/if}
 
-  <span class="history-footer">
-    {#if reading.state !== 'never' && staleAgeText}
-      <span class="tile-secondary">{staleAgeText}</span>
-    {/if}
-    <span class="caps-label abbr">{abbr ?? labelText}</span>
-    {#if geometry.deltaLabel}
-      <span class="history-delta num" aria-hidden="true">{geometry.deltaLabel}</span>
-    {/if}
-    <TileStateBadge state={reading.state} />
-  </span>
-</button>
+    <span class="history-footer">
+      {#if reading.state !== 'never' && staleAgeText}
+        <span class="tile-secondary">{staleAgeText}</span>
+      {/if}
+      <span class="caps-label abbr">{abbr ?? labelText}</span>
+      {#if geometry.deltaLabel}
+        <span class="history-delta num" aria-hidden="true">{geometry.deltaLabel}</span>
+      {/if}
+      <TileStateBadge state={reading.state} />
+    </span>
+  </button>
+
+  <label
+    class="history-window-control"
+    onpointerdown={(event) => event.stopPropagation()}
+    onpointerup={(event) => event.stopPropagation()}
+  >
+    <span class="visually-hidden">{abbr ?? labelText} history window</span>
+    <input
+      class="range history-window-range"
+      type="range"
+      min="0"
+      max={VERTICAL_HISTORY_WINDOW_MINUTES.length - 1}
+      step="1"
+      value={windowIndex}
+      aria-label={`${abbr ?? labelText} history window`}
+      aria-valuetext={windowLabel}
+      oninput={changeWindow}
+    >
+    <output class="history-window-value num">{windowLabel}</output>
+  </label>
+</div>
 
 <style>
 .tile--vertical-history {
@@ -140,6 +175,38 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
   overflow: hidden;
   padding: var(--space-2);
   text-align: start;
+}
+.history-activate {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-1);
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.history-window-control {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.history-window-range {
+  min-block-size: var(--control-size);
+}
+.history-window-value {
+  min-inline-size: 2.5rem;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: end;
 }
 
 .history-delta {
@@ -256,6 +323,9 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 }
 
 .tile--expanded {
+  display: flex;
+}
+.tile--expanded .history-activate {
   display: grid;
   grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 3fr);
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -293,7 +363,7 @@ const windowMinutes = TILE_HISTORY_WINDOW_MS / 60_000;
 }
 
 @media (max-width: 700px) {
-  .tile--expanded {
+  .tile--expanded .history-activate {
     display: flex;
   }
   .tile--expanded .history-readout .num {

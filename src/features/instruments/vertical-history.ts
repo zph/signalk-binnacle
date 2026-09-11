@@ -1,5 +1,6 @@
 import { metersPerSecondToKnots, RAD_TO_DEG } from '$shared/lib';
 import type { TileHistoryPoint } from './tile-history.svelte';
+import { VERTICAL_HISTORY_POINT_BUDGET } from './vertical-history-window';
 
 export type VerticalHistoryMode = 'speed' | 'angle';
 
@@ -70,6 +71,7 @@ export function verticalHistoryGeometry(
       .toReversed();
   const visible = visiblePoints(points);
   const visibleMaximums = visiblePoints(maximumPoints);
+  const gapBreakMs = Math.max(GAP_BREAK_MS, (windowMs / VERTICAL_HISTORY_POINT_BUDGET) * 2.5);
 
   const displayValues = (series: readonly TileHistoryPoint[]): number[] =>
     series.map((point) =>
@@ -99,7 +101,7 @@ export function verticalHistoryGeometry(
       const x = Math.min(VIEWBOX_SIZE, Math.max(0, xFor(value)));
       const y = ((nowMs - point.atMs) / windowMs) * VIEWBOX_SIZE;
       const wrapsAngle = mode === 'angle' && previous && Math.abs(value - previous.value) > 180;
-      const hasGap = previous && previous.atMs - point.atMs > GAP_BREAK_MS;
+      const hasGap = previous && previous.atMs - point.atMs > gapBreakMs;
       if (wrapsAngle || hasGap) {
         if (path) paths.push(path);
         path = '';

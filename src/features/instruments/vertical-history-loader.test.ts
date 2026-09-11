@@ -134,6 +134,37 @@ describe('backfillVerticalTileHistory', () => {
     expect(requestUrl).toContain('resolution=5');
   });
 
+  it('loads a 24-hour window at an adaptive two-minute resolution', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          range: {
+            from: '2026-09-09T18:10:00.000Z',
+            to: '2026-09-10T18:10:00.000Z',
+          },
+          values: [{ path: 'environment.wind.angleTrueWater', method: 'average' }],
+          data: [],
+        }),
+        { headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await backfillVerticalTileHistory(
+      createTileHistory(),
+      [angleDef],
+      { origin: 'http://boat.test', providers: { ids: ['questdb'] } },
+      new AbortController().signal,
+      Number.POSITIVE_INFINITY,
+      undefined,
+      { 'twa-history': 1_440 },
+    );
+
+    const requestUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestUrl).toContain('duration=86400');
+    expect(requestUrl).toContain('resolution=120');
+  });
+
   it('does not merge a response after cancellation', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

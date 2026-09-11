@@ -42,6 +42,12 @@ export {
   type InstrumentTileSize,
   instrumentTileLayoutsCodec,
 } from './tile-layout';
+export {
+  DEFAULT_VERTICAL_HISTORY_WINDOW_MINUTES,
+  type InstrumentHistoryWindows,
+  instrumentHistoryWindowsCodec,
+  type VerticalHistoryWindowMinutes,
+} from './vertical-history-window';
 export { type WebviewInstrument, webviewInstrumentsCodec } from './webview-sources';
 
 const instrumentsPanelLoader = createRetryableLazyUiLoader(

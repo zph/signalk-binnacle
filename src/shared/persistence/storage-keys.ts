@@ -54,6 +54,10 @@ const BINNACLE_STORAGE_KEYS = {
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },
   instrumentWebviews: { key: 'binnacle-custom:instrument-webviews', scope: 'profile' },
   instrumentTileLayouts: { key: 'binnacle-custom:instrument-tile-layouts', scope: 'profile' },
+  instrumentHistoryWindows: {
+    key: 'binnacle-custom:instrument-history-windows',
+    scope: 'device',
+  },
   windRoseNoGoAngleRad: { key: 'binnacle-custom:wind-rose-no-go-angle-rad', scope: 'profile' },
   windRoseArcMarginRad: { key: 'binnacle-custom:wind-rose-arc-margin-rad', scope: 'profile' },
   trendInstruments: { key: 'binnacle-custom:trend-instruments', scope: 'profile' },

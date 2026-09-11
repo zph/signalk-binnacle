@@ -7,10 +7,14 @@ import type { TileDef } from './tile-catalog';
 import {
   maximumHistoryId,
   TILE_HISTORY_MIN_SPACING_MS,
-  TILE_HISTORY_WINDOW_MS,
   type TileHistory,
   type TileHistoryPoint,
 } from './tile-history.svelte';
+import {
+  type InstrumentHistoryWindows,
+  verticalHistoryResolutionSeconds,
+  verticalHistoryWindowMinutesFor,
+} from './vertical-history-window';
 
 interface VerticalHistorySource {
   origin: string;
@@ -31,6 +35,7 @@ async function fetchVerticalHistory(
   def: TileDef,
   source: VerticalHistorySource,
   signal: AbortSignal,
+  windowMinutes: number,
   range?: { fromMs: number; toMs: number },
 ): Promise<VerticalHistoryResult | undefined> {
   const paths = candidatePaths(def);
@@ -49,8 +54,8 @@ async function fetchVerticalHistory(
             from: new Date(range.fromMs).toISOString(),
             to: new Date(range.toMs).toISOString(),
           }
-        : { durationSeconds: TILE_HISTORY_WINDOW_MS / 1000 }),
-      resolutionSeconds: TILE_HISTORY_MIN_SPACING_MS / 1000,
+        : { durationSeconds: windowMinutes * 60 }),
+      resolutionSeconds: verticalHistoryResolutionSeconds(windowMinutes),
       signal,
     },
   );
@@ -90,15 +95,23 @@ export async function backfillVerticalTileHistory(
   signal: AbortSignal,
   completedBeforeMs = Number.POSITIVE_INFINITY,
   fromMs?: number,
+  windows: InstrumentHistoryWindows = {},
 ): Promise<void> {
   if (!source || source.providers.ids.length === 0) return;
   await Promise.all(
     defs.map(async (def) => {
+      const windowMinutes = verticalHistoryWindowMinutesFor(windows, def.id);
       const result = await fetchVerticalHistory(
         def,
         source,
         signal,
-        fromMs === undefined ? undefined : { fromMs, toMs: completedBeforeMs },
+        windowMinutes,
+        fromMs === undefined
+          ? undefined
+          : {
+              fromMs: Math.max(fromMs, completedBeforeMs - windowMinutes * 60_000),
+              toMs: completedBeforeMs,
+            },
       );
       if (signal.aborted || !result) return;
       const completed = (points: readonly TileHistoryPoint[]): TileHistoryPoint[] =>
@@ -115,35 +128,48 @@ export function pollVerticalTileHistory(
   history: TileHistory,
   defs: readonly TileDef[],
   source: VerticalHistorySource | undefined,
+  windows: InstrumentHistoryWindows = {},
 ): () => void {
   if (!source || source.providers.ids.length === 0 || defs.length === 0) return () => undefined;
   const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let previousCompletedBeforeMs: number | undefined;
-  const poll = async (): Promise<void> => {
-    const completedBeforeMs =
-      Math.floor(Date.now() / TILE_HISTORY_MIN_SPACING_MS) * TILE_HISTORY_MIN_SPACING_MS;
-    try {
-      await backfillVerticalTileHistory(
-        history,
-        defs,
-        source,
-        controller.signal,
-        completedBeforeMs,
-        previousCompletedBeforeMs === undefined
-          ? completedBeforeMs - TILE_HISTORY_WINDOW_MS
-          : previousCompletedBeforeMs - TILE_HISTORY_MIN_SPACING_MS,
-      );
-      previousCompletedBeforeMs = completedBeforeMs;
-    } catch {
-      // Keep the live buckets moving and try the provider again on the next interval.
-    } finally {
-      if (!controller.signal.aborted) timer = setTimeout(poll, TILE_HISTORY_MIN_SPACING_MS);
-    }
-  };
-  void poll();
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  for (const def of defs) {
+    const windowMinutes = verticalHistoryWindowMinutesFor(windows, def.id);
+    const resolutionMs = verticalHistoryResolutionSeconds(windowMinutes) * 1000;
+    let previousCompletedBeforeMs: number | undefined;
+    const poll = async (): Promise<void> => {
+      const completedBeforeMs =
+        Math.floor(Date.now() / TILE_HISTORY_MIN_SPACING_MS) * TILE_HISTORY_MIN_SPACING_MS;
+      try {
+        await backfillVerticalTileHistory(
+          history,
+          [def],
+          source,
+          controller.signal,
+          completedBeforeMs,
+          previousCompletedBeforeMs === undefined
+            ? completedBeforeMs - windowMinutes * 60_000
+            : previousCompletedBeforeMs - resolutionMs,
+          windows,
+        );
+        previousCompletedBeforeMs = completedBeforeMs;
+      } catch {
+        // Keep the live buckets moving and try this provider series again on its next interval.
+      } finally {
+        if (!controller.signal.aborted) {
+          const timer = setTimeout(() => {
+            timers.delete(timer);
+            void poll();
+          }, resolutionMs);
+          timers.add(timer);
+        }
+      }
+    };
+    void poll();
+  }
   return () => {
     controller.abort();
-    if (timer !== undefined) clearTimeout(timer);
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
   };
 }
