@@ -11,6 +11,7 @@ import {
 import type { Theme } from '$shared/ui';
 import { noaaCurrentVectorFeatures } from './current-arrows';
 import { currentArrowColor } from './current-colormap';
+import { currentFieldRgba } from './current-field';
 import { type CanvasFactory, createFieldOverlay, type FieldOverlay } from './field-overlay';
 import { WEATHER_LAYER_IDS } from './fills';
 import { gridTimeGate } from './grid-time-gate';
@@ -37,11 +38,12 @@ export function createCurrentOverlay(
       id: WEATHER_LAYER_IDS.current,
       title: 'Ocean currents',
       description:
-        'Nearest local NOAA CO-OPS tidal-current prediction, estimated between published maximum and slack events.',
+        'Modeled ocean-current speed as a red field, with the nearest NOAA CO-OPS tidal-current prediction shown when available.',
       sourceId: FIELD_SOURCE,
       layerId: FIELD_LAYER,
+      defaultVisible: true,
       defaultOpacity: 0.72,
-      fieldRgba: () => undefined,
+      fieldRgba: currentFieldRgba,
     },
     makeCanvas,
   );

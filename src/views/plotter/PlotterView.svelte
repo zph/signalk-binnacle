@@ -802,7 +802,8 @@ function activeRouteForCoverage(): { name: string; waypoints: RouteWaypoint[] } 
 }
 const radarEchoShown = $derived(layerSettings[MARINE_RADAR_OVERLAY_ID]?.visible ?? false);
 const chartForecastLayer = $derived(
-  CHART_FORECAST_LAYER_IDS.find((id) => layerSettings[id]?.visible),
+  CHART_FORECAST_LAYER_IDS.find((id) => layerSettings[id]?.visible) ??
+    (layerSettings[WEATHER_LAYER_IDS.current]?.visible ? WEATHER_LAYER_IDS.current : undefined),
 );
 const chartForecastKind = $derived(
   chartForecastLayer === WEATHER_LAYER_IDS.conditions

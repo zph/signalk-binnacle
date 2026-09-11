@@ -20,16 +20,21 @@ export const WEATHER_LAYER_IDS = {
 export const CHART_FORECAST_LAYER_IDS = [
   WEATHER_LAYER_IDS.conditions,
   WEATHER_LAYER_IDS.wind,
-  WEATHER_LAYER_IDS.current,
   WEATHER_LAYER_IDS.temperature,
   WEATHER_LAYER_IDS.uv,
 ] as const;
 
+// Every layer that needs the primary chart's forecast grid. Ocean currents is independent of the
+// mutually exclusive forecast mode, so it remains visible while the navigator changes that mode.
+export const CHART_GRID_LAYER_IDS = [
+  ...CHART_FORECAST_LAYER_IDS,
+  WEATHER_LAYER_IDS.current,
+] as const;
+
 // The weather area-fill layer ids. These are mutually exclusive (one fill at a time): the
 // LayerManager enforces it and the Weather panel groups them. Wind and pressure are combinable
-// overlays, not fills.
+// overlays, and the translucent current field is an independent overlay, not a fill.
 export const WEATHER_FILL_IDS: string[] = [
-  WEATHER_LAYER_IDS.current,
   WEATHER_LAYER_IDS.waves,
   WEATHER_LAYER_IDS.precip,
   WEATHER_LAYER_IDS.cloud,

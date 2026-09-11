@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TidesStore } from '$entities/tides';
 import { WeatherStore } from '$entities/weather';
 import { mapThemePaint } from '$shared/map';
@@ -35,6 +35,12 @@ function tidesWithCurrent(): TidesStore {
 }
 
 describe('current overlay', () => {
+  it('is a default-on weather overlay', () => {
+    const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent(), fakeCanvas);
+    expect(overlay.defaultVisible).toBe(true);
+    expect(overlay.title).toBe('Ocean currents');
+  });
+
   it('adds the field, arrow, and speed-label layers in the weather band', async () => {
     const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent(), fakeCanvas);
     const map = createFakeMap();
@@ -69,6 +75,32 @@ describe('current overlay', () => {
     const arrows = map.sources.get('binnacle-weather-current-arrows')
       ?.data as GeoJSON.FeatureCollection;
     expect(arrows.features).toHaveLength(0);
+  });
+
+  it('does not mutate its map sources while the grid, time, units, and tide prediction are steady', async () => {
+    const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent(), fakeCanvas);
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    overlay.setVisible(ctx, true);
+
+    const field = map.sources.get('binnacle-weather-current-field');
+    const arrows = map.sources.get('binnacle-weather-current-arrows');
+    const labels = map.sources.get('binnacle-weather-current-labels');
+    const fieldUpdates = field?.setCoordinates as ReturnType<typeof vi.fn>;
+    const originalArrowUpdate = arrows?.setData;
+    const originalLabelUpdate = labels?.setData;
+    const arrowUpdates = vi.fn((data: unknown) => originalArrowUpdate?.(data));
+    const labelUpdates = vi.fn((data: unknown) => originalLabelUpdate?.(data));
+    if (arrows) arrows.setData = arrowUpdates;
+    if (labels) labels.setData = labelUpdates;
+    fieldUpdates.mockClear();
+
+    for (let i = 0; i < 120; i += 1) overlay.sync(ctx);
+
+    expect(fieldUpdates).not.toHaveBeenCalled();
+    expect(arrowUpdates).not.toHaveBeenCalled();
+    expect(labelUpdates).not.toHaveBeenCalled();
   });
 
   it('removes all layers and sources and recolors safely', async () => {

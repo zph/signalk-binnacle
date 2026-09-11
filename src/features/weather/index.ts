@@ -4,6 +4,7 @@ export { createConditionsOverlay } from './conditions-overlay';
 export { createCurrentOverlay } from './current-overlay';
 export {
   CHART_FORECAST_LAYER_IDS,
+  CHART_GRID_LAYER_IDS,
   GRID_SOURCE_LABEL,
   WEATHER_FILL_ID_SET,
   WEATHER_FILL_IDS,

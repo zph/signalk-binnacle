@@ -3,7 +3,9 @@ import { expectInsideViewport, expectNoHorizontalOverflow } from './helpers';
 
 test.use({ serviceWorkers: 'block' });
 
-test('bottom weather button cycles every forecast and tide state', async ({ page }) => {
+test('bottom weather button cycles forecast and tide states without hiding currents', async ({
+  page,
+}) => {
   await page.goto('/');
 
   const helm = page.getByRole('group', { name: 'Helm actions' });
@@ -27,6 +29,7 @@ test('bottom weather button cycles every forecast and tide state', async ({ page
 
   await expect(button).toHaveAccessibleName('Weather and tides: off. Activate for next overlay.');
   await expect(button).toHaveAttribute('aria-pressed', 'false');
+  await expectForecast('Ocean currents');
 
   await nextWeather('conditions');
   await expectForecast('Conditions');
@@ -43,11 +46,8 @@ test('bottom weather button cycles every forecast and tide state', async ({ page
   await expect(wind).toContainText('barbs show direction');
   await expect(wind).toContainText('labels show gust speed in');
 
-  await nextWeather('ocean currents');
-  await expectForecast('Ocean currents');
-
   await nextWeather('tide and current stations');
-  await expect(forecasts).toHaveCount(0);
+  await expectForecast('Ocean currents');
 
   await nextWeather('temperature');
   await expectForecast('Temperature');
@@ -56,6 +56,6 @@ test('bottom weather button cycles every forecast and tide state', async ({ page
   await expectForecast('UV index');
 
   await nextWeather('off');
-  await expect(forecasts).toHaveCount(0);
+  await expectForecast('Ocean currents');
   await expect(button).toHaveAttribute('aria-pressed', 'false');
 });

@@ -523,7 +523,7 @@ let weatherPanelOpen = $state(false);
 // the free grid; when undefined (no provider configured), the grid answers.
 let weatherProvider = $state<WeatherProvider | undefined>();
 // The panel's own weather-layer visibility, separate from the nav chart. Default wind and
-// waves on so the first open shows something without hunting through toggles. The panel carries no
+// waves and currents on so the first open shows something without hunting through toggles. The panel carries no
 // persisted view of its own: it always opens where the nav chart is looking.
 const weatherLayerSettings = new PersistedValue<LayerSettings>(
   binnacleStorageKey('weatherLayers'),
@@ -531,6 +531,7 @@ const weatherLayerSettings = new PersistedValue<LayerSettings>(
     [WEATHER_LAYER_IDS.wind]: { ...DEFAULT_OVERLAY_STATE },
     [WEATHER_LAYER_IDS.observedWind]: { ...DEFAULT_OVERLAY_STATE },
     [WEATHER_LAYER_IDS.waves]: { visible: true, opacity: 0.7 },
+    [WEATHER_LAYER_IDS.current]: { visible: true, opacity: 0.72 },
   },
   undefined,
   layerSettingsCodec,
@@ -1795,7 +1796,6 @@ const instrumentAliases = $derived.by<readonly InstrumentAlias[]>(() => [
 const HELM_WEATHER_LAYER_IDS = [
   WEATHER_LAYER_IDS.conditions,
   WEATHER_LAYER_IDS.wind,
-  WEATHER_LAYER_IDS.current,
   TIDES_OVERLAY_ID,
   WEATHER_LAYER_IDS.temperature,
   WEATHER_LAYER_IDS.uv,
@@ -1809,7 +1809,6 @@ const helmWeatherLayer = $derived(
 function helmWeatherLayerName(id: HelmWeatherLayerId | undefined): string {
   if (id === WEATHER_LAYER_IDS.conditions) return 'conditions';
   if (id === WEATHER_LAYER_IDS.wind) return 'wind and gusts';
-  if (id === WEATHER_LAYER_IDS.current) return 'ocean currents';
   if (id === TIDES_OVERLAY_ID) return 'tide and current stations';
   if (id === WEATHER_LAYER_IDS.temperature) return 'temperature';
   if (id === WEATHER_LAYER_IDS.uv) return 'UV index';
@@ -2916,7 +2915,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       id: 'wind-forecast-overlay',
       label: `Cycle weather and tide overlay (${helmWeatherLayerName(helmWeatherLayer)})`,
       description:
-        'Cycle combined conditions, wind and gusts, ocean currents, tide and current stations, temperature, UV index, and off on the main chart',
+        'Cycle combined conditions, wind and gusts, tide and current stations, temperature, UV index, and off on the main chart',
       group: 'Weather',
       keywords: [
         'conditions',
@@ -2934,6 +2933,22 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       ],
       icon: Wind,
       onSelect: cycleHelmWeatherLayer,
+    },
+    {
+      id: 'ocean-current-overlay',
+      label:
+        (layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? true)
+          ? 'Hide ocean currents'
+          : 'Show ocean currents',
+      description: 'Show modeled current speed as a red overlay on the main chart',
+      group: 'Weather',
+      keywords: ['ocean', 'current', 'speed', 'forecast', 'overlay', 'layer'],
+      icon: Waves,
+      onSelect: () =>
+        setLayerVisible(
+          WEATHER_LAYER_IDS.current,
+          !(layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? true),
+        ),
     },
     {
       id: 'observed-wind-stations-overlay',

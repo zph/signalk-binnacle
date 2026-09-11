@@ -44,6 +44,7 @@ import { OWN_VESSEL_OVERLAY_ID } from '$features/vessel-layer';
 import type { WayfindingVisualizationSource } from '$features/wayfinding';
 import {
   CHART_FORECAST_LAYER_IDS,
+  CHART_GRID_LAYER_IDS,
   createChartWindController,
   WEATHER_LAYER_IDS,
   type WeatherLoader,
@@ -392,9 +393,13 @@ let editGeneration = 0;
 // map.setGlobalStateProperty once the map exists. $state so the effect re-runs once it is assigned.
 let mapRef = $state<MapLibreMap | undefined>();
 let forecastVisible = untrack(() =>
-  CHART_FORECAST_LAYER_IDS.some((id) => savedLayers?.[id]?.visible ?? false),
+  CHART_GRID_LAYER_IDS.some((id) => savedLayers?.[id]?.visible ?? false),
 );
-let forecastMarine = untrack(() => savedLayers?.[WEATHER_LAYER_IDS.conditions]?.visible ?? false);
+let forecastMarine = untrack(
+  () =>
+    (savedLayers?.[WEATHER_LAYER_IDS.conditions]?.visible ?? false) ||
+    (savedLayers?.[WEATHER_LAYER_IDS.current]?.visible ?? true),
+);
 const chartWind = createChartWindController({
   store: untrack(() => weather),
   loader: untrack(() => weatherLoader),
@@ -509,10 +514,12 @@ onMount(async () => {
       onChange: (settings) => {
         onLayersChange?.(settings);
         syncWorldFallback();
-        const nextForecastVisible = CHART_FORECAST_LAYER_IDS.some(
+        const nextForecastVisible = CHART_GRID_LAYER_IDS.some(
           (id) => settings[id]?.visible ?? false,
         );
-        const nextForecastMarine = settings[WEATHER_LAYER_IDS.conditions]?.visible ?? false;
+        const nextForecastMarine =
+          (settings[WEATHER_LAYER_IDS.conditions]?.visible ?? false) ||
+          (settings[WEATHER_LAYER_IDS.current]?.visible ?? false);
         const marineChanged = nextForecastMarine !== forecastMarine;
         forecastMarine = nextForecastMarine;
         if (nextForecastVisible === forecastVisible) {
@@ -835,10 +842,12 @@ onMount(async () => {
       syncWorldFallback();
       onReady?.(view);
       forecastVisible = view.items.some(
-        (item) => CHART_FORECAST_LAYER_IDS.some((id) => id === item.id) && item.visible,
+        (item) => CHART_GRID_LAYER_IDS.some((id) => id === item.id) && item.visible,
       );
       forecastMarine = view.items.some(
-        (item) => item.id === WEATHER_LAYER_IDS.conditions && item.visible,
+        (item) =>
+          (item.id === WEATHER_LAYER_IDS.conditions || item.id === WEATHER_LAYER_IDS.current) &&
+          item.visible,
       );
       if (forecastVisible) chartWind.schedule();
       onWindRetryReady?.(() => chartWind.load(true));

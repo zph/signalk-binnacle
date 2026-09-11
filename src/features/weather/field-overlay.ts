@@ -29,6 +29,7 @@ interface FieldOverlayOptions {
   description?: string;
   sourceId: string;
   layerId: string;
+  defaultVisible?: boolean;
   defaultOpacity?: number;
   fieldRgba: (grid: WeatherGrid, bracket: TimeBracket, theme: Theme) => FieldBitmap | undefined;
 }
@@ -46,7 +47,7 @@ const PLACEHOLDER_COORDS: Quad = [
 ];
 
 // A weather scalar field rendered as a MapLibre canvas source drawn at grid resolution and smoothed
-// by the GPU (raster-resampling linear), in the weather band. Off by default. The canvas is redrawn
+// by the GPU (raster-resampling linear), in the weather band. The canvas is redrawn
 // only when the grid, the selected time, or the theme changes. The source is NOT animated, so it does
 // not re-read the canvas or keep the map repainting every frame while visible. After each redraw, one
 // play()/pause() forces a single texture re-upload to show the new pixels. Shared by the waves and
@@ -56,7 +57,8 @@ export function createFieldOverlay(
   options: FieldOverlayOptions,
   makeCanvas: CanvasFactory = defaultCanvas,
 ): FieldOverlay {
-  const { id, title, description, sourceId, layerId, defaultOpacity, fieldRgba } = options;
+  const { id, title, description, sourceId, layerId, defaultVisible, defaultOpacity, fieldRgba } =
+    options;
   const canvas = makeCanvas();
   let theme: Theme = 'day';
   let visible = false;
@@ -140,7 +142,7 @@ export function createFieldOverlay(
     description,
     band: 'weather',
     supportsOpacity: true,
-    defaultVisible: false,
+    defaultVisible: defaultVisible ?? false,
     defaultOpacity,
     layerIds: [layerId],
     add(ctx) {

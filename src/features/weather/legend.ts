@@ -15,7 +15,7 @@ import { mapThemePaint } from '$shared/map';
 import type { Theme } from '$shared/ui';
 import { cloudColor } from './cloud-colormap';
 import { type Rgba, tupleCss } from './color-ramp';
-import { currentArrowColor } from './current-colormap';
+import { currentColor } from './current-colormap';
 import { WEATHER_LAYER_IDS } from './fills';
 import { precipColor } from './precip-colormap';
 import { isobarColors } from './pressure-colors';
@@ -51,6 +51,7 @@ const PRECIP_STOPS = [0.2, 1, 2.5, 10, 25, 40]; // mm/h, tops out where the prec
 const CLOUD_STOPS = [0.25, 0.5, 0.75, 1]; // fraction
 const TEMPERATURE_STOPS = [263.15, 273.15, 283.15, 293.15, 303.15, 313.15]; // K
 const UV_STOPS = [0, 3, 6, 8, 11];
+const CURRENT_STOPS = [0, 0.5, 1, 1.5, 2].map(knotsToMetersPerSecond);
 
 // Render a colormap stop opaque so the legend ramp is visible even where the field itself is
 // translucent or fully transparent at the low end.
@@ -66,11 +67,15 @@ function rampLegend(
   stops: number[],
   color: (value: number) => Rgba,
   label: (value: number) => string,
+  preserveOpacity = false,
 ): WeatherLegend {
   const min = stops[0];
   const max = stops[stops.length - 1];
   const span = max - min || 1;
-  const parts = stops.map((v) => `${opaque(color(v))} ${Math.round(((v - min) / span) * 100)}%`);
+  const parts = stops.map(
+    (v) =>
+      `${preserveOpacity ? tupleCss(color(v)) : opaque(color(v))} ${Math.round(((v - min) / span) * 100)}%`,
+  );
   return {
     id,
     title,
@@ -117,10 +122,15 @@ export function weatherLegend(
       };
     case WEATHER_LAYER_IDS.current:
       return {
-        id: layerId,
-        title: `Local tidal current (${speedUnit})`,
-        swatches: [{ color: currentArrowColor(theme), label: 'predicted set and speed' }],
-        note: 'nearest NOAA CO-OPS station; arrow points toward the set',
+        ...rampLegend(
+          layerId,
+          `Ocean current (${speedUnit})`,
+          CURRENT_STOPS,
+          (speed) => currentColor(speed, theme),
+          (speed) => formatSpeedOr(speed, speedUnit, 1),
+          true,
+        ),
+        note: 'red opacity shows modeled speed through 2 kn; the local NOAA arrow points toward the predicted set',
       };
     case WEATHER_LAYER_IDS.temperature:
       return rampLegend(

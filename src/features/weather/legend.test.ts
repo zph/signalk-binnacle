@@ -30,12 +30,13 @@ describe('weatherLegend', () => {
     );
   });
 
-  it('builds a local NOAA current key in the preferred speed unit', () => {
+  it('builds an opacity ramp for ocean currents in the preferred speed unit', () => {
     const legend = weatherLegend('weather-current', 'day', 'imperial', 'km/h');
-    expect(legend?.title).toBe('Local tidal current (km/h)');
-    expect(legend?.gradient).toBeUndefined();
-    expect(legend?.swatches?.[0]?.label).toBe('predicted set and speed');
-    expect(legend?.note).toMatch(/arrow points toward/i);
+    expect(legend?.title).toBe('Ocean current (km/h)');
+    expect(legend?.gradient).toMatch(/linear-gradient/);
+    expect(legend?.lowLabel).toBe('0.0');
+    expect(legend?.highLabel).toBe('3.7');
+    expect(legend?.note).toMatch(/2 kn/i);
   });
 
   it('builds a single isobar swatch for pressure', () => {
