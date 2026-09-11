@@ -10,9 +10,11 @@ import {
   rgbaCss,
 } from '$shared/map';
 import {
+  createCurrentVectorTracker,
   createWindAngleAnimator,
   createWindDirectionRangeTracker,
   createWindSectorTracker,
+  currentVectorOpacity,
   type WindDirectionRange,
   type WindSectorReference,
   windRoseSectorGeometry,
@@ -47,6 +49,12 @@ type WindRoseVessel = Pick<
       | 'windAngleApparentEpochMs'
       | 'windAngleTrueEpochMs'
       | 'windDirectionTrueEpochMs'
+      | 'currentDriftMps'
+      | 'currentDriftStale'
+      | 'currentDriftEpochMs'
+      | 'currentSetTrueRad'
+      | 'currentSetTrueStale'
+      | 'currentSetTrueEpochMs'
     >
   >;
 
@@ -55,6 +63,7 @@ export interface VesselWindRoseAngles {
   boatDeg?: number;
   apparentDeg?: number;
   trueDeg?: number;
+  currentDeg?: number;
   sectorDeg?: number;
 }
 
@@ -79,6 +88,8 @@ interface RoseDom {
   apparentLabel: SVGTextElement;
   trueWind: SVGGElement;
   trueLabel: SVGTextElement;
+  current: SVGGElement;
+  currentPath: SVGPathElement;
   ring: SVGCircleElement;
   dialParts: SVGElement[];
   boatPath: SVGPathElement;
@@ -90,6 +101,11 @@ interface RoseDom {
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const CURRENT_VECTOR_COLORS = {
+  day: '#148bd2',
+  dusk: '#36a9e8',
+  'night-red': '#b83b1f',
+} as const;
 
 function svg<K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K] {
   return document.createElementNS(SVG_NS, name);
@@ -163,12 +179,17 @@ export function resolveVesselWindRoseAngles(
   }
   const trueDeg =
     trueAbsoluteDeg === undefined ? undefined : normalizeDegrees(trueAbsoluteDeg - mapBearingDeg);
+  const currentDeg =
+    !vessel.currentSetTrueStale && finite(vessel.currentSetTrueRad)
+      ? normalizeDegrees(vessel.currentSetTrueRad * RAD_TO_DEG - mapBearingDeg)
+      : undefined;
 
   return {
     headingDeg,
     boatDeg,
     apparentDeg,
     trueDeg,
+    currentDeg,
     sectorDeg: trueDeg ?? apparentDeg,
   };
 }
@@ -259,6 +280,19 @@ function createRoseDom(): RoseDom {
   sector.append(sectorFill, portArc, starboardArc, portBoundary, starboardBoundary);
   face.append(sector);
 
+  const current = svg('g');
+  current.classList.add('vessel-wind-rose-current');
+  const currentPath = svg('path');
+  attributes(currentPath, {
+    d: 'M500 292 V63 M471 102 L500 63 L529 102',
+    'stroke-width': '22',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  });
+  currentPath.style.fill = 'none';
+  current.append(currentPath);
+  face.append(current);
+
   const apparent = svg('g');
   apparent.classList.add('vessel-wind-rose-apparent');
   const apparentPath = svg('path');
@@ -330,7 +364,7 @@ function createRoseDom(): RoseDom {
   boat.append(boatPath);
   face.append(boat);
 
-  for (const group of [card, sector, apparent, trueWind, boat]) {
+  for (const group of [card, sector, current, apparent, trueWind, boat]) {
     group.style.transformBox = 'view-box';
     group.style.transformOrigin = 'center';
   }
@@ -351,6 +385,8 @@ function createRoseDom(): RoseDom {
     apparentLabel,
     trueWind,
     trueLabel,
+    current,
+    currentPath,
     ring,
     dialParts,
     boatPath,
@@ -394,6 +430,9 @@ function applyTheme(dom: RoseDom, paint: MapThemePaint): void {
   dom.truePath.style.fill = paint.warning;
   dom.truePath.style.stroke = paint.background;
   dom.trueLabel.style.fill = paint.background;
+  // Current is a distinct blue instrument vector rather than part of the blue vessel silhouette.
+  // Night mode substitutes a muted red to preserve the display's red-only dark adaptation.
+  dom.currentPath.style.stroke = CURRENT_VECTOR_COLORS[paint.theme];
   dom.twaReadout.style.fill = paint.label;
 }
 
@@ -428,15 +467,19 @@ export function createVesselWindRoseOverlay(
   let boatRotation: number | undefined;
   let apparentRotation: number | undefined;
   let trueRotation: number | undefined;
+  let currentRotation: number | undefined;
   let sectorRotation: number | undefined;
   let displayedBoatRad: number | undefined;
   let displayedApparentRad: number | undefined;
   let displayedTrueRad: number | undefined;
+  let displayedCurrentRad: number | undefined;
+  let displayedCurrentDriftMps: number | undefined;
   let displayedSectorRad: number | undefined;
   let sectorReference: WindSectorReference | undefined;
   let windDirectionRange: WindDirectionRange | undefined;
   const sectorTracker = createWindSectorTracker();
   const directionRangeTracker = createWindDirectionRangeTracker();
+  const currentTracker = createCurrentVectorTracker();
 
   const renderOrientation = (): void => {
     if (!dom || !map) return;
@@ -446,11 +489,14 @@ export function createVesselWindRoseOverlay(
     const boatDeg = screenDegrees(displayedBoatRad);
     const apparentDeg = screenDegrees(displayedApparentRad);
     const trueDeg = screenDegrees(displayedTrueRad);
+    const currentDeg = screenDegrees(displayedCurrentRad);
     const sectorDeg = screenDegrees(displayedSectorRad);
     dom.root.dataset.mapBearing = mapBearing.toFixed(2);
     dom.root.dataset.boatBearing = boatDeg?.toFixed(2) ?? '';
     dom.root.dataset.apparentBearing = apparentDeg?.toFixed(2) ?? '';
     dom.root.dataset.trueBearing = trueDeg?.toFixed(2) ?? '';
+    dom.root.dataset.currentBearing = currentDeg?.toFixed(2) ?? '';
+    dom.root.dataset.currentDriftMps = displayedCurrentDriftMps?.toFixed(3) ?? '';
     dom.root.dataset.rangeWindowSeconds = windDirectionRange ? '60' : '';
     dom.root.dataset.portRangeDegrees = windDirectionRange
       ? (windDirectionRange.portRad * RAD_TO_DEG).toFixed(1)
@@ -487,6 +533,13 @@ export function createVesselWindRoseOverlay(
       apparentRotation,
     );
     trueRotation = applyOptionalRotation(dom.trueWind, dom.trueLabel, trueDeg, trueRotation);
+    currentRotation = applyOptionalRotation(
+      dom.current,
+      undefined,
+      currentVectorOpacity(displayedCurrentDriftMps) > 0 ? currentDeg : undefined,
+      currentRotation,
+    );
+    dom.current.style.opacity = String(currentVectorOpacity(displayedCurrentDriftMps));
     sectorRotation = applyOptionalRotation(dom.sector, undefined, sectorDeg, sectorRotation);
   };
 
@@ -501,6 +554,10 @@ export function createVesselWindRoseOverlay(
   }, motionOptions);
   const trueAnimator = createWindAngleAnimator((angleRad) => {
     displayedTrueRad = angleRad;
+    renderOrientation();
+  }, motionOptions);
+  const currentAnimator = createWindAngleAnimator((angleRad) => {
+    displayedCurrentRad = angleRad;
     renderOrientation();
   }, motionOptions);
   const sectorAnimator = createWindAngleAnimator((angleRad) => {
@@ -575,6 +632,32 @@ export function createVesselWindRoseOverlay(
     if (trueRad === undefined) trueAnimator.reset();
     else trueAnimator.push(trueRad, trueEpoch || now);
 
+    const currentEpoch = Math.max(
+      vessel.currentDriftEpochMs ?? 0,
+      vessel.currentSetTrueEpochMs ?? 0,
+    );
+    if (
+      vessel.currentDriftStale ||
+      vessel.currentSetTrueStale ||
+      !finite(vessel.currentDriftMps) ||
+      !finite(vessel.currentSetTrueRad)
+    ) {
+      displayedCurrentRad = undefined;
+      displayedCurrentDriftMps = undefined;
+      currentAnimator.reset();
+      renderOrientation();
+    } else {
+      const sample = currentTracker.push(
+        vessel.currentSetTrueRad,
+        vessel.currentDriftMps,
+        currentEpoch || now,
+      );
+      if (sample) {
+        displayedCurrentDriftMps = sample.driftMps;
+        currentAnimator.push(sample.setTrueRad, sample.epochMs);
+      }
+    }
+
     const nextReference: WindSectorReference | undefined =
       trueRad !== undefined ? 'true' : apparentRad !== undefined ? 'apparent' : undefined;
     const sectorTarget = trueRad ?? apparentRad;
@@ -600,7 +683,7 @@ export function createVesselWindRoseOverlay(
     id: OWN_VESSEL_WIND_ROSE_OVERLAY_ID,
     title: 'Vessel wind rose',
     description:
-      'A chart-anchored wind rose that follows the boat and stays correct in north-up, course-up, and heading-up views.',
+      'A chart-anchored wind and current rose that follows the boat and stays correct in north-up, course-up, and heading-up views.',
     band: 'vessel',
     listed: true,
     defaultVisible: false,
@@ -650,6 +733,7 @@ export function createVesselWindRoseOverlay(
       boatAnimator.destroy();
       apparentAnimator.destroy();
       trueAnimator.destroy();
+      currentAnimator.destroy();
       sectorAnimator.destroy();
       marker?.remove();
       marker = undefined;
@@ -665,6 +749,7 @@ export function createVesselWindRoseOverlay(
       boatRotation = undefined;
       apparentRotation = undefined;
       trueRotation = undefined;
+      currentRotation = undefined;
       sectorRotation = undefined;
       sectorReference = undefined;
       windDirectionRange = undefined;
@@ -673,6 +758,10 @@ export function createVesselWindRoseOverlay(
       boatAnimator.reset();
       apparentAnimator.reset();
       trueAnimator.reset();
+      currentAnimator.reset();
+      currentTracker.reset();
+      displayedCurrentRad = undefined;
+      displayedCurrentDriftMps = undefined;
       sectorAnimator.reset();
     },
   };

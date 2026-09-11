@@ -1,5 +1,11 @@
 export { computeCpa } from './cpa';
 export {
+  CURRENT_VECTOR_STALE_MS,
+  type CurrentVectorSample,
+  createCurrentVectorTracker,
+  currentVectorOpacity,
+} from './current-vector';
+export {
   geodesicCircleRing,
   geodesicDestination,
   haversineMeters,

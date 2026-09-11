@@ -156,7 +156,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
   return [
     createConditionsOverlay(weather, tides, units, interactionsAllowed),
     createWindOverlay(weather, undefined, () => units.speedUnit),
-    createCurrentOverlay(weather, tides, undefined, () => units.speedUnit),
+    createCurrentOverlay(weather, tides, () => units.speedUnit),
     createTemperatureOverlay(weather),
     createUvOverlay(weather),
     createObservedWindOverlay(origin, getToken, () => units.speedUnit),

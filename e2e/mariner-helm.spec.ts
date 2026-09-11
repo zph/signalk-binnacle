@@ -73,6 +73,8 @@ const OWN_WIND: DeltaValue[] = [
   { path: 'navigation.headingTrue', value: Math.PI / 2 },
   { path: 'environment.wind.angleApparent', value: -Math.PI / 6 },
   { path: 'environment.wind.angleTrueWater', value: Math.PI / 4 },
+  { path: 'environment.current.drift', value: 1.543333 },
+  { path: 'environment.current.setTrue', value: Math.PI },
 ];
 
 const MOB_ALARM: DeltaValue = {
@@ -328,6 +330,12 @@ test('the vessel wind rose stays on the boat and becomes bow-up with a heading-u
   await expect(rose).toHaveAttribute('data-boat-bearing', '90.00');
   await expect(rose).toHaveAttribute('data-apparent-bearing', '60.00');
   await expect(rose).toHaveAttribute('data-true-bearing', '135.00');
+  await expect(rose).toHaveAttribute('data-current-bearing', '180.00');
+  await expect(rose.locator('.vessel-wind-rose-current')).toHaveCSS('opacity', '1');
+  await expect(rose.locator('.vessel-wind-rose-current path')).toHaveCSS(
+    'stroke',
+    'rgb(20, 139, 210)',
+  );
   await expect(rose.locator('.vessel-wind-rose-twa')).toHaveText('TWA S45°');
   await expect(rose.locator('.vessel-wind-rose-twa-side')).toHaveAttribute('font-size', '33');
   await expect(rose.locator('.vessel-wind-rose-twa-digits')).toHaveAttribute('dx', '5.5');
@@ -350,6 +358,7 @@ test('the vessel wind rose stays on the boat and becomes bow-up with a heading-u
   await expect.poll(() => rose.getAttribute('data-boat-bearing').then(Number)).toBeCloseTo(0, 0);
   await expect(rose).toHaveAttribute('data-apparent-bearing', '330.00');
   await expect(rose).toHaveAttribute('data-true-bearing', '45.00');
+  await expect(rose).toHaveAttribute('data-current-bearing', '90.00');
 
   const [roseBox, canvasBox] = await Promise.all([
     rose.boundingBox(),

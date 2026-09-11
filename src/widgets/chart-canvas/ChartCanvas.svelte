@@ -398,7 +398,7 @@ let forecastVisible = untrack(() =>
 let forecastMarine = untrack(
   () =>
     (savedLayers?.[WEATHER_LAYER_IDS.conditions]?.visible ?? false) ||
-    (savedLayers?.[WEATHER_LAYER_IDS.current]?.visible ?? true),
+    (savedLayers?.[WEATHER_LAYER_IDS.current]?.visible ?? false),
 );
 const chartWind = createChartWindController({
   store: untrack(() => weather),

@@ -57,7 +57,10 @@ const uvUnavailable = $derived(
     !store.grid.uvIndex?.some((step) => step.some(Number.isFinite)),
 );
 const currentUnavailable = $derived(
-  kind === 'Ocean currents' && tides.status !== 'loading' && tides.current === undefined,
+  kind === 'Ocean currents' &&
+    store.grid !== undefined &&
+    (!store.grid.oceanCurrentSpeed?.some((step) => step.some(Number.isFinite)) ||
+      !store.grid.oceanCurrentDirection?.some((step) => step.some(Number.isFinite))),
 );
 const conditionsUnavailable = $derived(
   kind === 'Conditions' &&
@@ -71,12 +74,6 @@ const nowFrac = $derived.by<number | undefined>(() => {
   return fraction >= 0 && fraction <= 1 ? fraction : undefined;
 });
 const statusNote = $derived.by(() => {
-  if (kind === 'Ocean currents' && tides.status === 'loading') {
-    return 'Loading local NOAA current predictions';
-  }
-  if (kind === 'Ocean currents' && tides.failure('current')) {
-    return 'NOAA current predictions are temporarily unavailable.';
-  }
   if (store.status === 'loading' && !store.grid) return `Loading ${kind.toLowerCase()} forecast`;
   if (store.status === 'loading') {
     return `Updating ${kind.toLowerCase()} forecast for this chart view`;
@@ -87,12 +84,13 @@ const statusNote = $derived.by(() => {
   if (uvUnavailable) {
     return `UV index is unavailable from ${sourceTitle}. Choose Automatic or NOAA for UV.`;
   }
-  if (currentUnavailable) return 'No NOAA current-prediction station is available for this area.';
+  if (currentUnavailable) return 'Modeled ocean currents are unavailable for this area.';
   if (conditionsUnavailable) {
     return 'Marine forecast data is unavailable for combined conditions in this area.';
   }
   if (kind === 'Ocean currents') {
-    return `NOAA CO-OPS · ${tides.current?.station.name ?? 'nearest local station'} · predicted tidal-current speed in ${speedUnitLabel(units.speedUnit)}`;
+    const local = tides.current ? ` · ${tides.current.station.name} NOAA prediction labeled` : '';
+    return `Open-Meteo Marine · arrows point toward the forecast set; opacity shows speed in ${speedUnitLabel(units.speedUnit)}${local}`;
   }
   if (kind === 'Conditions') {
     return `${sourceTitle} + Open-Meteo Marine · icons flag notable combined conditions; hover or tap for detail`;
@@ -114,7 +112,7 @@ onDestroy(() => playback.destroy());
   <div class="head">
     <span class="title">{kind}</span>
     {#if kind === 'Ocean currents'}
-      <span class="source-field current-source">NOAA CO-OPS</span>
+      <span class="source-field current-source">Open-Meteo Marine</span>
     {:else}
       <label class="source-field">
         <span class="visually-hidden">Weather forecast source</span>

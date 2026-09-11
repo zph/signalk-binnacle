@@ -21,6 +21,10 @@ function vessel(
     windAngleTrueStale: false,
     windDirectionTrueRad: undefined,
     windDirectionTrueStale: false,
+    currentSetTrueRad: Math.PI,
+    currentSetTrueStale: false,
+    currentDriftMps: 0.7,
+    currentDriftStale: false,
     ...values,
   };
 }
@@ -32,6 +36,7 @@ describe('resolveVesselWindRoseAngles', () => {
       boatDeg: 90,
       apparentDeg: 60,
       trueDeg: 135,
+      currentDeg: 180,
       sectorDeg: 135,
     });
   });
@@ -42,6 +47,7 @@ describe('resolveVesselWindRoseAngles', () => {
       boatDeg: 0,
       apparentDeg: 330,
       trueDeg: 45,
+      currentDeg: 90,
       sectorDeg: 45,
     });
   });
@@ -61,6 +67,7 @@ describe('resolveVesselWindRoseAngles', () => {
       boatDeg: 150,
       apparentDeg: 120,
       trueDeg: 60,
+      currentDeg: 150,
       sectorDeg: 60,
     });
   });
@@ -80,6 +87,7 @@ describe('resolveVesselWindRoseAngles', () => {
       boatDeg: 90,
       apparentDeg: undefined,
       trueDeg: undefined,
+      currentDeg: 180,
       sectorDeg: undefined,
     });
   });

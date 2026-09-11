@@ -42,19 +42,31 @@ describe('currentVectorFeatures', () => {
     expect(result.markers.features[0].properties?.label).toBe('1.0 kn\nCarquinez Strait');
   });
 
-  it('draws sparse arrows toward the current set and labels speed', () => {
+  it('draws fixed-size arrow points toward the current set and labels speed', () => {
     const result = currentVectorFeatures(gridWithCurrents(), { lo: 0, hi: 0, frac: 0 }, 'kn');
-    expect(result.arrows.features).toHaveLength(1);
-    expect(result.markers.features).toHaveLength(1);
-    const lines = result.arrows.features[0].geometry as GeoJSON.MultiLineString;
-    expect(lines.coordinates[0][1][1]).toBeGreaterThan(lines.coordinates[0][0][1]);
+    expect(result.arrows.features).toHaveLength(4);
+    expect(result.markers.features).toHaveLength(4);
+    expect(result.arrows.features[0].geometry).toEqual({ type: 'Point', coordinates: [0, 0] });
+    expect(result.arrows.features[0].properties?.bearing).toBe(0);
     expect(result.markers.features[0].properties?.label).toBe('1.0 kn');
   });
 
   it('interpolates current speed and direction across a forecast bracket', () => {
     const result = currentVectorFeatures(gridWithCurrents(), { lo: 0, hi: 1, frac: 0.5 }, 'm/s');
     expect(result.arrows.features[0].properties?.speed).toBe(1);
+    expect(result.arrows.features[0].properties?.bearing).toBeCloseTo(90);
     expect(result.markers.features[0].properties?.label).toBe('1.0 m/s');
+  });
+
+  it('can skip unused speed labels for the persistent chart overlay', () => {
+    const result = currentVectorFeatures(
+      gridWithCurrents(),
+      { lo: 0, hi: 0, frac: 0 },
+      'kn',
+      false,
+    );
+    expect(result.arrows.features).toHaveLength(4);
+    expect(result.markers.features).toHaveLength(0);
   });
 
   it('returns empty collections when the marine grid has no currents', () => {

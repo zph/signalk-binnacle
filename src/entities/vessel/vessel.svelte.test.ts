@@ -32,6 +32,26 @@ describe('OwnVessel', () => {
     expect(vessel.outsidePressurePa).toBe(101325);
   });
 
+  it('exposes true current set and drift with a magnetic set fallback', () => {
+    const store = new SignalKStore();
+    const vessel = new OwnVessel(store);
+    store.applyFrame(
+      frame({
+        [SK_PATHS.currentDrift]: 0.7,
+        [SK_PATHS.currentSetMagnetic]: 1.1,
+        [SK_PATHS.magneticVariation]: 0.2,
+      }),
+    );
+    expect(vessel.currentDriftMps).toBe(0.7);
+    expect(vessel.currentSetTrueRad).toBeCloseTo(1.3);
+    expect(vessel.currentDriftEpochMs).toBe(1000);
+    expect(vessel.currentSetTrueEpochMs).toBe(1000);
+
+    store.applyFrame(frame({ [SK_PATHS.currentSetTrue]: 2.2 }, 2000));
+    expect(vessel.currentSetTrueRad).toBe(2.2);
+    expect(vessel.currentSetTrueEpochMs).toBe(2000);
+  });
+
   it('exposes depth in meters (SI) from the transducer when it is the only source', () => {
     const store = new SignalKStore();
     const vessel = new OwnVessel(store);
@@ -198,6 +218,27 @@ describe('OwnVessel', () => {
     expect(vessel.positionStale).toBe(true);
   });
 
+  it('allows a minute-rate current sample to remain usable between updates', () => {
+    const store = new SignalKStore();
+    const clock = $state({ now: 1_000 });
+    const vessel = new OwnVessel(store, clock);
+    store.applyFrame(
+      frame(
+        {
+          [SK_PATHS.currentDrift]: 0.8,
+          [SK_PATHS.currentSetTrue]: 1.5,
+        },
+        clock.now,
+      ),
+    );
+    clock.now = 89_000;
+    expect(vessel.currentDriftStale).toBe(false);
+    expect(vessel.currentSetTrueStale).toBe(false);
+    clock.now = 92_000;
+    expect(vessel.currentDriftStale).toBe(true);
+    expect(vessel.currentSetTrueStale).toBe(true);
+  });
+
   it('pre-creates its cells at construction so reactive reads track them', () => {
     // The store creates a cell lazily on first access. If that first access were a
     // reactive template read, the freshly created $state source would not be tracked
@@ -224,6 +265,10 @@ describe('OwnVessel', () => {
       'environment.wind.angleTrueWater',
       'environment.wind.angleTrueGround',
       'environment.wind.directionTrue',
+      'environment.current.drift',
+      'environment.current.setTrue',
+      'environment.current.setMagnetic',
+      'navigation.magneticVariation',
       'environment.outside.pressure',
     ]);
   });

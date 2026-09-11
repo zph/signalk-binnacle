@@ -31,9 +31,17 @@ describe('WindRoseTile sectors', () => {
           angleRad: 0.7,
           angleEpoch: 1_000,
         },
-        heading: { state: 'live', value: '057°', unit: '', siValue: 1 },
+        heading: { state: 'live', value: '057°', unit: '', siValue: 1, angleEpoch: 1_000 },
         speedOverGround: { state: 'live', value: '6.4', unit: 'kn', siValue: 3.3 },
         depth: { state: 'live', value: '1.8', unit: 'm', siValue: 1.8 },
+        current: {
+          state: 'live',
+          value: '1.4',
+          unit: 'kn',
+          siValue: 0.72,
+          angleRad: 2,
+          angleEpoch: 1_000,
+        },
       },
     };
     const target = document.createElement('div');
@@ -84,11 +92,25 @@ describe('WindRoseTile sectors', () => {
         .getPropertyValue('--wind-true')
         .trim(),
     ).toBe('#ffe135');
+    const current = target.querySelector('.current-vector');
+    expect(current?.getAttribute('transform')).toContain('rotate(57.295');
+    expect(current?.getAttribute('data-set-true-degrees')).toBe('114.6');
+    expect(Number.parseFloat(getComputedStyle(current as Element).opacity)).toBeGreaterThan(0.6);
+    expect(
+      getComputedStyle(roseTile as Element)
+        .getPropertyValue('--current-vector')
+        .trim(),
+    ).toBe('#148bd2');
     document.documentElement.dataset.theme = 'dusk';
     expect(
       getComputedStyle(roseTile as Element)
         .getPropertyValue('--wind-true')
         .trim(),
     ).toBe('#ffe135');
+    expect(
+      getComputedStyle(roseTile as Element)
+        .getPropertyValue('--current-vector')
+        .trim(),
+    ).toBe('#36a9e8');
   });
 });

@@ -2,9 +2,12 @@
 import { onDestroy } from 'svelte';
 import { formatSignedAngleOr, prefersReducedMotion, RAD_TO_DEG } from '$shared/lib';
 import {
+  type CurrentVectorSample,
+  createCurrentVectorTracker,
   createWindAngleAnimator,
   createWindDirectionRangeTracker,
   createWindSectorTracker,
+  currentVectorOpacity,
   type WindDirectionRange,
   type WindSectorReference,
   windRoseSectorGeometry,
@@ -45,6 +48,8 @@ const {
   arcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
 }: Props = $props();
 const rose = $derived(reading.windRose);
+const currentTracker = createCurrentVectorTracker();
+let acceptedCurrent = $state<CurrentVectorSample>();
 let windDirectionRange = $state<WindDirectionRange>();
 const sectorGeometry = $derived(
   windRoseSectorGeometry(noGoAngleRad, windDirectionRange ?? arcMarginRad),
@@ -81,7 +86,7 @@ function angleText(metric: InstrumentMetric | undefined): string {
 
 const accessibleLabel = $derived(
   rose
-    ? `${label}. Heading ${metricText(rose.heading)}. True wind angle ${angleText(rose.trueWind)}. True wind speed ${metricText(rose.trueWind)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. ${actionLabel}`
+    ? `${label}. Heading ${metricText(rose.heading)}. True wind angle ${angleText(rose.trueWind)}. True wind speed ${metricText(rose.trueWind)}. Current set ${rose.current?.angleRad === undefined ? 'Unavailable' : `${Math.round((((rose.current.angleRad * RAD_TO_DEG) % 360) + 360) % 360)}° true`}. Current drift ${metricText(rose.current)}. Speed over ground ${metricText(rose.speedOverGround)}. Depth ${metricText(rose.depth)}${depthZone === 'alarm' ? ', alarm' : depthZone === 'warning' ? ', warning' : ''}${reading.state === 'stale' ? '. Wind data stale' : ''}. ${actionLabel}`
     : `${label}, ${sensorGloss}. ${actionLabel}`,
 );
 let displayedApparentRad = $state<number>();
@@ -109,6 +114,32 @@ const apparentDeg = $derived((displayedApparentRad ?? rose?.apparent.angleRad ??
 const trueDeg = $derived((displayedTrueRad ?? rose?.trueWind.angleRad ?? 0) * RAD_TO_DEG);
 const headingDeg = $derived((displayedHeadingRad ?? rose?.heading.siValue ?? 0) * RAD_TO_DEG);
 const cardRotation = $derived(-headingDeg);
+const rawCurrentSample = $derived.by((): CurrentVectorSample | undefined => {
+  if (
+    rose?.current?.state !== 'live' ||
+    rose.current.angleRad === undefined ||
+    rose.current.siValue === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    setTrueRad: rose.current.angleRad,
+    driftMps: rose.current.siValue,
+    epochMs: rose.current.angleEpoch ?? Date.now(),
+  };
+});
+const displayedCurrent = $derived(
+  rose?.current?.state === 'live' ? (acceptedCurrent ?? rawCurrentSample) : undefined,
+);
+const currentOpacity = $derived(currentVectorOpacity(displayedCurrent?.driftMps));
+const currentDeg = $derived(
+  displayedCurrent &&
+    rose?.heading.state === 'live' &&
+    rose.heading.referenceLabel !== 'M' &&
+    displayedHeadingRad !== undefined
+    ? (displayedCurrent.setTrueRad - displayedHeadingRad) * RAD_TO_DEG
+    : undefined,
+);
 const sectorTracker = createWindSectorTracker();
 const directionRangeTracker = createWindDirectionRangeTracker();
 let filteredSectorAngleRad = $state<number>();
@@ -131,6 +162,14 @@ const rawSectorReference = $derived.by(() => {
     };
   }
   return undefined;
+});
+$effect(() => {
+  const sample = rawCurrentSample;
+  if (!sample) {
+    acceptedCurrent = undefined;
+    return;
+  }
+  acceptedCurrent = currentTracker.push(sample.setTrueRad, sample.driftMps, sample.epochMs);
 });
 $effect(() => {
   const angleRad = rose?.apparent.angleRad;
@@ -183,6 +222,7 @@ $effect(() => {
   filteredSectorReference = next.reference;
 });
 onDestroy(() => {
+  currentTracker.reset();
   apparentAnimator.destroy();
   trueAnimator.destroy();
   headingAnimator.destroy();
@@ -315,6 +355,20 @@ const twaDigits = $derived(twaSide ? twaText.slice(2) : twaText);
           d="M500 260 C430 342 397 512 410 720 M500 260 C570 342 603 512 590 720"
         />
 
+        {#if currentDeg !== undefined && currentOpacity > 0}
+          <g
+            class="current-vector"
+            data-drift-mps={displayedCurrent?.driftMps.toFixed(3)}
+            data-set-true-degrees={displayedCurrent
+              ? ((displayedCurrent.setTrueRad * RAD_TO_DEG + 360) % 360).toFixed(1)
+              : undefined}
+            style:opacity={currentOpacity}
+            transform="rotate({currentDeg} 500 500)"
+          >
+            <path d="M500 292 V63 M471 102 L500 63 L529 102" />
+          </g>
+        {/if}
+
         {#if rose?.apparent.angleRad !== undefined}
           <g class="wind-pointer wind-pointer--apparent" transform="rotate({apparentDeg} 500 500)">
             <path
@@ -380,6 +434,7 @@ const twaDigits = $derived(twaSide ? twaText.slice(2) : twaText);
   --wind-starboard: #008700;
   --wind-apparent: #ff9100;
   --wind-true: #ffe135;
+  --current-vector: #148bd2;
   --wind-pointer-label: #170b00;
   --wind-dial: color-mix(in srgb, var(--text) 12%, var(--surface-raised));
   position: relative;
@@ -391,6 +446,7 @@ const twaDigits = $derived(twaSide ? twaText.slice(2) : twaText);
   --wind-starboard: #3fae6a;
   --wind-apparent: #ff9100;
   --wind-true: #ffe135;
+  --current-vector: #36a9e8;
   --wind-pointer-label: #0f1a24;
   --wind-dial: color-mix(in srgb, var(--text) 70%, var(--surface-raised));
 }
@@ -399,6 +455,7 @@ const twaDigits = $derived(twaSide ? twaText.slice(2) : twaText);
   --wind-starboard: #c05800;
   --wind-apparent: #e04900;
   --wind-true: #ff9f00;
+  --current-vector: #b83b1f;
   --wind-pointer-label: #1a0000;
   --wind-dial: color-mix(in srgb, var(--text-muted) 28%, var(--surface-raised));
 }
@@ -439,6 +496,13 @@ const twaDigits = $derived(twaSide ? twaText.slice(2) : twaText);
 .crosshair,
 .boat-outline {
   fill: none;
+}
+.current-vector {
+  fill: none;
+  stroke: var(--current-vector);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 17;
 }
 .wind-sector-fill {
   fill: var(--wind-port);

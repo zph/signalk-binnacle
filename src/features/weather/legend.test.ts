@@ -35,7 +35,8 @@ describe('weatherLegend', () => {
     expect(legend?.title).toBe('Ocean current (km/h)');
     expect(legend?.gradient).toMatch(/linear-gradient/);
     expect(legend?.lowLabel).toBe('0.0');
-    expect(legend?.highLabel).toBe('3.7');
+    expect(legend?.highLabel).toBe('3.7+');
+    expect(legend?.note).toMatch(/arrows point/i);
     expect(legend?.note).toMatch(/2 kn/i);
   });
 

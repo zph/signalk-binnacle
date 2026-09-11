@@ -35,6 +35,7 @@ import {
   RAD_TO_DEG,
   temperatureUnit,
 } from '$shared/lib';
+import { CURRENT_VECTOR_STALE_MS } from '$shared/nav';
 import type { MetaZone, SignalKStore } from '$shared/signalk';
 import { SK_PATHS } from '$shared/signalk';
 import type { ShallowAheadMonitor } from './shallow-ahead.svelte';
@@ -79,6 +80,7 @@ export interface TileReading {
     heading: InstrumentMetric;
     speedOverGround: InstrumentMetric;
     depth: InstrumentMetric;
+    current?: InstrumentMetric;
   };
   pitchRad?: number;
   rollRad?: number;
@@ -214,6 +216,10 @@ export const TILE_STALE_MS = 10_000;
 
 const MIN_PERIOD_BY_PATH: ReadonlyMap<string, number> = new Map([
   [SK_PATHS.headingTrue, 200],
+  [SK_PATHS.currentDrift, 60_000],
+  [SK_PATHS.currentSetTrue, 60_000],
+  [SK_PATHS.currentSetMagnetic, 60_000],
+  [SK_PATHS.magneticVariation, 60_000],
   [SK_PATHS.outsidePressure, 5000],
 ]);
 
@@ -257,14 +263,18 @@ export function trendDescriptorFor(
 // Structural alias avoids importing PathCell from the shared/signalk internal file.
 type PathCell = ReturnType<SignalKStore['cell']>;
 
-function grade(cell: PathCell, clock: ReactiveClock): TileValueState {
+function grade(
+  cell: PathCell,
+  clock: ReactiveClock,
+  fallbackStaleMs = TILE_STALE_MS,
+): TileValueState {
   // A server stale declaration outranks the client window: the server enforced the path's own
   // meta.timeout, so the tile must not read live off a value the server has disowned.
   if (cell.serverStale !== undefined) return 'stale';
   if (cell.epoch === 0) return 'never';
   // A path's declared meta.timeout (carried on the cell once its meta loads) replaces the client
   // default, so a legitimately slow sensor is not flashed stale at ten seconds.
-  if (clock.now - cell.epoch > (cell.staleWindowMs ?? TILE_STALE_MS)) return 'stale';
+  if (clock.now - cell.epoch > (cell.staleWindowMs ?? fallbackStaleMs)) return 'stale';
   return cell.value === undefined ? 'placeholder' : 'live';
 }
 
@@ -771,7 +781,7 @@ const WIND_ROSE_DEF: TileDef = {
   label: 'Wind rose',
   abbr: 'WIND',
   description:
-    'Apparent and true wind on one bow-up rose. Sailing sectors follow filtered true wind, with apparent wind as a fallback.',
+    'Apparent wind, true wind, and live current on one bow-up rose. Sailing sectors follow filtered true wind, with apparent wind as a fallback.',
   sensorGloss: 'No wind data',
   paths: [
     ...new Set([
@@ -780,6 +790,10 @@ const WIND_ROSE_DEF: TileDef = {
       ...HDG_DEF.paths,
       ...SOG_DEF.paths,
       ...DEPTH_DEF.paths,
+      SK_PATHS.currentDrift,
+      SK_PATHS.currentSetTrue,
+      SK_PATHS.currentSetMagnetic,
+      SK_PATHS.magneticVariation,
     ]),
   ],
   zonesPath: SK_PATHS.windSpeedApparent,
@@ -793,6 +807,37 @@ const WIND_ROSE_DEF: TileDef = {
     const heading = HDG_DEF.read(deps);
     const speedOverGround = SOG_DEF.read(deps);
     const depth = DEPTH_DEF.read(deps);
+    const driftCell = deps.store.cell(SK_PATHS.currentDrift);
+    const trueSetCell = deps.store.cell(SK_PATHS.currentSetTrue);
+    const magneticSetCell = deps.store.cell(SK_PATHS.currentSetMagnetic);
+    const variationCell = deps.store.cell(SK_PATHS.magneticVariation);
+    const usesTrueSet = trueSetCell.epoch > 0;
+    const currentCells = usesTrueSet
+      ? [driftCell, trueSetCell]
+      : [driftCell, magneticSetCell, variationCell];
+    const currentStates = currentCells.map((cell) =>
+      grade(cell, deps.clock, CURRENT_VECTOR_STALE_MS),
+    );
+    const currentDrift = deps.vessel.currentDriftMps;
+    const currentSetTrue = deps.vessel.currentSetTrueRad;
+    const currentState: TileValueState = currentStates.includes('stale')
+      ? 'stale'
+      : currentDrift !== undefined && currentSetTrue !== undefined
+        ? 'live'
+        : currentStates.every((candidate) => candidate === 'never')
+          ? 'never'
+          : 'placeholder';
+    const currentReading: TileReading = {
+      state: currentState,
+      value: formatKnotsOr(currentDrift),
+      unit: 'kn',
+      siValue: currentDrift,
+      angleRad: currentSetTrue,
+      angleEpoch: Math.max(
+        deps.vessel.currentDriftEpochMs ?? 0,
+        deps.vessel.currentSetTrueEpochMs ?? 0,
+      ),
+    };
     const depthDisplayValue =
       deps.units.mode === 'imperial' ? metersToFeet(depth.siValue) : depth.siValue;
     const windStates = [apparent.state, trueWind.state];
@@ -816,6 +861,10 @@ const WIND_ROSE_DEF: TileDef = {
           metersPerSecondToKnots(speedOverGround.siValue),
         ),
         depth: windRoseNumericMetric(depth, depthDisplayValue),
+        current: windRoseNumericMetric(
+          currentReading,
+          metersPerSecondToKnots(currentReading.siValue),
+        ),
       },
     };
   },

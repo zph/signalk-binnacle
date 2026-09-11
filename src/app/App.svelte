@@ -524,16 +524,16 @@ let weatherPanelOpen = $state(false);
 // stream connects. When set, the weather panel prefers the provider for point data and falls back to
 // the free grid; when undefined (no provider configured), the grid answers.
 let weatherProvider = $state<WeatherProvider | undefined>();
-// The panel's own weather-layer visibility, separate from the nav chart. Default wind and
-// waves and currents on so the first open shows something without hunting through toggles. The panel carries no
-// persisted view of its own: it always opens where the nav chart is looking.
+// The panel's own weather-layer visibility, separate from the nav chart. Default wind and waves
+// on so the first open shows something without hunting through toggles. Forecast-current arrows
+// remain available as an explicit overlay. The panel carries no persisted view of its own: it
+// always opens where the nav chart is looking.
 const weatherLayerSettings = new PersistedValue<LayerSettings>(
   binnacleStorageKey('weatherLayers'),
   {
     [WEATHER_LAYER_IDS.wind]: { ...DEFAULT_OVERLAY_STATE },
     [WEATHER_LAYER_IDS.observedWind]: { ...DEFAULT_OVERLAY_STATE },
     [WEATHER_LAYER_IDS.waves]: { visible: true, opacity: 0.7 },
-    [WEATHER_LAYER_IDS.current]: { visible: true, opacity: 0.72 },
   },
   undefined,
   layerSettingsCodec,
@@ -2947,17 +2947,17 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     {
       id: 'ocean-current-overlay',
       label:
-        (layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? true)
+        (layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? false)
           ? 'Hide ocean currents'
           : 'Show ocean currents',
-      description: 'Show modeled current speed as a red overlay on the main chart',
+      description: 'Show modeled current set as red arrows on the main chart',
       group: 'Weather',
       keywords: ['ocean', 'current', 'speed', 'forecast', 'overlay', 'layer'],
       icon: Waves,
       onSelect: () =>
         setLayerVisible(
           WEATHER_LAYER_IDS.current,
-          !(layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? true),
+          !(layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? false),
         ),
     },
     {

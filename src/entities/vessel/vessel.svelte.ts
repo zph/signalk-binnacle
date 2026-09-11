@@ -1,5 +1,6 @@
 import { asNumber, isLatLon, type LatLon, parseLatLonKey, quantizeLatLonKey } from '$shared/geo';
 import type { ReactiveClock } from '$shared/lib';
+import { CURRENT_VECTOR_STALE_MS } from '$shared/nav';
 import { predatesReconnect, type SignalKStore, SK_PATHS } from '$shared/signalk';
 
 // How long the own-vessel fix may go without a position update before it is treated as lost. The
@@ -74,6 +75,10 @@ export class OwnVessel {
       SK_PATHS.windAngleTrueWater,
       SK_PATHS.windAngleTrueGround,
       SK_PATHS.windDirectionTrue,
+      SK_PATHS.currentDrift,
+      SK_PATHS.currentSetTrue,
+      SK_PATHS.currentSetMagnetic,
+      SK_PATHS.magneticVariation,
       SK_PATHS.outsidePressure,
     ]);
   }
@@ -113,6 +118,21 @@ export class OwnVessel {
     return this.#num(SK_PATHS.windDirectionTrue);
   }
 
+  get currentDriftMps(): number | undefined {
+    return this.#num(SK_PATHS.currentDrift);
+  }
+
+  // Signal K current set is the direction the water moves toward. Prefer its true bearing. A
+  // magnetic-only provider can still produce a true set when variation is available.
+  get currentSetTrueRad(): number | undefined {
+    if (this.#store.cell(SK_PATHS.currentSetTrue).epoch > 0) {
+      return this.#num(SK_PATHS.currentSetTrue);
+    }
+    const magnetic = this.#num(SK_PATHS.currentSetMagnetic);
+    const variation = this.#num(SK_PATHS.magneticVariation);
+    return magnetic === undefined || variation === undefined ? undefined : magnetic + variation;
+  }
+
   get headingEpochMs(): number | undefined {
     return this.#epoch(SK_PATHS.headingTrue);
   }
@@ -131,6 +151,20 @@ export class OwnVessel {
 
   get windDirectionTrueEpochMs(): number | undefined {
     return this.#epoch(SK_PATHS.windDirectionTrue);
+  }
+
+  get currentDriftEpochMs(): number | undefined {
+    return this.#epoch(SK_PATHS.currentDrift);
+  }
+
+  get currentSetTrueEpochMs(): number | undefined {
+    const trueEpoch = this.#epoch(SK_PATHS.currentSetTrue);
+    if (trueEpoch !== undefined) return trueEpoch;
+    const magneticEpoch = this.#epoch(SK_PATHS.currentSetMagnetic);
+    const variationEpoch = this.#epoch(SK_PATHS.magneticVariation);
+    return magneticEpoch === undefined || variationEpoch === undefined
+      ? undefined
+      : Math.max(magneticEpoch, variationEpoch);
   }
 
   // Outside air pressure in Pascals (SI), when a barometer publishes it.
@@ -223,6 +257,8 @@ export class OwnVessel {
   #windAngleTrueWaterStale = $derived(this.#pathStale(SK_PATHS.windAngleTrueWater));
   #windAngleTrueGroundStale = $derived(this.#pathStale(SK_PATHS.windAngleTrueGround));
   #windDirectionTrueStale = $derived(this.#pathStale(SK_PATHS.windDirectionTrue));
+  #currentDriftStale = $derived(this.#pathStale(SK_PATHS.currentDrift, CURRENT_VECTOR_STALE_MS));
+  #currentSetTrueStale = $derived(this.#resolvedCurrentSetStale());
   #pressureStale = $derived(this.#pathStale(SK_PATHS.outsidePressure));
 
   get positionStale(): boolean {
@@ -259,6 +295,14 @@ export class OwnVessel {
     return this.#windDirectionTrueStale;
   }
 
+  get currentDriftStale(): boolean {
+    return this.#currentDriftStale;
+  }
+
+  get currentSetTrueStale(): boolean {
+    return this.#currentSetTrueStale;
+  }
+
   get pressureStale(): boolean {
     return this.#pressureStale;
   }
@@ -292,6 +336,13 @@ export class OwnVessel {
     return this.#transducerDepthStale;
   }
 
+  #resolvedCurrentSetStale(): boolean {
+    return this.#store.cell(SK_PATHS.currentSetTrue).epoch > 0
+      ? this.#pathStale(SK_PATHS.currentSetTrue, CURRENT_VECTOR_STALE_MS)
+      : this.#pathStale(SK_PATHS.currentSetMagnetic, CURRENT_VECTOR_STALE_MS) ||
+          this.#pathStale(SK_PATHS.magneticVariation, CURRENT_VECTOR_STALE_MS);
+  }
+
   #raw(path: string): unknown {
     return this.#store.cell(path).value;
   }
@@ -307,7 +358,7 @@ export class OwnVessel {
     return epoch > 0 ? epoch : undefined;
   }
 
-  #pathStale(path: string): boolean {
+  #pathStale(path: string, fallbackWindowMs = VESSEL_DATA_STALE_MS): boolean {
     const cell = this.#store.cell(path);
     // A server stale declaration is a fact, not a window: it holds with no clock wired and
     // regardless of how recently the declaration itself arrived.
@@ -315,6 +366,6 @@ export class OwnVessel {
     if (predatesReconnect(cell, this.#store.generation)) return true;
     if (!this.#clock) return false;
     const epoch = cell.epoch;
-    return epoch > 0 && this.#clock.now - epoch > VESSEL_DATA_STALE_MS;
+    return epoch > 0 && this.#clock.now - epoch > fallbackWindowMs;
   }
 }

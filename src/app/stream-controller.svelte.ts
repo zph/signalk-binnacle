@@ -54,6 +54,12 @@ const SUBSCRIPTIONS = [
   { path: SK_PATHS.windAngleTrueWater, policy: 'instant' as const, minPeriod: 500 },
   { path: SK_PATHS.windAngleTrueGround, policy: 'instant' as const, minPeriod: 500 },
   { path: SK_PATHS.windDirectionTrue, policy: 'instant' as const, minPeriod: 500 },
+  // The current vector is intentionally slow-moving display context. Sampling set and drift once
+  // per minute avoids churning the rose while heading continues to rotate it at helm cadence.
+  { path: SK_PATHS.currentDrift, policy: 'instant' as const, minPeriod: 60_000 },
+  { path: SK_PATHS.currentSetTrue, policy: 'instant' as const, minPeriod: 60_000 },
+  { path: SK_PATHS.currentSetMagnetic, policy: 'instant' as const, minPeriod: 60_000 },
+  { path: SK_PATHS.magneticVariation, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.outsidePressure, policy: 'instant' as const, minPeriod: 5000 },
   { path: SK_PATHS.name, policy: 'instant' as const, minPeriod: 5000 },
   { path: SK_PATHS.mmsi, policy: 'instant' as const, minPeriod: 5000 },

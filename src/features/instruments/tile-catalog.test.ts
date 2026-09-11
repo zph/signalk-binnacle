@@ -635,6 +635,8 @@ describe('wind rose tile', () => {
           [SK_PATHS.headingTrue]: 1.2,
           [SK_PATHS.speedOverGround]: 3,
           [SK_PATHS.depthBelowKeel]: 1.8,
+          [SK_PATHS.currentDrift]: knotsToMetersPerSecond(1.4),
+          [SK_PATHS.currentSetTrue]: 2.1,
         },
         1000,
       ),
@@ -650,6 +652,9 @@ describe('wind rose tile', () => {
     expect(reading.windRose?.speedOverGround.siValue).toBe(3);
     expect(reading.windRose?.depth.value).toBe('1.8');
     expect(reading.windRose?.depth.referenceLabel).toBe('Keel');
+    expect(reading.windRose?.current?.value).toBe('1.4');
+    expect(reading.windRose?.current?.angleRad).toBe(2.1);
+    expect(reading.windRose?.current?.angleEpoch).toBe(1000);
   });
 
   it('stays live when only true wind is available', () => {

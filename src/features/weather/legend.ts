@@ -120,18 +120,21 @@ export function weatherLegend(
         ),
         note: `color shows sustained wind; barbs show direction; labels show gust speed in ${speedUnit}`,
       };
-    case WEATHER_LAYER_IDS.current:
+    case WEATHER_LAYER_IDS.current: {
+      const legend = rampLegend(
+        layerId,
+        `Ocean current (${speedUnit})`,
+        CURRENT_STOPS,
+        (speed) => currentColor(speed, theme),
+        (speed) => formatSpeedOr(speed, speedUnit, 1),
+        true,
+      );
       return {
-        ...rampLegend(
-          layerId,
-          `Ocean current (${speedUnit})`,
-          CURRENT_STOPS,
-          (speed) => currentColor(speed, theme),
-          (speed) => formatSpeedOr(speed, speedUnit, 1),
-          true,
-        ),
-        note: 'red opacity shows modeled speed through 2 kn; the local NOAA arrow points toward the predicted set',
+        ...legend,
+        highLabel: `${legend.highLabel}+`,
+        note: 'arrows point toward the set; red opacity shows modeled speed through 2 kn; the labeled arrow is the nearest NOAA prediction',
       };
+    }
     case WEATHER_LAYER_IDS.temperature:
       return rampLegend(
         layerId,

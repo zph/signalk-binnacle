@@ -115,6 +115,8 @@ describe('createStreamController', () => {
       expect.arrayContaining([
         { path: SK_PATHS.chartResourcesAll, policy: 'instant', minPeriod: 1000 },
         { path: SK_PATHS.position, policy: 'instant', minPeriod: 1000 },
+        { path: SK_PATHS.currentDrift, policy: 'instant', minPeriod: 60_000 },
+        { path: SK_PATHS.currentSetTrue, policy: 'instant', minPeriod: 60_000 },
         { path: SK_PATHS.name, policy: 'instant', minPeriod: 5000 },
         { path: SK_PATHS.mmsi, policy: 'instant', minPeriod: 5000 },
         { path: SK_PATHS.callsignVhf, policy: 'instant', minPeriod: 5000 },

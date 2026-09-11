@@ -402,18 +402,18 @@ onMount(() => {
       saved: savedLayers,
       onChange: onLayersChange,
       // The area fills are mutually exclusive: one at a time so they do not stack into mud. Ocean
-      // currents, wind arrows, and pressure isobars stay freely combinable on top.
+      // current arrows, wind arrows, and pressure isobars stay freely combinable on top.
       exclusive: [WEATHER_FILL_IDS],
     },
     onClick: (lngLat) => void pointReadout.onTap(lngLat.lng, lngLat.lat),
     onLoad: async ({ map, manager, recolor: recolorFn, isDestroyed, runTick }) => {
-      // Band order, bottom to top: the waves height field sits at the bottom, then currents,
-      // precip, cloud, and radar, with wind arrows and pressure isobars drawn over them.
+      // Band order, bottom to top: the waves height field sits at the bottom, then precipitation,
+      // cloud, and radar, with current arrows, wind arrows, and pressure isobars drawn over them.
       // The routes band sits above the weather band, so the shown and active routes read over the
       // fields; unlisted, so route context is not a weather layer to toggle or persist here.
       const overlays = [
         createWavesOverlay(store),
-        createCurrentOverlay(store, tides, undefined, () => units.speedUnit),
+        createCurrentOverlay(store, tides, () => units.speedUnit),
         createPrecipOverlay(store),
         createCloudOverlay(store),
         createRadarOverlay(store, undefined, undefined, (t) => (radarFrameTime = t)),

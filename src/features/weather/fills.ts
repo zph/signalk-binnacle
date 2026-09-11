@@ -32,8 +32,8 @@ export const CHART_GRID_LAYER_IDS = [
 ] as const;
 
 // The weather area-fill layer ids. These are mutually exclusive (one fill at a time): the
-// LayerManager enforces it and the Weather panel groups them. Wind and pressure are combinable
-// overlays, and the translucent current field is an independent overlay, not a fill.
+// LayerManager enforces it and the Weather panel groups them. Wind, current arrows, and pressure
+// are combinable overlays, not fills.
 export const WEATHER_FILL_IDS: string[] = [
   WEATHER_LAYER_IDS.waves,
   WEATHER_LAYER_IDS.precip,
