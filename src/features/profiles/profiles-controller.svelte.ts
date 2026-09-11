@@ -27,6 +27,10 @@ interface PendingAutosave {
   keys: Set<PortableProfileSettingKey>;
 }
 
+function cloneValue<T>(value: T): T {
+  return structuredClone($state.snapshot(value)) as T;
+}
+
 export function createProfilesController(deps: ProfilesControllerDeps) {
   const autosaveMs = deps.autosaveMs ?? 350;
   let applying = false;
@@ -77,7 +81,7 @@ export function createProfilesController(deps: ProfilesControllerDeps) {
     const effective = { ...settings };
     const mutable = effective as unknown as Record<string, unknown>;
     for (const key of DISPLAY_PROFILE_SETTING_KEYS) {
-      if (Object.hasOwn(source.settings, key)) mutable[key] = structuredClone(source.settings[key]);
+      if (Object.hasOwn(source.settings, key)) mutable[key] = cloneValue(source.settings[key]);
       else delete mutable[key];
     }
     return effective;
@@ -216,7 +220,7 @@ export function createProfilesController(deps: ProfilesControllerDeps) {
         legacyLayout &&
         legacyLayout.length > 0
       ) {
-        migrated.instrumentScreenLayout = structuredClone(legacyLayout);
+        migrated.instrumentScreenLayout = cloneValue(legacyLayout);
         keys.push('instrumentScreenLayout');
       }
       if (
