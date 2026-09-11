@@ -16,6 +16,9 @@ This repository is a fork of Nearl Crews'
 [upstream Binnacle Chartplotter](https://github.com/NearlCrews/signalk-binnacle). Thank you to Nearl
 and the upstream contributors for the foundation this work builds on.
 
+I am happy to upstream changes that prove useful beyond this fork. I have been iterating here first
+to learn which ideas hold up and what shape makes sense before proposing them upstream.
+
 This inventory compares the fork with
 [`upstream/main` at `9b8bf071`](https://github.com/NearlCrews/signalk-binnacle/commit/9b8bf071e6247e35fbc3c0ca4fe6d5b44cac52dc).
 The histories diverged after
