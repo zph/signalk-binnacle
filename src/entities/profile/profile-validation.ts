@@ -10,6 +10,7 @@ import {
 } from '$shared/lib';
 import type { LayerSettings } from '$shared/map';
 import {
+  isFloatingInstrumentBoxes,
   isThresholds,
   isTrackSettings,
   isWeatherSourceId,
@@ -330,6 +331,18 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   if (
     value.instrumentTileLayouts !== undefined &&
     !validInstrumentTileLayouts(value.instrumentTileLayouts)
+  )
+    return false;
+  if (
+    value.instrumentScreenLayout !== undefined &&
+    !isFloatingInstrumentBoxes(value.instrumentScreenLayout)
+  )
+    return false;
+  if (
+    value.instrumentOverlayOpacity !== undefined &&
+    (!isFiniteNumber(value.instrumentOverlayOpacity) ||
+      value.instrumentOverlayOpacity < 0.2 ||
+      value.instrumentOverlayOpacity > 1)
   )
     return false;
   if (

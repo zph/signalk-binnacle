@@ -1186,8 +1186,8 @@ const instrumentDockWidthStore = new PersistedValue<number>(
   undefined,
   boundedNumberPersistedCodec(MIN_INSTRUMENT_DOCK_WIDTH_PX, MAX_INSTRUMENT_DOCK_WIDTH_PX),
 );
-// Instruments placed freely over the chart in screen edit mode. Device scope, like the dock's
-// own open state and width: the layout belongs to the helm, never to a profile.
+// Instruments placed freely over the chart in screen edit mode. The profile binding carries the
+// selected instruments and normalized positions between displays.
 const instrumentScreenLayout = new PersistedValue<FloatingInstrumentBox[]>(
   binnacleStorageKey('instrumentScreenLayout'),
   [],
@@ -1199,6 +1199,14 @@ const instrumentOverlayOpacity = new PersistedValue<number>(
   1,
   undefined,
   boundedNumberPersistedCodec(0.2, 1),
+);
+// This is intentionally device-local: one helm may keep its presentation sourced from a dedicated
+// profile while another device follows whichever operational profile it selects.
+const profileDisplaySource = new PersistedValue<string>(
+  binnacleStorageKey('profileDisplaySource'),
+  '',
+  undefined,
+  createPersistedCodec((value): value is string => typeof value === 'string'),
 );
 let instrumentDockWidth = $state(untrack(() => instrumentDockWidthStore.value));
 let instrumentsPanelRequested = $state(false);
@@ -1501,6 +1509,8 @@ const profileBindings = createProfileBindings({
   pinnedActions,
   instrumentTiles,
   instrumentTileLayouts,
+  instrumentScreenLayout,
+  instrumentOverlayOpacity,
   windRoseNoGoAngleRad,
   windRoseArcMarginRad,
   trendInstruments,
@@ -1526,6 +1536,10 @@ const profilesController = createProfilesController({
   store: profileStore,
   bindings: profileBindings,
   applyRuntime: applyProfileRuntime,
+  displaySource: {
+    get: () => profileDisplaySource.value || undefined,
+    set: (id) => profileDisplaySource.set(id ?? ''),
+  },
 });
 
 $effect(() => profilesController.observeSettings());
@@ -4380,6 +4394,7 @@ const plotterActions = {
             profiles={profileStore.profiles}
             activeId={profileStore.activeId}
             defaultId={profileStore.defaultId}
+            displaySourceId={profileDisplaySource.value || undefined}
             syncState={profileStore.syncState}
             remoteUpdateAvailable={profileStore.remoteUpdateAvailable}
             remoteUpdateChanges={profileStore.remoteUpdateChanges}
@@ -4391,6 +4406,7 @@ const plotterActions = {
             onRename={(id, name) => profileStore.rename(id, name)}
             onRemove={profilesController.remove}
             onSetDefault={(id) => profileStore.setDefault(id)}
+            onSetDisplaySource={profilesController.setDisplaySource}
             onExport={onExportProfile}
             onImport={onImportProfiles}
             onForgetCredentials={forgetDeviceCredentials}

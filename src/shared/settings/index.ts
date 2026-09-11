@@ -1,5 +1,15 @@
 export type { MapView } from '$shared/geo';
 export {
+  type FloatingInstrumentBox,
+  floatingInstrumentBoxesCodec,
+  isFloatingInstrumentBox,
+  isFloatingInstrumentBoxes,
+  MAX_FLOATING_INSTRUMENTS,
+  MIN_FLOATING_HEIGHT,
+  MIN_FLOATING_WIDTH,
+  sanitizeFloatingInstrumentBox,
+} from './floating-instruments';
+export {
   DEFAULT_MAP_RENDERING_QUALITY,
   MAP_RENDERING_QUALITIES,
   type MapRenderingQuality,

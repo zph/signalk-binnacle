@@ -43,6 +43,9 @@ interface Props {
   profiles: Profile[];
   activeId: string | undefined;
   defaultId: string | undefined;
+  // Device-local source for presentation settings. The active profile still owns operational
+  // settings while this is set.
+  displaySourceId: string | undefined;
   syncState: ProfileSyncState;
   remoteUpdateAvailable: boolean;
   // Which portable settings the pending remote update would change, so the prompt is not a blind
@@ -56,6 +59,7 @@ interface Props {
   onRename: (id: string, name: string) => void;
   onRemove: (id: string) => void;
   onSetDefault: (id: string) => void;
+  onSetDisplaySource: (id: string | undefined) => void;
   // Download a profile as a JSON file, and import profiles from the text of a JSON file.
   onExport: (id: string) => void;
   onImport: (profiles: ImportedProfile[]) => number;
@@ -73,6 +77,7 @@ const {
   profiles,
   activeId,
   defaultId,
+  displaySourceId,
   syncState,
   remoteUpdateAvailable,
   remoteUpdateChanges,
@@ -84,6 +89,7 @@ const {
   onRename,
   onRemove,
   onSetDefault,
+  onSetDisplaySource,
   onExport,
   onImport,
   onForgetCredentials,
@@ -149,7 +155,7 @@ function useProfile(id: string): void {
 
 <SlideOver
   title="Profiles"
-  subtitle="Changes save to the active profile automatically."
+  subtitle="Changes save to their source profile automatically."
   bodyFlex
   closeLabel="Close profiles panel"
   {onClose}
@@ -197,6 +203,31 @@ function useProfile(id: string): void {
     A profile is a named helm setup. Changes to the active profile save automatically, while each
     device chooses which profile it uses.
   </p>
+  <section class="panel-section display-source" aria-labelledby="display-source-heading">
+    <h3 id="display-source-heading" class="caps-label">Display profile</h3>
+    <p class="muted-note">
+      Pin this device's chart overlays, orientation, toolbar, instrument dock, Data trends, and
+      floating chart instruments, positions, and opacity to one profile. Alarms, route planning,
+      track recording, and anchor settings still follow the active profile.
+    </p>
+    <label for="display-profile-source">Presentation source</label>
+    <select
+      id="display-profile-source"
+      value={displaySourceId ?? ''}
+      onchange={(event) =>
+        onSetDisplaySource((event.currentTarget as HTMLSelectElement).value || undefined)}
+    >
+      <option value="">Follow active profile</option>
+      {#each profiles as profile (profile.id)}
+        <option value={profile.id}>{profile.name}</option>
+      {/each}
+    </select>
+    {#if displaySourceId}
+      <p class="muted-note" role="status">
+        Display setup stays pinned when you switch the active profile on this device.
+      </p>
+    {/if}
+  </section>
   {#if remoteUpdateAvailable}
     <div class="alert-note remote-update">
       <p role="status">
@@ -270,6 +301,7 @@ function useProfile(id: string): void {
     {#snippet card(profile)}
       {@const isActive = profile.id === activeId}
       {@const isDefault = profile.id === defaultId}
+      {@const isDisplaySource = profile.id === displaySourceId}
       <div class="card-head">
         <span class="name">{profile.name}</span>
         {#if isDefault}
@@ -277,6 +309,9 @@ function useProfile(id: string): void {
         {/if}
         {#if isActive}
           <span class="badge">Active here</span>
+        {/if}
+        {#if isDisplaySource}
+          <span class="caps-label tag">Display pinned</span>
         {/if}
       </div>
       {#if naming?.mode === 'rename' && naming.id === profile.id}
@@ -412,6 +447,13 @@ function useProfile(id: string): void {
   gap: var(--space-2);
 }
 .remote-update p {
+  margin: 0;
+}
+.display-source {
+  display: grid;
+  gap: var(--space-2);
+}
+.display-source p {
   margin: 0;
 }
 /* The import error uses the global .alert-note rule; the armed delete confirm comes from the

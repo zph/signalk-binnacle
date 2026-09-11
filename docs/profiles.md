@@ -23,7 +23,8 @@ A profile contains:
 - planning speed;
 - the local units fallback used when server unit preferences are unavailable;
 - bottom-toolbar pins;
-- instrument selection and order;
+- instrument dock selection, order, and tile size;
+- floating chart instrument selection, position, size, and opacity;
 - Data trends selection and order, including an intentionally empty selection; and
 - the preferred radius for the next anchor drop.
 
@@ -40,11 +41,25 @@ and Speed over ground in that order. A profile can deliberately save no trends. 
 instrument IDs remain in the profile when their sensor is offline, so the selection returns when
 the instrument is discovered again.
 
+## Pinning this device's display setup
+
+The Profiles panel can pin one profile as this device's presentation source. While pinned, switching
+the active operational profile does not replace the pinned profile's theme, chart and weather
+overlays, layer order, chart orientation, AIS presentation, toolbar pins, instrument dock, Data
+trends, wind rose display settings, or floating chart instruments and positions. Edits to those
+presentation settings save back to the pinned profile.
+
+Collision and depth thresholds, route-planning speed, track-recording settings, and the preferred
+anchor radius continue to follow the active operational profile. The display-source selection is
+device-local, so one helm can stay pinned without changing another station. Selecting **Follow
+active profile** returns every setting to the active profile.
+
 ## What stays on this device
 
 Each browser keeps its own active profile. Selecting a profile on a tablet does not switch the helm
-display running in another browser. The chart center and zoom, instrument-dock open state, layer
-category disclosure, panel layout, dismissed hints, and similar browser chrome also stay local.
+display running in another browser. The chart center and zoom, instrument-dock open state and width,
+display-profile pin, layer category disclosure, panel layout, dismissed hints, and similar browser
+chrome also stay local.
 Map rendering quality also stays here because it reflects this display's pixel density and graphics
 capability. Basemap detail facets remain in the profile because they describe the navigator's
 preferred chart content.
@@ -150,4 +165,5 @@ binding table.
 
 The local profile library and mutation journal use the profile-scoped `binnacle:profiles` record.
 Device-local active selection and last-applied settings use the separate device-scoped
-`binnacle:profile-device` record.
+`binnacle-custom:profile-device` record. The pinned display source uses
+`binnacle-custom:profile-display-source`.

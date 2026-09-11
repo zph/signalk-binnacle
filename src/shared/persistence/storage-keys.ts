@@ -60,15 +60,15 @@ const BINNACLE_STORAGE_KEYS = {
   instrumentsOpen: { key: 'binnacle-custom:instruments-open', scope: 'device' },
   interfaceLocked: { key: 'binnacle-custom:interface-locked', scope: 'device' },
   instrumentDockWidth: { key: 'binnacle-custom:instrument-dock-width', scope: 'device' },
-  // Instruments placed freely over the chart in screen edit mode. Device scope like the dock's
-  // open state and width: helm chrome and layout, never carried in a profile.
+  // Instruments placed freely over the chart in screen edit mode, carried in a profile along with
+  // dock and trend selections.
   instrumentScreenLayout: {
     key: 'binnacle-custom:instrument-screen-layout',
-    scope: 'device',
+    scope: 'profile',
   },
   instrumentOverlayOpacity: {
     key: 'binnacle-custom:instrument-overlay-opacity',
-    scope: 'device',
+    scope: 'profile',
   },
   aisRadarRangeNm: { key: 'binnacle-custom:ais-radar-range-nm', scope: 'device' },
   layerCategories: { key: 'binnacle-custom:layer-categories', scope: 'device' },
@@ -79,6 +79,10 @@ const BINNACLE_STORAGE_KEYS = {
   mob: { key: 'binnacle-custom:mob', scope: 'safety' },
   profiles: { key: 'binnacle-custom:profiles', scope: 'profile' },
   profileDevice: { key: 'binnacle-custom:profile-device', scope: 'device' },
+  profileDisplaySource: {
+    key: 'binnacle-custom:profile-display-source',
+    scope: 'device',
+  },
   signalkAuth: { key: 'binnacle-custom:signalk-auth', scope: 'credential' },
   chartActionsHint: { key: 'binnacle-custom:chart-actions-hint', scope: 'device' },
   // The first-run orientation was dismissed on this device; Help reopens it on demand.

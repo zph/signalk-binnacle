@@ -31,6 +31,7 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
       profiles: profiles(1),
       activeId: 'p0',
       defaultId: undefined,
+      displaySourceId: undefined,
       syncState: 'local',
       remoteUpdateAvailable: false,
       remoteUpdateChanges: [],
@@ -42,6 +43,7 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
       onRename: vi.fn(),
       onRemove: vi.fn(),
       onSetDefault: vi.fn(),
+      onSetDisplaySource: vi.fn(),
       onExport: vi.fn(),
       onImport: vi.fn(),
       onForgetCredentials: vi.fn(),
@@ -136,5 +138,15 @@ describe('ProfilesPanel', () => {
     const body = renderPanel({ profiles: [], activeId: undefined });
 
     expect(body).toContain('then select Save current as profile');
+  });
+
+  it('offers a device-local display source and identifies the pinned profile', () => {
+    const body = renderPanel({ displaySourceId: 'p0' });
+
+    expect(body).toContain('Presentation source');
+    expect(body).toContain('Follow active profile');
+    expect(body).toContain('Display pinned');
+    expect(body).toContain('route planning');
+    expect(body).toContain('anchor settings still follow the active profile');
   });
 });

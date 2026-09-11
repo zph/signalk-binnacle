@@ -30,6 +30,40 @@ describe('isProfileSettings layer settings', () => {
       false,
     );
   });
+
+  it('accepts bounded floating chart layouts and opacity', () => {
+    expect(
+      isProfileSettings(
+        settings({
+          instrumentScreenLayout: [
+            { id: 'wind-rose-following', x: 0.7, y: 0.1, width: 0.2, height: 0.3 },
+          ],
+          instrumentOverlayOpacity: 0.65,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects floating chart instruments outside the chart and duplicate ids', () => {
+    expect(
+      isProfileSettings(
+        settings({
+          instrumentScreenLayout: [{ id: 'wind', x: 0.9, y: 0.1, width: 0.2, height: 0.2 }],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isProfileSettings(
+        settings({
+          instrumentScreenLayout: [
+            { id: 'wind', x: 0, y: 0, width: 0.2, height: 0.2 },
+            { id: 'wind', x: 0.3, y: 0, width: 0.2, height: 0.2 },
+          ],
+        }),
+      ),
+    ).toBe(false);
+    expect(isProfileSettings(settings({ instrumentOverlayOpacity: 0.1 }))).toBe(false);
+  });
   it('accepts layer entries carrying displayDepth and cellPortrayal', () => {
     const layers: LayerSettings = {
       cells: {

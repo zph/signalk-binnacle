@@ -40,6 +40,17 @@ export interface ProfileSettings {
   // Per-tile footprint in the two-column dock grid. Optional for profiles saved before tiles
   // could be resized; absent entries use the normal one-cell footprint.
   instrumentTileLayouts?: Record<string, 'normal' | 'wide' | 'tall' | 'large'>;
+  // Instruments placed over the chart, including their normalized position and size. Optional for
+  // profiles saved before chart instruments became portable.
+  instrumentScreenLayout?: Array<{
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>;
+  // Opacity of instruments placed over the chart. Optional for older profiles; absent reads as 1.
+  instrumentOverlayOpacity?: number;
   // Total port-to-starboard wind rose no-go sector in radians. Optional for older profiles.
   windRoseNoGoAngleRad?: number;
   // Per-side margin around each wind rose limit line in radians. Optional for older profiles.
@@ -78,11 +89,39 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'pinnedActionIds',
   'instrumentTiles',
   'instrumentTileLayouts',
+  'instrumentScreenLayout',
+  'instrumentOverlayOpacity',
   'windRoseNoGoAngleRad',
   'windRoseArcMarginRad',
   'trendInstrumentIds',
   'anchorRadiusMeters',
 ] as const satisfies readonly (keyof ProfileSettings)[];
+
+// Presentation settings that may be sourced from one profile while the operational profile changes.
+// Alarm, route-planning, track-recording, and anchor values deliberately remain with the active
+// operational profile.
+export const DISPLAY_PROFILE_SETTING_KEYS = [
+  'theme',
+  'layers',
+  'layerOrder',
+  'weatherLayers',
+  'weatherSource',
+  'aisIconMode',
+  'aisNameMode',
+  'aisRetentionMinutes',
+  'units',
+  'chartOrientation',
+  'pinnedActionIds',
+  'instrumentTiles',
+  'instrumentTileLayouts',
+  'instrumentScreenLayout',
+  'instrumentOverlayOpacity',
+  'windRoseNoGoAngleRad',
+  'windRoseArcMarginRad',
+  'trendInstrumentIds',
+] as const satisfies readonly PortableProfileSettingKey[];
+
+export type DisplayProfileSettingKey = (typeof DISPLAY_PROFILE_SETTING_KEYS)[number];
 
 export type PortableProfileSettingKey = (typeof PORTABLE_PROFILE_SETTING_KEYS)[number];
 

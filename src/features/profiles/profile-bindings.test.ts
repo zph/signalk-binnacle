@@ -45,6 +45,8 @@ function makeDeps(): ProfileBindingDeps {
     pinnedActions: pv<string[]>([]),
     instrumentTiles: pv<string[]>(['depth', 'speed']),
     instrumentTileLayouts: pv({}),
+    instrumentScreenLayout: pv([]),
+    instrumentOverlayOpacity: pv(1),
     windRoseNoGoAngleRad: pv(DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD),
     windRoseArcMarginRad: pv(DEFAULT_WIND_ROSE_ARC_MARGIN_RAD),
     trendInstruments: pv<string[]>(['depth', 'wind-apparent']),

@@ -35,6 +35,8 @@ export interface ProfileBindingDeps {
   // The instrument tile selection, in display order.
   instrumentTiles: PersistedValue<string[]>;
   instrumentTileLayouts: PersistedValue<NonNullable<ProfileSettings['instrumentTileLayouts']>>;
+  instrumentScreenLayout: PersistedValue<NonNullable<ProfileSettings['instrumentScreenLayout']>>;
+  instrumentOverlayOpacity: PersistedValue<number>;
   windRoseNoGoAngleRad: PersistedValue<number>;
   windRoseArcMarginRad: PersistedValue<number>;
   // The Data trends selection, in display order.
@@ -148,6 +150,21 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
         else deps.instrumentTileLayouts.set({});
       },
       track: () => void deps.instrumentTileLayouts.value,
+    },
+    instrumentScreenLayout: {
+      read: () => ({ instrumentScreenLayout: deps.instrumentScreenLayout.snapshot() }),
+      // Legacy profiles resolve to an empty chart layout instead of inheriting the profile that was
+      // active immediately before them. Startup migration preserves a pre-upgrade device layout.
+      write: (s) =>
+        deps.instrumentScreenLayout.set(
+          Array.isArray(s.instrumentScreenLayout) ? s.instrumentScreenLayout : [],
+        ),
+      track: () => void deps.instrumentScreenLayout.value,
+    },
+    instrumentOverlayOpacity: {
+      read: () => ({ instrumentOverlayOpacity: deps.instrumentOverlayOpacity.snapshot() }),
+      write: (s) => deps.instrumentOverlayOpacity.set(s.instrumentOverlayOpacity ?? 1),
+      track: () => void deps.instrumentOverlayOpacity.value,
     },
     windRoseNoGoAngleRad: {
       read: () => ({ windRoseNoGoAngleRad: deps.windRoseNoGoAngleRad.snapshot() }),

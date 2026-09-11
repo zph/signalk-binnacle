@@ -29,6 +29,8 @@ function settings(overrides: Partial<ProfileSettings> = {}): ProfileSettings {
     units: 'metric',
     pinnedActionIds: ['center'],
     instrumentTiles: ['depth'],
+    instrumentScreenLayout: [],
+    instrumentOverlayOpacity: 1,
     trendInstrumentIds: ['depth', 'wind-apparent'],
     anchorRadiusMeters: 50,
     ...overrides,
@@ -177,6 +179,70 @@ describe('createProfilesController', () => {
     await vi.advanceTimersByTimeAsync(20);
 
     expect(store.active?.settings.planningSpeedMps).toBe(9);
+    controller.dispose();
+    vi.useRealTimers();
+  });
+
+  it('pins presentation settings to one profile while operational settings follow another', async () => {
+    vi.useFakeTimers();
+    const floatingA = [{ id: 'wind', x: 0.1, y: 0.1, width: 0.2, height: 0.2 }];
+    const floatingB = [{ id: 'depth', x: 0.6, y: 0.2, width: 0.2, height: 0.2 }];
+    const display = profile('display', 'Display', 4, {
+      theme: 'day',
+      instrumentTiles: ['wind'],
+      instrumentScreenLayout: floatingA,
+      planningSpeedMps: 4,
+    });
+    const coastal = profile('coastal', 'Coastal', 5, {
+      theme: 'dusk',
+      instrumentTiles: ['depth'],
+      instrumentScreenLayout: floatingB,
+      planningSpeedMps: 7,
+    });
+    const store = new ProfileStore(
+      localAdapter({
+        profiles: [display, coastal],
+        activeId: display.id,
+        defaultId: undefined,
+      }),
+    );
+    const bound = bindings(display.settings);
+    let sourceId: string | undefined = display.id;
+    const controller = createProfilesController({
+      store,
+      bindings: bound.bindings,
+      applyRuntime: () => undefined,
+      displaySource: {
+        get: () => sourceId,
+        set: (id) => {
+          sourceId = id;
+        },
+      },
+      autosaveMs: 20,
+    });
+    await controller.initialize();
+    await tick();
+
+    controller.apply(coastal.id);
+    await tick();
+
+    expect(bound.current().theme).toBe('day');
+    expect(bound.current().instrumentTiles).toEqual(['wind']);
+    expect(bound.current().instrumentScreenLayout).toEqual(floatingA);
+    expect(bound.current().planningSpeedMps).toBe(7);
+
+    bound.set({ ...bound.current(), theme: 'night-red', planningSpeedMps: 9 });
+    controller.observeSettings();
+    await vi.advanceTimersByTimeAsync(20);
+
+    expect(store.profileById(display.id)?.settings.theme).toBe('night-red');
+    expect(store.profileById(coastal.id)?.settings.theme).toBe('dusk');
+    expect(store.profileById(coastal.id)?.settings.planningSpeedMps).toBe(9);
+
+    controller.setDisplaySource(undefined);
+    expect(bound.current().theme).toBe('dusk');
+    expect(bound.current().instrumentScreenLayout).toEqual(floatingB);
+
     controller.dispose();
     vi.useRealTimers();
   });

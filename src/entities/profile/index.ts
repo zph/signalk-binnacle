@@ -1,11 +1,15 @@
 export type {
+  DisplayProfileSettingKey,
   PortableProfileSettingKey,
   Profile,
   ProfileSettings,
   ProfilesState,
   RemoteProfilesSnapshot,
 } from './profile-types';
-export { PORTABLE_PROFILE_SETTING_KEYS } from './profile-types';
+export {
+  DISPLAY_PROFILE_SETTING_KEYS,
+  PORTABLE_PROFILE_SETTING_KEYS,
+} from './profile-types';
 export {
   cleanProfileName,
   isProfileSettings,
