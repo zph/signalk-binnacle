@@ -24,7 +24,6 @@ export { crossesLocalMidnight, plannedArrivalMs } from './passage-plan';
 export {
   createPositionRenderGate,
   POSITION_RENDER_DEADBAND_METERS,
-  type PositionRenderGate,
 } from './position-render-gate';
 export {
   etaSeconds,

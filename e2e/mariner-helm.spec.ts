@@ -552,23 +552,25 @@ test('instrument layouts keep WebGL contexts and live transform commits bounded'
 
   const screen = page.locator('.instrument-screen-layer');
   await expect(screen.locator('.floating-frame')).toHaveCount(2);
-  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
+  await expect(screen.locator('canvas.seascape')).toHaveCount(1);
 
-  // Responsive relayout must resize the existing contexts, not mount replacements that survive.
+  // Responsive relayout must resize the Canvas shoreline without mounting another WebGL context.
   for (const viewport of [
     { width: 390, height: 844 },
     { width: 1194, height: 834 },
     { width: 1280, height: 800 },
   ]) {
     await page.setViewportSize(viewport);
-    await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+    await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
+    await expect(screen.locator('canvas.seascape')).toHaveCount(1);
   }
 
   const radar = screen.getByRole('button', { name: /AIS radar.*Expand instrument/ });
   await radar.click();
-  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
   await screen.getByRole('button', { name: 'Collapse instrument', exact: true }).first().click();
-  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
 
   await page.evaluate(() => {
     const rose = document.querySelector('.instrument-screen-layer .tile--wind-rose');
@@ -612,12 +614,14 @@ test('instrument layouts keep WebGL contexts and live transform commits bounded'
   });
   expect(transformMutations).toBeLessThan(180);
 
-  // Hide, show, and edit transitions must tear the passive map down and recreate exactly one.
+  // Hide, show, and edit transitions must not leak a shoreline Canvas or a WebGL context.
   await page.getByRole('button', { name: 'Edit instruments', exact: true }).click();
   await page.getByRole('button', { name: 'Hide instruments', exact: true }).click();
   await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
+  await expect(screen.locator('canvas.seascape')).toHaveCount(0);
   await page.getByRole('button', { name: 'Show instruments', exact: true }).click();
-  await expect(page.locator('.maplibregl-canvas')).toHaveCount(2);
+  await expect(page.locator('.maplibregl-canvas')).toHaveCount(1);
+  await expect(screen.locator('canvas.seascape')).toHaveCount(1);
 });
 
 test('expanded numeric instruments prioritize the live value at helm distance', async ({

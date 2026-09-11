@@ -1,40 +1,31 @@
 import { type ComponentProps, flushSync, mount, unmount } from 'svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createThemedMap } from '$shared/map';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import AisRadarSeascape from './AisRadarSeascape.svelte';
 
-const mocks = vi.hoisted(() => {
-  const map = {
-    getStyle: vi.fn(() => ({
-      layers: [
-        { id: 'background', type: 'background' },
-        { id: 'water', type: 'fill', 'source-layer': 'water' },
-        { id: 'road', type: 'line', 'source-layer': 'transportation' },
-      ],
-    })),
-    setLayoutProperty: vi.fn(),
-    setPaintProperty: vi.fn(),
-    setBearing: vi.fn(),
-    setPitch: vi.fn(),
-    setCenter: vi.fn(),
-    fitBounds: vi.fn(),
-  };
-  const destroy = vi.fn();
-  return { map, destroy };
-});
+const mocks = vi.hoisted(() => ({
+  createSource: vi.fn(),
+  draw: vi.fn(),
+  load: vi.fn(),
+}));
 
-vi.mock('$shared/map', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('$shared/map')>();
+vi.mock('./ais-radar-seascape', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./ais-radar-seascape')>();
   return {
     ...actual,
-    createThemedMap: vi.fn((options: Parameters<typeof actual.createThemedMap>[0]) => {
-      void options.onLoad({ map: mocks.map } as never);
-      return { map: mocks.map, destroy: mocks.destroy } as never;
-    }),
+    createAisRadarShorelineSource: mocks.createSource,
+    drawAisRadarShoreline: mocks.draw,
   };
 });
 
 const mounted: Array<() => void> = [];
+
+beforeEach(() => {
+  mocks.createSource.mockImplementation(() => ({ load: mocks.load }));
+  mocks.load.mockImplementation(async (planForZoom) => ({
+    plan: planForZoom(0, 14),
+    tiles: [],
+  }));
+});
 
 afterEach(() => {
   for (const dispose of mounted.splice(0).reverse()) dispose();
@@ -42,70 +33,60 @@ afterEach(() => {
 });
 
 describe('AIS radar seascape component', () => {
-  it('mounts a passive coastline map, styles it, fits the range, and tears it down', () => {
+  it('draws a cached Canvas shoreline without mounting another WebGL context', async () => {
     const target = document.createElement('div');
     document.body.append(target);
     const props = $state<ComponentProps<typeof AisRadarSeascape>>({
-      position: { latitude: 38.04, longitude: -122.19 },
+      position: { latitude: 0, longitude: 0 },
       rangeNm: 6,
       theme: 'day',
       companionBase: 'http://localhost/plugins/signalk-chart-locker',
-      getToken: () => 'token',
+      getToken: () => 'test-token',
     });
     let component!: ReturnType<typeof mount>;
     flushSync(() => {
-      component = mount(AisRadarSeascape, {
-        target,
-        props,
-      });
+      component = mount(AisRadarSeascape, { target, props });
     });
     mounted.push(() => {
       void unmount(component);
       target.remove();
     });
 
-    expect(createThemedMap).toHaveBeenCalledWith(
-      expect.objectContaining({
-        interactive: false,
-        showMapControls: false,
-        attributionControl: false,
-        pixelRatio: 1,
-        companionBase: 'http://localhost/plugins/signalk-chart-locker',
-        style: expect.objectContaining({ name: 'binnacle-ais-radar-seascape' }),
-      }),
-    );
-    expect(mocks.map.setLayoutProperty).toHaveBeenCalledWith('road', 'visibility', 'none');
-    expect(mocks.map.setBearing).toHaveBeenCalledWith(0);
-    expect(mocks.map.fitBounds).toHaveBeenCalledWith(expect.any(Array), {
-      padding: 0,
-      duration: 0,
+    await vi.waitFor(() => expect(mocks.load).toHaveBeenCalledOnce());
+    expect(target.querySelector('canvas.seascape.ready')).not.toBeNull();
+    expect(target.querySelector('.maplibregl-canvas')).toBeNull();
+    expect(mocks.createSource).toHaveBeenCalledWith({
+      companionBase: 'http://localhost/plugins/signalk-chart-locker',
+      getToken: props.getToken,
     });
-    expect(target.querySelector('.seascape.ready')).not.toBeNull();
 
-    const initialFits = mocks.map.fitBounds.mock.calls.length;
+    const initialLoads = mocks.load.mock.calls.length;
     for (let index = 0; index < 1_000; index += 1) {
       const sign = index % 2 === 0 ? 1 : -1;
       props.position = {
-        latitude: 38.04 + sign * 0.000_001,
-        longitude: -122.19 - sign * 0.000_001,
+        latitude: sign * 0.000_001,
+        longitude: -sign * 0.000_001,
       };
       flushSync();
     }
-    expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits);
-    expect(mocks.map.setCenter).not.toHaveBeenCalled();
+    expect(mocks.load).toHaveBeenCalledTimes(initialLoads);
 
-    props.position = { latitude: 38.041, longitude: -122.19 };
+    props.position = { latitude: 0.001, longitude: 0 };
     flushSync();
-    expect(mocks.map.setCenter).toHaveBeenCalledExactlyOnceWith([-122.19, 38.041]);
-    expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits);
+    await vi.waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(initialLoads + 1));
 
     props.rangeNm = 12;
     flushSync();
-    expect(mocks.map.fitBounds).toHaveBeenCalledTimes(initialFits + 1);
+    await vi.waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(initialLoads + 2));
+
+    props.companionBase = 'http://localhost/plugins/alternate-chart-source';
+    flushSync();
+    await vi.waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(initialLoads + 3));
+    expect(mocks.createSource).toHaveBeenCalledTimes(2);
+    expect(mocks.draw).toHaveBeenCalled();
 
     flushSync(() => void unmount(component));
     mounted.pop();
     target.remove();
-    expect(mocks.destroy).toHaveBeenCalledOnce();
   });
 });

@@ -1,39 +1,53 @@
+import { PbfWriter } from 'pbf';
 import { describe, expect, it, vi } from 'vitest';
-import { mapThemePaint } from '$shared/map';
 import {
-  AIS_RADAR_LAYOUT_REFIT_DELAY_MS,
-  AIS_RADAR_MAP_PADDING_PX,
+  AIS_RADAR_LAYOUT_RENDER_DELAY_MS,
   AIS_RADAR_POSITION_MAX_INTERVAL_MS,
-  aisRadarBounds,
   aisRadarPositionRenderMeters,
-  aisRadarSeascapeStyle,
-  applyAisRadarSeascape,
-  createAisRadarCameraController,
-  fitAisRadarSeascape,
+  buildAisRadarShorelinePlan,
+  createAisRadarShorelineController,
+  createAisRadarShorelineSource,
+  decodeAisRadarWaterTile,
+  drawAisRadarShoreline,
 } from './ais-radar-seascape';
 
-function fakeMap() {
-  return {
-    getStyle: () => ({
-      layers: [
-        { id: 'background', type: 'background' },
-        { id: 'water', type: 'fill', 'source-layer': 'water' },
-        { id: '__z__basemap', type: 'background' },
-        { id: 'coast', type: 'line', 'source-layer': 'water' },
-        { id: 'water-name', type: 'symbol', 'source-layer': 'water_name' },
-        { id: 'river', type: 'line', 'source-layer': 'waterway' },
-        { id: 'road', type: 'line', 'source-layer': 'transportation' },
-        { id: 'building', type: 'fill', 'source-layer': 'building' },
-        { id: 'relief', type: 'raster' },
-      ],
-    }),
-    setLayoutProperty: vi.fn(),
-    setPaintProperty: vi.fn(),
-    setBearing: vi.fn(),
-    setPitch: vi.fn(),
-    setCenter: vi.fn(),
-    fitBounds: vi.fn(),
-  };
+function signed(value: number): number {
+  return value < 0 ? -value * 2 - 1 : value * 2;
+}
+
+function waterTile(): ArrayBuffer {
+  const writer = new PbfWriter();
+  writer.writeMessage(
+    3,
+    (_layer, layer) => {
+      layer.writeStringField(1, 'water');
+      layer.writeMessage(
+        2,
+        (_feature, feature) => {
+          feature.writeVarintField(3, 3);
+          feature.writePackedVarint(4, [
+            9,
+            signed(0),
+            signed(0),
+            26,
+            signed(4096),
+            signed(0),
+            signed(0),
+            signed(4096),
+            signed(-4096),
+            signed(0),
+            15,
+          ]);
+        },
+        undefined,
+      );
+      layer.writeVarintField(5, 4096);
+      layer.writeVarintField(15, 2);
+    },
+    undefined,
+  );
+  const bytes = writer.finish();
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
 function fakeScheduler() {
@@ -62,159 +76,179 @@ function fakeScheduler() {
   };
 }
 
-describe('AIS radar seascape', () => {
-  it('builds a minimal Chart Locker style with only background and water', () => {
-    const style = aisRadarSeascapeStyle('http://boat.local/plugins/signalk-chart-locker/', 'day');
+describe('AIS radar shoreline', () => {
+  it('selects a bounded tile set at a display-appropriate zoom', () => {
+    const plan = buildAisRadarShorelinePlan({ latitude: 0, longitude: 0 }, 6, 400, 400);
 
-    expect(style?.layers.map((layer) => layer.id)).toEqual(['background', 'water']);
-    expect(style?.sources).toEqual({
-      openmaptiles: {
-        type: 'vector',
-        tiles: [
-          'http://boat.local/plugins/signalk-chart-locker/style/basemap/tiles/openmaptiles/{z}/{x}/{y}',
-        ],
-      },
+    expect(plan.refs.length).toBeGreaterThan(0);
+    expect(plan.refs.length).toBeLessThanOrEqual(9);
+    expect(new Set(plan.refs.map((ref) => ref.z)).size).toBe(1);
+    expect(plan.refs[0]?.z).toBeGreaterThanOrEqual(10);
+    expect(plan.refs.every((ref) => ref.x >= 0 && ref.x < 2 ** ref.z)).toBe(true);
+  });
+
+  it('wraps shoreline requests across the antimeridian', () => {
+    const plan = buildAisRadarShorelinePlan({ latitude: 0, longitude: 179.999 }, 24, 440, 440);
+
+    expect(plan.refs.some((ref) => ref.x === 0)).toBe(true);
+    expect(plan.refs.every((ref) => ref.x >= 0 && ref.x < 2 ** ref.z)).toBe(true);
+  });
+
+  it('decodes only polygon geometry from the water layer', () => {
+    const decoded = decodeAisRadarWaterTile(waterTile());
+
+    expect(decoded.extent).toBe(4096);
+    expect(decoded.features).toHaveLength(1);
+    expect(decoded.features[0]?.[0]).toEqual([
+      { x: 0, y: 0 },
+      { x: 4096, y: 0 },
+      { x: 4096, y: 4096 },
+      { x: 0, y: 4096 },
+      { x: 0, y: 0 },
+    ]);
+  });
+
+  it('loads and caches authenticated Chart Locker water tiles', async () => {
+    const bytes = waterTile();
+    const fetchFn = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(bytes),
+    );
+    const source = createAisRadarShorelineSource({
+      companionBase: 'http://localhost/plugins/signalk-chart-locker',
+      getToken: () => 'test-token',
+      fetchFn: fetchFn as typeof fetch,
     });
-    expect(aisRadarSeascapeStyle(undefined, 'day')).toBeUndefined();
-  });
+    const plan = buildAisRadarShorelinePlan({ latitude: 0, longitude: 0 }, 6, 180, 180);
 
-  it('keeps only flat land, water, and the water boundary', () => {
-    const map = fakeMap();
-    applyAisRadarSeascape(map as never, 'day');
-    const paint = mapThemePaint('day');
+    const first = await source.load(() => plan);
+    const second = await source.load(() => plan);
 
-    expect(map.setLayoutProperty).toHaveBeenCalledWith('background', 'visibility', 'visible');
-    expect(map.setLayoutProperty).toHaveBeenCalledWith('water', 'visibility', 'visible');
-    expect(map.setLayoutProperty).toHaveBeenCalledWith('__z__basemap', 'visibility', 'none');
-    expect(map.setLayoutProperty).toHaveBeenCalledWith('coast', 'visibility', 'visible');
-    for (const id of ['water-name', 'river', 'road', 'building', 'relief']) {
-      expect(map.setLayoutProperty).toHaveBeenCalledWith(id, 'visibility', 'none');
-    }
-    expect(map.setPaintProperty).toHaveBeenCalledWith(
-      'background',
-      'background-color',
-      paint.background,
-    );
-    expect(map.setPaintProperty).toHaveBeenCalledWith('water', 'fill-color', paint.water);
-    expect(map.setPaintProperty).toHaveBeenCalledWith(
-      'water',
-      'fill-outline-color',
-      paint.boundary,
-    );
-    expect(map.setPaintProperty).toHaveBeenCalledWith('coast', 'line-color', paint.boundary);
-  });
-
-  it('uses a water-colored background when only the offline fallback style exists', () => {
-    const map = fakeMap();
-    map.getStyle = () => ({ layers: [{ id: 'background', type: 'background' }] });
-
-    applyAisRadarSeascape(map as never, 'night-red');
-
-    expect(map.setPaintProperty).toHaveBeenCalledWith(
-      'background',
-      'background-color',
-      mapThemePaint('night-red').water,
-    );
-  });
-
-  it('fits the selected range north-up around the boat', () => {
-    const map = fakeMap();
-    const position = { latitude: 38.04, longitude: -122.19 };
-
-    fitAisRadarSeascape(map as never, position, 6);
-
-    expect(map.setBearing).toHaveBeenCalledWith(0);
-    expect(map.setPitch).toHaveBeenCalledWith(0);
-    expect(map.fitBounds).toHaveBeenCalledWith(aisRadarBounds(position, 6), {
-      padding: AIS_RADAR_MAP_PADDING_PX,
-      duration: 0,
+    expect(first?.tiles).toHaveLength(plan.refs.length);
+    expect(second?.tiles).toHaveLength(plan.refs.length);
+    expect(fetchFn).toHaveBeenCalledTimes(plan.refs.length);
+    expect(fetchFn.mock.calls[0]?.[1]).toEqual({
+      headers: { Authorization: 'Bearer test-token' },
     });
-    const [[west, south], [east, north]] = aisRadarBounds(position, 6);
-    expect(west).toBeLessThan(position.longitude);
-    expect(east).toBeGreaterThan(position.longitude);
-    expect(south).toBeLessThan(position.latitude);
-    expect(north).toBeGreaterThan(position.latitude);
   });
 
-  it('unwraps an antimeridian-crossing range for MapLibre', () => {
-    const [[west], [east]] = aisRadarBounds({ latitude: 0, longitude: 179.99 }, 24);
-    expect(east).toBeGreaterThan(west);
-    expect(east).toBeGreaterThan(180);
+  it('discovers the direct OpenFreeMap tile template without sending Signal K credentials', async () => {
+    const bytes = waterTile();
+    const fetchFn = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/styles/liberty')) {
+        return new Response(
+          JSON.stringify({ sources: { openmaptiles: { type: 'vector', url: '/planet' } } }),
+        );
+      }
+      if (url.endsWith('/planet')) {
+        return new Response(
+          JSON.stringify({ tiles: ['/planet/current/{z}/{x}/{y}.pbf'], maxzoom: 14 }),
+        );
+      }
+      return new Response(bytes);
+    });
+    const source = createAisRadarShorelineSource({
+      getToken: () => 'must-not-leak',
+      fetchFn: fetchFn as typeof fetch,
+    });
+    const plan = buildAisRadarShorelinePlan({ latitude: 0, longitude: 0 }, 6, 180, 180);
+
+    const loaded = await source.load(() => plan);
+
+    expect(loaded?.tiles).toHaveLength(plan.refs.length);
+    expect(fetchFn.mock.calls.every((call) => call[1] === undefined || !call[1]?.headers)).toBe(
+      true,
+    );
   });
 
-  it('uses the displayed layout and range to gate passive coastline movement', () => {
-    expect(aisRadarPositionRenderMeters(6, 180)).toBeCloseTo(61.73, 1);
-    expect(aisRadarPositionRenderMeters(6, 440)).toBeCloseTo(25.25, 1);
-    expect(aisRadarPositionRenderMeters(0.5, 440)).toBeCloseTo(2.1, 1);
-  });
-
-  it('centers cheaply for real motion without refitting stationary sensor jitter', () => {
+  it('coalesces stationary data and resize bursts while preserving real motion', () => {
     let now = 0;
-    const map = fakeMap();
-    const controller = createAisRadarCameraController(map as never, { now: () => now });
-    const position = { latitude: 38, longitude: -122 };
+    const frames = fakeScheduler();
+    const render = vi.fn();
+    const controller = createAisRadarShorelineController(render, {
+      now: () => now,
+      scheduler: frames.scheduler,
+    });
+    const initial = {
+      position: { latitude: 0, longitude: 0 },
+      rangeNm: 6 as const,
+      width: 180,
+      height: 180,
+      theme: 'day' as const,
+      companionBase: 'http://localhost/plugin',
+    };
 
-    controller.sync(position, 6, 180);
-    expect(map.fitBounds).toHaveBeenCalledOnce();
+    controller.sync(initial);
     for (let index = 0; index < 1_000; index += 1) {
       now += AIS_RADAR_POSITION_MAX_INTERVAL_MS;
       const sign = index % 2 === 0 ? 1 : -1;
-      controller.sync(
-        {
-          latitude: position.latitude + sign * 0.000_001,
-          longitude: position.longitude,
-        },
-        6,
-        180,
-      );
+      controller.sync({
+        ...initial,
+        position: { latitude: sign * 0.000_001, longitude: 0 },
+      });
     }
-    expect(map.setCenter).not.toHaveBeenCalled();
-    expect(map.fitBounds).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledOnce();
 
-    controller.sync(
-      { latitude: position.latitude + 0.000_01, longitude: position.longitude },
-      6,
-      180,
-    );
-    expect(map.setCenter).toHaveBeenCalledExactlyOnceWith([-122, 38.000_01]);
-    expect(map.fitBounds).toHaveBeenCalledOnce();
+    controller.sync({ ...initial, position: { latitude: 0.001, longitude: 0 } });
+    expect(render).toHaveBeenCalledTimes(2);
 
-    controller.sync({ latitude: position.latitude + 0.001, longitude: position.longitude }, 6, 180);
-    expect(map.setCenter).toHaveBeenCalledTimes(2);
-    expect(map.fitBounds).toHaveBeenCalledOnce();
-
-    // A long north-south passage eventually refits so Mercator scale drift cannot make the
-    // coastline disagree with the radar range ring.
-    controller.sync({ latitude: 40, longitude: position.longitude }, 6, 180);
-    expect(map.fitBounds).toHaveBeenCalledTimes(2);
-  });
-
-  it('coalesces a resize burst into one trailing refit and refits a range change immediately', () => {
-    const map = fakeMap();
-    const frames = fakeScheduler();
-    const controller = createAisRadarCameraController(map as never, {
-      scheduler: frames.scheduler,
-    });
-    const position = { latitude: 38, longitude: -122 };
-
-    controller.sync(position, 6, 180);
     for (let diameter = 181; diameter <= 440; diameter += 1) {
-      controller.sync(position, 6, diameter);
+      controller.sync({ ...initial, width: diameter, height: diameter });
       expect(frames.pending()).toBe(1);
     }
-    expect(map.fitBounds).toHaveBeenCalledOnce();
-    expect(frames.delays.every((delay) => delay === AIS_RADAR_LAYOUT_REFIT_DELAY_MS)).toBe(true);
-
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(frames.delays.every((delay) => delay === AIS_RADAR_LAYOUT_RENDER_DELAY_MS)).toBe(true);
     frames.flush();
-    expect(map.fitBounds).toHaveBeenCalledTimes(2);
-    expect(frames.pending()).toBe(0);
+    expect(render).toHaveBeenCalledTimes(3);
 
-    controller.sync(position, 12, 440);
-    expect(map.fitBounds).toHaveBeenCalledTimes(3);
-
-    controller.sync(position, 12, 441);
-    expect(frames.pending()).toBe(1);
+    controller.sync({ ...initial, rangeNm: 12, width: 440, height: 440 });
+    expect(render).toHaveBeenCalledTimes(4);
     controller.destroy();
     expect(frames.pending()).toBe(0);
+  });
+
+  it('draws loaded tile land and water without a WebGL surface', () => {
+    const context = {
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 0,
+    };
+    const frame = {
+      position: { latitude: 0, longitude: 0 },
+      rangeNm: 6 as const,
+      width: 180,
+      height: 180,
+      theme: 'day' as const,
+    };
+    const plan = buildAisRadarShorelinePlan(frame.position, frame.rangeNm, 180, 180);
+    const ref = plan.refs[0];
+    if (!ref) throw new Error('Expected a shoreline tile');
+
+    drawAisRadarShoreline(context as never, frame, plan, [
+      { ref, water: decodeAisRadarWaterTile(waterTile()) },
+    ]);
+
+    expect(context.fillRect).toHaveBeenCalled();
+    expect(context.fill).toHaveBeenCalledWith('evenodd');
+    expect(context.stroke).toHaveBeenCalled();
+  });
+
+  it('scales the position threshold with radar range and layout size', () => {
+    expect(aisRadarPositionRenderMeters(6, 180)).toBeCloseTo(61.73, 1);
+    expect(aisRadarPositionRenderMeters(6, 440)).toBeCloseTo(25.25, 1);
+    expect(aisRadarPositionRenderMeters(0.5, 440)).toBeCloseTo(2.1, 1);
   });
 });

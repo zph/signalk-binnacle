@@ -1,13 +1,15 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import type { LatLon } from '$shared/geo';
-import { createThemedMap, type ThemedMapHandle } from '$shared/map';
+import { mapThemePaint } from '$shared/map';
 import type { Theme } from '$shared/ui';
 import type { AisRadarRangeNm } from './ais-radar-model';
 import {
-  aisRadarSeascapeStyle,
-  applyAisRadarSeascape,
-  createAisRadarCameraController,
+  buildAisRadarShorelinePlan,
+  createAisRadarShorelineController,
+  createAisRadarShorelineSource,
+  drawAisRadarShoreline,
 } from './ais-radar-seascape';
 
 interface Props {
@@ -20,70 +22,90 @@ interface Props {
 
 const { position, rangeNm, theme, companionBase, getToken }: Props = $props();
 
-let container = $state<HTMLElement>();
-let mapHandle: ThemedMapHandle | undefined;
-let map = $state<NonNullable<ThemedMapHandle['map']>>();
-let ready = $state(false);
+let canvas = $state<HTMLCanvasElement>();
 let width = $state(0);
 let height = $state(0);
-let cameraController: ReturnType<typeof createAisRadarCameraController> | undefined;
+let ready = $state(false);
+let generation = 0;
+const sources = new SvelteMap<string, ReturnType<typeof createAisRadarShorelineSource>>();
+let controller: ReturnType<typeof createAisRadarShorelineController> | undefined;
 
-function syncPosition(): void {
-  cameraController?.sync(position, rangeNm, Math.min(width, height));
+function sourceFor(base: string | null | undefined) {
+  const key = base?.replace(/\/+$/, '') ?? 'direct';
+  let source = sources.get(key);
+  if (!source) {
+    source = createAisRadarShorelineSource({ companionBase: base, getToken });
+    sources.set(key, source);
+  }
+  return source;
+}
+
+async function render(frame: Parameters<NonNullable<typeof controller>['sync']>[0]): Promise<void> {
+  if (!canvas) return;
+  const context = canvas.getContext('2d');
+  if (!context) return;
+  const frameWidth = Math.max(1, Math.round(frame.width));
+  const frameHeight = Math.max(1, Math.round(frame.height));
+  canvas.width = frameWidth;
+  canvas.height = frameHeight;
+  const paint = mapThemePaint(frame.theme);
+  context.fillStyle = paint.water;
+  context.fillRect(0, 0, frameWidth, frameHeight);
+  ready = true;
+
+  const currentGeneration = ++generation;
+  const loaded = await sourceFor(frame.companionBase).load((minZoom, maxZoom) =>
+    buildAisRadarShorelinePlan(
+      frame.position,
+      frame.rangeNm,
+      frameWidth,
+      frameHeight,
+      minZoom,
+      maxZoom,
+    ),
+  );
+  if (currentGeneration !== generation || !loaded) return;
+  drawAisRadarShoreline(
+    context,
+    { ...frame, width: frameWidth, height: frameHeight },
+    loaded.plan,
+    loaded.tiles,
+  );
+}
+
+function sync(): void {
+  controller?.sync({ position, rangeNm, width, height, theme, companionBase });
 }
 
 onMount(() => {
-  if (!container) return;
-  mapHandle = createThemedMap({
-    container,
-    style: aisRadarSeascapeStyle(companionBase, theme),
-    companionBase,
-    getToken,
-    defaultCenter: [position.longitude, position.latitude],
-    defaultZoom: 10,
-    interactive: false,
-    showMapControls: false,
-    attributionControl: false,
-    pixelRatio: 1,
-    cannotStartNotice: '',
-    onLoad: (api) => {
-      map = api.map;
-      applyAisRadarSeascape(api.map, theme);
-      cameraController = createAisRadarCameraController(api.map);
-      syncPosition();
-      ready = true;
-    },
-  });
+  controller = createAisRadarShorelineController((frame) => void render(frame));
+  sync();
   return () => {
-    cameraController?.destroy();
-    mapHandle?.destroy();
+    generation += 1;
+    controller?.destroy();
   };
 });
 
 $effect(() => {
-  if (!map) return;
-  applyAisRadarSeascape(map, theme);
-});
-
-$effect(() => {
-  syncPosition();
+  sync();
 });
 </script>
 
-<div
+<canvas
   class="seascape"
   class:ready
-  bind:this={container}
+  bind:this={canvas}
   bind:clientWidth={width}
   bind:clientHeight={height}
   aria-hidden="true"
-></div>
+></canvas>
 
 <style>
 .seascape {
   position: absolute;
-  /* Match the 198/400 outer plot radius while keeping its stroke inside the square viewBox. */
   inset: 0.5%;
+  width: 99%;
+  height: 99%;
   overflow: hidden;
   border-radius: 50%;
   background: var(--surface);
@@ -92,13 +114,5 @@ $effect(() => {
 }
 .seascape.ready {
   opacity: 1;
-}
-.seascape :global(.maplibregl-ctrl-attrib) {
-  opacity: 0.55;
-  transform: scale(0.72);
-  transform-origin: bottom right;
-}
-.seascape :global(.chart-start-error) {
-  display: none;
 }
 </style>
