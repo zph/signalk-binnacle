@@ -22,6 +22,7 @@ import {
   type FloatingInstrumentBox,
   fitFloatingBoxToViewport,
   MAX_FLOATING_INSTRUMENTS,
+  snapFloatingBoxToGrid,
   VERTICAL_HISTORY_FLOATING_HEIGHT,
   VERTICAL_HISTORY_FLOATING_WIDTH,
 } from './floating-layout';
@@ -354,15 +355,21 @@ function beginDrag(
     const dy = (moveEvent.clientY - startClientY) / bounds.height;
     if (kind === 'move') {
       dragBox = snapToAlignment(
-        clampFloatingBox({ ...startBox, x: startBox.x + dx, y: startBox.y + dy }),
+        snapFloatingBoxToGrid(
+          clampFloatingBox({ ...startBox, x: startBox.x + dx, y: startBox.y + dy }),
+          'move',
+        ),
       );
     } else {
       dragBox = snapToAlignment(
-        clampFloatingBox({
-          ...startBox,
-          width: startBox.width + dx,
-          height: startBox.height + dy,
-        }),
+        snapFloatingBoxToGrid(
+          clampFloatingBox({
+            ...startBox,
+            width: startBox.width + dx,
+            height: startBox.height + dy,
+          }),
+          'resize',
+        ),
       );
     }
     moveEvent.preventDefault();
@@ -410,11 +417,14 @@ function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEve
     if (!dragging && Math.hypot(dxPx, dyPx) < DRAG_THRESHOLD_PX) return;
     dragging = true;
     dragBox = snapToAlignment(
-      clampFloatingBox({
-        ...startBox,
-        x: startBox.x + dxPx / bounds.width,
-        y: startBox.y + dyPx / bounds.height,
-      }),
+      snapFloatingBoxToGrid(
+        clampFloatingBox({
+          ...startBox,
+          x: startBox.x + dxPx / bounds.width,
+          y: startBox.y + dyPx / bounds.height,
+        }),
+        'move',
+      ),
     );
     moveEvent.preventDefault();
   };
@@ -441,7 +451,9 @@ function beginBodyDrag(id: string, box: FloatingInstrumentBox, event: PointerEve
 function nudge(id: string, box: FloatingInstrumentBox, dx: number, dy: number): void {
   commitFloatingBox(
     id,
-    snapToAlignment(clampFloatingBox({ ...box, x: box.x + dx, y: box.y + dy })),
+    snapToAlignment(
+      snapFloatingBoxToGrid(clampFloatingBox({ ...box, x: box.x + dx, y: box.y + dy }), 'move'),
+    ),
   );
 }
 
@@ -449,7 +461,10 @@ function grow(id: string, box: FloatingInstrumentBox, dWidth: number, dHeight: n
   commitFloatingBox(
     id,
     snapToAlignment(
-      clampFloatingBox({ ...box, width: box.width + dWidth, height: box.height + dHeight }),
+      snapFloatingBoxToGrid(
+        clampFloatingBox({ ...box, width: box.width + dWidth, height: box.height + dHeight }),
+        'resize',
+      ),
     ),
   );
 }
@@ -540,11 +555,16 @@ function placeAt(id: string, clientX: number, clientY: number): void {
     const visible = displayedBox(current);
     commitFloatingBox(
       id,
-      clampFloatingBox({
-        ...visible,
-        x: point.x - visible.width / 2,
-        y: point.y - visible.height / 2,
-      }),
+      snapToAlignment(
+        snapFloatingBoxToGrid(
+          clampFloatingBox({
+            ...visible,
+            x: point.x - visible.width / 2,
+            y: point.y - visible.height / 2,
+          }),
+          'move',
+        ),
+      ),
     );
     return;
   }
@@ -555,13 +575,19 @@ function placeAt(id: string, clientX: number, clientY: number): void {
   const height = isVerticalHistoryViz(def?.viz)
     ? VERTICAL_HISTORY_FLOATING_HEIGHT
     : DEFAULT_FLOATING_HEIGHT;
-  addAt(
-    {
-      x: point.x - width / 2,
-      y: point.y - height / 2,
-    },
-    id,
+  const placed = snapToAlignment(
+    snapFloatingBoxToGrid(
+      clampFloatingBox({
+        id,
+        width,
+        height,
+        x: point.x - width / 2,
+        y: point.y - height / 2,
+      }),
+      'move',
+    ),
   );
+  addAt({ x: placed.x, y: placed.y }, id);
 }
 
 function previewAt(id: string, clientX: number, clientY: number): void {
@@ -581,6 +607,7 @@ function previewAt(id: string, clientX: number, clientY: number): void {
     x: point.x - width / 2,
     y: point.y - height / 2,
   });
+  dropPreview = snapFloatingBoxToGrid(dropPreview, 'move');
 }
 
 // The dock emits pointer drag updates for every input type. This is more reliable than native HTML
@@ -945,6 +972,18 @@ function finishEditing(): void {
   pointer-events: none;
 }
 .instrument-screen-layer--editing {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--border) 24%, transparent) 0.05rem,
+      transparent 0.05rem
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--border) 24%, transparent) 0.05rem,
+      transparent 0.05rem
+    );
+  background-size: 2% 2%;
   pointer-events: auto;
 }
 .screen-edit-chrome {

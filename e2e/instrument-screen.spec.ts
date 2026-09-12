@@ -241,6 +241,37 @@ test('screen edit mode drags an instrument from its face on the chart', async ({
   await expect(frame).not.toHaveClass(/floating-frame--dragging/);
 });
 
+test('screen edit mode lightly snaps movement to its visible grid', async ({ page }) => {
+  await page.goto('/');
+  await runScreenEditCommand(page);
+
+  const layer = page.locator('.instrument-screen-layer');
+  const frame = page.locator(`${FLOATING_FRAME}[data-instrument-id="wind-rose"]`);
+  const [source, target] = await Promise.all([frame.boundingBox(), layer.boundingBox()]);
+  if (!source || !target) throw new Error('Instrument or chart target missing.');
+  expect(await layer.evaluate((element) => getComputedStyle(element).backgroundImage)).not.toBe(
+    'none',
+  );
+
+  const desired = { x: 0.243, y: 0.357 };
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    target.x + (desired.x + source.width / target.width / 2) * target.width,
+    target.y + (desired.y + source.height / target.height / 2) * target.height,
+    { steps: 12 },
+  );
+  await page.mouse.up();
+
+  const placed = await frame.boundingBox();
+  if (!placed) throw new Error('Instrument disappeared after grid placement.');
+  expect((placed.x - target.x) / target.width).toBeCloseTo(0.24, 2);
+  expect((placed.y - target.y) / target.height).toBeCloseTo(0.36, 2);
+
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  expect(await layer.evaluate((element) => getComputedStyle(element).backgroundImage)).toBe('none');
+});
+
 test('iPad rotation keeps an edge-mounted instrument inside the chart and restores it', async ({
   page,
 }) => {

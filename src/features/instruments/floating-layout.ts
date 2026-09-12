@@ -23,6 +23,8 @@ export const DEFAULT_FLOATING_WIDTH = 0.26;
 export const DEFAULT_FLOATING_HEIGHT = 0.2;
 export const VERTICAL_HISTORY_FLOATING_WIDTH = 0.16;
 export const VERTICAL_HISTORY_FLOATING_HEIGHT = 0.48;
+export const FLOATING_GRID_STEP = 0.02;
+export const FLOATING_GRID_TOLERANCE = 0.004;
 
 /** The tile frame's CSS minimum, kept here so a narrow chart can still fit its saved layout. */
 export const MIN_FLOATING_WIDTH_PX = 96;
@@ -32,6 +34,27 @@ const EDGE_PIN_TOLERANCE = 0.02;
 
 export function clampFloatingBox(box: FloatingInstrumentBox): FloatingInstrumentBox {
   return sanitizeFloatingInstrumentBox(box) ?? box;
+}
+
+function snapGridValue(value: number): number {
+  const gridValue = Math.round(value / FLOATING_GRID_STEP) * FLOATING_GRID_STEP;
+  return Math.abs(gridValue - value) <= FLOATING_GRID_TOLERANCE ? gridValue : value;
+}
+
+/**
+ * Applies a small magnetic capture zone to the edit grid. Moving preserves the instrument's size,
+ * while resizing snaps its trailing edges so a previously off-grid saved box does not jump.
+ */
+export function snapFloatingBoxToGrid(
+  box: FloatingInstrumentBox,
+  mode: 'move' | 'resize',
+): FloatingInstrumentBox {
+  if (mode === 'move') {
+    return clampFloatingBox({ ...box, x: snapGridValue(box.x), y: snapGridValue(box.y) });
+  }
+  const endX = snapGridValue(box.x + box.width);
+  const endY = snapGridValue(box.y + box.height);
+  return clampFloatingBox({ ...box, width: endX - box.x, height: endY - box.y });
 }
 
 /**

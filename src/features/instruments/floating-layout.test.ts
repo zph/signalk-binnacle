@@ -9,6 +9,7 @@ import {
   MIN_FLOATING_HEIGHT,
   MIN_FLOATING_WIDTH,
   sanitizeFloatingInstrumentBox,
+  snapFloatingBoxToGrid,
 } from './floating-layout';
 
 function box(overrides: Partial<FloatingInstrumentBox> = {}): FloatingInstrumentBox {
@@ -73,6 +74,30 @@ describe('clampFloatingBox', () => {
     expect(clampFloatingBox(box({ x: 2, y: -1, width: 3 }))).toEqual(
       sanitizeFloatingInstrumentBox(box({ x: 2, y: -1, width: 3 })),
     );
+  });
+});
+
+describe('snapFloatingBoxToGrid', () => {
+  it('lightly snaps a moved box without changing its size', () => {
+    const result = snapFloatingBoxToGrid(box({ x: 0.203, y: 0.357 }), 'move');
+
+    expect(result).toEqual(box({ x: 0.2, y: 0.36 }));
+  });
+
+  it('leaves a moved box fluid outside the magnetic tolerance', () => {
+    const unsnapped = box({ x: 0.209, y: 0.351 });
+
+    expect(snapFloatingBoxToGrid(unsnapped, 'move')).toEqual(unsnapped);
+  });
+
+  it('snaps trailing edges during resize without moving the leading edges', () => {
+    const resized = box({ x: 0.103, y: 0.107, width: 0.298, height: 0.294 });
+    const result = snapFloatingBoxToGrid(resized, 'resize');
+
+    expect(result.x).toBe(0.103);
+    expect(result.y).toBe(0.107);
+    expect(result.x + result.width).toBeCloseTo(0.4);
+    expect(result.y + result.height).toBeCloseTo(0.4);
   });
 });
 
