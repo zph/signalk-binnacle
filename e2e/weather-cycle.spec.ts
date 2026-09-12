@@ -9,8 +9,8 @@ test('bottom weather button cycles forecast and tide states without hiding curre
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
 
-  // Ocean currents is an independent opt-in overlay. Enable it first so this cycle test proves the
-  // weather preset button never hides a current layer the navigator deliberately selected.
+  // Ocean currents is an independent default-on overlay. Confirm the fresh-install default before
+  // proving the weather display cycle never hides it.
   await page.getByRole('button', { name: 'Open supermenu' }).click();
   const supermenu = page.getByRole('menu', { name: 'Supermenu' });
   await supermenu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
@@ -21,23 +21,28 @@ test('bottom weather button cycles forecast and tide states without hiding curre
     .getByRole('button', { name: 'Overlays' })
     .click();
   const oceanConditions = layers.getByRole('button', { name: 'Ocean conditions' });
-  await oceanConditions.focus();
-  await oceanConditions.press('Enter');
+  const openOceanConditions = async (): Promise<void> => {
+    if ((await oceanConditions.getAttribute('aria-expanded')) !== 'true') {
+      await oceanConditions.focus();
+      await oceanConditions.press('Enter');
+    }
+  };
+  await openOceanConditions();
   const currents = layers
     .locator('[data-layer-row="weather-current"]')
     .getByRole('button', { name: 'Ocean currents', exact: true });
-  await currents.focus();
-  await currents.press('Enter');
   await expect(currents).toHaveAttribute('aria-pressed', 'true');
   await layers.getByRole('button', { name: 'Close layers and charts' }).click();
 
   const helm = page.getByRole('group', { name: 'Helm actions' });
-  const button = helm.getByRole('button', { name: /Weather and tides:/ });
+  const button = helm.getByRole('button', {
+    name: /Weather, wind, tides, currents, and more:/,
+  });
   const forecasts = page.getByRole('complementary', { name: /forecast overlay/ });
   const nextWeather = async (name: string): Promise<void> => {
     await button.click();
     await expect(button).toHaveAccessibleName(
-      `Weather and tides: ${name}. Activate for next overlay.`,
+      `Weather, wind, tides, currents, and more: ${name}. Activate for next overlay.`,
     );
     await expectInsideViewport(helm, page);
     await expectNoHorizontalOverflow(helm);
@@ -50,9 +55,11 @@ test('bottom weather button cycles forecast and tide states without hiding curre
     await expectNoHorizontalOverflow(forecast);
   };
 
-  await expect(button).toHaveAccessibleName('Weather and tides: off. Activate for next overlay.');
+  await expect(button).toHaveAccessibleName(
+    'Weather, wind, tides, currents, and more: off. Activate for next overlay.',
+  );
   await expect(button).toHaveAttribute('aria-pressed', 'false');
-  await expectForecast('Ocean currents');
+  await expect(forecasts).toHaveCount(0);
 
   await nextWeather('conditions');
   await expectForecast('Conditions');
@@ -70,6 +77,9 @@ test('bottom weather button cycles forecast and tide states without hiding curre
   await expect(wind).toContainText('labels show gust speed in');
 
   await nextWeather('tide and current stations');
+  await expect(forecasts).toHaveCount(0);
+
+  await nextWeather('ocean currents');
   await expectForecast('Ocean currents');
 
   await nextWeather('temperature');
@@ -79,6 +89,16 @@ test('bottom weather button cycles forecast and tide states without hiding curre
   await expectForecast('UV index');
 
   await nextWeather('off');
-  await expectForecast('Ocean currents');
+  await expect(forecasts).toHaveCount(0);
   await expect(button).toHaveAttribute('aria-pressed', 'false');
+
+  await page.getByRole('button', { name: 'Open supermenu' }).click();
+  await supermenu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
+  await supermenu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
+  await layers
+    .getByLabel('Layers and charts view')
+    .getByRole('button', { name: 'Overlays' })
+    .click();
+  await openOceanConditions();
+  await expect(currents).toHaveAttribute('aria-pressed', 'true');
 });

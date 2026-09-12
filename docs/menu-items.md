@@ -230,8 +230,10 @@ source, and surrounding traffic before relying on it.
 - **Conditions, wind, and ocean-current forecast overlays** are available on the primary chart under
   **Layers and charts**, **Overlays**, and **Ocean conditions**. The bottom weather button cycles
   combined conditions, wind, ocean currents, tide and current stations, temperature, UV index, and
-  off. Command K exposes the same
-  cycle. While an atmospheric forecast field is visible, a chart strip selects Automatic, NOAA GFS
+  off without hiding the independent current-arrow overlay. Command K exposes the same cycle and an
+  **Overlays** entry that opens **Layers and charts** directly to **Overlays**. Hiding the ocean-current
+  forecast strip dismisses its playback controls without hiding the current arrows. While an
+  atmospheric forecast field is visible, a chart strip selects Automatic, NOAA GFS
   with U.S. HRRR coverage, DWD ICON with European regional coverage, or global ECMWF IFS. Every
   forecast strip provides earlier, later, playback, and up-to-ten-day time-scrubbing controls. Ocean
   currents use Open-Meteo Marine. The atmospheric source belongs to the active profile. Panning the

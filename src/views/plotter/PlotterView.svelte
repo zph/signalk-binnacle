@@ -191,6 +191,7 @@ interface FlatProps {
   layersOpenRequest: { mode: 'charts' | 'overlays'; target?: 'basemap' };
   aisDisplaySettingsRequest: number;
   weatherLayerSettings: LayerSettings;
+  currentForecastPlaybackVisible: boolean;
   trackSettings: import('$shared/settings').PersistedValue<
     import('$shared/settings').TrackSettings
   >;
@@ -295,6 +296,7 @@ interface FlatProps {
   backToOfflineCharts: () => void;
   openLayersPanel: (mode: 'charts' | 'overlays') => void;
   setLayerVisible: (id: string, visible: boolean) => void;
+  hideCurrentForecastPlayback: () => void;
   onRetryHistoryProviders: () => void;
   onRetryChartLocker: () => void;
   // Arms the measure tool (shows the layer and resets prior points); owned by the shell so the
@@ -430,6 +432,7 @@ type ActionKey =
   | 'backToOfflineCharts'
   | 'openLayersPanel'
   | 'setLayerVisible'
+  | 'hideCurrentForecastPlayback'
   | 'onRetryHistoryProviders'
   | 'onRetryChartLocker'
   | 'armMeasure'
@@ -489,6 +492,7 @@ let {
   layersOpenRequest,
   aisDisplaySettingsRequest,
   weatherLayerSettings,
+  currentForecastPlaybackVisible,
   trackPersistenceDegraded,
   activePanel,
   selectedAisId,
@@ -643,6 +647,7 @@ const {
   backToOfflineCharts,
   openLayersPanel,
   setLayerVisible,
+  hideCurrentForecastPlayback,
   onRetryHistoryProviders,
   onRetryChartLocker,
   moveSelectedMeasureToCenter,
@@ -811,7 +816,7 @@ function activeRouteForCoverage(): { name: string; waypoints: RouteWaypoint[] } 
 const radarEchoShown = $derived(layerSettings[MARINE_RADAR_OVERLAY_ID]?.visible ?? false);
 const chartForecastLayer = $derived(
   CHART_FORECAST_LAYER_IDS.find((id) => layerSettings[id]?.visible) ??
-    (layerSettings[WEATHER_LAYER_IDS.current]?.visible ? WEATHER_LAYER_IDS.current : undefined),
+    (currentForecastPlaybackVisible ? WEATHER_LAYER_IDS.current : undefined),
 );
 const chartForecastKind = $derived(
   chartForecastLayer === WEATHER_LAYER_IDS.conditions
@@ -1098,7 +1103,10 @@ $effect(() => {
             retryWindForecast?.();
             if (chartForecastLayer === WEATHER_LAYER_IDS.current) void tidesController.retry();
           }}
-          onHide={() => setLayerVisible(chartForecastLayer, false)}
+          onHide={() =>
+            chartForecastLayer === WEATHER_LAYER_IDS.current
+              ? hideCurrentForecastPlayback()
+              : setLayerVisible(chartForecastLayer, false)}
         />
       {/if}
       <NavStrip

@@ -216,55 +216,44 @@ test('Command K enables and disables the trip log', async ({ page }) => {
   ).toBeVisible();
 });
 
-test('Command K toggles ocean currents independently of forecast and tide cycling', async ({
+test('Command K opens overlays and hides current playback without hiding arrows', async ({
   page,
 }) => {
+  await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
 
   await page.keyboard.press('Control+K');
   const palette = page.getByRole('dialog', { name: 'Command palette' });
   const search = palette.getByRole('searchbox', { name: 'Search commands' });
   await search.fill('ocean currents');
-  await palette.getByRole('option', { name: /Hide ocean currents/ }).click();
+  await palette.getByRole('option', { name: /Show ocean currents playback/ }).click();
+  await expect(
+    page.getByRole('complementary', { name: 'Ocean currents forecast overlay' }),
+  ).toBeVisible();
+
+  await page.keyboard.press('Control+K');
+  await search.fill('ocean currents');
+  await palette.getByRole('option', { name: /Hide ocean currents playback/ }).click();
   await expect(
     page.getByRole('complementary', { name: 'Ocean currents forecast overlay' }),
   ).toHaveCount(0);
 
   await page.keyboard.press('Control+K');
-  await search.fill('weather and tide overlay');
-  await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
+  await search.fill('overlays');
+  await palette
+    .getByRole('option')
+    .filter({ hasText: 'Open Layers and charts directly to chart overlays' })
+    .click();
+  const layers = page.locator('#layers-panel');
+  await expect(layers.getByRole('heading', { name: 'Overlays' })).toBeVisible();
+  const oceanConditions = layers.getByRole('button', { name: 'Ocean conditions' });
+  await oceanConditions.focus();
+  await oceanConditions.press('Enter');
   await expect(
-    page.getByRole('complementary', { name: 'Conditions forecast overlay' }),
-  ).toBeVisible();
-
-  await page.keyboard.press('Control+K');
-  await search.fill('weather and tide overlay');
-  await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
-  await expect(
-    page.getByRole('complementary', { name: 'Wind and gusts forecast overlay' }),
-  ).toBeVisible();
-
-  await page.keyboard.press('Control+K');
-  await search.fill('weather and tide overlay');
-  await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
-  await expect(page.getByRole('complementary', { name: /forecast overlay/ })).toHaveCount(0);
-  await expect(
-    page
-      .getByRole('group', { name: 'Helm actions' })
-      .getByRole('button', { name: /Weather and tides: tide and current stations/ }),
-  ).toBeVisible();
-
-  for (const name of ['Temperature forecast overlay', 'UV index forecast overlay']) {
-    await page.keyboard.press('Control+K');
-    await search.fill('weather and tide overlay');
-    await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
-    await expect(page.getByRole('complementary', { name })).toBeVisible();
-  }
-
-  await page.keyboard.press('Control+K');
-  await search.fill('weather and tide overlay');
-  await palette.getByRole('option', { name: /Cycle weather and tide overlay/ }).click();
-  await expect(page.getByRole('complementary', { name: /forecast overlay/ })).toHaveCount(0);
+    layers
+      .locator('[data-layer-row="weather-current"]')
+      .getByRole('button', { name: 'Ocean currents', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('Command K enters and exits browser full screen', async ({ page }) => {

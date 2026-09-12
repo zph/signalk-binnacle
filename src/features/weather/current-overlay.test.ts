@@ -31,9 +31,9 @@ function tidesWithCurrent(): TidesStore {
 }
 
 describe('current overlay', () => {
-  it('is an opt-in weather overlay', () => {
+  it('is visible by default', () => {
     const overlay = createCurrentOverlay(storeWithGrid(), tidesWithCurrent());
-    expect(overlay.defaultVisible).toBe(false);
+    expect(overlay.defaultVisible).toBe(true);
     expect(overlay.title).toBe('Ocean currents');
   });
 

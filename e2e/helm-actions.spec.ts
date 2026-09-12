@@ -39,7 +39,11 @@ test('helm actions clear bottom overlays and drag away into a full-width swipe t
   await page.goto('/');
 
   const helm = page.getByRole('group', { name: 'Helm actions' });
-  await helm.getByRole('button', { name: /Show wind layer|Weather and tides: off/ }).click();
+  await helm
+    .getByRole('button', {
+      name: /Show wind layer|Weather, wind, tides, currents, and more: off/,
+    })
+    .click();
   const forecast = page.getByRole('complementary', {
     name: /Conditions forecast overlay|Wind forecast overlay|Wind and gusts forecast overlay/,
   });

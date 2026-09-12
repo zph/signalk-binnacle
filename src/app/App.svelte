@@ -537,6 +537,9 @@ const weatherLoader = createWeatherLoader();
 // the weather panel reuses a single persisted-cache connection rather than opening a fresh one.
 const pointConditionsLoader = createPointConditionsLoader();
 let weatherPanelOpen = $state(false);
+// The current arrows are an independently managed, default-on overlay. This state controls only
+// whether the chart's current forecast playback strip is selected by the helm weather cycle.
+let currentForecastPlaybackVisible = $state(false);
 // The default Signal K weather provider's display name (for example AccuWeather), detected once the
 // stream connects. When set, the weather panel prefers the provider for point data and falls back to
 // the free grid; when undefined (no provider configured), the grid answers.
@@ -1798,6 +1801,7 @@ const follow = createFollowController({
 // surface can turn its own layer on: starting Measure must reveal a hidden measure layer (or it
 // records invisible points), and the Tides panel cross-links its stations layer.
 function setLayerVisible(id: string, visible: boolean): void {
+  if (id === WEATHER_LAYER_IDS.current && !visible) currentForecastPlaybackVisible = false;
   const current = layerSettings.value[id];
   if (current?.visible === visible) return;
   const entry = current ? { ...current, visible } : { visible, opacity: 1 };
@@ -1824,32 +1828,49 @@ const HELM_WEATHER_LAYER_IDS = [
   WEATHER_LAYER_IDS.conditions,
   WEATHER_LAYER_IDS.wind,
   TIDES_OVERLAY_ID,
+  WEATHER_LAYER_IDS.current,
   WEATHER_LAYER_IDS.temperature,
   WEATHER_LAYER_IDS.uv,
 ] as const;
 type HelmWeatherLayerId = (typeof HELM_WEATHER_LAYER_IDS)[number];
 
 const helmWeatherLayer = $derived(
-  HELM_WEATHER_LAYER_IDS.find((id) => layerSettings.value[id]?.visible),
+  currentForecastPlaybackVisible
+    ? WEATHER_LAYER_IDS.current
+    : HELM_WEATHER_LAYER_IDS.find(
+        (id) => id !== WEATHER_LAYER_IDS.current && layerSettings.value[id]?.visible,
+      ),
 );
 
 function helmWeatherLayerName(id: HelmWeatherLayerId | undefined): string {
   if (id === WEATHER_LAYER_IDS.conditions) return 'conditions';
   if (id === WEATHER_LAYER_IDS.wind) return 'wind and gusts';
   if (id === TIDES_OVERLAY_ID) return 'tide and current stations';
+  if (id === WEATHER_LAYER_IDS.current) return 'ocean currents';
   if (id === WEATHER_LAYER_IDS.temperature) return 'temperature';
   if (id === WEATHER_LAYER_IDS.uv) return 'UV index';
   return 'off';
 }
 
 function setHelmWeatherLayer(id: HelmWeatherLayerId | undefined): void {
+  currentForecastPlaybackVisible = id === WEATHER_LAYER_IDS.current;
   let changed = false;
   const next = { ...layerSettings.value };
   for (const layerId of HELM_WEATHER_LAYER_IDS) {
+    // The cycle selects the current playback strip without hiding the independently controlled
+    // red and blue current arrows when it advances to another forecast display.
+    if (layerId === WEATHER_LAYER_IDS.current) continue;
     const current = next[layerId];
     const visible = layerId === id;
     if (current?.visible === visible) continue;
     next[layerId] = current ? { ...current, visible } : { visible, opacity: 1 };
+    changed = true;
+  }
+  if (id === WEATHER_LAYER_IDS.current && !next[WEATHER_LAYER_IDS.current]?.visible) {
+    const current = next[WEATHER_LAYER_IDS.current];
+    next[WEATHER_LAYER_IDS.current] = current
+      ? { ...current, visible: true }
+      : { visible: true, opacity: 1 };
     changed = true;
   }
   if (!changed) return;
@@ -2696,7 +2717,7 @@ const helmButtonItems = $derived<MenuItem[]>([
   },
   {
     id: 'weather',
-    label: 'Weather and tides',
+    label: 'Weather, wind, tides, currents, and more',
     icon: CloudSun,
     group: 'Bottom buttons',
     pressed: helmWeatherLayer !== undefined,
@@ -2937,6 +2958,20 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       },
     },
     {
+      id: 'overlay-settings',
+      label: 'Overlays',
+      description: 'Open Layers and charts directly to chart overlays',
+      group: 'Chart',
+      keywords: ['layers', 'weather', 'current', 'wind', 'radar', 'AIS', 'settings'],
+      icon: Layers,
+      disabled: !layersView,
+      disabledReason: 'Overlay settings need the chart to finish loading.',
+      onSelect: () => {
+        layersOpenRequest = { mode: 'overlays' };
+        openPanel('layers');
+      },
+    },
+    {
       id: 'basemap-settings',
       label: 'Basemap detail',
       description: 'Choose OpenFreeMap detail layers and rendering quality',
@@ -2992,7 +3027,7 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
       id: 'wind-forecast-overlay',
       label: `Cycle weather and tide overlay (${helmWeatherLayerName(helmWeatherLayer)})`,
       description:
-        'Cycle combined conditions, wind and gusts, tide and current stations, temperature, UV index, and off on the main chart',
+        'Cycle combined conditions, wind and gusts, tide and current stations, ocean currents, temperature, UV index, and off on the main chart',
       group: 'Weather',
       keywords: [
         'conditions',
@@ -3013,19 +3048,17 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
     },
     {
       id: 'ocean-current-overlay',
-      label:
-        (layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? false)
-          ? 'Hide ocean currents'
-          : 'Show ocean currents',
-      description: 'Show modeled current set as red arrows on the main chart',
+      label: currentForecastPlaybackVisible
+        ? 'Hide ocean currents playback'
+        : 'Show ocean currents playback',
+      description: 'Show current forecast time controls while keeping the current arrows enabled',
       group: 'Weather',
       keywords: ['ocean', 'current', 'speed', 'forecast', 'overlay', 'layer'],
       icon: Waves,
-      onSelect: () =>
-        setLayerVisible(
-          WEATHER_LAYER_IDS.current,
-          !(layerSettings.value[WEATHER_LAYER_IDS.current]?.visible ?? false),
-        ),
+      onSelect: () => {
+        if (currentForecastPlaybackVisible) currentForecastPlaybackVisible = false;
+        else setHelmWeatherLayer(WEATHER_LAYER_IDS.current);
+      },
     },
     {
       id: 'observed-wind-stations-overlay',
@@ -4225,7 +4258,12 @@ const plotterEntities = {
 
 const plotterActions = {
   onViewChange,
-  onLayersChange: (settings: LayerSettings) => layerSettings.set(settings),
+  onLayersChange: (settings: LayerSettings) => {
+    layerSettings.set(settings);
+    if (settings[WEATHER_LAYER_IDS.current]?.visible === false) {
+      currentForecastPlaybackVisible = false;
+    }
+  },
   onOrderChange: (order: string[]) => layerOrder.set(order),
   onWeatherLayersChange: (settings: LayerSettings) => weatherLayerSettings.set(settings),
   onLayersReady: (view: LayersView) => (layersView = view),
@@ -4264,6 +4302,7 @@ const plotterActions = {
     openPanel('layers');
   },
   setLayerVisible,
+  hideCurrentForecastPlayback: () => (currentForecastPlaybackVisible = false),
   onRetryHistoryProviders: () => void probeHistoryProviders(true, true),
   onRetryChartLocker: () => void companionStatus.refresh(),
   armMeasure,
@@ -4357,6 +4396,7 @@ const plotterActions = {
     {layersOpenRequest}
     {aisDisplaySettingsRequest}
     weatherLayerSettings={weatherLayerSettings.value}
+    {currentForecastPlaybackVisible}
     {trackPersistenceDegraded}
     {activePanel}
     {selectedAisId}
@@ -4786,9 +4826,9 @@ const plotterActions = {
             type="button"
             class="btn btn-pill"
             class:is-on={helmWeatherLayer !== undefined}
-            aria-label={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}. Activate for next overlay.`}
+            aria-label={`Weather, wind, tides, currents, and more: ${helmWeatherLayerName(helmWeatherLayer)}. Activate for next overlay.`}
             aria-pressed={helmWeatherLayer !== undefined}
-            title={`Weather and tides: ${helmWeatherLayerName(helmWeatherLayer)}`}
+            title={`Weather, wind, tides, currents, and more: ${helmWeatherLayerName(helmWeatherLayer)}`}
             onclick={cycleHelmWeatherLayer}
           >
             <CloudSun size={16} aria-hidden="true" />

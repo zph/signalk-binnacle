@@ -48,7 +48,7 @@ export function createCurrentOverlay(
       'Arrows point toward the modeled current set, with opacity increasing through 2 kn. The larger NOAA station arrow and label are blue for ebb and red for flood.',
     band: 'weather',
     supportsOpacity: true,
-    defaultVisible: false,
+    defaultVisible: true,
     defaultOpacity: 1,
     layerIds: [ARROW_LAYER, LABEL_LAYER],
     add(ctx) {
