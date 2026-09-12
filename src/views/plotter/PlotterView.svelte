@@ -32,6 +32,7 @@ import { loadChartsManagementPanel } from '$features/charts-management';
 import { loadHandoffPanel } from '$features/handoff';
 import { loadHelpPanel } from '$features/help';
 import { type LayersView, loadLayersPanel } from '$features/layers-panel';
+import { loadLogbookPanel } from '$features/logbook';
 import type { AlarmSilenceController, ShallowMonitorSnapshot } from '$features/lookout';
 import { loadAlarmsPanel } from '$features/lookout';
 import {
@@ -138,6 +139,7 @@ interface FlatProps {
   tidesController: TidesController;
   handoff: import('$features/handoff').HandoffController;
   autopilot: import('$features/autopilot').AutopilotController;
+  logbook: import('$features/logbook').LogbookController;
 
   // Entity stores
   anchor: AnchorWatch;
@@ -378,7 +380,8 @@ type ControllerKey =
   | 'marineRadar'
   | 'tidesController'
   | 'handoff'
-  | 'autopilot';
+  | 'autopilot'
+  | 'logbook';
 type EntityKey =
   | 'anchor'
   | 'mob'
@@ -589,6 +592,7 @@ const {
   tidesController,
   handoff,
   autopilot,
+  logbook,
 } = $derived(controllers);
 const {
   anchor,
@@ -1424,6 +1428,43 @@ $effect(() => {
             closeLabel="Close autopilot panel"
             state="error"
             message="The autopilot controls could not load."
+            onClose={closePanel}
+            onBack={backToMenu}
+            onRetry={retryLazyPanel}
+          />
+        {/await}
+      {:else if activePanel === 'logbook'}
+        {#await forAttempt(loadLogbookPanel)}
+          <LazyPanelState
+            title="Logbook"
+            closeLabel="Close logbook panel"
+            state="loading"
+            message="Loading the logbook…"
+            onClose={closePanel}
+            onBack={backToMenu}
+          />
+        {:then module}
+          <ErrorBoundary>
+            <module.default controller={logbook} {auth} onClose={closePanel} onBack={backToMenu} />
+
+            {#snippet fallback(_error, reset)}
+              <LazyPanelState
+                title="Logbook"
+                closeLabel="Close logbook panel"
+                state="error"
+                message="The logbook stopped unexpectedly."
+                onClose={closePanel}
+                onBack={backToMenu}
+                onRetry={reset}
+              />
+            {/snippet}
+          </ErrorBoundary>
+        {:catch}
+          <LazyPanelState
+            title="Logbook"
+            closeLabel="Close logbook panel"
+            state="error"
+            message="The logbook could not load."
             onClose={closePanel}
             onBack={backToMenu}
             onRetry={retryLazyPanel}

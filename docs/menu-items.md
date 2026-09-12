@@ -119,6 +119,12 @@ source, and surrounding traffic before relying on it.
   startup toast. A server with no tracks resource provider is detected, Save is disabled, and the
   panel names the one-time Resources Provider step with a Check again action. See
   [Tracks](tracks.md).
+- **Logbook** reads the two most recent logged days from the optional
+  `@meri-imperiumi/signalk-logbook` server plugin and adds explicitly confirmed entries. The plugin
+  snapshots position, heading, speed, wind, and barometer data on the server when an entry is
+  accepted. Watch handoff, route start or stop, and anchor drop or raise can prefill factual draft
+  suggestions, but Binnacle never posts them until the navigator taps Log it. When the plugin is
+  absent or access is refused, the panel remains discoverable and explains what is needed.
 - **Playback** reviews bounded 1-hour, 6-hour, 24-hour, and 7-day ranges from one available
   history provider. Each range has a fixed adaptive resolution and row cap. The range-owned track,
   scrubbed marker, and four-metric readout share the same accepted provider snapshot. Play and pause

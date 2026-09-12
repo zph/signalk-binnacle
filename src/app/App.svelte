@@ -24,6 +24,7 @@ import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import Moon from '@lucide/svelte/icons/moon';
 import Navigation from '@lucide/svelte/icons/navigation';
 import Navigation2 from '@lucide/svelte/icons/navigation-2';
+import NotebookPen from '@lucide/svelte/icons/notebook-pen';
 import Pencil from '@lucide/svelte/icons/pencil';
 import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
@@ -110,6 +111,12 @@ import {
 } from '$features/instruments';
 import { createInterfaceLockController, InterfaceLockLayer } from '$features/interface-lock';
 import type { LayersView } from '$features/layers-panel';
+import {
+  createLogbookController,
+  logbookAnchorSuggestion,
+  logbookCourseSuggestion,
+  logbookHandoffSuggestion,
+} from '$features/logbook';
 import {
   AlarmButton,
   alarmButtonGrade,
@@ -2074,9 +2081,28 @@ function onRouteCoverageReport(report: RouteCoverageReport | null): void {
   const verdict = report.verdict === 'complete' ? 'Complete' : 'Partial';
   routeCoverageFact = `${verdict} for a ${report.corridorNm} nm corridor, checked ${formatClockTime(Date.now())}`;
 }
+
+// The optional server plugin owns the log files and the navigation-state snapshot. Binnacle only
+// offers drafts for explicit confirmation and never writes a suggested entry automatically.
+const logbook = createLogbookController({
+  origin: () => origin,
+  getToken: () => chartsToken,
+  writeBlocked: () => auth.writeBlocked,
+  requestWriteAccess: () => auth.requestWriteAccess(),
+});
+
 const handoff = createHandoffController({
   client: () => handoffClient,
   drafts: handoffDrafts,
+  onCreated: () =>
+    logbook.offerEntry(
+      logbookHandoffSuggestion(
+        handoffDrafts.value
+          .at(-1)
+          ?.facts.map((fact) => `${fact.label}: ${fact.value}`)
+          .join('; ') ?? '',
+      ),
+    ),
   collectFacts: () =>
     collectHandoffFacts({
       now: Date.now,
@@ -2391,6 +2417,14 @@ const menuItems = $derived<MenuItem[]>([
     fixedToBar: true,
     pressed: activePanel === 'tracks',
     onSelect: () => togglePanel('tracks'),
+  },
+  {
+    id: 'logbook',
+    label: 'Logbook',
+    icon: NotebookPen,
+    group: 'Navigate',
+    pressed: activePanel === 'logbook',
+    onSelect: () => togglePanel('logbook'),
   },
   // Playback is not a LeftPanel; it has its own active flag and enter and exit API. It grays like
   // the radar tile when no history provider is known, rather than opening to an empty mode. It
@@ -2772,6 +2806,7 @@ const CONFIGURABLE_MENU_ITEM_IDS = new Set([
   'routes',
   'autopilot',
   'tracks',
+  'logbook',
   'ais',
   'radar',
   'anchor',
@@ -3279,7 +3314,9 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
     orientation: 'navigate',
     wayfinding: 'navigate',
     routes: 'navigate',
+    autopilot: 'navigate',
     waypoints: 'navigate',
+    logbook: 'navigate',
     moorings: 'navigate',
     layers: 'chart',
     'charts-management': 'chart',
@@ -3389,6 +3426,8 @@ const anchorController = createAnchorController({
   anchorAlarm,
   serverHasAnchorApi: () => serverFeatures?.apis.has('anchor') ?? false,
   writeBlocked: () => auth.writeBlocked,
+  onAnchorLogMoment: (kind, radiusMeters) =>
+    logbook.offerEntry(logbookAnchorSuggestion(kind, radiusMeters)),
 });
 
 // A transient action failure (a failed save, activate, delete, and similar) from the route,
@@ -3420,6 +3459,7 @@ const routeController = createRouteController({
   stopRouteEdit: () => mapCommands?.stopRouteEdit(),
   getTrackPoints: () => recorder.points,
   toast,
+  onCourseLogMoment: (kind, name) => logbook.offerEntry(logbookCourseSuggestion(kind, name)),
 });
 
 // Waypoints controller: owns waypoints CRUD.
@@ -3749,6 +3789,7 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
     ),
   );
   if (instruments.open) instruments.refreshLiveCatalog();
+  void logbook.recheck();
   // A reconnect can land on a restarted or reconfigured server, so cached path meta (zones, a
   // declared staleness window) is refetched rather than trusted for the rest of the session.
   shallowController.refreshMeta();
@@ -3848,6 +3889,10 @@ $effect(() => {
   // approved token or enabled provider updates the editor without a reload.
   void personalNotesController.probe();
   void autopilot.rehydrate();
+  untrack(() => {
+    logbook.start();
+    void logbook.recheck();
+  });
   void refreshWeatherProvider(authToken);
   // Resolve the server's unit preferences with the same trigger: per-user resolution rides on the
   // session credentials that exist once access has resolved.
@@ -4156,6 +4201,7 @@ const plotterControllers = {
   tidesController,
   handoff,
   autopilot,
+  logbook,
 };
 
 const plotterEntities = {
