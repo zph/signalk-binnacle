@@ -119,10 +119,7 @@ export async function fetchRadarTargets(
 // reads "Radar 7" rather than an id blob. Provider cpa and tcpa pass through and grade exactly
 // like navigation.closestApproach; a target carrying motion without them goes through the
 // computed branch, and one without motion lands unassessed.
-export function toCollisionContacts(
-  radarId: string,
-  targets: RadarTarget[],
-): CollisionContact[] {
+export function toCollisionContacts(radarId: string, targets: RadarTarget[]): CollisionContact[] {
   return targets.map((target) => ({
     id: `radar:${radarId}:${target.id}`,
     name: `Radar ${target.id}`,

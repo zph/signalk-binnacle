@@ -775,6 +775,29 @@ function stubArpaFetch(
 }
 
 describe('ARPA targets polling', () => {
+  it('does not start an ARPA timer when no radar is discovered', async () => {
+    vi.useFakeTimers();
+    let polls = 0;
+    stubArpaFetch(
+      () => {
+        polls += 1;
+        return jsonResponse([wireArpaTarget]);
+      },
+      { radars: [] },
+    );
+    const controller = makeController();
+    try {
+      await controller.start();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(controller.store.availability).toBe('absent');
+      expect(controller.store.arpaTargets).toBeUndefined();
+      expect(polls).toBe(0);
+    } finally {
+      await controller.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   it('polls targets on a 5 s cadence while transmitting and maps collision contacts', async () => {
     vi.useFakeTimers();
     let polls = 0;
