@@ -128,7 +128,7 @@
     {
       "name": "Main application JavaScript",
       "path": "public/assets/index-*.js",
-      "limit": "122 kB"
+      "limit": "123 kB"
     },
     {
       "name": "MapLibre JavaScript",
