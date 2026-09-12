@@ -23,6 +23,7 @@ import MenuIcon from '@lucide/svelte/icons/menu';
 import Minimize2 from '@lucide/svelte/icons/minimize-2';
 import Moon from '@lucide/svelte/icons/moon';
 import Navigation from '@lucide/svelte/icons/navigation';
+import Navigation2 from '@lucide/svelte/icons/navigation-2';
 import Pencil from '@lucide/svelte/icons/pencil';
 import Radar from '@lucide/svelte/icons/radar';
 import Route from '@lucide/svelte/icons/route';
@@ -69,6 +70,7 @@ import { WeatherStore } from '$entities/weather';
 import { AIS_OVERLAY_ID, type AisNameMode, type AisVesselKindMode } from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
 import { ANCHOR_TONE, createAnchorController } from '$features/anchor-watch';
+import { createAutopilotController } from '$features/autopilot';
 import { createUserChartsController } from '$features/charts';
 import {
   CommandPalette,
@@ -2224,6 +2226,19 @@ const wayfindingController = createWayfindingController({
   },
 });
 
+// The standard Signal K v2 Autopilot API owns discovery, current state, and commands. The panel
+// remains available on a stock server so it can explain the missing API or provider, while the
+// controller stays dormant between explicit hydration and stream updates.
+const autopilot = createAutopilotController({
+  origin,
+  getToken: () => authToken,
+  apiAdvertised: () =>
+    serverFeatures === undefined ? undefined : serverFeatures.apis.has('autopilot'),
+  writeBlocked: () => auth.writeBlocked,
+  requestWriteAccess: () => auth.requestWriteAccess(),
+  store,
+});
+
 // The app menu's options, grouped into helm-first intent groups: chart controls and navigation,
 // safety, weather, instruments, optional offline charts, and settings. Adding an option is a single
 // entry; the launcher renders and groups whatever it is given.
@@ -2343,6 +2358,14 @@ const menuItems = $derived<MenuItem[]>([
     disabledLabel: 'Routes (chart is loading)',
     pressed: activePanel === 'routes',
     onSelect: () => togglePanel('routes'),
+  },
+  {
+    id: 'autopilot',
+    label: 'Autopilot',
+    icon: Navigation2,
+    group: 'Navigate',
+    pressed: activePanel === 'autopilot',
+    onSelect: () => togglePanel('autopilot'),
   },
   {
     id: 'waypoints',
@@ -2739,6 +2762,7 @@ const CONFIGURABLE_MENU_ITEM_IDS = new Set([
   'layers',
   'regions',
   'routes',
+  'autopilot',
   'tracks',
   'ais',
   'radar',
@@ -3708,6 +3732,7 @@ function refreshAfterStreamReconnect(token: string | undefined): void {
   void fetchServerFeatures(origin, token).then((features) => {
     if (features) serverFeatures = features;
     void marineRadar.start();
+    void autopilot.rehydrate();
   });
   void probeHistoryProviders(
     true,
@@ -3773,6 +3798,7 @@ const streamController = createStreamController({
   onOpen: (firstOpen, token) => {
     void hydrateAisSnapshot(store, origin, token);
     void routeController.hydrateAndSeedCourse();
+    void autopilot.rehydrate();
     if (firstOpen) mobController.onStreamReconnect();
     else refreshAfterStreamReconnect(token);
   },
@@ -3813,6 +3839,7 @@ $effect(() => {
   // Personal-note writes are v2-only. Recheck capability when credentials change so a newly
   // approved token or enabled provider updates the editor without a reload.
   void personalNotesController.probe();
+  void autopilot.rehydrate();
   void refreshWeatherProvider(authToken);
   // Resolve the server's unit preferences with the same trigger: per-user resolution rides on the
   // session credentials that exist once access has resolved.
@@ -4068,6 +4095,7 @@ onDestroy(() => {
   setWriteOutcomeListener(undefined);
   auth.stop();
   profilesController.dispose();
+  autopilot.dispose();
   void marineRadar.dispose();
   instruments.dispose();
   shallowAhead.dispose();
@@ -4119,6 +4147,7 @@ const plotterControllers = {
   marineRadar,
   tidesController,
   handoff,
+  autopilot,
 };
 
 const plotterEntities = {

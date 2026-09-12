@@ -27,6 +27,7 @@ import {
 import { loadAisListPanel } from '$features/ais-list';
 import { loadAnchorPanel } from '$features/anchor-watch';
 import { AuthBanner } from '$features/auth-banner';
+import { loadAutopilotPanel } from '$features/autopilot';
 import { loadChartsManagementPanel } from '$features/charts-management';
 import { loadHandoffPanel } from '$features/handoff';
 import { loadHelpPanel } from '$features/help';
@@ -136,6 +137,7 @@ interface FlatProps {
   marineRadar: RadarController;
   tidesController: TidesController;
   handoff: import('$features/handoff').HandoffController;
+  autopilot: import('$features/autopilot').AutopilotController;
 
   // Entity stores
   anchor: AnchorWatch;
@@ -375,7 +377,8 @@ type ControllerKey =
   | 'tripLog'
   | 'marineRadar'
   | 'tidesController'
-  | 'handoff';
+  | 'handoff'
+  | 'autopilot';
 type EntityKey =
   | 'anchor'
   | 'mob'
@@ -585,6 +588,7 @@ const {
   marineRadar,
   tidesController,
   handoff,
+  autopilot,
 } = $derived(controllers);
 const {
   anchor,
@@ -1380,6 +1384,48 @@ $effect(() => {
             message="Routes controls could not load."
             onClose={closeRoutesPanel}
             onBack={backFromRoutesPanel}
+            onRetry={retryLazyPanel}
+          />
+        {/await}
+      {:else if activePanel === 'autopilot'}
+        {#await forAttempt(loadAutopilotPanel)}
+          <LazyPanelState
+            title="Autopilot"
+            closeLabel="Close autopilot panel"
+            state="loading"
+            message="Loading the autopilot controls…"
+            onClose={closePanel}
+            onBack={backToMenu}
+          />
+        {:then module}
+          <ErrorBoundary>
+            <module.default
+              controller={autopilot}
+              {auth}
+              onClose={closePanel}
+              onBack={backToMenu}
+            />
+
+            {#snippet fallback(_error, reset)}
+              <LazyPanelState
+                title="Autopilot"
+                closeLabel="Close autopilot panel"
+                state="error"
+                message="The autopilot controls stopped unexpectedly."
+                onClose={closePanel}
+                onBack={backToMenu}
+                onRetry={reset}
+              />
+            {/snippet}
+          </ErrorBoundary>
+        {:catch}
+          <LazyPanelState
+            title="Autopilot"
+            closeLabel="Close autopilot panel"
+            state="error"
+            message="The autopilot controls could not load."
+            onClose={closePanel}
+            onBack={backToMenu}
             onRetry={retryLazyPanel}
           />
         {/await}

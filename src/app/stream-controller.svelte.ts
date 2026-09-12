@@ -59,6 +59,7 @@ const SUBSCRIPTIONS = [
   { path: SK_PATHS.currentDrift, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.currentSetTrue, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.currentSetMagnetic, policy: 'instant' as const, minPeriod: 60_000 },
+  { path: SK_PATHS.autopilotAll, policy: 'instant' as const, minPeriod: 1000 },
   { path: SK_PATHS.magneticVariation, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.outsidePressure, policy: 'instant' as const, minPeriod: 5000 },
   { path: SK_PATHS.name, policy: 'instant' as const, minPeriod: 5000 },
