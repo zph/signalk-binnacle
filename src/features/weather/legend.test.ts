@@ -38,6 +38,7 @@ describe('weatherLegend', () => {
     expect(legend?.highLabel).toBe('3.7+');
     expect(legend?.note).toMatch(/arrows point/i);
     expect(legend?.note).toMatch(/2 kn/i);
+    expect(legend?.note).toMatch(/blue for ebb and red for flood/i);
   });
 
   it('builds a single isobar swatch for pressure', () => {

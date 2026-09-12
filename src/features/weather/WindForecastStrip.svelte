@@ -89,7 +89,9 @@ const statusNote = $derived.by(() => {
     return 'Marine forecast data is unavailable for combined conditions in this area.';
   }
   if (kind === 'Ocean currents') {
-    const local = tides.current ? ` · ${tides.current.station.name} NOAA prediction labeled` : '';
+    const local = tides.current
+      ? ` · ${tides.current.station.name} NOAA ebb/flood prediction labeled in blue/red`
+      : '';
     return `Open-Meteo Marine · arrows point toward the forecast set; opacity shows speed in ${speedUnitLabel(units.speedUnit)}${local}`;
   }
   if (kind === 'Conditions') {

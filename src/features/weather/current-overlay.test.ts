@@ -44,6 +44,18 @@ describe('current overlay', () => {
     expect(overlay.band).toBe('weather');
     expect(map.sources.size).toBe(2);
     expect(map.layers.size).toBe(2);
+    expect(map.layers.get('binnacle-weather-current-arrow-layer')?.layout).toMatchObject({
+      'text-size': ['case', ['has', 'station'], 36, 23],
+    });
+    expect(map.layers.get('binnacle-weather-current-label-layer')).toMatchObject({
+      layout: {
+        'text-size': 13,
+        'text-offset': [0, 1.65],
+        'text-anchor': 'top',
+        'text-allow-overlap': true,
+      },
+      paint: { 'text-halo-width': 2 },
+    });
   });
 
   it('syncs modeled current arrows and the NOAA label when visible', async () => {
@@ -57,7 +69,8 @@ describe('current overlay', () => {
       ?.data as GeoJSON.FeatureCollection;
     expect(arrows.features).toHaveLength(5);
     expect(arrows.features[0].properties?.bearing).toBeCloseTo(90);
-    expect(labels.features[0].properties?.label).toBe('1.9 kn\nLocal channel');
+    expect(arrows.features.at(-1)?.properties?.phase).toBe('flood');
+    expect(labels.features[0].properties?.label).toBe('Flood · 1.9 kn\nLocal channel');
   });
 
   it('keeps modeled arrows visible without a nearby NOAA station', async () => {

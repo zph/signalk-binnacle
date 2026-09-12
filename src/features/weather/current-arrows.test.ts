@@ -39,7 +39,23 @@ describe('currentVectorFeatures', () => {
       coordinates: [-122.22, 38.06],
     });
     expect(result.arrows.features[0].properties?.bearing).toBeCloseTo(90);
-    expect(result.markers.features[0].properties?.label).toBe('1.0 kn\nCarquinez Strait');
+    expect(result.arrows.features[0].properties?.phase).toBe('flood');
+    expect(result.markers.features[0].properties?.label).toBe('Flood · 1.0 kn\nCarquinez Strait');
+  });
+
+  it('carries the NOAA ebb phase into both the arrow color key and visible label', () => {
+    const result = noaaCurrentVectorFeatures(
+      {
+        station: { id: 'C2', name: 'Golden Gate', latitude: 37.82, longitude: -122.48 },
+        distanceMeters: 400,
+        events: [{ timeMs: 1_000, velocityMps: 1.2, directionRad: Math.PI, kind: 'ebb' }],
+      },
+      1_000,
+      'kn',
+    );
+
+    expect(result.arrows.features[0].properties?.phase).toBe('ebb');
+    expect(result.markers.features[0].properties?.label).toBe('Ebb · 2.3 kn\nGolden Gate');
   });
 
   it('draws fixed-size arrow points toward the current set and labels speed', () => {
@@ -48,6 +64,7 @@ describe('currentVectorFeatures', () => {
     expect(result.markers.features).toHaveLength(4);
     expect(result.arrows.features[0].geometry).toEqual({ type: 'Point', coordinates: [0, 0] });
     expect(result.arrows.features[0].properties?.bearing).toBe(0);
+    expect(result.arrows.features[0].properties?.phase).toBe('modeled');
     expect(result.markers.features[0].properties?.label).toBe('1.0 kn');
   });
 

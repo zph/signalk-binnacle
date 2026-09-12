@@ -6,7 +6,30 @@ test.use({ serviceWorkers: 'block' });
 test('bottom weather button cycles forecast and tide states without hiding currents', async ({
   page,
 }) => {
+  await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
+
+  // Ocean currents is an independent opt-in overlay. Enable it first so this cycle test proves the
+  // weather preset button never hides a current layer the navigator deliberately selected.
+  await page.getByRole('button', { name: 'Open supermenu' }).click();
+  const supermenu = page.getByRole('menu', { name: 'Supermenu' });
+  await supermenu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
+  await supermenu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
+  const layers = page.locator('#layers-panel');
+  await layers
+    .getByLabel('Layers and charts view')
+    .getByRole('button', { name: 'Overlays' })
+    .click();
+  const oceanConditions = layers.getByRole('button', { name: 'Ocean conditions' });
+  await oceanConditions.focus();
+  await oceanConditions.press('Enter');
+  const currents = layers
+    .locator('[data-layer-row="weather-current"]')
+    .getByRole('button', { name: 'Ocean currents', exact: true });
+  await currents.focus();
+  await currents.press('Enter');
+  await expect(currents).toHaveAttribute('aria-pressed', 'true');
+  await layers.getByRole('button', { name: 'Close layers and charts' }).click();
 
   const helm = page.getByRole('group', { name: 'Helm actions' });
   const button = helm.getByRole('button', { name: /Weather and tides:/ });

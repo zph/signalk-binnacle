@@ -6,15 +6,15 @@ import {
   emptyFeatureCollection,
   ensureGeoJsonSource,
   featureCollection,
+  mapThemePaint,
   type OverlayContext,
   type OverlayModule,
   removeLayersAndSources,
   setLayersVisibility,
   setSourceData,
 } from '$shared/map';
-import type { Theme } from '$shared/ui';
 import { currentVectorFeatures, noaaCurrentVectorFeatures } from './current-arrows';
-import { currentArrowColor, currentArrowOpacityExpression } from './current-colormap';
+import { currentArrowColorExpression, currentArrowOpacityExpression } from './current-colormap';
 import { WEATHER_LAYER_IDS } from './fills';
 import { gridTimeGate } from './grid-time-gate';
 import { becameVisible } from './overlay-visibility';
@@ -34,7 +34,7 @@ export function createCurrentOverlay(
   tides: TidesStore,
   getSpeedUnit: () => SpeedUnit = () => 'kn',
 ): CurrentOverlay {
-  let theme: Theme = 'day';
+  let mapPaint = mapThemePaint('day');
   let opacity = 1;
   let visible = false;
   let lastSpeedUnit: SpeedUnit | undefined;
@@ -45,7 +45,7 @@ export function createCurrentOverlay(
     id: WEATHER_LAYER_IDS.current,
     title: 'Ocean currents',
     description:
-      'Small red arrows point toward the modeled current set; opacity increases with speed through 2 kn. The nearest NOAA prediction is labeled when available.',
+      'Arrows point toward the modeled current set, with opacity increasing through 2 kn. The larger NOAA station arrow and label are blue for ebb and red for flood.',
     band: 'weather',
     supportsOpacity: true,
     defaultVisible: false,
@@ -62,7 +62,7 @@ export function createCurrentOverlay(
           layout: {
             'text-field': '↑',
             'text-font': ['Noto Sans Regular'],
-            'text-size': ['case', ['has', 'station'], 23, 19],
+            'text-size': ['case', ['has', 'station'], 36, 23],
             'text-rotate': ['get', 'bearing'],
             'text-rotation-alignment': 'map',
             'text-pitch-alignment': 'map',
@@ -70,11 +70,13 @@ export function createCurrentOverlay(
             'text-ignore-placement': true,
           },
           paint: {
-            'text-color': currentArrowColor(theme),
+            'text-color': currentArrowColorExpression(mapPaint.theme) as ExpressionSpecification,
             'text-opacity': currentArrowOpacityExpression(
-              theme,
+              mapPaint.theme,
               opacity,
             ) as ExpressionSpecification,
+            'text-halo-color': mapPaint.background,
+            'text-halo-width': 1.5,
           },
         };
         ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
@@ -87,13 +89,18 @@ export function createCurrentOverlay(
           layout: {
             'text-field': ['get', 'label'],
             'text-font': ['Noto Sans Regular'],
-            'text-size': 10,
-            'text-offset': [0, 1.2],
-            'text-allow-overlap': false,
+            'text-size': 13,
+            'text-line-height': 1.15,
+            'text-offset': [0, 1.65],
+            'text-anchor': 'top',
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
           },
           paint: {
-            'text-color': currentArrowColor(theme),
+            'text-color': currentArrowColorExpression(mapPaint.theme) as ExpressionSpecification,
             'text-opacity': opacity,
+            'text-halo-color': mapPaint.background,
+            'text-halo-width': 2,
           },
         };
         ctx.map.addLayer(layer, ctx.beforeIdFor('weather'));
@@ -141,7 +148,7 @@ export function createCurrentOverlay(
         ctx.map.setPaintProperty(
           ARROW_LAYER,
           'text-opacity',
-          currentArrowOpacityExpression(theme, opacity) as ExpressionSpecification,
+          currentArrowOpacityExpression(mapPaint.theme, opacity) as ExpressionSpecification,
         );
       }
       if (ctx.map.getLayer(LABEL_LAYER)) {
@@ -149,17 +156,27 @@ export function createCurrentOverlay(
       }
     },
     applyTheme(ctx, paint) {
-      theme = paint.theme;
+      mapPaint = paint;
       if (ctx.map.getLayer(ARROW_LAYER)) {
-        ctx.map.setPaintProperty(ARROW_LAYER, 'text-color', currentArrowColor(theme));
+        ctx.map.setPaintProperty(
+          ARROW_LAYER,
+          'text-color',
+          currentArrowColorExpression(mapPaint.theme) as ExpressionSpecification,
+        );
         ctx.map.setPaintProperty(
           ARROW_LAYER,
           'text-opacity',
-          currentArrowOpacityExpression(theme, opacity) as ExpressionSpecification,
+          currentArrowOpacityExpression(mapPaint.theme, opacity) as ExpressionSpecification,
         );
+        ctx.map.setPaintProperty(ARROW_LAYER, 'text-halo-color', mapPaint.background);
       }
       if (ctx.map.getLayer(LABEL_LAYER)) {
-        ctx.map.setPaintProperty(LABEL_LAYER, 'text-color', currentArrowColor(theme));
+        ctx.map.setPaintProperty(
+          LABEL_LAYER,
+          'text-color',
+          currentArrowColorExpression(mapPaint.theme) as ExpressionSpecification,
+        );
+        ctx.map.setPaintProperty(LABEL_LAYER, 'text-halo-color', mapPaint.background);
       }
     },
   };

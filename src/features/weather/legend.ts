@@ -132,7 +132,7 @@ export function weatherLegend(
       return {
         ...legend,
         highLabel: `${legend.highLabel}+`,
-        note: 'arrows point toward the set; red opacity shows modeled speed through 2 kn; the labeled arrow is the nearest NOAA prediction',
+        note: 'arrows point toward the set; opacity shows modeled speed through 2 kn; the larger labeled NOAA arrow is blue for ebb and red for flood',
       };
     }
     case WEATHER_LAYER_IDS.temperature:

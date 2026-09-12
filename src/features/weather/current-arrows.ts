@@ -20,6 +20,16 @@ function currentAt(events: CurrentEvent[], timeMs: number): CurrentEvent | undef
     const fraction = (timeMs - before.timeMs) / (after.timeMs - before.timeMs || 1);
     const beforeDirection = before.directionRad ?? after.directionRad;
     const afterDirection = after.directionRad ?? before.directionRad;
+    const kind =
+      fraction >= 1
+        ? after.kind
+        : before.kind === 'slack'
+          ? after.kind
+          : after.kind === 'slack'
+            ? before.kind
+            : fraction < 0.5
+              ? before.kind
+              : after.kind;
     return {
       timeMs,
       velocityMps: lerp(before.velocityMps, after.velocityMps, fraction),
@@ -27,7 +37,7 @@ function currentAt(events: CurrentEvent[], timeMs: number): CurrentEvent | undef
         beforeDirection === undefined || afterDirection === undefined
           ? undefined
           : lerpAngle(beforeDirection, afterDirection, fraction),
-      kind: fraction < 0.5 ? before.kind : after.kind,
+      kind,
     };
   }
   return events.at(-1);
@@ -47,7 +57,10 @@ export function noaaCurrentVectorFeatures(
     bearing: (prediction.directionRad * 180) / Math.PI,
     speed: prediction.velocityMps,
     station: reading.station.name,
+    phase: prediction.kind,
   };
+  const phaseLabel =
+    prediction.kind === 'flood' ? 'Flood' : prediction.kind === 'ebb' ? 'Ebb' : 'Slack';
   return {
     arrows: featureCollection([
       { type: 'Feature', geometry: { type: 'Point', coordinates }, properties },
@@ -58,7 +71,7 @@ export function noaaCurrentVectorFeatures(
         geometry: { type: 'Point', coordinates },
         properties: {
           ...properties,
-          label: `${formatSpeedOr(prediction.velocityMps, speedUnit, 1)} ${speedUnitLabel(speedUnit)}\n${reading.station.name}`,
+          label: `${phaseLabel} · ${formatSpeedOr(prediction.velocityMps, speedUnit, 1)} ${speedUnitLabel(speedUnit)}\n${reading.station.name}`,
         },
       },
     ]),
@@ -95,7 +108,7 @@ export function currentVectorFeatures(
       arrows.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lon, lat] },
-        properties: { speed, bearing: (direction * 180) / Math.PI },
+        properties: { speed, bearing: (direction * 180) / Math.PI, phase: 'modeled' },
       });
       if (includeLabels) {
         markers.push({
