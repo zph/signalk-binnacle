@@ -20,6 +20,7 @@ A profile contains:
 - weather layers;
 - collision and shallow-depth thresholds;
 - track recording and display settings;
+- automatic day-night theme and daytime bright-sun chart mode;
 - planning speed;
 - the local units fallback used when server unit preferences are unavailable;
 - bottom-toolbar pins;
@@ -46,7 +47,8 @@ the instrument is discovered again.
 The Profiles panel can pin one profile as this device's presentation source. While pinned, switching
 the active operational profile does not replace the pinned profile's theme, chart and weather
 overlays, layer order, chart orientation, AIS presentation, toolbar pins, instrument dock, Data
-trends, wind rose display settings, or floating chart instruments and positions. Edits to those
+trends, wind rose display settings, automatic theme, bright-sun chart mode, or floating chart
+instruments and positions. Edits to those
 presentation settings save back to the pinned profile.
 
 Collision and depth thresholds, route-planning speed, track-recording settings, and the preferred

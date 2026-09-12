@@ -22,9 +22,11 @@ const mocks = vi.hoisted(() => {
     toggle: vi.fn(),
   };
   const destroy = vi.fn();
+  const recolor = vi.fn();
   let options: Parameters<typeof import('$shared/map').createThemedMap>[0] | undefined;
   return {
     destroy,
+    recolor,
     handlers,
     manager,
     map,
@@ -54,7 +56,7 @@ vi.mock('$shared/map', async (importOriginal) => {
       void options.onLoad({
         map: mocks.map,
         manager: mocks.manager,
-        recolor: vi.fn(),
+        recolor: mocks.recolor,
         isDestroyed: () => false,
         runTick: vi.fn(),
       } as never);
@@ -90,6 +92,7 @@ describe('map instrument chart', () => {
       thresholds: { value: { shallowDepthMeters: 2 } } as never,
       userCharts: { sources: [] } as never,
       theme: 'day',
+      brightSun: true,
       companionBase: null,
       companionTiles: () => null,
       initialView: { lat: 38, lon: -122, zoom: 9 },
@@ -134,6 +137,7 @@ describe('map instrument chart', () => {
         onUserPan: expect.any(Function),
       }),
     );
+    expect(mocks.recolor).toHaveBeenCalledWith('day', true);
 
     flushSync(() => target.querySelector<HTMLButtonElement>('[aria-label="Zoom in"]')?.click());
     expect(mocks.map.easeTo).toHaveBeenCalledWith({ zoom: 13, duration: 180 });

@@ -64,6 +64,10 @@ export interface ProfileSettings {
   // Chart orientation mode. Optional so profiles saved before orientation existed stay valid;
   // absent reads as north-up.
   chartOrientation?: 'north' | 'course' | 'heading';
+  // Display preferences follow a named helm setup. Optional fields keep legacy profiles valid and
+  // reset to the safe off defaults instead of inheriting the previously active profile.
+  displayAutoTheme?: boolean;
+  displaySunMode?: boolean;
   // Legacy device and safety fields remain optional so older exports validate and round-trip, but the
   // current bindings never capture or apply them.
   layerCategories?: Record<string, boolean>;
@@ -95,6 +99,8 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'windRoseArcMarginRad',
   'trendInstrumentIds',
   'anchorRadiusMeters',
+  'displayAutoTheme',
+  'displaySunMode',
 ] as const satisfies readonly (keyof ProfileSettings)[];
 
 // Presentation settings that may be sourced from one profile while the operational profile changes.
@@ -119,6 +125,8 @@ export const DISPLAY_PROFILE_SETTING_KEYS = [
   'windRoseNoGoAngleRad',
   'windRoseArcMarginRad',
   'trendInstrumentIds',
+  'displayAutoTheme',
+  'displaySunMode',
 ] as const satisfies readonly PortableProfileSettingKey[];
 
 export type DisplayProfileSettingKey = (typeof DISPLAY_PROFILE_SETTING_KEYS)[number];

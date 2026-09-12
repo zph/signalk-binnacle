@@ -26,6 +26,8 @@ const PROFILE_SETTING_LABELS: Record<PortableProfileSettingKey, string> = {
   windRoseArcMarginRad: 'Wind rose fallback arc margin',
   trendInstrumentIds: 'Data trends',
   anchorRadiusMeters: 'Anchor radius',
+  displayAutoTheme: 'Automatic theme',
+  displaySunMode: 'Bright sun chart',
 };
 
 const LIST_FORMAT = new Intl.ListFormat('en-US', { style: 'long', type: 'conjunction' });

@@ -316,6 +316,12 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   ) {
     return false;
   }
+  if (value.displayAutoTheme !== undefined && typeof value.displayAutoTheme !== 'boolean') {
+    return false;
+  }
+  if (value.displaySunMode !== undefined && typeof value.displaySunMode !== 'boolean') {
+    return false;
+  }
   if (
     value.pinnedActionIds !== undefined &&
     !validStringList(value.pinnedActionIds, MAX_PINNED_ACTIONS)

@@ -40,6 +40,7 @@ export {
   steerSide,
   vmgMps,
 } from './route-geometry';
+export { isAfterDark } from './solar';
 export {
   createWindAngleAnimator,
   WIND_ANGLE_MAX_DURATION_MS,

@@ -51,6 +51,8 @@ const BINNACLE_STORAGE_KEYS = {
   bottomStatusReadouts: { key: 'binnacle-custom:bottom-status-readouts', scope: 'device' },
   actionDialPosition: { key: 'binnacle-custom:action-dial-position', scope: 'device' },
   screenWakeLockEnabled: { key: 'binnacle-custom:screen-wake-lock-enabled', scope: 'device' },
+  displayAutoTheme: { key: 'binnacle-custom:display-auto-theme', scope: 'profile' },
+  displaySunMode: { key: 'binnacle-custom:display-sun-mode', scope: 'profile' },
   instrumentTiles: { key: 'binnacle-custom:instrument-tiles', scope: 'profile' },
   instrumentWebviews: { key: 'binnacle-custom:instrument-webviews', scope: 'profile' },
   instrumentTileLayouts: { key: 'binnacle-custom:instrument-tile-layouts', scope: 'profile' },

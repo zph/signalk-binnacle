@@ -7,6 +7,7 @@ export type PanelId =
   | 'layers'
   | 'tracks'
   | 'logbook'
+  | 'display'
   | 'autopilot'
   | 'waypoints'
   | 'tides'

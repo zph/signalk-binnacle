@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import TOKENS_CSS from '../../styles/tokens.css?raw';
+import type { Rgba } from './icon-raster';
 import { colorProperty, mapThemePaint } from './map-theme';
 
 const THEME_SELECTOR = {
@@ -76,6 +77,79 @@ describe('mapThemePaint', () => {
       expect(aisDanger.r).toBeGreaterThan(aisDanger.g);
       expect(aisDanger.r).toBeGreaterThan(aisDanger.b);
     }
+  });
+});
+
+function luminance(hex: string): number {
+  const channel = (index: number) => {
+    const value = Number.parseInt(hex.slice(1 + index * 2, 3 + index * 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+}
+
+function contrast(a: string, b: string): number {
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (high + 0.05) / (low + 0.05);
+}
+
+function rgbaHex(color: Rgba): string {
+  const pair = (value: number) => value.toString(16).padStart(2, '0');
+  return `#${pair(color.r)}${pair(color.g)}${pair(color.b)}`;
+}
+
+describe('mapThemePaint sun variant', () => {
+  const day = mapThemePaint('day');
+  const sun = mapThemePaint('day', true);
+
+  it('keeps day semantics and leaves dusk and night-red unchanged', () => {
+    expect(sun.theme).toBe('day');
+    expect(mapThemePaint('day', false)).toEqual(day);
+    expect(mapThemePaint('dusk', true)).toEqual(mapThemePaint('dusk'));
+    expect(mapThemePaint('night-red', true)).toEqual(mapThemePaint('night-red'));
+  });
+
+  it('keeps alarm, selection, and raster behavior aligned with standard day', () => {
+    expect(sun.danger.toLowerCase()).toBe(tokenValue('day', 'alarm'));
+    expect(sun.select.toLowerCase()).toBe(tokenValue('day', 'select'));
+    expect(sun.rasterSaturation).toBe(day.rasterSaturation);
+    expect(sun.rasterBrightnessMax).toBe(day.rasterBrightnessMax);
+  });
+
+  it('increases chart contrast for labels, strokes, markers, land, and water', () => {
+    expect(luminance(sun.background)).toBeGreaterThan(luminance(day.background));
+    expect(luminance(sun.label)).toBeLessThan(luminance(day.label));
+    for (const key of [
+      'label',
+      'road',
+      'boundary',
+      'warning',
+      'note',
+      'tide',
+      'waypoint',
+      'routeHighlight',
+      'navStarboard',
+      'navPort',
+      'navLight',
+      'trackSolid',
+      'scrubMarker',
+    ] as const) {
+      expect(contrast(sun[key], sun.background)).toBeGreaterThan(
+        contrast(day[key], day.background),
+      );
+    }
+    expect(contrast(sun.water, sun.land)).toBeGreaterThan(contrast(day.water, day.land));
+    expect(contrast(rgbaHex(sun.ownVessel), sun.water)).toBeGreaterThan(
+      contrast(rgbaHex(day.ownVessel), day.water),
+    );
+    expect(contrast(rgbaHex(sun.aisTarget), sun.water)).toBeGreaterThan(
+      contrast(rgbaHex(day.aisTarget), day.water),
+    );
+  });
+
+  it('keeps the own-track speed ramp dark to light', () => {
+    expect(luminance(sun.trackSlow)).toBeLessThan(luminance(sun.trackMid));
+    expect(luminance(sun.trackMid)).toBeLessThan(luminance(sun.trackFast));
   });
 });
 

@@ -29,6 +29,7 @@ import { loadAnchorPanel } from '$features/anchor-watch';
 import { AuthBanner } from '$features/auth-banner';
 import { loadAutopilotPanel } from '$features/autopilot';
 import { loadChartsManagementPanel } from '$features/charts-management';
+import { loadDisplayPanel } from '$features/display';
 import { loadHandoffPanel } from '$features/handoff';
 import { loadHelpPanel } from '$features/help';
 import { type LayersView, loadLayersPanel } from '$features/layers-panel';
@@ -140,6 +141,7 @@ interface FlatProps {
   handoff: import('$features/handoff').HandoffController;
   autopilot: import('$features/autopilot').AutopilotController;
   logbook: import('$features/logbook').LogbookController;
+  display: import('$features/display').DisplaySettingsController;
 
   // Entity stores
   anchor: AnchorWatch;
@@ -269,7 +271,7 @@ interface FlatProps {
   onOrderChange: (order: string[]) => void;
   onWeatherLayersChange: (settings: LayerSettings) => void;
   onLayersReady: (view: LayersView) => void;
-  onMapReady: (recolor: (theme: Theme) => void) => void;
+  onMapReady: (recolor: (theme: Theme, brightSun?: boolean) => void) => void;
   onCommandsReady: (commands: MapCommands) => void;
   onUserChartsReady: (registrar: UserChartRegistrar) => void;
   onMapInstance: (m: MapLibreMap) => void;
@@ -383,7 +385,8 @@ type ControllerKey =
   | 'tidesController'
   | 'handoff'
   | 'autopilot'
-  | 'logbook';
+  | 'logbook'
+  | 'display';
 type EntityKey =
   | 'anchor'
   | 'mob'
@@ -597,6 +600,7 @@ const {
   handoff,
   autopilot,
   logbook,
+  display,
 } = $derived(controllers);
 const {
   anchor,
@@ -1478,6 +1482,43 @@ $effect(() => {
             onRetry={retryLazyPanel}
           />
         {/await}
+      {:else if activePanel === 'display'}
+        {#await forAttempt(loadDisplayPanel)}
+          <LazyPanelState
+            title="Display"
+            closeLabel="Close display panel"
+            state="loading"
+            message="Loading display controls…"
+            onClose={closePanel}
+            onBack={backToMenu}
+          />
+        {:then module}
+          <ErrorBoundary>
+            <module.default controller={display} onClose={closePanel} onBack={backToMenu} />
+
+            {#snippet fallback(_error, reset)}
+              <LazyPanelState
+                title="Display"
+                closeLabel="Close display panel"
+                state="error"
+                message="The display controls stopped unexpectedly."
+                onClose={closePanel}
+                onBack={backToMenu}
+                onRetry={reset}
+              />
+            {/snippet}
+          </ErrorBoundary>
+        {:catch}
+          <LazyPanelState
+            title="Display"
+            closeLabel="Close display panel"
+            state="error"
+            message="The display controls could not load."
+            onClose={closePanel}
+            onBack={backToMenu}
+            onRetry={retryLazyPanel}
+          />
+        {/await}
       {:else if activePanel === 'tracks'}
         {#await forAttempt(loadTracksPanel)}
           <LazyPanelState
@@ -2273,6 +2314,7 @@ $effect(() => {
           loader={weatherLoader}
           {weatherSource}
           theme={theme.theme}
+          brightSun={display.sunMode && theme.theme === 'day'}
           initialView={currentView}
           savedLayers={weatherLayerSettings}
           onLayersChange={onWeatherLayersChange}

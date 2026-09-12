@@ -57,6 +57,16 @@ function makeDeps(): ProfileBindingDeps {
       },
     },
     chartOrientation: pv('north'),
+    display: {
+      autoTheme: false,
+      setAutoTheme(on: boolean) {
+        this.autoTheme = on;
+      },
+      sunMode: false,
+      setSunMode(on: boolean) {
+        this.sunMode = on;
+      },
+    },
   } as unknown as ProfileBindingDeps;
 }
 
@@ -271,6 +281,22 @@ describe('createProfileBindings', () => {
     legacy.chartOrientation = undefined;
     bindings.apply(legacy);
     expect(deps.chartOrientation.value).toBe('north');
+  });
+
+  it('captures display preferences and resets legacy profiles to off', () => {
+    const deps = makeDeps();
+    deps.display.setAutoTheme(true);
+    deps.display.setSunMode(true);
+    const bindings = createProfileBindings(deps);
+    const captured = bindings.capture();
+    expect(captured.displayAutoTheme).toBe(true);
+    expect(captured.displaySunMode).toBe(true);
+
+    captured.displayAutoTheme = undefined;
+    captured.displaySunMode = undefined;
+    bindings.apply(captured);
+    expect(deps.display.autoTheme).toBe(false);
+    expect(deps.display.sunMode).toBe(false);
   });
 
   it('captures trend ids and applies the legacy default when the field is absent', () => {

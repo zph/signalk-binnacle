@@ -77,6 +77,7 @@ interface Props {
   loader: WeatherLoader;
   weatherSource: PersistedValue<WeatherSourceId>;
   theme: Theme;
+  brightSun?: boolean;
   // Display preferences, including the Signal K speed-unit category used for wind and current.
   units: UnitsStore;
   // Where the nav chart is looking; the panel always opens there rather than keeping its own view.
@@ -115,6 +116,7 @@ const {
   loader,
   weatherSource,
   theme,
+  brightSun = false,
   units,
   initialView,
   savedLayers,
@@ -160,7 +162,7 @@ let destroyed = false;
 // an AbortController removes any ambiguity about the listener outliving the component.
 const mapKeyListeners = new AbortController();
 let getBounds: (() => Bbox) | undefined;
-let recolor: ((next: Theme) => void) | undefined;
+let recolor: ((next: Theme, brightSun?: boolean) => void) | undefined;
 let layersView = $state<LayersView | undefined>();
 
 let conditionsOpen = $state(false);
@@ -383,7 +385,7 @@ $effect(() => {
 
 // Recolor when the theme prop changes; the initial recolor runs inline once the map loads.
 $effect(() => {
-  recolor?.(theme);
+  recolor?.(theme, brightSun);
 });
 
 onMount(() => {
@@ -441,7 +443,7 @@ onMount(() => {
       if (isDestroyed()) return;
 
       recolor = recolorFn;
-      recolor(theme);
+      recolor(theme, brightSun);
 
       getBounds = () => boundsToBbox(map.getBounds());
       map.on('moveend', scheduleFetch);

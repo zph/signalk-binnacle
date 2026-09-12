@@ -22,6 +22,7 @@ export const SK_PATHS = {
   outsidePressure: 'environment.outside.pressure',
   waterTemperature: 'environment.water.temperature',
   outsideTemperature: 'environment.outside.temperature',
+  environmentMode: 'environment.mode',
   gnssSatellites: 'navigation.gnss.satellites',
   rateOfTurn: 'navigation.rateOfTurn',
   attitude: 'navigation.attitude',

@@ -49,6 +49,13 @@ export interface ProfileBindingDeps {
   };
   // The chart orientation mode (north-up, course-up, heading-up).
   chartOrientation: PersistedValue<ChartOrientationMode>;
+  // Structural so this feature does not import its sibling display feature.
+  display: {
+    readonly autoTheme: boolean;
+    setAutoTheme(on: boolean): void;
+    readonly sunMode: boolean;
+    setSunMode(on: boolean): void;
+  };
 }
 
 export interface ProfileBindings {
@@ -205,6 +212,16 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
       // rather than inheriting the previously active profile's rotation.
       write: (s) => deps.chartOrientation.set(s.chartOrientation ?? 'north'),
       track: () => void deps.chartOrientation.value,
+    },
+    displayAutoTheme: {
+      read: () => ({ displayAutoTheme: deps.display.autoTheme }),
+      write: (s) => deps.display.setAutoTheme(s.displayAutoTheme ?? false),
+      track: () => void deps.display.autoTheme,
+    },
+    displaySunMode: {
+      read: () => ({ displaySunMode: deps.display.sunMode }),
+      write: (s) => deps.display.setSunMode(s.displaySunMode ?? false),
+      track: () => void deps.display.sunMode,
     },
     units: {
       read: () => ({ units: deps.unitsLocal.snapshot() }),

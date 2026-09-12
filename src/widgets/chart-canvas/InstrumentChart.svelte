@@ -53,6 +53,7 @@ interface Props {
   thresholds: PersistedValue<Thresholds>;
   userCharts: UserCharts;
   theme: Theme;
+  brightSun?: boolean;
   companionBase: string | null;
   companionTiles: () => string | null;
   chartsToken?: string;
@@ -84,6 +85,7 @@ const {
   thresholds,
   userCharts,
   theme,
+  brightSun = false,
   companionBase,
   companionTiles,
   chartsToken,
@@ -107,7 +109,7 @@ const {
 let container = $state<HTMLDivElement>();
 let mapHandle: ThemedMapHandle | undefined;
 let map = $state<MapLibreMap>();
-let recolor = $state<((theme: Theme) => void) | undefined>();
+let recolor = $state<((theme: Theme, brightSun?: boolean) => void) | undefined>();
 let ready = $state(false);
 let chartWarning = $state(false);
 let layerManager: LayerManager | undefined;
@@ -289,7 +291,7 @@ onMount(() => {
           console.warn(`Could not register instrument map chart "${result.id}".`, result.error);
         }
       }
-      api.recolor(theme);
+      api.recolor(theme, brightSun);
       ready = true;
     },
   });
@@ -300,7 +302,7 @@ onMount(() => {
 });
 
 $effect(() => {
-  recolor?.(theme);
+  recolor?.(theme, brightSun);
 });
 
 $effect(() => {

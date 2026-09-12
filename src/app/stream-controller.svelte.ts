@@ -59,6 +59,9 @@ const SUBSCRIPTIONS = [
   { path: SK_PATHS.currentDrift, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.currentSetTrue, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.currentSetMagnetic, policy: 'instant' as const, minPeriod: 60_000 },
+  // Day and night mode changes slowly. One minute is responsive at the transition without making
+  // a display preference part of the hot navigation stream.
+  { path: SK_PATHS.environmentMode, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.autopilotAll, policy: 'instant' as const, minPeriod: 1000 },
   { path: SK_PATHS.magneticVariation, policy: 'instant' as const, minPeriod: 60_000 },
   { path: SK_PATHS.outsidePressure, policy: 'instant' as const, minPeriod: 5000 },

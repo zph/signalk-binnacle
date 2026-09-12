@@ -178,7 +178,37 @@ const PAINT: Record<Theme, Omit<MapThemePaint, 'theme'>> = {
   },
 };
 
-export function mapThemePaint(theme: Theme): MapThemePaint {
+// Direct sunlight washes out the normal day chart. This variant keeps the app chrome on the day
+// theme while increasing the chart's luminance separation. Dusk and night-red deliberately resolve
+// to their standard palettes because the bright-sun treatment is daytime-only.
+const SUN_PAINT: Omit<MapThemePaint, 'theme'> = {
+  ...PAINT.day,
+  background: '#faf7ef',
+  water: '#8fbcdc',
+  land: '#f0ece2',
+  landcover: '#c8dfb2',
+  road: '#a89f8e',
+  boundary: '#8a7a58',
+  label: '#16222b',
+  warning: '#b57e0a',
+  note: '#5e2b80',
+  tide: '#086b78',
+  waypoint: '#144f85',
+  routeHighlight: '#e66300',
+  navStarboard: '#b81f14',
+  navPort: '#0f7c3c',
+  navLight: '#a312b8',
+  trackSlow: '#102c47',
+  trackMid: '#20597f',
+  trackFast: '#5ea6d9',
+  trackSolid: '#155a94',
+  scrubMarker: '#e05f00',
+  ownVessel: { r: 0x14, g: 0x54, b: 0x92, a: 0xff },
+  aisTarget: { r: 0x5e, g: 0x43, b: 0x00, a: 0xff },
+};
+
+export function mapThemePaint(theme: Theme, brightSun = false): MapThemePaint {
+  if (theme === 'day' && brightSun) return { ...SUN_PAINT, theme };
   return { ...PAINT[theme], theme };
 }
 

@@ -22,6 +22,16 @@ const settings = (overrides: Partial<ProfileSettings> = {}): ProfileSettings => 
 });
 
 describe('isProfileSettings layer settings', () => {
+  it('accepts boolean display preferences and rejects wrong types', () => {
+    expect(isProfileSettings(settings({ displayAutoTheme: true, displaySunMode: false }))).toBe(
+      true,
+    );
+    expect(isProfileSettings(settings({ displayAutoTheme: 'yes' as unknown as boolean }))).toBe(
+      false,
+    );
+    expect(isProfileSettings(settings({ displaySunMode: 1 as unknown as boolean }))).toBe(false);
+  });
+
   it('accepts valid instrument tile layouts and rejects invalid sizes', () => {
     expect(
       isProfileSettings(settings({ instrumentTileLayouts: { sog: 'wide', depth: 'tall' } })),

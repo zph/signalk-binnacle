@@ -84,6 +84,7 @@ import {
   SEASCAPE_DEM_SOURCES,
   shouldOfferNoaaEnc,
 } from '$features/depth-charts';
+import { createDisplaySettingsController } from '$features/display';
 import { createHandoffClient, createHandoffController } from '$features/handoff';
 import {
   type AisRadarRangeNm,
@@ -974,7 +975,7 @@ function instrumentsActionLabel(): string {
 async function requestMobFromPalette(): Promise<void> {
   mobCommandRequest += 1;
 }
-let recolorMap: ((theme: Theme) => void) | undefined;
+let recolorMap: ((theme: Theme, brightSun?: boolean) => void) | undefined;
 let chartsToken = $state<string | undefined>();
 
 // The selected POI and a cache-owning detail loader, both set once auth resolves.
@@ -1022,7 +1023,24 @@ let updateReady = $state(false);
 const pwa = registerPwa(() => (updateReady = true));
 const PWA_UPDATE_CHECK_MS = 60_000;
 
-const theme = createThemeController((next) => recolorMap?.(next));
+const theme = createThemeController();
+store.ensureCells([SK_PATHS.environmentMode]);
+const display = createDisplaySettingsController({
+  getEnvironmentMode: () => store.cell(SK_PATHS.environmentMode).value,
+  getPosition: () => vessel.position,
+  clock,
+  getTheme: () => theme.theme,
+  setTheme: (next) => theme.set(next),
+});
+const brightSun = $derived(display.sunMode && theme.theme === 'day');
+
+// Recolor once per effective display change. Map registration performs its own initial recolor, so
+// the effect is idle until a map exists and does not invalidate the GPU during unrelated updates.
+$effect(() => {
+  const currentTheme = theme.theme;
+  const sun = brightSun;
+  untrack(() => recolorMap?.(currentTheme, sun));
+});
 
 // Profile state restored across visits: the last map view and the layer settings.
 const mapViewStore = createMapView();
@@ -1550,6 +1568,7 @@ const profileBindings = createProfileBindings({
     set: (radiusMeters) => anchor.rememberRadius(radiusMeters),
   },
   chartOrientation,
+  display,
 });
 
 // Push a profile's persisted layer snapshots to the live maps after the bindings update their stores.
@@ -2637,6 +2656,15 @@ const menuItems = $derived<MenuItem[]>([
     onSelect: () => togglePanel('profiles'),
   },
   {
+    id: 'display',
+    label: 'Display',
+    sublabel: 'Automatic theme and bright-sun chart',
+    icon: Sun,
+    group: 'Settings',
+    pressed: activePanel === 'display',
+    onSelect: () => togglePanel('display'),
+  },
+  {
     id: 'command-palette',
     label: 'Command palette',
     sublabel: 'Search actions with Command K or Control K',
@@ -2836,6 +2864,7 @@ const CONFIGURABLE_MENU_ITEM_IDS = new Set([
   'tides',
   'trends',
   'profiles',
+  'display',
 ]);
 
 async function toggleBrowserFullScreen(): Promise<void> {
@@ -3365,6 +3394,7 @@ const actionDialBuckets = $derived.by<Record<SupermenuBucketId, MenuItem[]>>(() 
     trends: 'weather',
     weather: 'weather',
     profiles: 'system',
+    display: 'system',
     help: 'system',
     settings: 'system',
     'browser-fullscreen': 'system',
@@ -3536,7 +3566,7 @@ const userChartsController = createUserChartsController({
     (auth.status === 'unsecured' || auth.status === 'authenticated') && !auth.writeBlocked,
   onSyncError: (message) => toast.show(message),
   userCharts,
-  recolorMap: (t) => recolorMap?.(t),
+  recolorMap: (t) => recolorMap?.(t, brightSun),
   getTheme: () => theme.theme,
 });
 userCharts.setReplaceHandler(userChartsController.replaceUserChartOverlay);
@@ -4235,6 +4265,7 @@ const plotterControllers = {
   handoff,
   autopilot,
   logbook,
+  display,
 };
 
 const plotterEntities = {
@@ -4267,9 +4298,9 @@ const plotterActions = {
   onOrderChange: (order: string[]) => layerOrder.set(order),
   onWeatherLayersChange: (settings: LayerSettings) => weatherLayerSettings.set(settings),
   onLayersReady: (view: LayersView) => (layersView = view),
-  onMapReady: (recolor: (theme: Theme) => void) => {
+  onMapReady: (recolor: (theme: Theme, brightSun?: boolean) => void) => {
     recolorMap = recolor;
-    recolor(theme.theme);
+    recolor(theme.theme, brightSun);
   },
   onCommandsReady: captureMapCommands,
   onUserChartsReady: userChartsController.onUserChartsReady,
@@ -4662,6 +4693,7 @@ const plotterActions = {
         {thresholds}
         {userCharts}
         theme={theme.theme}
+        {brightSun}
         {companionBase}
         companionTiles={() => companionTileBase}
         {chartsToken}

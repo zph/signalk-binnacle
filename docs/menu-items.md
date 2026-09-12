@@ -353,8 +353,14 @@ source, and surrounding traffic before relying on it.
 
 ## Settings
 
+- **Display** keeps two profile-owned, opt-in helm display preferences together. Automatic theme
+  uses Signal K `environment.mode` when it supplies `day` or `night`; otherwise it calculates local
+  daylight from the current vessel position and clock without a network service. A manual theme
+  choice pauses automatic switching until the next day-night transition. Bright sun increases the
+  daytime chart palette's contrast on the navigation, weather, and instrument maps without changing
+  app chrome, dusk, night-red, or raster treatment. Legacy profiles restore both settings to Off.
 - **Profiles** (tile subtitle: units, sync, and privacy) saves portable chart, weather, threshold,
-  toolbar, instrument, Data trends, track,
+  toolbar, instrument, Data trends, display, track,
   unit-fallback, planning, chart-orientation, and preferred anchor-radius settings. The active profile saves
   automatically after a short debounce. Each device keeps its own active choice, while profiles and
   the default sync
