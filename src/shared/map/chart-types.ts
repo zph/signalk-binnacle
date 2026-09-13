@@ -26,6 +26,7 @@ export interface SignalKChart {
   tilemapUrl?: string;
   layers?: string[];
   defaultVisible?: boolean;
-  featureInfo?: 'bathymetry-cell' | 'boat-friend';
+  featureInfo?: 'bathymetry-cell' | 'boat-friend' | 'noaa-csb-sounding';
+  coverageTilemapUrl?: string;
   cellSizeControl?: ChartCellSizeControl;
 }

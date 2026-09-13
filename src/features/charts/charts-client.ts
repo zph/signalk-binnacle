@@ -90,8 +90,16 @@ function chartFromEntry(id: string, raw: unknown): SignalKChart | undefined {
   if (url) chart.url = url;
   if (tilemapUrl) chart.tilemapUrl = tilemapUrl;
   if (typeof raw.defaultVisible === 'boolean') chart.defaultVisible = raw.defaultVisible;
-  if (raw.featureInfo === 'bathymetry-cell' || raw.featureInfo === 'boat-friend') {
+  if (
+    raw.featureInfo === 'bathymetry-cell' ||
+    raw.featureInfo === 'boat-friend' ||
+    raw.featureInfo === 'noaa-csb-sounding'
+  ) {
     chart.featureInfo = raw.featureInfo;
+  }
+  if (chart.featureInfo === 'noaa-csb-sounding') {
+    const coverageUrl = cleanBoundedText(raw.coverageTilemapUrl, MAX_URL_LENGTH);
+    if (coverageUrl) chart.coverageTilemapUrl = coverageUrl;
   }
   const cellSizeControl = safeCellSizeControl(raw.cellSizeControl);
   if (cellSizeControl && raw.featureInfo === 'bathymetry-cell') {

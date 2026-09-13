@@ -5,6 +5,25 @@ import { fetchCharts, fetchChartsSnapshot } from './charts-client';
 afterEach(() => vi.restoreAllMocks());
 
 describe('fetchCharts', () => {
+  it('retains the combined NOAA chart coverage template', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        jsonResponse(200, {
+          csb: {
+            name: 'NOAA Crowdsourced Bathymetry',
+            type: 'S-57',
+            featureInfo: 'noaa-csb-sounding',
+            coverageTilemapUrl: '/csb/coverage/{z}/{x}/{y}.png',
+          },
+        }),
+      ),
+    );
+    expect((await fetchCharts('http://pi.local'))?.[0]).toMatchObject({
+      featureInfo: 'noaa-csb-sounding',
+      coverageTilemapUrl: '/csb/coverage/{z}/{x}/{y}.png',
+    });
+  });
   it('normalizes the v2 charts map to an array', async () => {
     vi.stubGlobal(
       'fetch',

@@ -5,6 +5,22 @@ import { layerSettingsCodec } from './layer-settings-codec';
 // stores share, so a malformed entry is replaced wholesale (invalid) while a well-formed one whose
 // shape drifted decodes as migrated: the store keeps the cleaned value and rewrites storage.
 describe('layerSettingsCodec', () => {
+  it('migrates the two NOAA layers without enabling previously hidden depths', () => {
+    const id = 'chart-signalk-bathymetry-noaa-csb-vector';
+    const legacy = 'chart-signalk-bathymetry-noaa-csb-coverage';
+    const result = layerSettingsCodec.decode({
+      [id]: { visible: false, opacity: 0.8 },
+      [legacy]: { visible: true, opacity: 0.6 },
+    });
+    expect(result.state).toBe('migrated');
+    if (result.state === 'invalid') return;
+    expect(result.value[id]).toEqual({ visible: true, opacity: 1 });
+    expect(result.value[`${id}:facet:coverage`]).toEqual({ visible: true, opacity: 0.6 });
+    expect(result.value[`${id}:facet:tracks`]).toEqual({ visible: true, opacity: 0.6 });
+    expect(result.value[`${id}:facet:depths`]).toEqual({ visible: false, opacity: 0.8 });
+    expect(result.value[legacy]).toBeUndefined();
+    expect(layerSettingsCodec.decode({ ...result.value }).state).toBe('valid');
+  });
   it('accepts a plain visible-and-opacity entry unchanged', () => {
     const result = layerSettingsCodec.decode({
       'chart:server:enc': { visible: true, opacity: 0.8 },

@@ -81,6 +81,22 @@ export const layerSettingsCodec: PersistedCodec<LayerSettings> = {
         !Object.hasOwn(state, 'opacity') ||
         OPTIONAL_OVERLAY_KEYS.some((key) => state[key] !== undefined && !Object.hasOwn(state, key));
     }
+    const legacyCoverageId = 'chart-signalk-bathymetry-noaa-csb-coverage';
+    const csbId = 'chart-signalk-bathymetry-noaa-csb-vector';
+    const legacyCoverage = cleaned[legacyCoverageId];
+    if (legacyCoverage) {
+      const depths = cleaned[csbId];
+      cleaned[csbId] = {
+        visible: legacyCoverage.visible || (depths?.visible ?? false),
+        opacity: 1,
+      };
+      for (const key of ['coverage', 'tracks']) {
+        cleaned[`${csbId}:facet:${key}`] ??= { ...legacyCoverage };
+      }
+      cleaned[`${csbId}:facet:depths`] ??= depths ?? { visible: false, opacity: 1 };
+      delete cleaned[legacyCoverageId];
+      migrated = true;
+    }
     return { state: migrated ? 'migrated' : 'valid', value: cleaned };
   },
 };

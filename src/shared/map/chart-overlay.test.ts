@@ -16,6 +16,52 @@ vi.mock('./s57-symbols', async (importOriginal) => {
 });
 
 describe('chart overlay', () => {
+  it('groups NOAA coverage, indexed tracks, and depths into independent facets', async () => {
+    const overlay = createChartOverlay(
+      {
+        identifier: 'csb',
+        name: 'NOAA Crowdsourced Bathymetry',
+        type: 'S-57',
+        featureInfo: 'noaa-csb-sounding',
+        minzoom: 0,
+        maxzoom: 18,
+        tilemapUrl: '/csb/tiles/{z}/{x}/{y}.pbf',
+        layers: ['SOUNDG'],
+        coverageTilemapUrl: '/csb/coverage/{z}/{x}/{y}.png',
+      },
+      'http://pi.local',
+    );
+    const map = createFakeMap();
+    const ctx = fakeOverlayContext(map);
+    await overlay.add(ctx);
+    expect(overlay.band).toBe('bathymetry');
+    expect(overlay.facets?.map((facet) => facet.title)).toEqual(['Coverage', 'Tracks', 'Depths']);
+    expect(map.declaredSources.get('chart-csb')?.minzoom).toBe(12);
+    expect(map.declaredSources.get('chart-csb-coverage')?.tiles).toEqual([
+      'http://pi.local/csb/coverage/{z}/{x}/{y}.png',
+    ]);
+    const coverage = overlay.facets?.[0];
+    coverage?.setVisible(ctx, false);
+    expect(map.setLayoutProperty).toHaveBeenCalledWith(
+      'chart-csb-coverage-haze',
+      'visibility',
+      'none',
+    );
+    map.setLayoutProperty.mockClear();
+    overlay.setVisible(ctx, true);
+    expect(map.setLayoutProperty).toHaveBeenCalledWith(
+      'chart-csb-coverage-haze',
+      'visibility',
+      'none',
+    );
+    expect(map.setLayoutProperty).toHaveBeenCalledWith(
+      'chart-csb-coverage-tracks',
+      'visibility',
+      'visible',
+    );
+    overlay.remove(ctx);
+    expect(map.sources.size).toBe(0);
+  });
   const s57Chart = () => ({
     identifier: 'california-enc',
     name: 'NOAA ENC California',

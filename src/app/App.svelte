@@ -1573,7 +1573,7 @@ const profileBindings = createProfileBindings({
 
 // Push a profile's persisted layer snapshots to the live maps after the bindings update their stores.
 function applyProfileRuntime(s: ProfileSettings): void {
-  mapCommands?.applyLayers(s.layers, s.layerOrder);
+  mapCommands?.applyLayers(layerSettings.value, s.layerOrder);
   applyWeatherLayers?.(s.weatherLayers);
   // A profile that actually configures the radar layer is an explicit choice, so latch radar
   // auto-enable to it (a profile that deliberately keeps the echo off must win). A profile saved before

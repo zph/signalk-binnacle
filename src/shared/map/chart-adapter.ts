@@ -246,6 +246,24 @@ export function chartToSpecs(
   if (chart.type === 'mapstyleJSON') {
     throw new TypeError('Style-document charts cannot be converted to standalone map resources.');
   }
+  if (chart.featureInfo === 'noaa-csb-sounding' && chart.coverageTilemapUrl) {
+    const specs = vectorSpecs({ ...chart, minzoom: 12 }, serverBase, options.s57Style);
+    const sourceId = `${chartSourceId(chart.identifier)}-coverage`;
+    specs.sources[sourceId] = {
+      type: 'raster',
+      tiles: [absolute(chart.coverageTilemapUrl, serverBase)],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 18,
+    };
+    // The index uses broad haze below zoom 9 and thin survey tracks above it. Both share
+    // cached tiles, but remain independently configurable through the chart's facets.
+    specs.layers.unshift(
+      { id: `${sourceId}-haze`, type: 'raster', source: sourceId, maxzoom: 9 },
+      { id: `${sourceId}-tracks`, type: 'raster', source: sourceId, minzoom: 9 },
+    );
+    return specs;
+  }
   return isVector(chart)
     ? vectorSpecs(chart, serverBase, options.s57Style)
     : rasterSpecs(chart, serverBase);

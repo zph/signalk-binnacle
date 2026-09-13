@@ -195,7 +195,7 @@ export function createChartOverlay(
   // Interactive local soundings are an overlay on the navigation chart, not a competing base
   // chart. Keep them in the bathymetry band so their translucent cells remain visible over ENC.
   const overlayBand =
-    chart.featureInfo === 'bathymetry-cell'
+    chart.featureInfo === 'bathymetry-cell' || chart.featureInfo === 'noaa-csb-sounding'
       ? 'bathymetry'
       : chart.featureInfo === 'boat-friend'
         ? 'traffic'
@@ -326,7 +326,36 @@ export function createChartOverlay(
       );
     }
   };
-  const facetGroups = isS57 ? s57FacetLayerGroups(specs.layers) : [];
+  const facetGroups =
+    chart.featureInfo === 'noaa-csb-sounding' && chart.coverageTilemapUrl
+      ? [
+          {
+            key: 'coverage',
+            title: 'Coverage',
+            description:
+              'Red haze shows indexed NOAA surveys at wide zoom. Coverage is not a depth measurement.',
+            layerIds: [`${chartId}-coverage-haze`],
+          },
+          {
+            key: 'tracks',
+            title: 'Tracks',
+            description:
+              'Indexed survey paths appear from zoom 9. Individual vessel observations are available in the bathymetry journey viewer.',
+            layerIds: [`${chartId}-coverage-tracks`],
+          },
+          {
+            key: 'depths',
+            title: 'Depths',
+            description:
+              'Downloads and caches visible-area depth observations from zoom 12. Unknown datum and vessel offsets; not for navigation.',
+            layerIds: specs.layers
+              .filter((layer) => layer.type !== 'raster')
+              .map((layer) => layer.id),
+          },
+        ]
+      : isS57
+        ? s57FacetLayerGroups(specs.layers)
+        : [];
   // A sole facet that owns every draw layer duplicates the parent visibility control. Persisting
   // that child as hidden can otherwise leave the parent visibly enabled while rendering nothing.
   const configurableFacetGroups =
