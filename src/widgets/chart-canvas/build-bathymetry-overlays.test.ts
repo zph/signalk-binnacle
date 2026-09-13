@@ -34,4 +34,47 @@ describe('buildBathymetryOverlays', () => {
     expect(lastDemIndex).toBeLessThan(firstStreamingIndex);
     expect(lastStreamingIndex).toBeLessThan(firstVectorIndex);
   });
+
+  it('places best available above the global sources and below regional sources and charts', () => {
+    const ids = buildBathymetryOverlays({ companionBase: null }).map((overlay) => overlay.id);
+    const best = ids.indexOf('depth-best-available');
+
+    expect(best).toBeGreaterThan(ids.indexOf('depth-gebco-measured'));
+    expect(best).toBeLessThan(ids.indexOf('depth-emodnet'));
+    expect(best).toBeLessThan(ids.indexOf('depth-bluetopo'));
+    expect(best).toBeLessThan(ids.indexOf('depth-noaa-enc'));
+  });
+
+  it('keeps best-available provider requests on the companion cache paths', async () => {
+    const base = 'http://pi.local/plugins/signalk-chart-locker';
+    const overlay = buildBathymetryOverlays({ companionBase: base }).find(
+      (candidate) => candidate.id === 'depth-best-available',
+    );
+    const map = {
+      sources: new Map<string, { tiles?: string[] }>(),
+      layers: new Map<string, object>(),
+      getSource(id: string) {
+        return this.sources.get(id);
+      },
+      addSource(id: string, source: { tiles?: string[] }) {
+        this.sources.set(id, source);
+      },
+      getLayer(id: string) {
+        return this.layers.get(id);
+      },
+      addLayer(layer: { id: string }) {
+        this.layers.set(layer.id, layer);
+      },
+      setLayoutProperty() {},
+      setPaintProperty() {},
+    };
+
+    expect(overlay).toBeDefined();
+    await overlay?.add({ map: map as never, beforeIdFor: () => undefined });
+    for (const id of ['depth-gebco', 'depth-emodnet', 'depth-bluetopo']) {
+      expect(map.sources.get(`streaming-depth-best-available-${id}`)?.tiles).toEqual([
+        `${base}/tile/${id}/{z}/{x}/{y}`,
+      ]);
+    }
+  });
 });

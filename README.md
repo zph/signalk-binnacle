@@ -148,7 +148,8 @@ Binnacle ships its full feature set as a Signal K webapp:
 
 - **Charts and layers:** a GPU vector base map, server charts, five streaming bathymetry and ENC
   sources (NOAA ENC, BlueTopo, and EMODnet each add a nested survey-quality facet; GEBCO is global
-  base bathymetry; Seascape adds globally merged depth shading, hillshade, contours, and soundings),
+  base bathymetry; Best available bathymetry prioritizes regional detail over that global fallback;
+  Seascape adds globally merged depth shading, hillshade, contours, and soundings),
   and your own PMTiles charts added by URL or served from the server's charts folder. The Charts tab
   selects chart sources and opens source details. Signal K style-document sources remain listed and
   available for inspection, but Binnacle labels them unsupported and keeps them off instead of

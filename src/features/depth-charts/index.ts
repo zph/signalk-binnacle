@@ -1,4 +1,8 @@
 export {
+  BEST_AVAILABLE_BATHYMETRY_ID,
+  createBestAvailableBathymetryOverlay,
+} from './best-available-overlay';
+export {
   type EncPromptConditions,
   NOAA_ENC_SOURCE_ID,
   noaaEncCoversPosition,

@@ -199,8 +199,8 @@ const reorderAnnouncement = $derived(
              first fix in EU waters (turning on depth shading) does not change the badge at all. -->
         <p class="alert-note" role="status">
           No nautical chart is on, so the view is a reference map. Turn on a chart source that
-          covers your waters. Depth shading (GEBCO, EMODnet, and BlueTopo) is reference only and
-          does not count as a chart.
+          covers your waters. Best available and other depth shading are reference only. Depth
+          shading does not count as a chart.
         </p>
       {/if}
       {#if auth.writeBlocked}

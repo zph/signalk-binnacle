@@ -109,6 +109,44 @@ test('offers keyless satellite imagery as an optional chart layer', async ({ pag
   await expectNoHorizontalOverflow(panel);
 });
 
+test('offers cached best-available bathymetry as one optional chart layer', async ({ page }) => {
+  const tileRequests = { gebco: 0, blueTopo: 0 };
+  const transparentTile = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3MxZ5wAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page.route('https://wms.gebco.net/**', async (route) => {
+    tileRequests.gebco += 1;
+    await route.fulfill({ status: 200, contentType: 'image/png', body: transparentTile });
+  });
+  await page.route('https://nowcoast.noaa.gov/**', async (route) => {
+    tileRequests.blueTopo += 1;
+    await route.fulfill({ status: 200, contentType: 'image/png', body: transparentTile });
+  });
+  await page.addInitScript(() => localStorage.clear());
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Open supermenu' }).click();
+  const menu = page.getByRole('menu', { name: 'Supermenu' });
+  await menu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
+  await menu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
+  const panel = page.locator('#layers-panel');
+  const row = panel.locator('[data-layer-row="depth-best-available"]');
+  await expect(row).toBeVisible();
+  const toggle = row.getByRole('button', { name: 'Best available bathymetry', exact: true });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await toggle.click();
+
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(row.getByText('Global', { exact: true })).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: 'Adjust Best available bathymetry opacity' }),
+  ).toBeVisible();
+  await expect.poll(() => tileRequests.gebco).toBeGreaterThan(0);
+  await expect.poll(() => tileRequests.blueTopo).toBeGreaterThan(0);
+  await expectNoHorizontalOverflow(panel);
+});
+
 test('keeps AIS name controls reachable and persists the adaptive choice', async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/');

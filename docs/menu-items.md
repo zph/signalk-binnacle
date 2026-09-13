@@ -52,8 +52,8 @@ source, and surrounding traffic before relying on it.
   no-anchor ground. The ambient chart badge on the map corner grades the current view from these
   layers: server and user charts count through their own bounds, and the NOAA ENC counts as a
   nautical chart through its actual regional coverage list rather than its near-worldwide service
-  envelope, so mid-ocean still reads Outside chart coverage. Bathymetry references (GEBCO,
-  EMODnet, BlueTopo, Seascape) never flip the badge: they carry no aids to navigation and are not
+  envelope, so mid-ocean still reads Outside chart coverage. Bathymetry references (Best available,
+  GEBCO, EMODnet, BlueTopo, and Seascape) never flip the badge: they carry no aids to navigation and are not
   reduced to chart datum. Tapping the badge opens this panel. When no nautical chart is on, the
   Charts tab says so at the top and states that depth shading does not count as a chart, and a
   line beside Add a chart sets expectations outside US waters. In US waters with no chart on, a
