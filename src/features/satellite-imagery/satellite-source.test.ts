@@ -4,7 +4,7 @@ import { createSatelliteImageryOverlay, SATELLITE_IMAGERY_SOURCE } from './satel
 describe('SATELLITE_IMAGERY_SOURCE', () => {
   it('declares a keyless global reference layer with provider attribution', () => {
     expect(SATELLITE_IMAGERY_SOURCE.tiles).toEqual([
-      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?blankTile=false',
     ]);
     expect(SATELLITE_IMAGERY_SOURCE.tiles[0]).not.toContain('token=');
     expect(SATELLITE_IMAGERY_SOURCE.defaultVisible).toBe(false);

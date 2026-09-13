@@ -42,6 +42,9 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Fixed
 
+- Satellite imagery now rejects Esri's opaque no-data tiles at locally unavailable close zooms,
+  preserving the deepest real worldwide imagery for smooth enlargement instead of caching a
+  placeholder as map detail.
 - Collision and shallow-water threshold changes now save to the active profile immediately, so
   leaving the Alarms panel or switching between Narrow waters and Coastal cannot restore the prior
   policy during the general profile autosave delay.
