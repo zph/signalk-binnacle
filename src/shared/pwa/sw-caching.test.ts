@@ -121,6 +121,13 @@ describe('service worker route matchers', () => {
     expect(isOverlayTile(ctx('https://gibs.earthdata.nasa.gov/wmts/2026-06-01/1/1/1.png'))).toBe(
       true,
     );
+    expect(
+      isOverlayTile(
+        ctx(
+          'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/10/1/1',
+        ),
+      ),
+    ).toBe(true);
     expect(isOverlayTile(ctx('https://tiles.openfreemap.org/planet/1/1/1.pbf'))).toBe(false);
   });
 

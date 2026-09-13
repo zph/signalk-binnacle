@@ -78,6 +78,37 @@ test('keeps a scrolled layer opacity popover inside a narrow viewport', async ({
   await expectInsideViewport(page.locator('.tune-pop'), page);
 });
 
+test('offers keyless satellite imagery as an optional chart layer', async ({ page }) => {
+  let tileRequests = 0;
+  const transparentTile = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+3MxZ5wAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page.route('https://services.arcgisonline.com/**', async (route) => {
+    tileRequests += 1;
+    await route.fulfill({ status: 200, contentType: 'image/png', body: transparentTile });
+  });
+  await page.addInitScript(() => localStorage.clear());
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Open supermenu' }).click();
+  const menu = page.getByRole('menu', { name: 'Supermenu' });
+  await menu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
+  await menu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
+  const panel = page.locator('#layers-panel');
+  const row = panel.locator('[data-layer-row="satellite-imagery"]');
+  await expect(row).toBeVisible();
+  const toggle = row.getByRole('button', { name: 'Satellite imagery', exact: true });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await toggle.click();
+
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(row.getByText('Global', { exact: true })).toBeVisible();
+  await expect(row.getByRole('button', { name: 'Adjust Satellite imagery opacity' })).toBeVisible();
+  await expect.poll(() => tileRequests).toBeGreaterThan(0);
+  await expectNoHorizontalOverflow(panel);
+});
+
 test('keeps AIS name controls reachable and persists the adaptive choice', async ({ page }) => {
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/');

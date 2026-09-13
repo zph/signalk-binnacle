@@ -5,6 +5,10 @@ import {
 } from '$features/infrastructure-overlay';
 import { createMpaOverlay, MPA_SOURCES } from '$features/mpa-overlays';
 import { buildOceanSources, createOceanOverlay } from '$features/ocean-conditions';
+import {
+  createSatelliteImageryOverlay,
+  SATELLITE_IMAGERY_SOURCE,
+} from '$features/satellite-imagery';
 import { createSeamarkOverlay, SEAMARK_SOURCES } from '$features/seamark-overlay';
 import { createBaseMapOverlay, type OverlayModule, proxiedSources } from '$shared/map';
 import { buildBathymetryOverlays } from './build-bathymetry-overlays';
@@ -18,6 +22,7 @@ export function buildReferenceOverlays(
 ): OverlayModule[] {
   return [
     createBaseMapOverlay(map),
+    createSatelliteImageryOverlay(SATELLITE_IMAGERY_SOURCE),
     ...buildBathymetryOverlays({ companionBase }),
     ...buildOceanSources().map((source) => createOceanOverlay(source)),
     ...proxiedSources(BOUNDARY_SOURCES, companionBase).map((source) =>

@@ -57,6 +57,9 @@ const OVERLAY_HOSTS = new Set([
   // NASA GIBS is a feature-owned upstream (src/features/ocean-conditions/ocean-sources.ts), not a
   // catalog member; its tiles are date-stamped in the URL, so the 7 day cache holds them safely.
   'gibs.earthdata.nasa.gov',
+  // Esri World Imagery is a feature-owned keyless reference layer. Cache only tiles the navigator
+  // actually views, under the same bounded 7 day policy as the other static raster overlays.
+  'services.arcgisonline.com',
 ]);
 
 export interface MatchContext {
@@ -112,7 +115,8 @@ export const isVolatileOverlayTile = ({ url }: MatchContext): boolean => {
 
 // The cross-origin overlay tile and WMS hosts Binnacle renders (NOAA ENC and MPA, GEBCO, the two
 // EMODnet services, BlueTopo via nowcoast, Marine Regions boundaries, OpenSeaMap seamarks, and
-// Seascape derive from the catalog above; NASA GIBS joins explicitly as a feature-owned host).
+// Seascape derive from the catalog above; NASA GIBS and Esri World Imagery join explicitly as
+// feature-owned hosts).
 // One shared cache with a 7 day TTL bounds chart-edition staleness.
 // The nowcoast time-dynamic layers are carved out by isVolatileOverlayTile, listed first.
 export const isOverlayTile = ({ url }: MatchContext): boolean => OVERLAY_HOSTS.has(url.hostname);
