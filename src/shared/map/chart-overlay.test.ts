@@ -37,6 +37,8 @@ describe('chart overlay', () => {
     expect(overlay.band).toBe('bathymetry');
     expect(overlay.facets?.map((facet) => facet.title)).toEqual(['Coverage', 'Tracks', 'Depths']);
     expect(map.declaredSources.get('chart-csb')?.minzoom).toBe(12);
+    expect(map.layers.get('chart-csb-coverage-tracks')?.maxzoom).toBe(12);
+    expect(map.layers.get('chart-csb-coverage-observations')?.type).toBe('circle');
     expect(map.declaredSources.get('chart-csb-coverage')?.tiles).toEqual([
       'http://pi.local/csb/coverage/{z}/{x}/{y}.png',
     ]);

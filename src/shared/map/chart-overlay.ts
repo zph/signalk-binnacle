@@ -340,8 +340,8 @@ export function createChartOverlay(
             key: 'tracks',
             title: 'Tracks',
             description:
-              'Indexed survey paths appear from zoom 9. Individual vessel observations are available in the bathymetry journey viewer.',
-            layerIds: [`${chartId}-coverage-tracks`],
+              'Indexed paths at regional zoom; fine dots mark downloaded observations at close zoom. Gaps mean missing data, not safe water.',
+            layerIds: [`${chartId}-coverage-tracks`, `${chartId}-coverage-observations`],
           },
           {
             key: 'depths',
@@ -349,7 +349,7 @@ export function createChartOverlay(
             description:
               'Downloads and caches visible-area depth observations from zoom 12. Unknown datum and vessel offsets; not for navigation.',
             layerIds: specs.layers
-              .filter((layer) => layer.type !== 'raster')
+              .filter((layer) => layer.type === 'symbol')
               .map((layer) => layer.id),
           },
         ]

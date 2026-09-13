@@ -3,7 +3,12 @@ import { bathymetryCellLayers } from './bathymetry-cell-style';
 import { boatFriendLayers } from './boat-friend-style';
 import type { SignalKChart } from './chart-types';
 import { DAY_PAINT, type MapColorKey } from './map-theme';
-import { type S57StyleOptions, s57ChartLayers } from './s57-chart-style';
+import {
+  S57_THEME_PAINT_KEY,
+  type S57StyleOptions,
+  s57ChartLayers,
+  s57ThemeColor,
+} from './s57-chart-style';
 import { s57SymbolLayers } from './s57-symbols';
 
 // Stamped on each themed draw layer so the chart overlay can recolor it on a theme
@@ -248,19 +253,38 @@ export function chartToSpecs(
   }
   if (chart.featureInfo === 'noaa-csb-sounding' && chart.coverageTilemapUrl) {
     const specs = vectorSpecs({ ...chart, minzoom: 12 }, serverBase, options.s57Style);
+    for (const layer of specs.layers) {
+      if (layer.type !== 'symbol') continue;
+      layer.paint = {
+        ...layer.paint,
+        'text-halo-color': s57ThemeColor('day', 'depthDeep'),
+        'text-halo-width': 1.5,
+      };
+      layer.metadata = {
+        [S57_THEME_PAINT_KEY]: { 'text-color': 'soundingText', 'text-halo-color': 'depthDeep' },
+      };
+    }
     const sourceId = `${chartSourceId(chart.identifier)}-coverage`;
     specs.sources[sourceId] = {
       type: 'raster',
       tiles: [absolute(chart.coverageTilemapUrl, serverBase)],
       tileSize: 256,
       minzoom: 0,
-      maxzoom: 18,
+      maxzoom: 24,
     };
     // The index uses broad haze below zoom 9 and thin survey tracks above it. Both share
     // cached tiles, but remain independently configurable through the chart's facets.
     specs.layers.unshift(
       { id: `${sourceId}-haze`, type: 'raster', source: sourceId, maxzoom: 9 },
-      { id: `${sourceId}-tracks`, type: 'raster', source: sourceId, minzoom: 9 },
+      { id: `${sourceId}-tracks`, type: 'raster', source: sourceId, minzoom: 9, maxzoom: 12 },
+      {
+        id: `${sourceId}-observations`,
+        type: 'circle',
+        source: chartSourceId(chart.identifier),
+        'source-layer': 'SOUNDG',
+        minzoom: 12,
+        paint: { 'circle-radius': 1, 'circle-color': '#dc1923', 'circle-opacity': 0.7 },
+      },
     );
     return specs;
   }
