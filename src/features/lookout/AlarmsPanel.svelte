@@ -78,6 +78,8 @@ interface Props {
   onSilenceAllAlarms: (hours: AlarmSilenceHours) => void;
   onClearAlarmSilence: () => void;
   collisionMuted: boolean;
+  lowKeyAlarms?: boolean;
+  onToggleLowKeyAlarms?: () => void;
   collisionMuteRemainingMin: number | undefined;
   onToggleCollisionMute: () => void;
   arrivalMuted: boolean;
@@ -104,6 +106,8 @@ const {
   onSilenceAllAlarms,
   onClearAlarmSilence,
   collisionMuted,
+  lowKeyAlarms = false,
+  onToggleLowKeyAlarms = () => {},
   collisionMuteRemainingMin,
   onToggleCollisionMute,
   arrivalMuted,
@@ -326,6 +330,20 @@ $effect(() => {
     {/if}
   </section>
   <section class="panel-section" aria-label="Silence all alarms">
+    <button type="button" class="btn" aria-pressed={lowKeyAlarms} onclick={onToggleLowKeyAlarms}>
+      {#if lowKeyAlarms}
+        <BellOff size={18} aria-hidden="true" />
+      {:else}
+        <Bell size={18} aria-hidden="true" />
+      {/if}
+      Low-key navigation alarms: {lowKeyAlarms ? 'On' : 'Off'}
+    </button>
+    <p class="muted-note">
+      CPA and shallow-water/grounding alerts show only the pulsing alarm icon on this display,
+      without sound, banners, or CPA rings. This includes urgent CPA alerts. Detection and other
+      alarms stay active. This setting survives reload until turned off; other stations are
+      unchanged.
+    </p>
     <h3 class="caps-label">Alarm sound</h3>
     <p class="muted-note">
       Silence every Binnacle alarm on this display for a fixed time. Visual alerts, alarm cards, and

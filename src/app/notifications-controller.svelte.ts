@@ -7,6 +7,7 @@ import type { ActiveNotification, NotificationsStore } from '$entities/notificat
 import type { CollisionMute, GenericAlarm, LookoutAlarm } from '$features/lookout';
 import {
   CollisionNotifier,
+  isLowKeyAlarm,
   notificationGrade,
   notificationLabel,
   selectGenericAlarms,
@@ -40,6 +41,7 @@ interface NotificationsControllerDeps {
   timeTravel: TimeTravelController;
   mob: MobStore;
   genericAlarm: GenericAlarm;
+  lowKeyAlarms?: () => boolean;
   // The one depth notification path the shallow monitor currently sounds itself, or undefined. A
   // getter because the claim moves with the winning depth path and the server's zones.
   ownedDepthNotificationPath: () => string | undefined;
@@ -145,6 +147,10 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
   }
 
   $effect(() => {
+    if (deps.lowKeyAlarms?.()) {
+      deps.lookoutAlarm.stop();
+      return;
+    }
     deps.lookoutAlarm.update(
       deps.collision.assessment.worst,
       deps.collision.suppressed,
@@ -168,7 +174,7 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
     selectGenericAlarms(deps.notificationsStore.list(), {
       ownedDepthPath: deps.ownedDepthNotificationPath(),
       anchorCovered: deps.anchorNotificationCovered(),
-    }),
+    }).filter((notification) => !deps.lowKeyAlarms?.() || !isLowKeyAlarm(notification)),
   );
   $effect(() => {
     deps.genericAlarm.update(genericNotifications);
@@ -214,7 +220,10 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
 
   $effect(() => {
     if (!deps.timeTravel.active) return;
-    const dangerNow = !deps.collision.suppressed && deps.collision.assessment.worst === 'danger';
+    const dangerNow =
+      !deps.lowKeyAlarms?.() &&
+      !deps.collision.suppressed &&
+      deps.collision.assessment.worst === 'danger';
     if (deps.mob.active || dangerNow) untrack(() => deps.timeTravel.exit());
   });
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AisTargets } from '$entities/ais';
 import { CollisionAssessment } from '$entities/collision';
 import { OwnVessel } from '$entities/vessel';
@@ -28,6 +28,25 @@ function dangerCollision(): CollisionAssessment {
 }
 
 describe('collision overlay', () => {
+  it('clears and restores only the presentation, with no repeated writes while quiet', async () => {
+    let visible = true;
+    const collision = dangerCollision();
+    const overlay = createCollisionOverlay(collision, () => visible);
+    const map = createFakeMap();
+    const context = fakeOverlayContext(map);
+    await overlay.add(context);
+    const source = [...map.sources.values()][0];
+    const writes = vi.spyOn(source, 'setData');
+    visible = false;
+    overlay.sync(context);
+    expect((source.data as { features: unknown[] }).features).toHaveLength(0);
+    for (let i = 0; i < 100; i++) overlay.sync(context);
+    expect(writes).toHaveBeenCalledTimes(1);
+    expect(collision.assessment.worst).toBe('danger');
+    visible = true;
+    overlay.sync(context);
+    expect((source.data as { features: unknown[] }).features).toHaveLength(1);
+  });
   it('adds a source and a ring layer in the safety band with the danger contact', async () => {
     const overlay = createCollisionOverlay(dangerCollision());
     const map = createFakeMap();

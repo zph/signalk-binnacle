@@ -19,7 +19,7 @@ import { inspectInstrument } from './instrument-helpers';
 
 test.use({ serviceWorkers: 'block' });
 
-// A deterministic wall-clock stamp for every fixture delta; freshness derives from receipt time.
+// A deterministic timestamp for deliberately stale last-value markers.
 const FIXED_TIMESTAMP = '2026-08-10T12:00:00.000Z';
 const TARGET_CONTEXT = 'vessels.urn:mrn:imo:mmsi:366123456';
 
@@ -43,7 +43,8 @@ async function sendDelta(
     updates: [
       {
         ...(sourceRef === undefined ? {} : { $source: sourceRef }),
-        timestamp: FIXED_TIMESTAMP,
+        // AIS freshness uses provider time, so live targets need a current report stamp.
+        timestamp: new Date().toISOString(),
         values,
       },
     ],
@@ -109,6 +110,66 @@ const CLOSING_TARGET: DeltaValue[] = [
   { path: 'navigation.speedOverGround', value: 3 },
   { path: 'name', value: 'Fixture Target' },
 ];
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 820, height: 1180 },
+  { width: 390, height: 844 },
+]) {
+  test(`low-key navigation alarms retain warning and danger icons without strips at ${viewport.width}px, while equipment alarms remain visible`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await openApp(page);
+    async function command(label: string) {
+      await page.keyboard.press('Control+k');
+      const palette = page.getByRole('dialog', { name: 'Command palette' });
+      await palette.getByRole('searchbox', { name: 'Search commands' }).fill(label);
+      await palette.getByRole('option', { name: label }).click();
+    }
+    await command('Turn on low-key navigation alarms');
+    const bell = page.locator('.alarm-button');
+    await expect(bell).toHaveAttribute('aria-label', /low-key navigation alarms on/);
+    await sendDelta(page, [
+      ...OWN_FIX,
+      { path: 'environment.depth.belowKeel', value: 12 },
+      {
+        path: 'notifications.navigation.aground',
+        value: { state: 'warn', method: ['visual'], message: 'Grounding warning' },
+      },
+    ]);
+    await expect(bell).toHaveClass(/alarm-button--alert/);
+    await sendDelta(page, [
+      { path: 'environment.depth.belowKeel', value: 0.5 },
+      {
+        path: 'notifications.navigation.aground',
+        value: { state: 'alarm', method: ['visual', 'sound'], message: 'Grounding danger' },
+      },
+    ]);
+    const cpaTarget = [
+      ...CLOSING_TARGET,
+      { path: 'navigation.closestApproach', value: { distance: 100, timeTo: 60 } },
+    ];
+    await sendDelta(page, cpaTarget, TARGET_CONTEXT);
+    await expect(bell).toHaveClass(/alarm-button--alarm/);
+    await expect(page.locator('.safety-rail .bottom-strip')).toHaveCount(0);
+    await command('Turn off low-key navigation alarms');
+    await sendDelta(page, OWN_FIX);
+    await sendDelta(page, cpaTarget, TARGET_CONTEXT);
+    await expect(
+      page.getByRole('complementary', { name: 'Collision danger', exact: true }),
+    ).toBeVisible();
+    await command('Turn on low-key navigation alarms');
+    await expect(page.locator('.safety-rail .bottom-strip')).toHaveCount(0);
+    await sendDelta(page, [
+      {
+        path: 'notifications.engine.overTemperature',
+        value: { state: 'alarm', method: ['visual', 'sound'], message: 'Engine over temperature' },
+      },
+    ]);
+    await expect(page.locator('.safety-rail')).toContainText('Engine over temperature');
+  });
+}
 
 async function stubRestApis(page: Page): Promise<void> {
   await stubVesselsSelf(page);

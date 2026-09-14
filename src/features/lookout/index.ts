@@ -39,3 +39,4 @@ const alarmsPanelLoader = createRetryableLazyUiLoader(() => import('./AlarmsPane
 export function loadAlarmsPanel(): Promise<typeof import('./AlarmsPanel.svelte')> {
   return alarmsPanelLoader();
 }
+export { isLowKeyAlarm, navigationAlarmButtonGrade } from './low-key-alarms';

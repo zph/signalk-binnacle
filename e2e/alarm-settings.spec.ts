@@ -3,6 +3,50 @@ import { expectNoHorizontalOverflow, stubVesselsSelf } from './helpers';
 
 test.use({ serviceWorkers: 'block' });
 
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 820, height: 1180 },
+  { width: 390, height: 844 },
+]) {
+  test(`low-key navigation alarm toggle survives reload at ${viewport.width}px without changing thresholds`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await stubVesselsSelf(page);
+    await page.goto('/');
+    await page.locator('.alarm-button').click();
+    const toggle = page.getByRole('button', {
+      name: 'Low-key navigation alarms: Off',
+      exact: true,
+    });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    const thresholds = await page.evaluate(() =>
+      localStorage.getItem('binnacle-custom:thresholds'),
+    );
+    await toggle.click();
+    await expectNoHorizontalOverflow(
+      page.getByRole('complementary', { name: 'Alarms', exact: true }),
+    );
+    await expect(page.locator('.alarm-button')).toHaveAttribute(
+      'aria-label',
+      /low-key navigation alarms on/,
+    );
+    await page.reload();
+    await page.locator('.alarm-button').click();
+    await expect(
+      page.getByRole('button', { name: 'Low-key navigation alarms: On', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => localStorage.getItem('binnacle-custom:thresholds'))).toBe(
+      thresholds,
+    );
+    await page.getByRole('button', { name: 'Low-key navigation alarms: On', exact: true }).click();
+    await expect(page.locator('.alarm-button')).not.toHaveAttribute(
+      'aria-label',
+      /low-key navigation alarms on/,
+    );
+  });
+}
+
 async function openAlarms(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Open alarms', exact: true }).click();
 }

@@ -256,6 +256,8 @@ interface FlatProps {
   insecureNoteDismissed?: boolean;
   weatherProvider: WeatherProvider | undefined;
   collisionMute: { active: boolean };
+  lowKeyAlarms?: boolean;
+  onToggleLowKeyAlarms?: () => void;
   collisionMuteRemainingMin: number | undefined;
   alarmSilence: AlarmSilenceController;
   alarmActionError: string | undefined;
@@ -540,6 +542,8 @@ let {
   insecureNoteDismissed = false,
   weatherProvider,
   collisionMute,
+  lowKeyAlarms = false,
+  onToggleLowKeyAlarms = () => {},
   collisionMuteRemainingMin,
   alarmSilence,
   alarmActionError,
@@ -953,6 +957,7 @@ $effect(() => {
     {mob}
     {measure}
     {collision}
+    collisionAlertsVisible={!lowKeyAlarms}
     guidance={courseGuidance}
     {recorder}
     {routeStore}
@@ -1183,6 +1188,7 @@ $effect(() => {
       onAnchorRaise={() => void anchorController.onRaise()}
       {collision}
       collisionMuted={collisionMute.active}
+      {lowKeyAlarms}
       onToggleCollisionMute={toggleCollisionMute}
       alarmSilenced={alarmSilence.active}
       alarmSilenceRemainingSeconds={alarmSilence.remainingSeconds}
@@ -1961,6 +1967,8 @@ $effect(() => {
               {alarmLocation}
               {units}
               collisionMuted={collisionMute.active}
+              {lowKeyAlarms}
+              {onToggleLowKeyAlarms}
               {collisionMuteRemainingMin}
               onToggleCollisionMute={toggleCollisionMute}
               alarmSilenced={alarmSilence.active}

@@ -319,7 +319,7 @@ describe('buildDynamicOverlays', () => {
       expect.any(Function),
     );
     expect(factories.createCourseOverlay).toHaveBeenCalledWith(deps.guidance, deps.vessel);
-    expect(factories.createCollisionOverlay).toHaveBeenCalledWith(deps.collision);
+    expect(factories.createCollisionOverlay).toHaveBeenCalledWith(deps.collision, undefined);
     expect(factories.createMobOverlay).toHaveBeenCalledWith(deps.mob, deps.vessel);
     expect(factories.createVesselOverlay).toHaveBeenCalledWith(deps.vessel, expect.any(Function));
     const reviewActive = factories.createVesselOverlay.mock.calls[0]?.[1];

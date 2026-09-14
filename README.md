@@ -223,6 +223,12 @@ Binnacle ships its full feature set as a Signal K webapp:
   readout or the selector, or press Cmd + Left/Right when instruments are visible. Edge swipes,
   map and history gestures, editing, and text input keep their existing behavior. Positions use
   normalized geometry across screens, not separate phone and tablet arrangements.
+- **Low-key navigation alarms:** an optional Alarms toggle keeps CPA and shallow-water/grounding
+  detection active but shows only a pulsing orange or red alarm icon on this display. The bell gains
+  a silence symbol; CPA rings, automatic banners, and sound are suppressed, including urgent CPA
+  sound. MOB, anchor, and other equipment alarms are unchanged, and other stations still receive
+  notifications. The toggle is off by default, survives reload when enabled, and is available
+  directly through Command K. Turn it off to restore normal navigation alarm presentation.
 - **Playback:** review 1 hour, 6 hours, 24 hours, or 7 days from one registered Signal K history
   provider. Scrub or replay the synchronized recorded track, vessel position, depth, apparent wind,
   barometer, and speed over ground at 0.5x, 1x, or 2x. Full local dates identify day transitions,

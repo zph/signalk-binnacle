@@ -38,6 +38,8 @@ function setup(
     mobActive?: boolean;
     ownedDepthPath?: string;
     notifications?: unknown[];
+    lowKeyAlarms?: () => boolean;
+    escalating?: boolean;
   } = {},
 ) {
   const assessment = options.assessment ?? DANGER;
@@ -49,7 +51,7 @@ function setup(
     }),
   };
   const client = { publish: vi.fn(async () => undefined) };
-  const lookoutAlarm = { update: vi.fn() };
+  const lookoutAlarm = { update: vi.fn(), stop: vi.fn() };
   const genericAlarm = {
     update: vi.fn(),
     muteActiveHere: vi.fn(),
@@ -71,7 +73,7 @@ function setup(
     collision: {
       assessment,
       suppressed: false,
-      escalating: false,
+      escalating: options.escalating ?? false,
     } as never,
     collisionMute: collisionMute as never,
     lookoutAlarm: lookoutAlarm as never,
@@ -81,6 +83,7 @@ function setup(
     timeTravel: timeTravel as never,
     mob: mob as never,
     genericAlarm: genericAlarm as never,
+    lowKeyAlarms: options.lowKeyAlarms,
     ownedDepthNotificationPath: () => options.ownedDepthPath,
     anchorNotificationCovered: () => true,
   });
@@ -130,6 +133,37 @@ afterEach(() => {
 });
 
 describe('createNotificationsController', () => {
+  it('keeps low-key CPA and grounding detection/publishing but stops their local sound and automatic presentation', async () => {
+    let lowKey = $state(true);
+    const grounding = { path: 'notifications.navigation.aground', state: 'alarm', activation: 1 };
+    const engine = {
+      path: 'notifications.propulsion.engine.temperature',
+      state: 'alarm',
+      activation: 1,
+    };
+    const test = mount({
+      lowKeyAlarms: () => lowKey,
+      escalating: true,
+      apiAvailable: false,
+      timeTravelActive: true,
+      notifications: [grounding, engine],
+    });
+    expect(test.lookoutAlarm.stop).toHaveBeenCalled();
+    expect(test.lookoutAlarm.update).not.toHaveBeenCalled();
+    expect(test.genericAlarm.update).toHaveBeenLastCalledWith([engine]);
+    expect(test.controller.genericAlarms).toEqual([engine]);
+    expect(test.timeTravel.exit).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(test.client.publish).toHaveBeenCalled();
+    lowKey = false;
+    flushSync();
+    expect(test.lookoutAlarm.update).toHaveBeenCalledWith('danger', false, false, true, false);
+    expect(test.genericAlarm.update).toHaveBeenLastCalledWith([grounding, engine]);
+  });
+  it('still interrupts for MOB in low-key mode', () => {
+    const test = mount({ lowKeyAlarms: () => true, timeTravelActive: true, mobActive: true });
+    expect(test.timeTravel.exit).toHaveBeenCalledOnce();
+  });
   it('falls back to a Signal K delta and updates the audible alarm when the API is absent', async () => {
     const test = mount({ apiAvailable: false });
     await Promise.resolve();

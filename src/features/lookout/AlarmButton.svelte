@@ -1,14 +1,16 @@
 <script lang="ts">
 import Bell from '@lucide/svelte/icons/bell';
+import BellOff from '@lucide/svelte/icons/bell-off';
 import type { AlarmButtonGrade } from './notification-actions';
 
 interface Props {
   grade: AlarmButtonGrade;
   count: number;
   onOpen: () => void;
+  lowKey?: boolean;
 }
 
-const { grade, count, onOpen }: Props = $props();
+const { grade, count, onOpen, lowKey = false }: Props = $props();
 const activeLabel = $derived(
   count === 0 ? '' : `, ${count} active ${count === 1 ? 'notification' : 'notifications'}`,
 );
@@ -19,11 +21,15 @@ const activeLabel = $derived(
   class="btn btn-pill alarm-button"
   class:alarm-button--alert={grade === 'alert'}
   class:alarm-button--alarm={grade === 'alarm'}
-  aria-label={`Open alarms${activeLabel}`}
-  title="Open alarms"
+  aria-label={`Open alarms${activeLabel}${lowKey ? ', low-key navigation alarms on' : ''}`}
+  title={lowKey ? 'Low-key navigation alarms on. Open alarms' : 'Open alarms'}
   onclick={onOpen}
 >
-  <Bell size={16} aria-hidden="true" />
+  {#if lowKey}
+    <BellOff size={16} aria-hidden="true" />
+  {:else}
+    <Bell size={16} aria-hidden="true" />
+  {/if}
 </button>
 
 <style>

@@ -29,6 +29,7 @@ interface Props {
   onAnchorRaise: () => void;
   collision: CollisionAssessment;
   collisionMuted: boolean;
+  lowKeyAlarms?: boolean;
   onToggleCollisionMute: () => void;
   alarmSilenced: boolean;
   alarmSilenceRemainingSeconds: number;
@@ -57,6 +58,7 @@ const {
   onAnchorRaise,
   collision,
   collisionMuted,
+  lowKeyAlarms = false,
   onToggleCollisionMute,
   alarmSilenced,
   alarmSilenceRemainingSeconds,
@@ -99,7 +101,7 @@ const conditions = $derived<ChipCondition[]>([
   },
   {
     id: 'collision',
-    active: contacts.length > 0,
+    active: !lowKeyAlarms && contacts.length > 0,
     rank: collisionDanger ? 1 : 4,
     acknowledged: collision.suppressed && !collision.escalating,
     label: 'Collision',

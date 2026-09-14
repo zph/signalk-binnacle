@@ -30,6 +30,7 @@ interface ShallowControllerDeps {
   origin: string;
   getToken: () => string | undefined;
   alarm?: AlarmControl;
+  quiet?: () => boolean;
 }
 
 // The deepest reading the server still calls an alarm, which is what the panel shows as the bound.
@@ -140,7 +141,7 @@ export function createShallowController(deps: ShallowControllerDeps) {
   });
 
   $effect(() => {
-    alarm.update(alarming);
+    alarm.update(alarming && !deps.quiet?.());
   });
 
   return {

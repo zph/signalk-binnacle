@@ -1,6 +1,6 @@
 import type { AisTargets } from '$entities/ais';
 import type { AnchorWatch } from '$entities/anchor';
-import type { CollisionAssessment } from '$entities/collision';
+import type { Assessment, CollisionAssessment } from '$entities/collision';
 import type { CourseGuidance } from '$entities/course';
 import type { MeasureStore } from '$entities/measure';
 import type { MobStore } from '$entities/mob';
@@ -80,6 +80,7 @@ export interface DynamicOverlaysDeps {
   mob: MobStore;
   measure: MeasureStore;
   collision: CollisionAssessment;
+  collisionAlertsVisible?: () => boolean;
   guidance: CourseGuidance;
   recorder: TrackRecorder;
   routeStore: RouteStore;
@@ -131,6 +132,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     mob,
     measure,
     collision,
+    collisionAlertsVisible,
     guidance,
     recorder,
     routeStore,
@@ -153,6 +155,9 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     timeTravel,
     marineRadarLayer,
   } = deps;
+  const quietAssessment: Assessment = { contacts: [], unassessed: [], worst: 'clear' };
+  const visibleAssessment = () =>
+    collisionAlertsVisible?.() === false ? quietAssessment : collision.assessment;
   return [
     createConditionsOverlay(weather, tides, units, interactionsAllowed),
     createWindOverlay(weather, undefined, () => units.speedUnit),
@@ -175,7 +180,7 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
     notesOverlay,
     ...(mooringsOverlay ? [mooringsOverlay] : []),
     createAisTrailsOverlay(origin, getToken, aisTrailsAvailable, () => store.selfContext),
-    createAisVectorsOverlay(aisTargets, () => collision.assessment, Date.now, onAisMotionUpdate, {
+    createAisVectorsOverlay(aisTargets, visibleAssessment, Date.now, onAisMotionUpdate, {
       origin,
       getToken,
       providers: historyProviders,
@@ -188,14 +193,14 @@ export function buildDynamicOverlays(deps: DynamicOverlaysDeps) {
       targets: aisTargets,
     }),
     createAisOverlay(aisTargets, {
-      assessment: () => collision.assessment,
+      assessment: visibleAssessment,
       onSelect: onAisSelect,
       selectedId: selectedAisId,
       kindMode: aisKindMode,
       nameMode: aisNameMode,
       interactionsAllowed,
     }),
-    createCollisionOverlay(collision),
+    createCollisionOverlay(collision, collisionAlertsVisible),
     createMobOverlay(mob, vessel),
     createHistoryTrackOverlay(trackSettings, tripLog, () => timeTravel.active),
     createTrackOverlay(recorder, trackSettings, savedTracks, () => {

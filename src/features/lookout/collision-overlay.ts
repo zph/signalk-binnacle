@@ -57,7 +57,12 @@ function strokeColor(paint: MapThemePaint): ExpressionSpecification {
   return severityMatch(paint.danger, paint.warning);
 }
 
-export function createCollisionOverlay(collision: CollisionAssessment): CollisionOverlay {
+export function createCollisionOverlay(
+  collision: CollisionAssessment,
+  alertsVisible: () => boolean = () => true,
+): CollisionOverlay {
+  const emptyContacts: readonly DangerContact[] = [];
+  const visibleContacts = () => (alertsVisible() ? collision.assessment.contacts : emptyContacts);
   // The assessment is a memoized derived value, so its contacts array keeps the same identity
   // until traffic, the own fix, or the thresholds actually change. A reference check is the
   // dirty check, with no per-frame string to build in the animation loop.
@@ -72,7 +77,7 @@ export function createCollisionOverlay(collision: CollisionAssessment): Collisio
     layerIds: [LAYER_ID],
     add(ctx) {
       lastContacts = undefined;
-      const contacts = collision.assessment.contacts;
+      const contacts = visibleContacts();
       if (!ctx.map.getSource(SOURCE_ID)) {
         const source: GeoJSONSourceSpecification = {
           type: 'geojson',
@@ -100,7 +105,7 @@ export function createCollisionOverlay(collision: CollisionAssessment): Collisio
       lastContacts = contacts;
     },
     sync(ctx) {
-      const contacts = collision.assessment.contacts;
+      const contacts = visibleContacts();
       if (contacts === lastContacts) return;
       lastContacts = contacts;
       setSourceData(ctx.map, SOURCE_ID, contactsToFeatures(contacts));

@@ -2,6 +2,7 @@
 import Anchor from '@lucide/svelte/icons/anchor';
 import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 import Bell from '@lucide/svelte/icons/bell';
+import BellOff from '@lucide/svelte/icons/bell-off';
 import ChartLine from '@lucide/svelte/icons/chart-line';
 import CircleHelp from '@lucide/svelte/icons/circle-help';
 import ClipboardList from '@lucide/svelte/icons/clipboard-list';
@@ -122,7 +123,6 @@ import {
 } from '$features/logbook';
 import {
   AlarmButton,
-  alarmButtonGrade,
   CollisionMute,
   createAlarmLocationSettingsSync,
   createAlarmSilenceController,
@@ -130,6 +130,7 @@ import {
   GenericAlarm,
   isRaisedNotification,
   LookoutAlarm,
+  navigationAlarmButtonGrade,
   worstRaisedNotification,
 } from '$features/lookout';
 import {
@@ -378,6 +379,15 @@ const collision = new CollisionAssessment(
 // silence below applies once at this shared boundary.
 const alarmCoordinator = new AlarmCoordinator();
 const alarmSilence = createAlarmSilenceController(clock);
+const lowKeyAlarms = new PersistedValue<boolean>(
+  binnacleStorageKey('lowKeyAlarms'),
+  false,
+  undefined,
+  booleanPersistedCodec,
+);
+function toggleLowKeyAlarms(): void {
+  lowKeyAlarms.set(!lowKeyAlarms.value);
+}
 $effect(() => {
   alarmCoordinator.setSilenced(alarmSilence.active);
 });
@@ -2077,6 +2087,7 @@ const shallowController = createShallowController({
   origin,
   getToken: () => chartsToken,
   alarm: alarmCoordinator.channel({ id: 'shallow', rank: () => 2 }),
+  quiet: () => lowKeyAlarms.value,
 });
 
 // The generic server-alarm channel: any inbound alarm or emergency grade notification outside the
@@ -2101,6 +2112,7 @@ const notificationsController = createNotificationsController({
   timeTravel,
   mob,
   genericAlarm,
+  lowKeyAlarms: () => lowKeyAlarms.value,
   ownedDepthNotificationPath: () => shallowController.ownedNotificationPath,
   anchorNotificationCovered: () => anchor.mode === 'server',
 });
@@ -2109,7 +2121,13 @@ const genericAlarms = $derived(notificationsController.genericAlarms);
 const activeAlarmNotifications = $derived(
   notificationsStore.list().filter((notification) => !notification.acknowledged),
 );
-const helmAlarmGrade = $derived(alarmButtonGrade(activeAlarmNotifications));
+const helmAlarmGrade = $derived(
+  navigationAlarmButtonGrade(
+    activeAlarmNotifications,
+    collision.assessment.worst,
+    shallowController.alarming,
+  ),
+);
 const genericNotificationAlert = $derived(notificationsController.notificationAlert);
 const muteAlert = $derived(notificationsController.muteAlert);
 const muteRemainingMin = $derived(notificationsController.muteRemainingMin);
@@ -2252,7 +2270,9 @@ $effect(() => {
 // exit-on-danger. The docked (non-modal) dock is unaffected.
 const emergencySafetyActive = $derived(
   mob.active ||
-    (collision.assessment.worst === 'danger' && (!collision.suppressed || collision.escalating)) ||
+    (!lowKeyAlarms.value &&
+      collision.assessment.worst === 'danger' &&
+      (!collision.suppressed || collision.escalating)) ||
     anchor.dragging ||
     anchor.fixLostAlarm ||
     genericAlarms.some(
@@ -2317,9 +2337,9 @@ const safetyAnnunciator = createSafetyAnnunciator();
 $effect(() => {
   safetyAnnunciator.update([
     { id: 'mob', rank: 0, text: mobController.mobAlert },
-    { id: 'collision', rank: 1, text: collisionAlert },
+    { id: 'collision', rank: 1, text: lowKeyAlarms.value ? '' : collisionAlert },
     { id: 'anchor', rank: 2, text: anchorController.anchorAlert },
-    { id: 'shallow', rank: 3, text: shallowController.alert },
+    { id: 'shallow', rank: 3, text: lowKeyAlarms.value ? '' : shallowController.alert },
     { id: 'notification', rank: 4, text: genericNotificationAlert },
   ]);
 });
@@ -2613,10 +2633,12 @@ const menuItems = $derived<MenuItem[]>([
   {
     id: 'alarms',
     label: 'Alarms',
-    sublabel: alarmSilence.active
-      ? `Sound muted, ${formatDuration(alarmSilence.remainingSeconds)} left`
-      : undefined,
-    icon: Bell,
+    sublabel: lowKeyAlarms.value
+      ? 'Low-key CPA and shallow-water alerts'
+      : alarmSilence.active
+        ? `Sound muted, ${formatDuration(alarmSilence.remainingSeconds)} left`
+        : undefined,
+    icon: lowKeyAlarms.value ? BellOff : Bell,
     group: 'Safety',
     pressed: activePanel === 'alarms',
     count: genericAlarms.length,
@@ -2831,7 +2853,7 @@ const helmButtonItems = $derived<MenuItem[]>([
   {
     id: 'alarms',
     label: 'Alarms',
-    icon: Bell,
+    icon: lowKeyAlarms.value ? BellOff : Bell,
     group: 'Always shown',
     fixedToBar: true,
     count: activeAlarmNotifications.length,
@@ -3113,6 +3135,17 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         instruments.setOpen(true);
       },
     })),
+    {
+      id: 'low-key-alarms',
+      label: lowKeyAlarms.value
+        ? 'Turn off low-key navigation alarms'
+        : 'Turn on low-key navigation alarms',
+      group: 'Safety',
+      icon: lowKeyAlarms.value ? BellOff : Bell,
+      description: 'CPA and shallow-water alerts: pulsing icon only on this display',
+      keywords: ['silent', 'quiet', 'aground', 'grounding', 'sound', 'alarm'],
+      onSelect: toggleLowKeyAlarms,
+    },
     {
       id: 'wind-forecast-overlay',
       label: `Cycle weather and tide overlay (${helmWeatherLayerName(helmWeatherLayer)})`,
@@ -4543,6 +4576,8 @@ const plotterActions = {
     insecureNoteDismissed={insecureNoteSeen.value}
     {weatherProvider}
     {collisionMute}
+    lowKeyAlarms={lowKeyAlarms.value}
+    onToggleLowKeyAlarms={toggleLowKeyAlarms}
     collisionMuteRemainingMin={collisionMute.active ? muteRemainingMin : undefined}
     {alarmSilence}
     {alarmActionError}
@@ -5027,6 +5062,7 @@ const plotterActions = {
           </button>
         {/if}
         <AlarmButton
+          lowKey={lowKeyAlarms.value}
           grade={helmAlarmGrade}
           count={activeAlarmNotifications.length}
           onOpen={() => openPanel('alarms')}
@@ -5047,6 +5083,16 @@ const plotterActions = {
     >
       <span class="visually-hidden">Swipe up or tap to show helm controls</span>
     </button>
+  {/if}
+  {#if !helmActionsVisible && lowKeyAlarms.value}
+    <div class="low-key-alarm-beacon">
+      <AlarmButton
+        lowKey
+        grade={helmAlarmGrade}
+        count={activeAlarmNotifications.length}
+        onOpen={() => openPanel('alarms')}
+      />
+    </div>
   {/if}
 </main>
 
@@ -5233,6 +5279,12 @@ const plotterActions = {
   position: relative;
   z-index: var(--z-overlay);
   pointer-events: none;
+}
+.low-key-alarm-beacon {
+  position: fixed;
+  inset-inline-end: var(--space-3);
+  inset-block-end: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-safety-strips);
 }
 .screen-layer-error {
   position: absolute;

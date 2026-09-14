@@ -113,6 +113,7 @@ interface Props {
   // The measure tool; while armed, chart taps append measurement points.
   measure: MeasureStore;
   collision: CollisionAssessment;
+  collisionAlertsVisible?: boolean;
   // Active-navigation guidance, drawn as the vessel-to-destination course line and destination
   // marker so a single-point "go to here" and an active route's current leg show on the chart.
   guidance: CourseGuidance;
@@ -238,6 +239,7 @@ const {
   waypoints,
   symbols,
   collision,
+  collisionAlertsVisible = true,
   guidance,
   recorder,
   routeStore,
@@ -682,6 +684,7 @@ onMount(async () => {
         mob,
         measure,
         collision,
+        collisionAlertsVisible: () => collisionAlertsVisible,
         guidance,
         recorder,
         routeStore,

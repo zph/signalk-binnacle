@@ -28,6 +28,7 @@ const reading = (overrides: Partial<DepthReading> = {}): DepthReading => ({
 const flushPromises = () => new Promise<void>((r) => setTimeout(r, 0));
 
 interface Options {
+  quiet?: () => boolean;
   depth?: DepthReading;
   token?: string | undefined;
   mode?: UnitsMode;
@@ -57,6 +58,7 @@ function harness(options: Options) {
     origin: 'http://sk',
     getToken: () => options.token,
     alarm: control,
+    quiet: options.quiet,
   });
   return {
     controller,
@@ -105,6 +107,20 @@ afterEach(() => {
 });
 
 describe('createShallowController', () => {
+  it('retains shallow detection while quiet and sounds again when quiet is disabled', async () => {
+    let quiet = $state(true);
+    const test = mount({ depth: reading({ meters: 2 }), quiet: () => quiet });
+    await flushPromises();
+    expect(test.controller.alarming).toBe(true);
+    expect(test.events).toEqual([]);
+    quiet = false;
+    flushSync();
+    expect(test.events).toEqual(['start']);
+    quiet = true;
+    flushSync();
+    expect(test.events).toEqual(['start', 'stop']);
+    expect(test.controller.alarming).toBe(true);
+  });
   it('sounds while the depth reads under the local threshold and stops when it clears', async () => {
     const test = mount({ depth: reading({ meters: 10 }) });
     await flushPromises();
