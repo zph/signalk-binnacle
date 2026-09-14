@@ -2,6 +2,7 @@
 import ChevronDown from '@lucide/svelte/icons/chevron-down';
 import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 import ChevronRight from '@lucide/svelte/icons/chevron-right';
+import { untrack } from 'svelte';
 import { AnchoredMenu, InlineConfirm, NameEntry } from '$shared/ui';
 import type { InstrumentLayoutsController } from './instrument-layouts-controller.svelte';
 import { layoutSwipe } from './layout-shortcuts';
@@ -19,6 +20,19 @@ const {
 } = $props();
 let anchor = $state<HTMLButtonElement>();
 let action = $state<'rename' | 'duplicate' | 'restore' | undefined>();
+let feedback = $state(false);
+let previousId = untrack(() => controller.active?.id);
+const position = $derived(
+  controller.layouts.findIndex((layout) => layout.id === controller.active?.id) + 1,
+);
+$effect(() => {
+  const id = controller.active?.id;
+  if (id === previousId) return;
+  previousId = id;
+  feedback = true;
+  const timer = setTimeout(() => (feedback = false), 1800);
+  return () => clearTimeout(timer);
+});
 function close() {
   controller.setMenuOpen(false);
   action = undefined;
@@ -28,6 +42,7 @@ function close() {
 <div
   class="layout-selector"
   class:layout-selector--inline={inline}
+  class:layout-selector--revealed={feedback || controller.menuOpen || editing}
   role="group"
   aria-label="Instrument layout selector"
   use:layoutSwipe={{ enabled: !editing, step: controller.cycle }}
@@ -49,7 +64,10 @@ function close() {
     aria-expanded={controller.menuOpen}
     onclick={() => controller.setMenuOpen(!controller.menuOpen)}
   >
-    <span aria-live="polite">{controller.active?.name ?? 'My instruments'}</span>
+    <span aria-live="polite"
+      >{controller.active?.name ?? 'My instruments'}
+      · {position}/{controller.layouts.length}</span
+    >
     <ChevronDown size={16} />
   </button>
   <button
@@ -129,29 +147,63 @@ function close() {
 
 <style>
 .layout-selector {
-  position: absolute;
-  inset-inline-start: 50%;
-  transform: translateX(-50%);
-  inset-block-end: calc(5rem + env(safe-area-inset-bottom, 0px));
-  z-index: 4;
   display: flex;
   align-items: center;
-  max-inline-size: calc(100% - 2rem);
-  pointer-events: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  justify-content: space-between;
+  gap: var(--space-1);
+  inline-size: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
   touch-action: pan-y;
+}
+.layout-selector--revealed,
+.layout-selector:hover,
+.layout-selector:focus-within,
+.layout-selector--inline {
+  opacity: 1;
+}
+.layout-selector--revealed button,
+.layout-selector:hover button,
+.layout-selector:focus-within button,
+.layout-selector--inline button {
+  pointer-events: auto;
+}
+@media (hover: hover) {
+  :global(.instrument-screen-layer:has(.floating-frame:hover)) .layout-selector,
+  :global(.instrument-screen-layer:has(.floating-frame:focus-within)) .layout-selector,
+  :global(.instrument-profile-header:hover) .layout-selector {
+    opacity: 1;
+  }
+  :global(.instrument-screen-layer:has(.floating-frame:hover)) .layout-selector button,
+  :global(.instrument-screen-layer:has(.floating-frame:focus-within)) .layout-selector button,
+  :global(.instrument-profile-header:hover) .layout-selector button {
+    pointer-events: auto;
+  }
+}
+.layout-selector button {
+  background: var(--surface-overlay);
 }
 .layout-name {
   min-inline-size: 0;
 }
 .layout-selector--inline {
-  position: relative;
-  inset: auto;
-  transform: none;
   max-inline-size: 100%;
-  align-self: center;
+}
+.layout-selector--inline .icon-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+.layout-selector--inline:hover .icon-btn,
+.layout-selector--inline:focus-within .icon-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: hover) {
+  :global(.instruments:hover) .layout-selector--inline .icon-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 .layout-name span {
   overflow: hidden;
@@ -168,7 +220,7 @@ function close() {
 :global(.instrument-layout-menu) {
   --menu-width: 22rem;
   pointer-events: auto;
-  max-block-size: calc(100dvh - 2rem);
+  max-block-size: calc(100 * var(--dvh) - 2 * var(--space-4));
   overflow-y: auto;
 }
 :global(.instrument-layout-backdrop) {

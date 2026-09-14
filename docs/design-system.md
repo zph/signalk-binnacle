@@ -21,6 +21,25 @@ number not its label, a night mode that does not wreck dark adaptation, and a UI
 looks like it was drawn by the same hand. A feature that looks or behaves differently from its siblings
 is not done.
 
+### Minimal default display
+
+The default helm display must be minimal. Every visible element spends chart space and attention,
+so evaluate each control, label, badge, and container before giving it permanent placement.
+State what immediate navigation need it serves, how often it is needed, and why an existing control,
+contextual interaction, panel, gesture, or Command K entry would not serve that need better.
+If permanent visibility is not warranted, keep it off the default screen.
+
+Keep controls with the content they affect. Instrument profile switching belongs in the instrument
+area, not in a floating selector over the lower-middle chart. Reveal secondary controls on hover
+and keyboard focus, offer touch gestures with an accessible direct-selection alternative, and use
+brief local feedback after changes instead of permanent status chrome. Never make hover the only
+way to reach an action. Preserve chart and history gestures, readable values, 44 px touch targets,
+and immediate access to safety controls and active alarms.
+
+Review the idle screen as well as the interacting screen at desktop, tablet, and phone sizes.
+Check whether removing, combining, relocating, or revealing an element only when needed would make
+the display clearer. A feature does not earn another default-screen control merely by existing.
+
 ## 2. Design tokens are the only vocabulary
 
 All geometry, type, color, depth, and timing come from CSS custom properties defined in

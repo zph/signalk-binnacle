@@ -220,8 +220,10 @@ Binnacle ships its full feature set as a Signal K webapp:
   positions, sizes, history windows, wind sectors, radar range, and opacity save automatically within
   the current Binnacle profile and use its Signal K synchronization and offline fallback. Switching
   instrument layouts does not change chart layers, navigation, or alarms. Swipe horizontally on a
-  readout or the selector, or press Cmd + Left/Right when instruments are visible. Edge swipes,
-  map and history gestures, editing, and text input keep their existing behavior. Positions use
+  readout, or press Cmd + Left/Right when instruments are visible. Hover or focus within the
+  instrument area to reveal profile arrows, and select the profile name to manage layouts.
+  Profile feedback briefly appears inside the instrument area; no selector floats over the chart.
+  Edge swipes, map and history gestures, editing, and text input keep their existing behavior. Positions use
   normalized geometry across screens, not separate phone and tablet arrangements.
 - **Low-key navigation alarms:** an optional Alarms toggle keeps CPA and shallow-water/grounding
   detection active but shows only a pulsing orange or red alarm icon on this display. The bell gains

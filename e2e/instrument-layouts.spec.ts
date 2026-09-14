@@ -19,6 +19,34 @@ for (const width of [390, 820, 1440]) {
     const selector = page.getByRole('group', { name: 'Instrument layout selector', exact: true });
     await expect(selector).toContainText('Marina entry');
     await expectInsideViewport(selector, page);
+    const header = page.locator('.instrument-profile-header');
+    const firstInstrument = page.locator('.floating-frame').first();
+    const headerBox = await header.boundingBox();
+    const instrumentBox = await firstInstrument.boundingBox();
+    if (!headerBox || !instrumentBox) throw new Error('Instrument header is missing');
+    expect(Math.abs(headerBox.y - instrumentBox.y)).toBeLessThan(2);
+    await page.mouse.move(width - 1, 1);
+    await expect(selector).toHaveCSS('opacity', '0');
+    if (width === 1440 && browserName === 'chromium') {
+      await page.screenshot({ path: test.info().outputPath('profiles-idle.png') });
+    }
+    const canHover = await page.evaluate(() => matchMedia('(hover: hover)').matches);
+    if (canHover) await firstInstrument.hover();
+    else await selector.getByRole('button', { name: 'Next instrument layout' }).focus();
+    await expect(selector).toHaveCSS('opacity', '1');
+    await expect
+      .poll(() =>
+        selector.getByRole('button', { name: 'Next instrument layout' }).evaluate((button) => {
+          const box = button.getBoundingClientRect();
+          return button.contains(
+            document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2),
+          );
+        }),
+      )
+      .toBe(true);
+    if (width === 1440 && browserName === 'chromium') {
+      await page.screenshot({ path: test.info().outputPath('profiles-hover.png') });
+    }
     await expect(page.locator('.floating-frame[data-instrument-id="depth"]')).toBeVisible();
     if (browserName === 'chromium') {
       const touch = await page.context().newCDPSession(page);
@@ -71,6 +99,8 @@ for (const width of [390, 820, 1440]) {
     await page.keyboard.press('Escape');
     await page.reload();
     await expect(selector).toContainText('Offshore');
+    if (canHover) await page.locator('.floating-frame').first().hover();
+    else await selector.getByRole('button', { name: 'Previous instrument layout' }).focus();
     await selector.getByRole('button', { name: 'Previous instrument layout' }).click();
     await expect(selector).toContainText('Sailing performance');
   });

@@ -681,7 +681,18 @@ function finishEditing(): void {
   role={editing ? 'group' : undefined}
 >
   {#if layoutsController && showLayoutSelector}
-    <InstrumentLayoutSelector controller={layoutsController} {editing} {onEdit} />
+    {@const boxes = floatingTiles.map(({ box }) => displayedBox(box))}
+    {@const left = boxes.length ? Math.min(...boxes.map((box) => box.x)) : 0.02}
+    {@const headerTop = boxes.length ? Math.min(...boxes.map((box) => box.y)) : 0.12}
+    {@const right = boxes.length ? Math.max(...boxes.map((box) => box.x + box.width)) : 0.98}
+    <div
+      class="instrument-profile-header"
+      style:left={`${left * 100}%`}
+      style:top={`${headerTop * 100}%`}
+      style:width={`${(right - left) * 100}%`}
+    >
+      <InstrumentLayoutSelector controller={layoutsController} {editing} {onEdit} />
+    </div>
   {/if}
   {#if editing}
     {#if windRoseSettingsOpen}
@@ -983,6 +994,11 @@ function finishEditing(): void {
 .instrument-screen-layer {
   position: absolute;
   inset: 0;
+  pointer-events: none;
+}
+.instrument-profile-header {
+  position: absolute;
+  z-index: var(--z-overlay);
   pointer-events: none;
 }
 .instrument-screen-layer--editing {
