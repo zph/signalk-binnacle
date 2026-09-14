@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { ZoneState } from '$shared/signalk';
 import BatteryBar from './BatteryBar.svelte';
+import PerformanceDial from './PerformanceDial.svelte';
 import RotNeedle from './RotNeedle.svelte';
 import Sparkline from './Sparkline.svelte';
 import TileStateBadge from './TileStateBadge.svelte';
@@ -61,6 +62,7 @@ const valueScale = $derived.by(() => {
 <button
   type="button"
   class="tile card-frame tile--numeric"
+  class:tile--performance={viz === 'performance'}
   class:tile--warning={zone === 'warning'}
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
@@ -74,8 +76,12 @@ const valueScale = $derived.by(() => {
     {#if reading.state === 'never'}
       <span class="value"><span class="muted-note">{sensorGloss}</span></span>
     {:else}
-      <span class="value value--{valueScale}"><span class="num">{reading.value}</span></span>
-      {#if viz === 'battery'}
+      <span class="value value--{valueScale}"
+        ><span class="num">{reading.value}{viz === 'performance' ? '%' : ''}</span></span
+      >
+      {#if viz === 'performance'}
+        <PerformanceDial ratio={reading.siValue} />
+      {:else if viz === 'battery'}
         <BatteryBar fraction={reading.siValue} state={zone} />
       {:else if viz === 'rot'}
         <RotNeedle radPerSec={reading.siValue} />
@@ -106,3 +112,9 @@ const valueScale = $derived.by(() => {
     <TileStateBadge state={reading.state} />
   </span>
 </button>
+
+<style>
+.tile--performance .num {
+  font-size: clamp(var(--text-readout-lg), 22cqi, 5rem);
+}
+</style>

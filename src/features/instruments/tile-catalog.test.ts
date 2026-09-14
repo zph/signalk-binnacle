@@ -84,6 +84,91 @@ function activeCourse(dtwMeters: number | undefined, btwRad: number | undefined)
   } as unknown as CourseGuidance;
 }
 
+describe('wind VMG without a course', () => {
+  it('compares water speed with the active polar without capping values above 100%', () => {
+    const deps = makeDeps({ now: 1000 } as ReactiveClock);
+    deps.store.ensureCells(['performance.polarSpeed']);
+    deps.store.applyFrame(
+      skFrame({
+        [SK_PATHS.speedThroughWater]: 6,
+        'performance.polarSpeed': 5,
+      }),
+    );
+    expect(readTile('polar-performance', deps)).toMatchObject({
+      state: 'live',
+      value: '120',
+      siValue: 1.2,
+    });
+    deps.store.applyFrame(skFrame({ 'performance.polarSpeed': 0 }));
+    expect(readTile('polar-performance', deps)).toMatchObject({
+      state: 'placeholder',
+      value: PLACEHOLDER,
+    });
+    deps.store.applyFrame(skFrame({ 'performance.polarSpeed': 5 }));
+    deps.clock = { now: TILE_STALE_MS + 2000 } as ReactiveClock;
+    expect(readTile('polar-performance', deps)).toMatchObject({
+      state: 'stale',
+      value: PLACEHOLDER,
+    });
+  });
+
+  it.each([
+    [60, 3],
+    [-60, 3],
+    [120, -3],
+    [180, -6],
+    [90, 0],
+  ])('projects six knots at %s degrees to %s knots', (degrees, knots) => {
+    const deps = makeDeps({ now: 1000 } as ReactiveClock);
+    deps.store.applyFrame(
+      skFrame({
+        [SK_PATHS.speedThroughWater]: knotsToMetersPerSecond(6),
+        [SK_PATHS.windAngleTrueWater]: (degrees * Math.PI) / 180,
+      }),
+    );
+    const reading = readTile('wind-vmg', deps);
+    expect(reading.state).toBe('live');
+    expect(reading.siValue).toBeCloseTo(knotsToMetersPerSecond(knots));
+    expect(deps.course.active).toBe(false);
+  });
+
+  it('does not substitute ground wind or GPS speed for water inputs', () => {
+    const deps = makeDeps({ now: 1000 } as ReactiveClock);
+    deps.store.applyFrame(
+      skFrame({
+        [SK_PATHS.speedOverGround]: 5,
+        [SK_PATHS.windAngleTrueGround]: 0,
+      }),
+    );
+    expect(readTile('wind-vmg', deps)).toMatchObject({ state: 'never', value: PLACEHOLDER });
+  });
+
+  it.each([SK_PATHS.speedThroughWater, SK_PATHS.windAngleTrueWater])(
+    'withholds VMG when %s is stale or invalid',
+    (path) => {
+      const deps = makeDeps({ now: 1000 } as ReactiveClock);
+      deps.store.applyFrame(
+        skFrame({
+          [SK_PATHS.speedThroughWater]: 5,
+          [SK_PATHS.windAngleTrueWater]: 0,
+        }),
+      );
+      deps.clock = { now: TILE_STALE_MS + 2000 } as ReactiveClock;
+      const otherPath =
+        path === SK_PATHS.speedThroughWater
+          ? SK_PATHS.windAngleTrueWater
+          : SK_PATHS.speedThroughWater;
+      deps.store.applyFrame(skFrame({ [otherPath]: 1 }, deps.clock.now));
+      expect(readTile('wind-vmg', deps)).toMatchObject({ state: 'stale', value: PLACEHOLDER });
+      deps.store.applyFrame(skFrame({ [path]: null }, deps.clock.now));
+      expect(readTile('wind-vmg', deps)).toMatchObject({
+        state: 'placeholder',
+        value: PLACEHOLDER,
+      });
+    },
+  );
+});
+
 describe('tile catalog structure', () => {
   it('DEFAULT_TILES are sog, heading, depth, wind-apparent in that order', () => {
     expect(DEFAULT_TILES).toEqual(['sog', 'heading', 'depth', 'wind-apparent']);

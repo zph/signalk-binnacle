@@ -150,7 +150,7 @@ export interface TileDef {
   // admin-curated http/https page.
   webview?: { url: string; kind: 'app' | 'link' };
   // Rendered mark type beside the numeric readout; the mark components live beside NumericTile.
-  viz?: 'spark' | 'battery' | 'rot' | 'vertical-speed' | 'vertical-angle';
+  viz?: 'spark' | 'battery' | 'rot' | 'vertical-speed' | 'vertical-angle' | 'performance';
   trend?: {
     candidates: readonly InstrumentTrendCandidate[];
     aggregate: InstrumentTrendAggregate;
@@ -694,6 +694,86 @@ const STW_DEF: TileDef = {
     // OwnVessel getters do.
     const mps = asNumber(cell.value);
     return { state, value: formatKnotsOr(mps), unit: 'kn', siValue: mps };
+  },
+};
+
+const POLAR_SPEED_PATH = 'performance.polarSpeed';
+
+const POLAR_PERFORMANCE_DEF: TileDef = {
+  id: 'polar-performance',
+  label: 'Polar performance',
+  description:
+    'Water speed as a percentage of your active polar speed at the current true wind speed and angle. 100% matches the polar; this is not optimal-angle VMG. Enable polar speed output in Polar Performance.',
+  sensorGloss: 'Requires water speed and Polar Performance polar speed output',
+  paths: [SK_PATHS.speedThroughWater, POLAR_SPEED_PATH],
+  zonesPath: 'performance.polarSpeedRatio',
+  category: 'wind',
+  kind: 'numeric',
+  viz: 'performance',
+  read({ store, clock }) {
+    const speed = store.cell(SK_PATHS.speedThroughWater);
+    const polar = store.cell(POLAR_SPEED_PATH);
+    const states = [grade(speed, clock), grade(polar, clock)];
+    const stw = asNumber(speed.value);
+    const target = asNumber(polar.value);
+    const state = states.includes('never')
+      ? 'never'
+      : stw === undefined || stw < 0 || target === undefined || target <= 0
+        ? 'placeholder'
+        : states.includes('stale')
+          ? 'stale'
+          : 'live';
+    const ratio =
+      state === 'live' && stw !== undefined && target !== undefined ? stw / target : undefined;
+    return {
+      state,
+      value: ratio === undefined ? PLACEHOLDER : formatFixed(ratio * 100, 0),
+      unit: '%',
+      siValue: ratio,
+      sourceLabel: 'Water speed compared with Polar Performance',
+      sourceEpoch: Math.min(speed.epoch, polar.epoch),
+    };
+  },
+};
+
+const WIND_VMG_DEF: TileDef = {
+  id: 'wind-vmg',
+  label: 'Wind VMG',
+  abbr: 'VMG',
+  description:
+    'Velocity made good toward the wind: water speed times the cosine of water-referenced true wind angle. Positive is upwind, negative is downwind. No waypoint required; assumes negligible leeway.',
+  sensorGloss: 'Requires water speed and water-referenced true wind angle',
+  paths: [SK_PATHS.speedThroughWater, SK_PATHS.windAngleTrueWater],
+  zonesPath: 'performance.velocityMadeGood',
+  category: 'wind',
+  kind: 'numeric',
+  viz: 'spark',
+  read({ store, clock }) {
+    const speed = store.cell(SK_PATHS.speedThroughWater);
+    const angle = store.cell(SK_PATHS.windAngleTrueWater);
+    const states = [grade(speed, clock), grade(angle, clock)];
+    const stw = asNumber(speed.value);
+    const twa = asNumber(angle.value);
+    const state = states.includes('never')
+      ? 'never'
+      : stw === undefined || stw < 0 || twa === undefined
+        ? 'placeholder'
+        : states.includes('stale')
+          ? 'stale'
+          : 'live';
+    // Do not combine an old angle with a fresh speed and present the result as current VMG.
+    const siValue =
+      state === 'live' && stw !== undefined && twa !== undefined ? stw * Math.cos(twa) : undefined;
+    return {
+      state,
+      value: formatKnotsOr(siValue),
+      unit: 'kn',
+      siValue,
+      referenceLabel: 'Calc',
+      sourceLabel: 'Calculated from water speed and true wind angle',
+      sourceEpoch: Math.min(speed.epoch, angle.epoch),
+      secondary: siValue === undefined ? undefined : siValue < 0 ? 'Downwind' : 'Upwind',
+    };
   },
 };
 
@@ -1311,6 +1391,8 @@ export const TILE_CATALOG: readonly TileDef[] = [
   WIND_APPARENT_DEF,
   STW_DEF,
   WIND_TRUE_DEF,
+  WIND_VMG_DEF,
+  POLAR_PERFORMANCE_DEF,
   TWS_HISTORY_DEF,
   TWA_HISTORY_DEF,
   WIND_ROSE_DEF,

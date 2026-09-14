@@ -8,6 +8,13 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
+- Polar performance dial compares water speed with the active polar's speed for the current wind
+  conditions, marking 100% and showing the percentage. Requires Polar Performance output.
+
+- Wind VMG instrument for sailing without an active waypoint, using water speed and water-referenced
+  true wind angle. Positive values indicate upwind progress and negative values indicate downwind
+  progress; missing or stale inputs show no calculated value.
+
 - TWA and TWS history instruments now include a device-local time-window slider from 10 minutes to
   24 hours, with adaptive history resolution for longer views.
 
