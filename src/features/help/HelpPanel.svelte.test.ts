@@ -15,6 +15,12 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
       onOpenLayers: () => {},
       onOpenProfiles: () => {},
       onOpenAlarms: () => {},
+      tutorialAutostart: false,
+      tutorialOfferHandled: () => {},
+      onOpenInstruments: () => {},
+      onOpenRoutes: () => {},
+      onOpenOffline: () => {},
+      onOpenTracks: () => {},
       onResetHints: () => {},
       onClose: () => {},
       ...overrides,
@@ -23,6 +29,13 @@ function renderPanel(overrides: Record<string, unknown> = {}): string {
 }
 
 describe('HelpPanel degraded-state literacy', () => {
+  it('keeps device-aware guided walkthroughs available from Help', () => {
+    const body = renderPanel();
+    expect(body).toContain('Guided walkthroughs');
+    expect(body).toContain('hands-on guides for this computer');
+    expect(body).toContain('Plan a passage');
+  });
+
   it('explains the connection states and the stale divergence in always-reachable prose', () => {
     const body = renderPanel();
     expect(body).toContain('aria-label="Connection"');

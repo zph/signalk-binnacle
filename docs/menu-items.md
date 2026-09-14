@@ -382,15 +382,18 @@ source, and surrounding traffic before relying on it.
   lost. Profile writes are suspended during erasure so queued work cannot recreate local data. See
   [Profiles and settings](profiles.md).
 - **Help** opens the permanent help panel: the safe-use framing (an advisory chartplotter, not a
-  navigation chart), a live Get set up checklist (nautical chart on, GPS position seen, read and
+  navigation chart), six device-aware guided walkthroughs for chart use, instruments, passage
+  planning, offline charts, safety watches, and voyage review, a live Get set up checklist (nautical chart on, GPS position seen, read and
   write access, alarm sound, and server saved-data storage, each with one action, retiring itself
   once the durable rows pass), the reference-map-versus-charts distinction, Signal K access and
   alarm-sound setup with direct actions, what each connection state means, a When something looks
   wrong section covering staleness and unassessed AIS targets, a marine glossary including the
   Keel, Surface, and Xducer depth datums and Signal K itself, operating-context checklists for a
   coastal day, a night passage, and lying at anchor, and a reset for the chart hints. The
-  first-run orientation banner reopens from here; dismissing it persists per device, and its
-  Set up charts action opens the Charts tab.
+  first-run banner offers Start tutorial, Set up charts, and Skip without forcing a panel over the
+  chart. Tutorial progress and Skip persist per device, while every walkthrough remains restartable
+  from Help. A walkthrough opens real Binnacle controls and resumes at its next saved step when Help
+  is reopened. The safety orientation also reopens from here and dismisses per device.
 
 ## Toolbar and status strip
 

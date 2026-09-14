@@ -250,6 +250,7 @@ interface FlatProps {
   audioState?: import('$shared/audio').AlarmAudioState;
   // The first-run orientation has not been dismissed on this device yet.
   helpFirstRun?: boolean;
+  tutorialAutostart: boolean;
   // Show the compact first-run welcome banner inviting the safety orientation.
   showHelpWelcome?: boolean;
   showEncPrompt?: boolean;
@@ -297,6 +298,7 @@ interface FlatProps {
   closeTrendsPanel: () => void;
   backFromTrendsPanel: () => void;
   openInstalledCharts: () => void;
+  openOfflineCharts: () => void;
   backToOfflineCharts: () => void;
   openLayersPanel: (mode: 'charts' | 'overlays') => void;
   setLayerVisible: (id: string, visible: boolean) => void;
@@ -327,7 +329,8 @@ interface FlatProps {
   openRoutesPanel: () => void;
   // Help panel setup routes and hooks.
   openProfilesPanel: () => void;
-  openHelpPanel: () => void;
+  startTutorial: () => void;
+  tutorialOfferHandled: () => void;
   enableAlarmSound: () => void;
   resetChartHints: () => void;
   dismissHelpOrientation: () => void;
@@ -336,6 +339,7 @@ interface FlatProps {
   onDismissEncPrompt: () => void;
   onDismissInsecureNote: () => void;
   closeTracksPanel: () => void;
+  openTracksPanel: () => void;
   backFromTracksPanel: () => void;
   closeWaypointsPanel: () => void;
   backFromWaypointsPanel: () => void;
@@ -434,6 +438,7 @@ type ActionKey =
   | 'closeTrendsPanel'
   | 'backFromTrendsPanel'
   | 'openInstalledCharts'
+  | 'openOfflineCharts'
   | 'backToOfflineCharts'
   | 'openLayersPanel'
   | 'setLayerVisible'
@@ -456,7 +461,8 @@ type ActionKey =
   | 'backFromRoutesPanel'
   | 'openRoutesPanel'
   | 'openProfilesPanel'
-  | 'openHelpPanel'
+  | 'startTutorial'
+  | 'tutorialOfferHandled'
   | 'enableAlarmSound'
   | 'resetChartHints'
   | 'dismissHelpOrientation'
@@ -464,6 +470,7 @@ type ActionKey =
   | 'onDismissEncPrompt'
   | 'onDismissInsecureNote'
   | 'closeTracksPanel'
+  | 'openTracksPanel'
   | 'backFromTracksPanel'
   | 'closeWaypointsPanel'
   | 'backFromWaypointsPanel'
@@ -537,6 +544,7 @@ let {
   audioBlocked = false,
   audioState = 'ready',
   helpFirstRun = false,
+  tutorialAutostart,
   showHelpWelcome = false,
   showEncPrompt = false,
   insecureNoteDismissed = false,
@@ -652,6 +660,7 @@ const {
   closeTrendsPanel,
   backFromTrendsPanel,
   openInstalledCharts,
+  openOfflineCharts,
   backToOfflineCharts,
   openLayersPanel,
   setLayerVisible,
@@ -673,7 +682,8 @@ const {
   backFromRoutesPanel,
   openRoutesPanel,
   openProfilesPanel,
-  openHelpPanel,
+  startTutorial,
+  tutorialOfferHandled,
   enableAlarmSound,
   resetChartHints,
   dismissHelpOrientation,
@@ -681,6 +691,7 @@ const {
   onDismissEncPrompt,
   onDismissInsecureNote,
   closeTracksPanel,
+  openTracksPanel,
   backFromTracksPanel,
   closeWaypointsPanel,
   backFromWaypointsPanel,
@@ -1030,18 +1041,13 @@ $effect(() => {
     {/if}
     {#if showHelpWelcome}
       <!-- A compact invitation, never a panel forced over the chart: a helm display must come
-           back to the chart on every boot. Dismiss persists on this device. -->
+           back to the chart on every boot. Skip persists on this device. -->
       <div class="alert-note toast-banner action-note action-note--wrap" role="status">
-        <span>First time with Binnacle? Read the short safety orientation, or set up charts.</span>
-        <button type="button" class="btn btn-compact" onclick={openHelpPanel}>Open Help</button>
-        <!-- The new navigator's actual first question is where the charts are, and the reference
-             base map alone never answers it. -->
-        <button type="button" class="btn btn-compact" onclick={() => openLayersPanel('charts')}>
-          Set up charts
+        <span>New here? Take the tutorial for this display.</span>
+        <button type="button" class="btn btn-compact" onclick={startTutorial}>
+          Start tutorial
         </button>
-        <button type="button" class="btn btn-compact" onclick={dismissHelpOrientation}>
-          Dismiss
-        </button>
+        <button type="button" class="btn btn-compact" onclick={tutorialOfferHandled}>Skip</button>
       </div>
     {/if}
     {#if showEncPrompt}
@@ -2025,6 +2031,8 @@ $effect(() => {
             <module.default
               firstRun={helpFirstRun}
               onDismissOrientation={dismissHelpOrientation}
+              {tutorialAutostart}
+              {tutorialOfferHandled}
               writeBlocked={auth.writeBlocked}
               requestingWrite={auth.upgrading}
               onRequestWrite={() => void auth.requestWriteAccess()}
@@ -2039,6 +2047,10 @@ $effect(() => {
               onOpenLayers={() => openLayersPanel('charts')}
               onOpenProfiles={openProfilesPanel}
               onOpenAlarms={openAlarmsPanel}
+              onOpenInstruments={openInstrumentsPanel}
+              onOpenRoutes={openRoutesPanel}
+              onOpenOffline={openOfflineCharts}
+              onOpenTracks={openTracksPanel}
               onResetHints={resetChartHints}
               onClose={closePanel}
               onBack={backToMenu}

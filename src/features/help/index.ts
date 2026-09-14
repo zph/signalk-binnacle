@@ -7,3 +7,6 @@ const helpPanelLoader = createRetryableLazyUiLoader(() => import('./HelpPanel.sv
 export function loadHelpPanel(): Promise<typeof import('./HelpPanel.svelte')> {
   return helpPanelLoader();
 }
+
+export type { TutorialDevice, TutorialProgress } from './tutorial';
+export { tutorialProgressCodec } from './tutorial';

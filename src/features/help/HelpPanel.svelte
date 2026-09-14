@@ -1,7 +1,17 @@
 <script lang="ts">
+import { createMediaQuery, PLATFORM_BREAKPOINTS } from '$shared/lib';
+import { binnacleStorageKey } from '$shared/persistence';
+import { PersistedValue } from '$shared/settings';
 import type { UpgradeOutcome } from '$shared/signalk';
 import { SlideOver, WriteAccessNote } from '$shared/ui';
 import SetupChecklist from './SetupChecklist.svelte';
+import TutorialWalkthrough from './TutorialWalkthrough.svelte';
+import {
+  defaultTutorialProgress,
+  type TutorialProgress,
+  tutorialDeviceFor,
+  tutorialProgressCodec,
+} from './tutorial';
 
 // Help and helm setup: the first-run orientation, the advisory boundary, the setup routes into
 // the real panels (never duplicated controls), the operating-context starter profiles, and the
@@ -25,6 +35,12 @@ interface Props {
   onOpenLayers: () => void;
   onOpenProfiles: () => void;
   onOpenAlarms: () => void;
+  tutorialAutostart: boolean;
+  tutorialOfferHandled: () => void;
+  onOpenInstruments: () => void;
+  onOpenRoutes: () => void;
+  onOpenOffline: () => void;
+  onOpenTracks: () => void;
   onResetHints: () => void;
   onClose: () => void;
   onBack?: () => void;
@@ -45,12 +61,50 @@ const {
   onOpenLayers,
   onOpenProfiles,
   onOpenAlarms,
+  tutorialAutostart,
+  tutorialOfferHandled,
+  onOpenInstruments,
+  onOpenRoutes,
+  onOpenOffline,
+  onOpenTracks,
   onResetHints,
   onClose,
   onBack,
 }: Props = $props();
 
 let hintsReset = $state(false);
+const tutorialPhoneQuery = createMediaQuery(`(max-width: ${PLATFORM_BREAKPOINTS.phoneMaxPx}px)`);
+const tutorialCoarsePointerQuery = createMediaQuery('(pointer: coarse)');
+const tutorialDevice = $derived(
+  tutorialDeviceFor(
+    tutorialPhoneQuery.matches
+      ? PLATFORM_BREAKPOINTS.phoneMaxPx
+      : PLATFORM_BREAKPOINTS.phoneMaxPx + 1,
+    tutorialCoarsePointerQuery.matches,
+  ),
+);
+const tutorialProgress = new PersistedValue<TutorialProgress>(
+  binnacleStorageKey('tutorialProgress'),
+  defaultTutorialProgress(),
+  undefined,
+  tutorialProgressCodec,
+);
+
+$effect(() => {
+  if (!tutorialAutostart) return;
+  tutorialProgress.set({
+    ...tutorialProgress.value,
+    status: 'active',
+    activeFlowId: tutorialProgress.value.activeFlowId ?? 'chart',
+    stepIndex: tutorialProgress.value.activeFlowId === null ? 0 : tutorialProgress.value.stepIndex,
+  });
+  tutorialOfferHandled();
+});
+
+function updateTutorialProgress(progress: TutorialProgress): void {
+  tutorialProgress.set(progress);
+  if (progress.status === 'skipped' || progress.status === 'completed') tutorialOfferHandled();
+}
 
 const GLOSSARY: Array<{ term: string; meaning: string; word?: boolean }> = [
   { term: 'SOG', meaning: 'Speed over ground: the GPS-measured speed of the boat.' },
@@ -128,6 +182,18 @@ const CONTEXTS: Array<{ name: string; role: string }> = [
       </button>
     </div>
   {/if}
+
+  <TutorialWalkthrough
+    device={tutorialDevice}
+    progress={tutorialProgress.value}
+    onProgressChange={updateTutorialProgress}
+    {onOpenLayers}
+    {onOpenInstruments}
+    {onOpenRoutes}
+    {onOpenOffline}
+    {onOpenAlarms}
+    {onOpenTracks}
+  />
 
   <!-- After the advisory framing, never before it: the safety orientation leads. -->
   <SetupChecklist

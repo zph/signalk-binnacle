@@ -95,6 +95,9 @@ const BINNACLE_STORAGE_KEYS = {
   chartActionsHint: { key: 'binnacle-custom:chart-actions-hint', scope: 'device' },
   // The first-run orientation was dismissed on this device; Help reopens it on demand.
   helpOrientation: { key: 'binnacle-custom:help-orientation', scope: 'device' },
+  // Guided walkthrough progress and the first-landing offer belong only to this display.
+  tutorialProgress: { key: 'binnacle-custom:tutorial-progress', scope: 'device' },
+  tutorialOffer: { key: 'binnacle-custom:tutorial-offer', scope: 'device' },
   // The plain-HTTP warning was dismissed on this device; Help keeps the durable explanation.
   insecureNote: { key: 'binnacle-custom:insecure-note', scope: 'device' },
   // The region-aware chart prompt was answered or dismissed on this device; it never returns.

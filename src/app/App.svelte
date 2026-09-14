@@ -494,6 +494,13 @@ const helpOrientationSeen = new PersistedValue<boolean>(
   undefined,
   booleanPersistedCodec,
 );
+const tutorialOfferSeen = new PersistedValue<boolean>(
+  binnacleStorageKey('tutorialOffer'),
+  false,
+  undefined,
+  booleanPersistedCodec,
+);
+let tutorialAutostart = $state(false);
 
 function resetChartHints(): void {
   try {
@@ -983,6 +990,17 @@ function instrumentsActionLabel(): string {
     : instruments.open
       ? 'Edit instruments'
       : 'Show instruments';
+}
+
+function startTutorial(): void {
+  tutorialOfferSeen.set(true);
+  tutorialAutostart = true;
+  openPanel('help');
+}
+
+function tutorialOfferHandled(): void {
+  tutorialOfferSeen.set(true);
+  tutorialAutostart = false;
 }
 
 async function requestMobFromPalette(): Promise<void> {
@@ -2286,10 +2304,10 @@ $effect(() => {
 
 // The first-run welcome: a compact top banner once the shell is usable, never a panel forced open
 // over the chart (a helm display rebooting mid-passage must come back to the chart). It yields to
-// any active safety event, hides while Help is open, and Dismiss or the panel's own dismissal
-// persists on the device.
+// any active safety event, hides while Help is open, and Start or Skip retires the offer on this
+// device. Every walkthrough remains reachable from Help.
 const showHelpWelcome = $derived(
-  !helpOrientationSeen.value &&
+  !tutorialOfferSeen.value &&
     mapInstance !== undefined &&
     !emergencySafetyActive &&
     activePanel !== 'help',
@@ -4431,6 +4449,7 @@ const plotterActions = {
   closeTrendsPanel,
   backFromTrendsPanel,
   openInstalledCharts,
+  openOfflineCharts: () => openPanel('regions'),
   backToOfflineCharts,
   openLayersPanel: (mode: 'charts' | 'overlays') => {
     layersOpenRequest = { mode };
@@ -4451,7 +4470,8 @@ const plotterActions = {
   backFromRoutesPanel,
   openRoutesPanel: () => openPanel('routes'),
   openProfilesPanel: () => openPanel('profiles'),
-  openHelpPanel: () => openPanel('help'),
+  startTutorial,
+  tutorialOfferHandled,
   enableAlarmSound: primeAlarmAudio,
   resetChartHints,
   dismissHelpOrientation: () => helpOrientationSeen.set(true),
@@ -4459,6 +4479,7 @@ const plotterActions = {
   onEnableNoaaEnc: enableNoaaEnc,
   onDismissEncPrompt: () => encPromptSeen.set(true),
   closeTracksPanel,
+  openTracksPanel: () => openPanel('tracks'),
   backFromTracksPanel,
   closeWaypointsPanel,
   backFromWaypointsPanel,
@@ -4571,6 +4592,7 @@ const plotterActions = {
     {audioBlocked}
     {audioState}
     helpFirstRun={!helpOrientationSeen.value}
+    {tutorialAutostart}
     {showHelpWelcome}
     {showEncPrompt}
     insecureNoteDismissed={insecureNoteSeen.value}
