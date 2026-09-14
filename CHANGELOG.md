@@ -8,8 +8,8 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
-- Polar performance dial compares water speed with the active polar's speed for the current wind
-  conditions, marking 100% and showing the percentage. Requires Polar Performance output.
+- Polar performance instrument compares water speed with the active polar's speed for the current
+  wind conditions, showing only the percentage and label. Requires Polar Performance output.
 
 - Wind VMG instrument for sailing without an active waypoint, using water speed and water-referenced
   true wind angle. Positive values indicate upwind progress and negative values indicate downwind

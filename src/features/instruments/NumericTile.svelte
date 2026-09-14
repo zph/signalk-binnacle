@@ -1,7 +1,6 @@
 <script lang="ts">
 import type { ZoneState } from '$shared/signalk';
 import BatteryBar from './BatteryBar.svelte';
-import PerformanceDial from './PerformanceDial.svelte';
 import RotNeedle from './RotNeedle.svelte';
 import Sparkline from './Sparkline.svelte';
 import TileStateBadge from './TileStateBadge.svelte';
@@ -47,8 +46,9 @@ const labelText = $derived(
 const accessibleLabel = $derived(
   tileAccessibleLabel(labelText, reading, zone, sensorGloss, actionLabel),
 );
+const displayValue = $derived(`${reading.value}${viz === 'performance' ? '%' : ''}`);
 const valueScale = $derived.by(() => {
-  const longestLine = Math.max(...reading.value.split('\n').map((line) => line.trim().length));
+  const longestLine = Math.max(...displayValue.split('\n').map((line) => line.trim().length));
   if (longestLine <= 3) return 'short';
   if (longestLine <= 4) return 'medium';
   if (longestLine <= 6) return 'long';
@@ -62,7 +62,6 @@ const valueScale = $derived.by(() => {
 <button
   type="button"
   class="tile card-frame tile--numeric"
-  class:tile--performance={viz === 'performance'}
   class:tile--warning={zone === 'warning'}
   class:tile--alarm={zone === 'alarm'}
   class:tile--stale={reading.state === 'stale'}
@@ -76,12 +75,8 @@ const valueScale = $derived.by(() => {
     {#if reading.state === 'never'}
       <span class="value"><span class="muted-note">{sensorGloss}</span></span>
     {:else}
-      <span class="value value--{valueScale}"
-        ><span class="num">{reading.value}{viz === 'performance' ? '%' : ''}</span></span
-      >
-      {#if viz === 'performance'}
-        <PerformanceDial ratio={reading.siValue} />
-      {:else if viz === 'battery'}
+      <span class="value value--{valueScale}"><span class="num">{displayValue}</span></span>
+      {#if viz === 'battery'}
         <BatteryBar fraction={reading.siValue} state={zone} />
       {:else if viz === 'rot'}
         <RotNeedle radPerSec={reading.siValue} />
@@ -105,16 +100,10 @@ const valueScale = $derived.by(() => {
         <span class="abbr">{abbr}</span>
       {/if}
       {labelText}
-      {#if reading.unit}
+      {#if reading.unit && viz !== 'performance'}
         <span class="title-unit">({reading.unit})</span>
       {/if}</span
     >
     <TileStateBadge state={reading.state} />
   </span>
 </button>
-
-<style>
-.tile--numeric.tile--performance .value .num {
-  font-size: clamp(var(--text-readout-lg), 22cqi, 5rem);
-}
-</style>
