@@ -44,6 +44,9 @@ const rotation = $derived(ratio === undefined ? undefined : -90 + clamp(ratio / 
   stroke: var(--border);
   stroke-width: 8;
 }
+:global(.tile--expanded) .performance-dial {
+  inline-size: min(80%, 34rem);
+}
 line {
   stroke: var(--text-muted);
   stroke-width: 2;

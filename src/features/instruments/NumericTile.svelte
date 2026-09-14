@@ -114,7 +114,7 @@ const valueScale = $derived.by(() => {
 </button>
 
 <style>
-.tile--performance .num {
+.tile--numeric.tile--performance .value .num {
   font-size: clamp(var(--text-readout-lg), 22cqi, 5rem);
 }
 </style>
