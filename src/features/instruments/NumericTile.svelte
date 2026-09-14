@@ -9,6 +9,7 @@ import type { TileDef, TileReading } from './tile-catalog';
 
 interface Props {
   label: string;
+  footerLabel?: string;
   reading: TileReading;
   zone: ZoneState;
   sensorGloss: string;
@@ -26,6 +27,7 @@ interface Props {
 
 const {
   label,
+  footerLabel,
   reading,
   zone,
   sensorGloss,
@@ -96,12 +98,16 @@ const valueScale = $derived.by(() => {
     <!-- The abbreviation leads and carries the loud voice: a mariner scans for SOG or HDG, not for
          the long name, which stays as the quiet gloss beside it. -->
     <span class="caps-label"
-      >{#if abbr}
-        <span class="abbr">{abbr}</span>
-      {/if}
-      {labelText}
-      {#if reading.unit && viz !== 'performance'}
-        <span class="title-unit">({reading.unit})</span>
+      >{#if footerLabel}
+        {footerLabel}
+      {:else}
+        {#if abbr}
+          <span class="abbr">{abbr}</span>
+        {/if}
+        {labelText}
+        {#if reading.unit && viz !== 'performance'}
+          <span class="title-unit">({reading.unit})</span>
+        {/if}
       {/if}</span
     >
     <TileStateBadge state={reading.state} />

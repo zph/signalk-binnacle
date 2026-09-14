@@ -201,6 +201,7 @@ const actionLabel = $derived(expanded ? 'Collapse instrument' : 'Expand instrume
 {:else}
   <NumericTile
     {label}
+    footerLabel={def.footerLabel}
     {reading}
     {zone}
     sensorGloss={def.sensorGloss}

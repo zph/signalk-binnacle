@@ -16,7 +16,7 @@ for (const width of [390, 820, 1440]) {
     await layer.getByRole('button', { name: 'Add instrument', exact: true }).click();
     await page
       .getByRole('menu', { name: 'Add instrument to chart' })
-      .getByRole('menuitem', { name: 'Wind VMG', exact: true })
+      .getByRole('menuitem', { name: 'VMG (wind)', exact: true })
       .click();
     await layer.getByRole('button', { name: 'Add instrument', exact: true }).click();
     await page
@@ -24,7 +24,7 @@ for (const width of [390, 820, 1440]) {
       .getByRole('menuitem', { name: 'Polar performance', exact: true })
       .click();
     await layer.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(layer.getByRole('button', { name: /^Wind VMG/ })).toBeVisible();
+    await expect(layer.getByRole('button', { name: /^VMG \(wind\)/ })).toBeVisible();
     await expect(layer.getByRole('button', { name: /^Polar performance/ })).toBeVisible();
   });
 }

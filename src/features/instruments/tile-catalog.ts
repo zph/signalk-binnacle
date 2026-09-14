@@ -124,6 +124,7 @@ export type TileCategory =
 export interface TileDef {
   id: string;
   label: string;
+  footerLabel?: string;
   abbr?: string;
   description: string;
   sensorGloss: string;
@@ -738,8 +739,8 @@ const POLAR_PERFORMANCE_DEF: TileDef = {
 
 const WIND_VMG_DEF: TileDef = {
   id: 'wind-vmg',
-  label: 'Wind VMG',
-  abbr: 'VMG',
+  label: 'VMG (wind)',
+  footerLabel: 'VMG (wind) kn',
   description:
     'Velocity made good toward the wind: water speed times the cosine of water-referenced true wind angle. Positive is upwind, negative is downwind. No waypoint required; assumes negligible leeway.',
   sensorGloss: 'Requires water speed and water-referenced true wind angle',
@@ -769,7 +770,6 @@ const WIND_VMG_DEF: TileDef = {
       value: formatKnotsOr(siValue),
       unit: 'kn',
       siValue,
-      referenceLabel: 'Calc',
       sourceLabel: 'Calculated from water speed and true wind angle',
       sourceEpoch: Math.min(speed.epoch, angle.epoch),
       secondary: siValue === undefined ? undefined : siValue < 0 ? 'Downwind' : 'Upwind',
