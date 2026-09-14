@@ -78,7 +78,7 @@ export default defineConfig({
     },
     {
       name: 'webkit-ui',
-      testMatch: /(?:ui-quality|weather-cycle|wayfinding)\.spec\.ts/,
+      testMatch: /(?:ui-quality|instrument-layouts|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['Desktop Safari'] },
     },
     {
@@ -88,12 +88,14 @@ export default defineConfig({
     },
     {
       name: 'ipad-webkit',
-      testMatch: /(?:ui-quality|instrument-screen|weather-cycle|wayfinding)\.spec\.ts/,
+      testMatch:
+        /(?:ui-quality|instrument-screen|instrument-layouts|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['iPad Pro 11'] },
     },
     {
       name: 'ipad-webkit-landscape',
-      testMatch: /(?:ui-quality|instrument-screen|weather-cycle|wayfinding)\.spec\.ts/,
+      testMatch:
+        /(?:ui-quality|instrument-screen|instrument-layouts|weather-cycle|wayfinding)\.spec\.ts/,
       use: { ...devices['iPad Pro 11 landscape'] },
     },
     // Chromium is retained beside iPad Safari only for CDP's genuine multi-phase touch stream.
@@ -105,7 +107,7 @@ export default defineConfig({
     },
     {
       name: 'mobile-webkit-instruments',
-      testMatch: /instrument-screen\.spec\.ts/,
+      testMatch: /(?:instrument-screen|instrument-layouts)\.spec\.ts/,
       use: { ...devices['iPhone 13'] },
     },
     {

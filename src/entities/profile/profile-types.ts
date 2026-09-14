@@ -1,6 +1,11 @@
 import type { UnitsMode } from '$shared/lib';
 import type { LayerSettings } from '$shared/map';
-import type { Thresholds, TrackSettings, WeatherSourceId } from '$shared/settings';
+import type {
+  InstrumentLayoutSet,
+  Thresholds,
+  TrackSettings,
+  WeatherSourceId,
+} from '$shared/settings';
 import type { Theme } from '$shared/ui';
 
 // The portable preferences a named profile owns. Device chrome, active safety state, credentials,
@@ -37,6 +42,7 @@ export interface ProfileSettings {
   pinnedActionIds?: string[];
   // Selected instrument tiles in display order; optional for pre-instruments profiles.
   instrumentTiles?: string[];
+  instrumentLayouts?: InstrumentLayoutSet;
   // Per-tile footprint in the two-column dock grid. Optional for profiles saved before tiles
   // could be resized; absent entries use the normal one-cell footprint.
   instrumentTileLayouts?: Record<string, 'normal' | 'wide' | 'tall' | 'large'>;
@@ -92,6 +98,7 @@ export const PORTABLE_PROFILE_SETTING_KEYS = [
   'chartOrientation',
   'pinnedActionIds',
   'instrumentTiles',
+  'instrumentLayouts',
   'instrumentTileLayouts',
   'instrumentScreenLayout',
   'instrumentOverlayOpacity',
@@ -119,6 +126,7 @@ export const DISPLAY_PROFILE_SETTING_KEYS = [
   'chartOrientation',
   'pinnedActionIds',
   'instrumentTiles',
+  'instrumentLayouts',
   'instrumentTileLayouts',
   'instrumentScreenLayout',
   'instrumentOverlayOpacity',

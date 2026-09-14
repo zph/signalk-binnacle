@@ -26,9 +26,12 @@ import {
   VERTICAL_HISTORY_FLOATING_HEIGHT,
   VERTICAL_HISTORY_FLOATING_WIDTH,
 } from './floating-layout';
+import InstrumentLayoutSelector from './InstrumentLayoutSelector.svelte';
 import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentAlias } from './instrument-alias';
+import type { InstrumentLayoutsController } from './instrument-layouts-controller.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
+import { layoutSwipe } from './layout-shortcuts';
 import { instrumentOptionLabels, staleAgeText, type TileDeps } from './tile-catalog';
 import {
   createTileHistory,
@@ -47,6 +50,9 @@ import WindRoseSettings from './WindRoseSettings.svelte';
 
 interface Props {
   controller: InstrumentsController;
+  onLayoutStep?: (direction: number) => void;
+  layoutsController?: InstrumentLayoutsController;
+  showLayoutSelector?: boolean;
   deps: TileDeps;
   theme?: Theme;
   aisTargets?: AisTargets;
@@ -76,6 +82,9 @@ interface Props {
 
 const {
   controller,
+  onLayoutStep = () => {},
+  layoutsController,
+  showLayoutSelector = true,
   deps,
   theme = 'day',
   aisTargets,
@@ -671,6 +680,9 @@ function finishEditing(): void {
   aria-label={editing ? 'Instrument screen layout editing' : undefined}
   role={editing ? 'group' : undefined}
 >
+  {#if layoutsController && showLayoutSelector}
+    <InstrumentLayoutSelector controller={layoutsController} {editing} {onEdit} />
+  {/if}
   {#if editing}
     {#if windRoseSettingsOpen}
       <div class="screen-edit-settings">
@@ -827,6 +839,8 @@ function finishEditing(): void {
         : 'normal'}
     <div
       class="floating-frame"
+      class:floating-frame--swipe={!editing && !isVerticalHistoryViz(entry.def.viz) && !['map', 'tide', 'ais-radar', 'webview'].includes(entry.def.kind)}
+      use:layoutSwipe={{ enabled: !editing && !isVerticalHistoryViz(entry.def.viz) && !['map', 'tide', 'ais-radar', 'webview'].includes(entry.def.kind), step: onLayoutStep }}
       class:floating-frame--dragging={dragBox?.id === entry.def.id}
       class:floating-frame--expanded={expanded}
       style:left={expanded ? '0' : `${visibleBox.x * 100}%`}
@@ -1031,6 +1045,9 @@ function finishEditing(): void {
 .instrument-screen-layer--editing .floating-frame {
   /* The frame body is the touch drag surface, so the browser must not begin a map pan first. */
   touch-action: none;
+}
+.floating-frame--swipe {
+  touch-action: pan-y;
 }
 .floating-frame :global(.tile) {
   flex: 1;

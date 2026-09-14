@@ -17,10 +17,13 @@ import { DEFAULT_INSTRUMENT_DOCK_WIDTH_PX } from './dock-width';
 import InstrumentContextMenu from './InstrumentContextMenu.svelte';
 import InstrumentDetail from './InstrumentDetail.svelte';
 import InstrumentDockResize from './InstrumentDockResize.svelte';
+import InstrumentLayoutSelector from './InstrumentLayoutSelector.svelte';
 import InstrumentsCustomize from './InstrumentsCustomize.svelte';
 import InstrumentTile from './InstrumentTile.svelte';
 import type { InstrumentAlias } from './instrument-alias';
+import type { InstrumentLayoutsController } from './instrument-layouts-controller.svelte';
 import type { InstrumentsController } from './instruments-controller.svelte';
+import { layoutSwipe } from './layout-shortcuts';
 import { staleAgeText, type TileDeps } from './tile-catalog';
 import {
   createTileHistory,
@@ -55,6 +58,8 @@ interface TouchDrag {
 
 interface Props {
   controller: InstrumentsController;
+  layoutsController?: InstrumentLayoutsController;
+  onEditLayout?: () => void;
   deps: TileDeps;
   aisTargets?: AisTargets;
   collision?: CollisionAssessment;
@@ -106,6 +111,8 @@ interface Props {
 
 const {
   controller,
+  layoutsController,
+  onEditLayout = () => {},
   deps,
   aisTargets,
   collision,
@@ -571,6 +578,14 @@ $effect(() => {
     />
   {:else}
     <div class="instrument-config-action">
+      {#if layoutsController}
+        <InstrumentLayoutSelector
+          controller={layoutsController}
+          editing={screenEditing || reordering}
+          onEdit={onEditLayout}
+          inline
+        />
+      {/if}
       <button type="button" class="btn btn-ghost" onclick={toggleCustomizing}>
         Customize instruments
       </button>
@@ -608,6 +623,7 @@ $effect(() => {
           data-instrument-id={def.id}
           data-instrument-label={resolvedLabel}
           class="tile-shell"
+          use:layoutSwipe={{ enabled: !!layoutsController && !screenEditing && !reordering && !isVerticalHistoryViz(def.viz) && !['map', 'tide', 'ais-radar', 'webview'].includes(def.kind), step: (direction) => layoutsController?.cycle(direction) }}
           class:tile-shell--wide={size === 'wide'}
           class:tile-shell--tall={size === 'tall'}
           class:tile-shell--large={size === 'large'}

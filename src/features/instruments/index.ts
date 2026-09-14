@@ -17,6 +17,7 @@ export {
 export type { FloatingInstrumentBox } from './floating-layout';
 export { floatingInstrumentBoxesCodec } from './floating-layout';
 export type { InstrumentAlias } from './instrument-alias';
+export { createInstrumentLayoutsController } from './instrument-layouts-controller.svelte';
 export {
   parseInstrumentPluginManifest,
   SIGNALK_INSTRUMENT_PLUGINS_PATH,
@@ -32,6 +33,7 @@ export {
 } from './instrument-registry.svelte';
 export type { InstrumentsController } from './instruments-controller.svelte';
 export { createInstrumentsController } from './instruments-controller.svelte';
+export { installLayoutKeyboard } from './layout-keyboard';
 export {
   createShallowAheadMonitor,
   type ShallowAheadMonitor,

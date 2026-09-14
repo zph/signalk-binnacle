@@ -11,6 +11,7 @@ import {
 import type { LayerSettings } from '$shared/map';
 import {
   isFloatingInstrumentBoxes,
+  isInstrumentLayoutSet,
   isThresholds,
   isTrackSettings,
   isWeatherSourceId,
@@ -328,6 +329,8 @@ export function isProfileSettings(value: unknown): value is ProfileSettings {
   ) {
     return false;
   }
+  if (value.instrumentLayouts !== undefined && !isInstrumentLayoutSet(value.instrumentLayouts))
+    return false;
   if (
     value.instrumentTiles !== undefined &&
     !validStringList(value.instrumentTiles, MAX_INSTRUMENT_TILES)

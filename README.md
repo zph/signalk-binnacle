@@ -214,6 +214,15 @@ Binnacle ships its full feature set as a Signal K webapp:
   flashed stale. Instrument
   dashboard (KIP) launches the installed KIP webapp; when KIP is absent, the item stays visible but
   unavailable and explains how to add it.
+- **Instrument layouts:** switch between Marina entry, Leisure sailing, Sailing performance, and
+  your preserved My instruments arrangement. Tap the layout name to select, duplicate, rename, or
+  edit a layout; starter layouts also offer a confirmed Restore defaults action. Tile selections,
+  positions, sizes, history windows, wind sectors, radar range, and opacity save automatically within
+  the current Binnacle profile and use its Signal K synchronization and offline fallback. Switching
+  instrument layouts does not change chart layers, navigation, or alarms. Swipe horizontally on a
+  readout or the selector, or press Cmd + Left/Right when instruments are visible. Edge swipes,
+  map and history gestures, editing, and text input keep their existing behavior. Positions use
+  normalized geometry across screens, not separate phone and tablet arrangements.
 - **Playback:** review 1 hour, 6 hours, 24 hours, or 7 days from one registered Signal K history
   provider. Scrub or replay the synchronized recorded track, vessel position, depth, apparent wind,
   barometer, and speed over ground at 0.5x, 1x, or 2x. Full local dates identify day transitions,

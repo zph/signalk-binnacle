@@ -34,6 +34,7 @@ export interface ProfileBindingDeps {
   pinnedActions: PersistedValue<string[]>;
   // The instrument tile selection, in display order.
   instrumentTiles: PersistedValue<string[]>;
+  instrumentLayouts: PersistedValue<NonNullable<ProfileSettings['instrumentLayouts']>>;
   instrumentTileLayouts: PersistedValue<NonNullable<ProfileSettings['instrumentTileLayouts']>>;
   instrumentScreenLayout: PersistedValue<NonNullable<ProfileSettings['instrumentScreenLayout']>>;
   instrumentOverlayOpacity: PersistedValue<number>;
@@ -157,6 +158,11 @@ export function createProfileBindings(deps: ProfileBindingDeps): ProfileBindings
         else deps.instrumentTileLayouts.set({});
       },
       track: () => void deps.instrumentTileLayouts.value,
+    },
+    instrumentLayouts: {
+      read: () => ({ instrumentLayouts: deps.instrumentLayouts.snapshot() }),
+      write: (s) => deps.instrumentLayouts.set(s.instrumentLayouts ?? { active: '', layouts: [] }),
+      track: () => void deps.instrumentLayouts.value,
     },
     instrumentScreenLayout: {
       read: () => ({ instrumentScreenLayout: deps.instrumentScreenLayout.snapshot() }),

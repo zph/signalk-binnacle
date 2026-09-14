@@ -10,6 +10,12 @@ export {
   sanitizeFloatingInstrumentBox,
 } from './floating-instruments';
 export {
+  type InstrumentLayoutSet,
+  type InstrumentLayoutSnapshot,
+  instrumentLayoutSetCodec,
+  isInstrumentLayoutSet,
+} from './instrument-layouts';
+export {
   DEFAULT_MAP_RENDERING_QUALITY,
   MAP_RENDERING_QUALITIES,
   type MapRenderingQuality,

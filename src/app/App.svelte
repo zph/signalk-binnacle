@@ -89,6 +89,7 @@ import { createHandoffClient, createHandoffController } from '$features/handoff'
 import {
   type AisRadarRangeNm,
   BINNACLE_INSTRUMENT_PLUGIN,
+  createInstrumentLayoutsController,
   createInstrumentRegistry,
   createInstrumentsController,
   createShallowAheadMonitor,
@@ -100,6 +101,7 @@ import {
   type InstrumentAlias,
   type InstrumentHistoryWindows,
   type InstrumentTileLayouts,
+  installLayoutKeyboard,
   instrumentHistoryWindowsCodec,
   instrumentTileLayoutsCodec,
   isAisRadarRangeNm,
@@ -246,6 +248,7 @@ import {
   DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
   enumPersistedCodec,
+  instrumentLayoutSetCodec,
   isMapView,
   MAP_RENDERING_QUALITIES,
   MAX_WIND_ROSE_ARC_MARGIN_RAD,
@@ -1272,6 +1275,36 @@ function commitInstrumentDockWidth(width: number): void {
   instrumentDockWidthStore.set(width);
 }
 const instrumentRegistry = createInstrumentRegistry();
+const instrumentLayouts = new PersistedValue<import('$shared/settings').InstrumentLayoutSet>(
+  binnacleStorageKey('instrumentLayouts'),
+  { active: '', layouts: [] },
+  undefined,
+  instrumentLayoutSetCodec,
+);
+const instrumentLayoutsController = createInstrumentLayoutsController({
+  store: instrumentLayouts,
+  capture: () => ({
+    tiles: instrumentTiles.value,
+    boxes: instrumentScreenLayout.value,
+    sizes: instrumentTileLayouts.value,
+    history: instrumentHistoryWindows.value,
+    opacity: instrumentOverlayOpacity.value,
+    radarRange: aisRadarRangeNm.value,
+    noGo: windRoseNoGoAngleRad.value,
+    arcMargin: windRoseArcMarginRad.value,
+  }),
+  apply: (snapshot) => {
+    instrumentTiles.set(snapshot.tiles);
+    instrumentScreenLayout.set(snapshot.boxes);
+    instrumentTileLayouts.set(snapshot.sizes);
+    instrumentHistoryWindows.set(snapshot.history);
+    instrumentOverlayOpacity.set(snapshot.opacity);
+    if (isAisRadarRangeNm(snapshot.radarRange)) aisRadarRangeNm.set(snapshot.radarRange);
+    windRoseNoGoAngleRad.set(snapshot.noGo);
+    windRoseArcMarginRad.set(snapshot.arcMargin);
+  },
+});
+$effect(() => instrumentLayoutsController.observe());
 instrumentRegistry.register(BINNACLE_INSTRUMENT_PLUGIN);
 const instruments = createInstrumentsController({
   store,
@@ -1557,6 +1590,7 @@ const profileBindings = createProfileBindings({
   unitsLocal: units.localSetting,
   pinnedActions,
   instrumentTiles,
+  instrumentLayouts,
   instrumentTileLayouts,
   instrumentScreenLayout,
   instrumentOverlayOpacity,
@@ -3053,6 +3087,33 @@ const paletteCommands = $derived.by<CommandPaletteCommand[]>(() => {
         instruments.screenEditing ? exitScreenInstrumentEditing() : startScreenInstrumentEditing(),
     },
     {
+      id: 'instrument-layouts',
+      label: 'Instrument layouts',
+      group: 'Instruments',
+      icon: Expand,
+      description: 'Switch, duplicate, rename, or restore instrument layouts',
+      keywords: ['profile', 'marina', 'leisure', 'performance', 'swipe'],
+      onSelect: () => {
+        closePanel();
+        instrumentsPanelRequested = false;
+        instruments.setOpen(true);
+        instrumentLayoutsController.setMenuOpen(true);
+      },
+    },
+    ...instrumentLayoutsController.layouts.map((layout) => ({
+      id: `instrument-layout-${layout.id}`,
+      label: `Layout: ${layout.name}`,
+      group: 'Instruments',
+      icon: Expand,
+      onSelect: () => {
+        closePanel();
+        instrumentsPanelRequested = false;
+        exitScreenInstrumentEditing();
+        instrumentLayoutsController.select(layout.id);
+        instruments.setOpen(true);
+      },
+    })),
+    {
       id: 'wind-forecast-overlay',
       label: `Cycle weather and tide overlay (${helmWeatherLayerName(helmWeatherLayer)})`,
       description:
@@ -3995,6 +4056,15 @@ onMount(() => {
   refreshCompanionProbe();
   companionStatus.start();
   const removeBrowserZoomGuard = installBrowserZoomGuard();
+  const removeLayoutKeyboard = installLayoutKeyboard(
+    () =>
+      instruments.open &&
+      !instruments.screenEditing &&
+      !interfaceLock.locked &&
+      !commandPaletteOpen &&
+      activePanel === null,
+    (direction) => instrumentLayoutsController.cycle(direction),
+  );
   window.addEventListener('pointerdown', primeAudio);
   window.addEventListener('pointerup', primeAudio);
   window.addEventListener('keydown', primeAudio);
@@ -4170,6 +4240,7 @@ onMount(() => {
     privacyChannel?.close();
     clearTimeout(profileStartupFallback);
     removeBrowserZoomGuard();
+    removeLayoutKeyboard();
     window.removeEventListener('keydown', onCommandPaletteShortcut);
     if (usesTouchEvents) {
       window.removeEventListener('touchstart', beginTouchBackSwipe, true);
@@ -4505,12 +4576,15 @@ const plotterActions = {
   <!-- Instruments placed freely over the chart, rendered by the screen edit mode. The slot sits
        exactly over the chart cell and never intercepts itself; the layer root inside owns its
        pointer events per mode. Rendered after PlotterView so it stacks above the chart. -->
-  {#if instruments.screenEditing || (instruments.open && instruments.floating.length > 0)}
+  {#if instruments.screenEditing || instruments.open}
     <div class="instrument-screen-slot">
       {#await instrumentScreenLayerForAttempt() then module}
         <ErrorBoundary>
           <module.default
             controller={instruments}
+            onLayoutStep={instrumentLayoutsController.cycle}
+            layoutsController={instrumentLayoutsController}
+            showLayoutSelector={!instrumentsPanelRequested}
             deps={{
               vessel,
               store,
@@ -4730,6 +4804,8 @@ const plotterActions = {
       <ErrorBoundary>
         <module.default
           controller={instruments}
+          layoutsController={instrumentLayoutsController}
+          onEditLayout={startScreenInstrumentEditing}
           deps={{
             vessel,
             store,
