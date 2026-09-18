@@ -8,6 +8,11 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
+- ENC facets for kelp, seabed composition, moorings and berths, overhead hazards, survey quality,
+  and coverage. Clearance labels distinguish charted safe, closed, and open values and follow
+  the display units. Survey quality and coverage start hidden. Chart details list source feature
+  classes that Binnacle does not yet render.
+
 - Polar performance instrument compares water speed with the active polar's speed for the current
   wind conditions, showing only the percentage and label. Requires Polar Performance output.
 

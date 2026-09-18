@@ -70,6 +70,42 @@ export const S57_FACET_DEFINITIONS = [
     description: 'Charted submarine cables, pipelines, and bridge crossings.',
     sourceLayers: ['CBLSUB', 'PIPSOL', 'BRIDGE'],
   },
+  {
+    key: 'kelp',
+    title: 'Kelp and weed',
+    description: 'Charted kelp and weed.',
+    sourceLayers: ['WEDKLP'],
+  },
+  {
+    key: 'seabed',
+    title: 'Seabed composition',
+    description: 'Bottom materials, not an assessment of anchor holding.',
+    sourceLayers: ['SBDARE'],
+  },
+  {
+    key: 'moorings',
+    title: 'Moorings and berths',
+    description: 'Moorings, anchor berths, and berths.',
+    sourceLayers: ['MORFAC', 'ACHBRT', 'BERTHS'],
+  },
+  {
+    key: 'overhead',
+    title: 'Overhead hazards',
+    description: 'Cables and pipelines. Charted clearances are not tide-adjusted.',
+    sourceLayers: ['CBLOHD', 'PIPOHD'],
+  },
+  {
+    key: 'survey-quality',
+    title: 'Survey quality',
+    description: 'Survey confidence and reliability, not live depths.',
+    sourceLayers: ['M_QUAL', 'M_SREL'],
+  },
+  {
+    key: 'coverage',
+    title: 'ENC coverage',
+    description: 'ENC coverage boundaries.',
+    sourceLayers: ['M_COVR'],
+  },
 ] as const;
 
 type S57FacetKey = (typeof S57_FACET_DEFINITIONS)[number]['key'];
@@ -108,4 +144,14 @@ export function s57FacetLayerGroups(layers: readonly LayerSpecification[]): S57F
       ? [{ key: facet.key, title: facet.title, description: facet.description, layerIds }]
       : [];
   });
+}
+
+// These records describe the dataset rather than drawable chart objects.
+const NON_DRAWING_LAYERS = new Set(['DSID', 'C_AGGR', 'C_ASSO', 'Generic']);
+
+export function s57UnsupportedLayers(sourceLayers: readonly string[]): string[] {
+  return [...new Set(sourceLayers)]
+    .filter((sourceLayer) => !NON_DRAWING_LAYERS.has(sourceLayer))
+    .filter((sourceLayer) => !FACET_BY_SOURCE_LAYER.has(sourceLayer.toUpperCase()))
+    .sort();
 }

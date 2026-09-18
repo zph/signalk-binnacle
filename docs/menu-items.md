@@ -422,3 +422,16 @@ source, and surrounding traffic before relying on it.
 - While the Signal K link itself is down or silent, the readouts that pause with it (GPS, speed,
   course, heading, and the depth watch) are subordinated so the strip presents one failure with
   one action. Radar health is excluded: it rides the radar provider's own stream, not this link.
+
+## ENC detail facets
+
+Transformed S-57 charts expose kelp and weed, seabed composition, moorings and berths,
+overhead hazards, survey quality, and ENC coverage alongside existing chart facets.
+Survey quality and coverage start hidden; all facet choices persist with the layer profile.
+Clearances are charted values, not adjusted for tide or vessel air draft. Missing values stay
+unspecified. Seabed materials do not establish anchor holding quality.
+
+The chart disclosure and detail page list feature classes advertised by the source that Binnacle
+cannot yet render. This inventory describes chart metadata, not the current viewport. Layers
+omitted during conversion cannot appear in that list. Older compatible ENC builds need to be
+rebuilt with the updated provider to include the new feature classes.

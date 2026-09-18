@@ -19,7 +19,7 @@ import { createLayerHitHandlers, type LayerHitEvent } from './layer-hit-handlers
 import { applyRasterTheme, colorProperty, DAY_PAINT, type MapColorKey } from './map-theme';
 import { removeLayersAndSources, setLayersVisibility, setPaintProp } from './overlay-helpers';
 import { registerPmtilesArchive, unregisterPmtilesArchive } from './pmtiles';
-import { s57FacetLayerGroups } from './s57-chart-facets';
+import { s57FacetLayerGroups, s57UnsupportedLayers } from './s57-chart-facets';
 import {
   S57_THEME_PAINT_KEY,
   type S57StyleOptions,
@@ -364,7 +364,8 @@ export function createChartOverlay(
       : facetGroups;
   const facets: OverlayFacet[] = configurableFacetGroups.map((group) => {
     const id = `${chartId}:facet:${group.key}`;
-    visibilityByFacet.set(id, true);
+    const defaultVisible = !(isS57 && ['survey-quality', 'coverage'].includes(group.key));
+    visibilityByFacet.set(id, defaultVisible);
     opacityByFacet.set(id, 1);
     for (const layerId of group.layerIds) facetIdByLayer.set(layerId, id);
     return {
@@ -372,7 +373,7 @@ export function createChartOverlay(
       title: group.title,
       description: group.description,
       supportsOpacity: true,
-      defaultVisible: true,
+      defaultVisible,
       defaultOpacity: 1,
       layerIds: group.layerIds,
       setVisible(ctx, visible) {
@@ -461,6 +462,7 @@ export function createChartOverlay(
       format: chart.format,
       cellSizeControl: chart.cellSizeControl,
       labelSizeControl,
+      unsupportedLayers: isS57 ? s57UnsupportedLayers(chart.layers ?? []) : undefined,
     },
     async add(ctx) {
       if (isS57) {

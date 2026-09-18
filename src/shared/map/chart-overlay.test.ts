@@ -779,3 +779,27 @@ describe('chart overlay', () => {
     expect(map.setLayerZoomRange).not.toHaveBeenCalled();
   });
 });
+
+it('exposes unsupported ENC classes and keeps survey overlays optional', () => {
+  const overlay = createChartOverlay(
+    {
+      identifier: 'detail',
+      name: 'ENC',
+      type: 'S-57',
+      format: 'pbf',
+      tilemapUrl: '/enc/{z}/{x}/{y}',
+      layers: ['WEDKLP', 'MORFAC', 'M_QUAL', 'M_COVR', 'FSHFAC'],
+    },
+    'http://pi.local',
+  );
+  expect(overlay.chart?.unsupportedLayers).toEqual(['FSHFAC']);
+  expect(overlay.facets?.find((facet) => facet.title === 'Kelp and weed')?.defaultVisible).toBe(
+    true,
+  );
+  expect(overlay.facets?.find((facet) => facet.title === 'Survey quality')?.defaultVisible).toBe(
+    false,
+  );
+  expect(overlay.facets?.find((facet) => facet.title === 'ENC coverage')?.defaultVisible).toBe(
+    false,
+  );
+});

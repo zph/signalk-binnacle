@@ -28,6 +28,7 @@ import {
 import ChartSourceReview from './ChartSourceReview.svelte';
 import ChartSpecList from './ChartSpecList.svelte';
 import type { LayersView } from './layers-view.svelte';
+import UnsupportedChartLayers from './UnsupportedChartLayers.svelte';
 
 interface Props {
   item: LayerListItem;
@@ -494,6 +495,7 @@ function changeSharing(share: boolean): void {
       </div>
     {/if}
 
+    <UnsupportedChartLayers layers={chart?.unsupportedLayers} />
     {#if subLayers.length > 0}
       <div class="chart-layer-list" role="group" aria-label={`${item.title} chart layers`}>
         <h4 class="caps-label">Chart layers</h4>

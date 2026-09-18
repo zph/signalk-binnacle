@@ -50,6 +50,7 @@ export interface OverlayContext {
 }
 
 export interface ChartLayerInfo {
+  unsupportedLayers?: readonly string[];
   identifier: string;
   source: 'server' | 'user';
   kind: 'vector' | 'raster' | 'style' | 'unknown';

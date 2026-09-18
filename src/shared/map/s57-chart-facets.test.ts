@@ -1,6 +1,10 @@
 import type { LayerSpecification } from 'maplibre-gl';
 import { describe, expect, it } from 'vitest';
-import { S57_FACET_DEFINITIONS, s57FacetLayerGroups } from './s57-chart-facets';
+import {
+  S57_FACET_DEFINITIONS,
+  s57FacetLayerGroups,
+  s57UnsupportedLayers,
+} from './s57-chart-facets';
 import { S57_SUPPORTED_SOURCE_LAYERS } from './s57-chart-style';
 
 function layer(id: string, sourceLayer: string): LayerSpecification {
@@ -67,4 +71,11 @@ describe('s57FacetLayerGroups', () => {
       expect(facet.sourceLayers.length).toBeGreaterThan(0);
     }
   });
+});
+
+it('reports only unsupported source classes, not dataset records or known layers', () => {
+  expect(
+    s57UnsupportedLayers(['WEDKLP', 'M_COVR', 'DSID', 'Generic', 'FSHFAC', 'FSHFAC', 'TOPMAR']),
+  ).toEqual(['FSHFAC', 'TOPMAR']);
+  expect(s57UnsupportedLayers([])).toEqual([]);
 });

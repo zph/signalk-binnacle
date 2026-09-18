@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { stubVesselsSelf } from './helpers';
+import { expectInsideViewport, stubVesselsSelf } from './helpers';
 import { installMapLibreWorkerProof } from './maplibre-worker-proof';
 
 test.use({ serviceWorkers: 'block' });
@@ -107,7 +107,10 @@ function encDepthAreaTile(): Uint8Array {
   return join(bytesField(3, layer));
 }
 
-test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', async ({ page }) => {
+test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', async ({
+  page,
+  browserName,
+}) => {
   const workerProof = await installMapLibreWorkerProof(page);
   const pageErrors: string[] = [];
   const tileRequests: string[] = [];
@@ -155,7 +158,19 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
           description: 'Synthetic S-57 chart with independently configurable feature groups',
           type: 'S-57',
           format: 'pbf',
-          chartLayers: ['DEPARE', 'DEPCNT', 'SOUNDG', 'LNDARE'],
+          chartLayers: [
+            'DEPARE',
+            'DEPCNT',
+            'SOUNDG',
+            'LNDARE',
+            'WEDKLP',
+            'SBDARE',
+            'MORFAC',
+            'CBLOHD',
+            'M_QUAL',
+            'M_COVR',
+            'FSHFAC',
+          ],
           bounds: [-180, -85, 180, 85],
           minzoom: 0,
           maxzoom: 16,
@@ -282,7 +297,7 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await expect(row).toBeVisible();
     const chartToggle = row.getByRole('button', { name: 'Fixture West Coast ENC', exact: true });
     await expect(chartToggle).toHaveAttribute('aria-pressed', 'true');
-    await expect(row.getByText('3/3', { exact: true })).toBeVisible();
+    await expect(row.getByText('7/9', { exact: true })).toBeVisible();
     await expect(row.getByRole('checkbox')).toHaveCount(0);
     await expect(row.getByRole('button', { name: 'Adjust Fixture NOAA ENC opacity' })).toHaveCount(
       0,
@@ -294,6 +309,42 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     await facetCaret.click();
     const inlineFacets = row.getByRole('group', { name: 'Fixture West Coast ENC child layers' });
     await expect(inlineFacets).toBeVisible();
+    for (const title of [
+      'Kelp and weed',
+      'Seabed composition',
+      'Moorings and berths',
+      'Overhead hazards',
+      'Survey quality',
+      'ENC coverage',
+    ]) {
+      await expect(inlineFacets.getByRole('button', { name: title, exact: true })).toBeVisible();
+    }
+    await inlineFacets.getByText('Present in chart, not yet rendered (1)', { exact: true }).click();
+    await expect(inlineFacets.getByText('FSHFAC', { exact: true })).toBeVisible();
+    const initialViewport = page.viewportSize();
+    const viewports =
+      browserName === 'chromium'
+        ? [
+            { width: 390, height: 844 },
+            { width: 844, height: 390 },
+            { width: 834, height: 1194 },
+            { width: 1194, height: 834 },
+          ]
+        : [];
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      const kelp = inlineFacets.getByRole('button', { name: 'Kelp and weed', exact: true });
+      await kelp.scrollIntoViewIfNeeded();
+      await expectInsideViewport(kelp, page);
+      await kelp.click();
+      await expect(kelp).toHaveAttribute('aria-pressed', 'false');
+      await kelp.click();
+      await expect(kelp).toHaveAttribute('aria-pressed', 'true');
+    }
+    if (initialViewport && viewports.length > 0) await page.setViewportSize(initialViewport);
+    const kelpControl = inlineFacets.getByRole('button', { name: 'Kelp and weed', exact: true });
+    await kelpControl.scrollIntoViewIfNeeded();
+    await expectInsideViewport(kelpControl, page);
     const depthFacet = inlineFacets.getByRole('button', { name: 'Depth areas', exact: true });
     const soundingsFacet = inlineFacets.getByRole('button', {
       name: 'Soundings and contours',
@@ -305,11 +356,11 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
     ).toBeVisible();
     await depthFacet.click();
     await expect(depthFacet).toHaveAttribute('aria-pressed', 'false');
-    await expect(row.getByText('2/3', { exact: true })).toBeVisible();
+    await expect(row.getByText('6/9', { exact: true })).toBeVisible();
 
     await chartToggle.click();
     await expect(chartToggle).toHaveAttribute('aria-pressed', 'false');
-    await expect(row.getByText('2/3', { exact: true })).toBeVisible();
+    await expect(row.getByText('6/9', { exact: true })).toBeVisible();
     await chartToggle.click();
     await expect(chartToggle).toHaveAttribute('aria-pressed', 'true');
     await expect(depthFacet).toHaveAttribute('aria-pressed', 'false');
@@ -317,7 +368,7 @@ test('renders a Signal K S-57 chart from legacy NOAA chartLayers metadata', asyn
 
     // Restore the fixture's initial state before exercising the remaining chart controls.
     await depthFacet.click();
-    await expect(row.getByText('3/3', { exact: true })).toBeVisible();
+    await expect(row.getByText('7/9', { exact: true })).toBeVisible();
     await row.getByRole('button', { name: 'Open Fixture West Coast ENC chart details' }).click();
     await expect(page.getByRole('slider', { name: 'Opacity' })).toBeVisible();
     await expect(

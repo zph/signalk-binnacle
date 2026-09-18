@@ -26,6 +26,7 @@ import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 import type { LayerListItem } from '$shared/map';
 import { AnchoredMenu, LayerToggle, UnavailableHint } from '$shared/ui';
 import type { LayersView } from './layers-view.svelte';
+import UnsupportedChartLayers from './UnsupportedChartLayers.svelte';
 
 interface Props {
   item: LayerListItem;
@@ -318,6 +319,7 @@ $effect(() => {
           aria-label={`${item.title} child layers`}
           hidden={!facetsExpanded}
         >
+          <UnsupportedChartLayers layers={item.chart?.unsupportedLayers} />
           {#if item.facetPresets && item.facetPresets.length > 0}
             <div class="facet-presets">
               <p class="muted-note muted-note--xs">
@@ -385,6 +387,7 @@ $effect(() => {
       {@render regionTag()}
       {@render trailing()}
     </div>
+    <UnsupportedChartLayers layers={item.chart?.unsupportedLayers} />
   {/if}
 </li>
 

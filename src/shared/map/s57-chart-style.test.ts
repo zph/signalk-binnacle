@@ -1,4 +1,4 @@
-import { createExpression } from '@maplibre/maplibre-gl-style-spec';
+import { createExpression, validateStyleMin } from '@maplibre/maplibre-gl-style-spec';
 import type {
   FilterSpecification,
   LayerSpecification,
@@ -60,7 +60,7 @@ describe('s57ChartLayers', () => {
   });
 
   it('emits nothing when nonempty metadata has no supported source layers', () => {
-    expect(s57ChartLayers(SOURCE_ID, ['DSID', 'M_COVR'])).toEqual([]);
+    expect(s57ChartLayers(SOURCE_ID, ['DSID', 'FUTURE_OBJECT'])).toEqual([]);
   });
 
   it('skips absent source layers and preserves cruising draw order', () => {
@@ -415,4 +415,16 @@ describe('s57ChartLayers', () => {
       expect(s57ThemeColor('night-red', key).slice(5, 7)).toBe('00');
     }
   });
+});
+
+it('validates the expanded ENC style against MapLibre, including every geometry and label', () => {
+  const layers = s57ChartLayers(SOURCE_ID, []);
+  expect(
+    validateStyleMin({
+      version: 8,
+      glyphs: 'https://example.test/{fontstack}/{range}.pbf',
+      sources: { [SOURCE_ID]: { type: 'vector', tiles: ['https://example.test/{z}/{x}/{y}.pbf'] } },
+      layers,
+    }),
+  ).toEqual([]);
 });

@@ -8,6 +8,7 @@ import type {
   SymbolLayerSpecification,
 } from 'maplibre-gl';
 import type { Theme } from '$shared/ui';
+import { clearanceLabel, seabedLabel, surveyQualityLabel } from './s57-attribute-labels';
 
 export const S57_THEME_PAINT_KEY = 'binnacle:s57ThemePaint';
 export const DEFAULT_S57_SAFETY_DEPTH_METERS = 3;
@@ -201,6 +202,16 @@ export const S57_SUPPORTED_SOURCE_LAYERS = [
   ...LATERAL_MARKS,
   ...GENERAL_MARKS,
   'LIGHTS',
+  'WEDKLP',
+  'SBDARE',
+  'MORFAC',
+  'ACHBRT',
+  'BERTHS',
+  'CBLOHD',
+  'PIPOHD',
+  'M_QUAL',
+  'M_SREL',
+  'M_COVR',
 ] as const;
 
 export function s57ThemeColor(theme: Theme, key: S57ThemeColorKey): string {
@@ -597,7 +608,85 @@ function routeAndInfrastructureLayers(
         dasharray ? [dasharray[0], dasharray[1]] : undefined,
       ),
     );
-    layers.push(lineLabelLayer(sourceId, sourceLayer, color, fallback));
+    const label = lineLabelLayer(sourceId, sourceLayer, color, fallback);
+    if (sourceLayer === 'BRIDGE')
+      label.layout = { ...label.layout, 'text-field': clearanceLabel('Bridge') };
+    layers.push(label);
+  }
+}
+
+function cruisingDetailLayers(
+  layers: LayerSpecification[],
+  sourceId: string,
+  available: Set<string>,
+): void {
+  const objects = [
+    ['WEDKLP', 'Kelp / weed', 'anchorage'],
+    ['SBDARE', 'Seabed', 'coastline'],
+    ['MORFAC', 'Mooring', 'navaid'],
+    ['ACHBRT', 'Anchor berth', 'anchorage'],
+    ['BERTHS', 'Berth', 'anchorage'],
+  ] as const;
+  for (const [sourceLayer, title, color] of objects) {
+    if (!available.has(sourceLayer)) continue;
+    // Keep bottom composition outline-only so overlapping materials cannot obscure depth bands.
+    if (sourceLayer === 'WEDKLP') {
+      layers.push(fillLayer(sourceId, sourceLayer, 'area', color, AREA_FILTER, 0.1));
+    }
+    layers.push(
+      lineLayer(sourceId, sourceLayer, 'outline', color, 1.2, LINE_OR_AREA_FILTER, [3, 3]),
+    );
+    layers.push(circleLayer(sourceId, sourceLayer, 'point', color, 3));
+    layers.push(
+      labelLayer(
+        sourceId,
+        sourceLayer,
+        'label',
+        color,
+        sourceLayer === 'SBDARE'
+          ? seabedLabel()
+          : [
+              'concat',
+              title,
+              [
+                'case',
+                ['!=', ['to-string', ['coalesce', ['get', 'OBJNAM'], '']], ''],
+                ['concat', ': ', ['to-string', ['get', 'OBJNAM']]],
+                '',
+              ],
+            ],
+        undefined,
+        12,
+      ),
+    );
+  }
+  for (const [sourceLayer, title] of [
+    ['CBLOHD', 'Overhead cable'],
+    ['PIPOHD', 'Overhead pipeline'],
+  ] as const) {
+    if (!available.has(sourceLayer)) continue;
+    layers.push(lineLayer(sourceId, sourceLayer, 'line', 'danger', 2, LINE_OR_AREA_FILTER, [5, 2]));
+    const label = lineLabelLayer(sourceId, sourceLayer, 'danger', title);
+    label.layout = { ...label.layout, 'text-field': clearanceLabel(title) };
+    layers.push(label);
+  }
+  for (const sourceLayer of ['M_QUAL', 'M_SREL', 'M_COVR']) {
+    if (!available.has(sourceLayer)) continue;
+    layers.push(
+      lineLayer(sourceId, sourceLayer, 'outline', 'restricted', 1, LINE_OR_AREA_FILTER, [2, 5]),
+    );
+    const text: ExpressionSpecification | string =
+      sourceLayer === 'M_QUAL'
+        ? surveyQualityLabel()
+        : sourceLayer === 'M_COVR'
+          ? [
+              'case',
+              ['==', ['to-number', ['get', 'CATCOV'], 0], 2],
+              'No ENC coverage',
+              'ENC coverage',
+            ]
+          : 'Survey reliability';
+    layers.push(labelLayer(sourceId, sourceLayer, 'label', 'restricted', text, AREA_FILTER, 12));
   }
 }
 
@@ -679,6 +768,7 @@ export function s57ChartLayers(
     layers.push(soundingLabelLayer(sourceId, depthLabel(depthUnit)));
   }
 
+  cruisingDetailLayers(layers, sourceId, available);
   hazardLayers(layers, sourceId, available);
   lateralMarkLayers(layers, sourceId, available);
   generalMarkLayers(layers, sourceId, available);
