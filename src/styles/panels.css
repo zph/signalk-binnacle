@@ -183,6 +183,9 @@
 .panel-slot {
   position: absolute;
   inset-block: 0;
+  /* The fixed helm rail spans every screen width, including desktop and tablet.
+     Keep panel footers above it so their links and actions receive pointer input. */
+  inset-block-end: var(--helm-actions-clearance, 0px);
   inset-inline-start: 0;
   z-index: var(--z-panel);
 }
@@ -193,9 +196,6 @@
 @media (max-width: 600px) {
   .panel-slot {
     inset-block-start: auto;
-    /* Keep the complete bottom sheet above the fixed helm rail so its last action remains
-       tappable without relying on browser-specific scroll-into-view behavior. */
-    inset-block-end: var(--helm-actions-clearance, 0px);
     inset-inline: 0;
     inline-size: auto;
   }
