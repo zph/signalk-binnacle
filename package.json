@@ -60,6 +60,7 @@
     "recommends": [
       "signalk-chart-locker",
       "signalk-crows-nest",
+      "signalk-distance-to-shore",
       "signalk-virtual-weather-sensors",
       "signalk-ssl"
     ]
