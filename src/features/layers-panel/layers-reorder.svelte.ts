@@ -23,7 +23,8 @@ export function createLayerReorder(
   });
 }
 
-// A filtered view, such as the Charts tab, addresses positions inside only the rows it renders.
+// A filtered view, such as Layers and Overlays, addresses positions inside only the rows it
+// renders.
 // Translate that subset insertion slot back into the full movable list before persisting it, so a
 // pointer drop cannot jump across non-rendered rows and the handle positions remain local to the
 // visible list.

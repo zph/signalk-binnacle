@@ -939,7 +939,10 @@ function openAisRadarInstrument(): void {
 function openWindRoseSettings(): void {
   instrumentExpandedRequest = undefined;
   windRoseSettingsRequest = { sequence: ++instrumentOpenSequence };
-  finishOpeningInstrumentsPanel();
+  // Settings belong to the chart overlay editor. Never reopen the retired right-hand dock here:
+  // backing out of settings should return to the chart editing surface, not resurrect that dock.
+  instrumentsPanelRequested = false;
+  startScreenInstrumentEditing();
 }
 
 function openTideInstrument(): void {
@@ -2316,7 +2319,7 @@ const showHelpWelcome = $derived(
 // The region-aware chart offer: in US waters the app already holds everything needed to turn a
 // reference-map view into a real chart, and nothing points at it. One dismissible banner, once per
 // device. It stays out of the way while any panel is open, so a navigator who has just turned
-// their last chart off in the Charts tab is never second-guessed by a banner under the sheet.
+// their last chart off in the Layers and Overlays tab is never second-guessed by a banner under the sheet.
 // The plain-HTTP warning, dismissible per device: a stock server serves Binnacle over HTTP on the
 // LAN, so a permanent banner spends every first impression on the one thing a navigator cannot fix
 // from here. Help's Signal K access section carries the durable explanation.
@@ -2445,7 +2448,7 @@ const menuItems = $derived<MenuItem[]>([
     disabledLabel: 'Layers and charts (chart is loading)',
     pressed: activePanel === 'layers',
     onSelect: () => {
-      // Request the Charts tab only when this tile OPENS the panel; a toggle that closes it must
+      // Request Layers and Overlays only when this tile OPENS the panel; a toggle that closes it must
       // not reset the tab the navigator was on.
       if (activePanel !== 'layers') layersOpenRequest = { mode: 'charts' };
       togglePanel('layers');
@@ -4669,6 +4672,8 @@ const plotterActions = {
             windRoseArcMarginRad={windRoseArcMarginRad.value}
             onWindRoseNoGoAngleChange={(angleRad) => windRoseNoGoAngleRad.set(angleRad)}
             onWindRoseArcMarginChange={(angleRad) => windRoseArcMarginRad.set(angleRad)}
+            initialWindRoseSettingsRequest={windRoseSettingsRequest}
+            onWindRoseSettingsRequestHandled={() => (windRoseSettingsRequest = undefined)}
             topBannerPresent={showHelpWelcome || showEncPrompt || arrivalBanner !== undefined}
             onDone={exitScreenInstrumentEditing}
             onEdit={startScreenInstrumentEditing}
@@ -4877,11 +4882,8 @@ const plotterActions = {
           aisRadarRangeNm={aisRadarRangeNm.value}
           onAisRadarRangeChange={(rangeNm) => aisRadarRangeNm.set(rangeNm)}
           windRoseNoGoAngleRad={windRoseNoGoAngleRad.value}
-          onWindRoseNoGoAngleChange={(angleRad) => windRoseNoGoAngleRad.set(angleRad)}
           windRoseArcMarginRad={windRoseArcMarginRad.value}
-          onWindRoseArcMarginChange={(angleRad) => windRoseArcMarginRad.set(angleRad)}
-          initialWindRoseSettingsRequest={windRoseSettingsRequest}
-          onWindRoseSettingsRequestHandled={() => (windRoseSettingsRequest = undefined)}
+          onOpenWindRoseSettings={openWindRoseSettings}
           initialCustomizeRequest={instrumentCustomizeRequest}
           onCustomizeRequestHandled={() => (instrumentCustomizeRequest = undefined)}
           theme={theme.theme}

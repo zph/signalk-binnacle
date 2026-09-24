@@ -794,8 +794,8 @@ test('layers and charts opens chart sources before overlay stack controls', asyn
 
   const panel = page.locator('#layers-panel');
   await expect(panel).toBeVisible();
-  const layerViewTabs = panel.getByLabel('Layers and charts view');
-  await expect(layerViewTabs.getByRole('button', { name: 'Charts' })).toHaveAttribute(
+  const layerViewTabs = panel.getByLabel('Layers and Overlays view');
+  await expect(layerViewTabs.getByRole('button', { name: 'Layers and Overlays' })).toHaveAttribute(
     'aria-pressed',
     'true',
   );

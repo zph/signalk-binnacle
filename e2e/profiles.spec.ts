@@ -419,7 +419,7 @@ test('profiles restore chart state and order across restart and provider upgrade
   // Change settings in the active profile, then prove the layer manager's complete snapshot reaches
   // the profile document without dropping asynchronously registered chart or facet entries.
   await ais.getByRole('button', { name: 'AIS targets', exact: true }).click();
-  await panel.getByRole('button', { name: 'Charts', exact: true }).click();
+  await panel.getByRole('button', { name: 'Layers and Overlays', exact: true }).click();
   await row.getByRole('button', { name: 'Show Profile fixture ENC child layers' }).click();
   await depthAreas.click();
   await row.getByRole('button', { name: 'Adjust Depth areas opacity' }).click();
@@ -477,7 +477,7 @@ test('profiles restore chart state and order across restart and provider upgrade
   // keyed by the stable Signal K resource id, so an upgraded chart keeps the navigator's choices
   // even when its display metadata and tile generation change.
   await ais.getByRole('button', { name: 'AIS targets', exact: true }).click();
-  await panel.getByRole('button', { name: 'Charts', exact: true }).click();
+  await panel.getByRole('button', { name: 'Layers and Overlays', exact: true }).click();
   const chartRowIds = () =>
     panel
       .locator('[data-layer-row]')

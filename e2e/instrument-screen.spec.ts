@@ -127,7 +127,7 @@ test('the radial menu opens the direct instrument editor', async ({ page }) => {
   await expectInsideViewport(done, page);
 });
 
-test('desktop instrument settings open as a side dock instead of covering the chart', async ({
+test('Windrose settings and Back stay in the chart editor, never reopening the legacy dock', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -138,16 +138,17 @@ test('desktop instrument settings open as a side dock instead of covering the ch
   await palette.getByRole('searchbox', { name: 'Search commands' }).fill('Wind rose settings');
   await palette.getByRole('option', { name: 'Wind rose settings' }).click();
 
-  const dock = page.getByRole('complementary', { name: 'Instruments' });
-  await expect(dock.getByRole('slider', { name: 'Resize instruments dock' })).toBeVisible();
-  await expect(dock).toHaveCSS('position', 'relative');
-  const [dockBox, viewportWidth] = await Promise.all([
-    dock.boundingBox(),
-    page.evaluate(() => document.documentElement.clientWidth),
-  ]);
-  if (!dockBox) throw new Error('Instrument dock did not lay out.');
-  expect(dockBox.width).toBeLessThan(viewportWidth / 2);
-  expect(dockBox.x + dockBox.width).toBeCloseTo(viewportWidth, 0);
+  const layer = page.locator('.instrument-screen-layer');
+  await expect(layer).toBeVisible();
+  await expect(layer.locator('.screen-edit-settings')).toBeVisible();
+  await expect(page.locator('#instrument-dock')).toHaveCount(0);
+
+  await layer.getByRole('button', { name: 'Back to instruments' }).click();
+  await expect(layer.getByRole('toolbar', { name: 'Instrument editing actions' })).toBeVisible();
+  await expect(page.locator('#instrument-dock')).toHaveCount(0);
+
+  await layer.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.locator('#instrument-dock')).toHaveCount(0);
 });
 
 test('the helm instruments control advances from Show to Edit and opens a bounded picker', async ({

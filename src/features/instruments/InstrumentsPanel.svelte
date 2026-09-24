@@ -43,7 +43,6 @@ import {
   type VerticalHistoryWindowMinutes,
   verticalHistoryWindowMinutesFor,
 } from './vertical-history-window';
-import WindRoseSettings from './WindRoseSettings.svelte';
 
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TILE_RESIZE_THRESHOLD_PX = 12;
@@ -89,12 +88,9 @@ interface Props {
   // The shell lock remains reachable when this panel covers the normal bottom toolbar.
   lockAction?: Snippet;
   onOpenTideSettings?: () => void;
+  onOpenWindRoseSettings?: () => void;
   windRoseNoGoAngleRad?: number;
-  onWindRoseNoGoAngleChange?: (angleRad: number) => void;
   windRoseArcMarginRad?: number;
-  onWindRoseArcMarginChange?: (angleRad: number) => void;
-  initialWindRoseSettingsRequest?: { sequence: number };
-  onWindRoseSettingsRequestHandled?: () => void;
   initialCustomizeRequest?: { sequence: number };
   onCustomizeRequestHandled?: () => void;
   // True while the screen edit mode is active over the chart, so each tile becomes a drag source
@@ -137,12 +133,9 @@ const {
   emergencyAction,
   lockAction,
   onOpenTideSettings,
+  onOpenWindRoseSettings,
   windRoseNoGoAngleRad = DEFAULT_WIND_ROSE_NO_GO_ANGLE_RAD,
-  onWindRoseNoGoAngleChange = () => {},
   windRoseArcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
-  onWindRoseArcMarginChange = () => {},
-  initialWindRoseSettingsRequest,
-  onWindRoseSettingsRequestHandled,
   initialCustomizeRequest,
   onCustomizeRequestHandled,
   screenEditing = false,
@@ -175,7 +168,6 @@ let customizing = $state(false);
 let reordering = $state(false);
 let detailId = $state<string | undefined>();
 let expandedId = $state<string | undefined>();
-let windRoseSettingsOpen = $state(false);
 let tilesEl = $state<HTMLElement | undefined>();
 let touchDrag = $state<TouchDrag | undefined>();
 let tileResize = $state<
@@ -201,21 +193,10 @@ $effect(() => {
   if (initialDetailId && detailId === undefined) detailId = initialDetailId;
 });
 $effect(() => {
-  if (!initialWindRoseSettingsRequest) return;
-  void initialWindRoseSettingsRequest.sequence;
-  detailId = undefined;
-  expandedId = undefined;
-  customizing = false;
-  reordering = false;
-  windRoseSettingsOpen = true;
-  onWindRoseSettingsRequestHandled?.();
-});
-$effect(() => {
   if (!initialCustomizeRequest) return;
   void initialCustomizeRequest.sequence;
   detailId = undefined;
   expandedId = undefined;
-  windRoseSettingsOpen = false;
   reordering = false;
   customizing = true;
   onCustomizeRequestHandled?.();
@@ -224,7 +205,6 @@ $effect(() => {
   if (!initialExpandedRequest) return;
   void initialExpandedRequest.sequence;
   detailId = undefined;
-  windRoseSettingsOpen = false;
   customizing = false;
   reordering = false;
   expandedId = initialExpandedRequest.id;
@@ -364,7 +344,6 @@ function inspectInstrument(): void {
   instrumentMenu = undefined;
   expandedId = undefined;
   detailId = id;
-  windRoseSettingsOpen = false;
 }
 
 function configureWindRose(): void {
@@ -373,13 +352,12 @@ function configureWindRose(): void {
   expandedId = undefined;
   customizing = false;
   reordering = false;
-  windRoseSettingsOpen = true;
+  onOpenWindRoseSettings?.();
 }
 
 function toggleReordering(): void {
   instrumentMenu = undefined;
   detailId = undefined;
-  windRoseSettingsOpen = false;
   customizing = false;
   reordering = !reordering;
 }
@@ -387,7 +365,6 @@ function toggleReordering(): void {
 function toggleCustomizing(): void {
   instrumentMenu = undefined;
   detailId = undefined;
-  windRoseSettingsOpen = false;
   reordering = false;
   customizing = !customizing;
 }
@@ -539,15 +516,7 @@ $effect(() => {
     {/if}
     {@render fixedLockAction()}
   {/if}
-  {#if windRoseSettingsOpen}
-    <WindRoseSettings
-      noGoAngleRad={windRoseNoGoAngleRad}
-      arcMarginRad={windRoseArcMarginRad}
-      onChange={onWindRoseNoGoAngleChange}
-      onArcMarginChange={onWindRoseArcMarginChange}
-      onBack={() => (windRoseSettingsOpen = false)}
-    />
-  {:else if detailDef}
+  {#if detailDef}
     {@const reading = detailDef.read(deps)}
     {@const zone = controller.zoneState(detailDef, reading.siValue)}
     <InstrumentDetail

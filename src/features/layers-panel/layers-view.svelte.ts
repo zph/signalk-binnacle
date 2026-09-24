@@ -100,7 +100,7 @@ export class LayersView {
     this.refresh();
   }
 
-  // Reorder inside a filtered list, such as the Charts tab, whose visible positions do not map
+  // Reorder inside a filtered list, such as Layers and Overlays, whose visible positions do not map
   // directly onto the full overlay stack. The supplied ids are narrowed to the moved row's own
   // category, then the manager atomically permutes only those stack slots. That preserves hidden
   // non-chart rows even when a restored legacy order interleaves categories.

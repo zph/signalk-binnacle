@@ -66,6 +66,8 @@ interface Props {
   windRoseArcMarginRad?: number;
   onWindRoseNoGoAngleChange?: (angleRad: number) => void;
   onWindRoseArcMarginChange?: (angleRad: number) => void;
+  initialWindRoseSettingsRequest?: { sequence: number };
+  onWindRoseSettingsRequestHandled?: () => void;
   onOpenTideSettings?: () => void;
   topBannerPresent?: boolean;
   // Called when the helm presses Done, so the shell can clear any edit-mode side effects.
@@ -98,6 +100,8 @@ const {
   windRoseArcMarginRad = DEFAULT_WIND_ROSE_ARC_MARGIN_RAD,
   onWindRoseNoGoAngleChange = () => {},
   onWindRoseArcMarginChange = () => {},
+  initialWindRoseSettingsRequest,
+  onWindRoseSettingsRequestHandled,
   onOpenTideSettings,
   onDone = () => {},
   onEdit = () => {},
@@ -140,6 +144,12 @@ let windRoseSettingsOpen = $state(false);
 let addMenuTrigger = $state<HTMLElement | undefined>();
 let helpTrigger = $state<HTMLElement | undefined>();
 let expandedId = $state<string | undefined>();
+$effect(() => {
+  if (!initialWindRoseSettingsRequest) return;
+  void initialWindRoseSettingsRequest.sequence;
+  windRoseSettingsOpen = true;
+  onWindRoseSettingsRequestHandled?.();
+});
 // Physical shape is not encoded by normalized width/height alone: their pixel ratio changes when
 // the viewport rotates. Remember it for this screen session so iPad and phone rotations can solve
 // for new normalized dimensions without changing each instrument's screen coverage.

@@ -129,7 +129,7 @@ const FLOWS: Record<TutorialFlowId, TutorialFlow> = {
         title: 'Turn on a nautical chart',
         instructions: {
           phone:
-            'Open Layers and charts, choose Charts, and enable a source that covers the visible water. The reference map alone is not a nautical chart.',
+            'Open Layers and charts, choose Layers and Overlays, and enable a source that covers the visible water. The reference map alone is not a nautical chart.',
           tablet:
             'Open Layers and charts beside the map, then enable a nautical chart with coverage over the current view.',
           computer:

@@ -69,7 +69,10 @@ test('keeps a scrolled layer opacity popover inside a narrow viewport', async ({
 
   await openMenuItem(page, 'Layers and charts');
   const panel = page.locator('#layers-panel');
-  const tabs = panel.getByLabel('Layers and charts view');
+  const tabs = panel.getByLabel('Layers and Overlays view');
+  await expect(
+    tabs.getByRole('button', { name: 'Layers and Overlays', exact: true }),
+  ).toBeVisible();
   await tabs.getByRole('button', { name: 'Overlays' }).click();
   const adjust = panel.getByRole('button', { name: /^Adjust .* opacity$/ }).last();
   await adjust.scrollIntoViewIfNeeded();

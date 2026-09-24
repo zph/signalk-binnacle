@@ -273,7 +273,7 @@ async function exerciseHelmSurfaces(page: Page, cycle: number): Promise<void> {
   await openSoakMenuItem(page, 'Layers and charts');
   const layers = page.getByRole('complementary', { name: 'Layers and charts' });
   await layers.getByRole('button', { name: 'Overlays', exact: true }).click();
-  await layers.getByRole('button', { name: 'Charts', exact: true }).click();
+  await layers.getByRole('button', { name: 'Layers and Overlays', exact: true }).click();
   await layers.getByRole('button', { name: 'Close layers and charts' }).click();
 
   await openSoakMenuItem(page, 'Nearby vessels (AIS)');

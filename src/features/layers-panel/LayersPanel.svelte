@@ -172,7 +172,7 @@ const reorderAnnouncement = $derived(
       Choose chart sources, drag their grips to set chart stacking, then tune overlays.
     </p>
 
-    <div class="segmented layer-tabs" role="group" aria-label="Layers and charts view">
+    <div class="segmented layer-tabs" role="group" aria-label="Layers and Overlays view">
       <button
         type="button"
         class="btn"
@@ -180,7 +180,7 @@ const reorderAnnouncement = $derived(
         aria-pressed={mode === 'charts'}
         onclick={() => (mode = 'charts')}
       >
-        Charts
+        Layers and Overlays
       </button>
       <button
         type="button"

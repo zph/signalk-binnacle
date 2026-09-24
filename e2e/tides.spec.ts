@@ -157,7 +157,7 @@ test('opens Tides from a station enabled only through Layers and charts', async 
   await openMenuItem(page, 'Layers and charts');
   const layers = page.locator('#layers-panel');
   await layers
-    .getByLabel('Layers and charts view')
+    .getByLabel('Layers and Overlays view')
     .getByRole('button', { name: 'Overlays' })
     .click();
   await layers.getByRole('button', { name: /Chart overlays and marks/ }).click();

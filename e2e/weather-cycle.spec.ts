@@ -17,7 +17,7 @@ test('bottom weather button cycles forecast and tide states without hiding curre
   await supermenu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
   const layers = page.locator('#layers-panel');
   await layers
-    .getByLabel('Layers and charts view')
+    .getByLabel('Layers and Overlays view')
     .getByRole('button', { name: 'Overlays' })
     .click();
   const oceanConditions = layers.getByRole('button', { name: 'Ocean conditions' });
@@ -96,7 +96,7 @@ test('bottom weather button cycles forecast and tide states without hiding curre
   await supermenu.getByRole('menuitem', { name: 'Chart', exact: true }).click();
   await supermenu.getByRole('menuitem', { name: 'Layers and charts', exact: true }).click();
   await layers
-    .getByLabel('Layers and charts view')
+    .getByLabel('Layers and Overlays view')
     .getByRole('button', { name: 'Overlays' })
     .click();
   await openOceanConditions();

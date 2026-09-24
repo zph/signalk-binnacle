@@ -72,7 +72,11 @@ describe('LayersPanel write access', () => {
 });
 
 describe('LayersPanel chart guidance', () => {
-  it('offers the device rendering-quality control in the Charts view', () => {
+  it('labels the chart sources view to distinguish it from the top-level Charts menu item', () => {
+    expect(renderPanel(auth(false))).toContain('Layers and Overlays');
+  });
+
+  it('offers the device rendering-quality control in Layers and Overlays', () => {
     const body = renderPanel(auth(false), [], 'charts', 'performance');
 
     expect(body).toContain('<h3 class="caps-label">Map rendering quality</h3>');
@@ -82,7 +86,7 @@ describe('LayersPanel chart guidance', () => {
     expect(body).toContain('Crisp');
   });
 
-  it('exposes chart stacking handles in the Charts view', () => {
+  it('exposes chart stacking handles in Layers and Overlays', () => {
     const body = renderPanel(auth(false), [
       {
         id: 'harbor-chart',
