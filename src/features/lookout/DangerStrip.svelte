@@ -9,12 +9,13 @@ interface Props {
   // so silencing the alarm during a close-quarters situation is one tap, not a dive into the menu.
   muted: boolean;
   onToggleMute: () => void;
+  onAcknowledge: () => void;
   // Open this contact's AIS detail. Mid-incident, identifying the vessel the strip already names
   // otherwise costs four taps from the far corner of the screen.
   onSelectContact?: (id: string) => void;
 }
 
-const { collision, muted, onToggleMute, onSelectContact }: Props = $props();
+const { collision, muted, onToggleMute, onAcknowledge, onSelectContact }: Props = $props();
 
 const MAX_ROWS = 4;
 
@@ -60,9 +61,7 @@ const acknowledged = $derived(collision.suppressed && !collision.escalating);
           <button type="button" class="ack" aria-pressed={muted} onclick={onToggleMute}>
             Mute
           </button>
-          <button type="button" class="ack" onclick={() => collision.acknowledge()}>
-            Acknowledge
-          </button>
+          <button type="button" class="ack" onclick={onAcknowledge}>Acknowledge</button>
         </div>
       {/if}
     </div>

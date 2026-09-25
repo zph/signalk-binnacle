@@ -20,9 +20,11 @@ interface Props {
   onSteer: () => void;
   // Clear the mark: recovery complete, or an accidental trigger.
   onCancel: () => void;
+  onAcknowledge: () => void;
 }
 
-const { mob, units, publishWarning, activeCourse, onSteer, onCancel }: Props = $props();
+const { mob, units, publishWarning, activeCourse, onSteer, onCancel, onAcknowledge }: Props =
+  $props();
 
 // Cancel wipes the splash point boat-wide, so it arms a confirm step instead of firing on a
 // single tap; the arm times out back to plain Cancel on its own.
@@ -91,7 +93,7 @@ const steerWarning = $derived(
           {steerArm.armed ? 'Confirm steer?' : 'Steer to MOB'}
         </button>
         {#if !mob.acknowledged}
-          <button type="button" class="ack" onclick={() => mob.acknowledge()}>Acknowledge</button>
+          <button type="button" class="ack" onclick={onAcknowledge}>Acknowledge</button>
         {/if}
         <button type="button" class="ack ack--warning" onclick={tapCancel}>
           {cancelArm.armed ? 'Confirm cancel?' : 'Cancel'}

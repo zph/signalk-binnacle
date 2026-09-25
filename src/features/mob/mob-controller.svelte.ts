@@ -2,7 +2,12 @@ import type { MobMark, MobStore } from '$entities/mob';
 import type { GatedAlarm } from '$shared/audio';
 import type { LatLon } from '$shared/geo';
 import type { UnitsMode } from '$shared/lib';
-import { postMobNotification, resolveNotification, SK_PATHS } from '$shared/signalk';
+import {
+  acknowledgeNotification,
+  postMobNotification,
+  resolveNotification,
+  SK_PATHS,
+} from '$shared/signalk';
 import { shouldSoundMobAlarm } from './mob-alarm';
 import { mobAlertText } from './mob-format';
 import { mobClearNotification, mobNotification } from './mob-notification';
@@ -234,6 +239,31 @@ export function createMobController(deps: MobControllerDeps) {
     });
   }
 
+  async function onAcknowledge(): Promise<void> {
+    const ids = new Set(mob.remoteNotificationIds);
+    for (const pending of pendingMobAlerts.values()) {
+      const id = await pending;
+      if (id) ids.add(id);
+    }
+    if (ids.size === 0 || !deps.notificationsApi()) {
+      mob.acknowledge();
+      return;
+    }
+    if (deps.writeBlocked()) {
+      mobPublishWarning = 'MOB remains unacknowledged boat-wide. Signal K write access is needed.';
+      return;
+    }
+    const results = await Promise.all(
+      [...ids].map((id) => acknowledgeNotification(deps.origin, deps.getToken(), id)),
+    );
+    if (results.every((result) => result === 'completed')) {
+      mobPublishWarning = undefined;
+      mob.acknowledge();
+    } else {
+      mobPublishWarning = 'Could not acknowledge MOB boat-wide. The alarm remains active.';
+    }
+  }
+
   // The deliberate second tap: hand the mark to the course system via the existing goto plumbing.
   function onSteer(): void {
     const mark = mob.position;
@@ -243,6 +273,7 @@ export function createMobController(deps: MobControllerDeps) {
   return {
     onTrigger,
     onCancel,
+    onAcknowledge,
     onSteer,
     onStreamReconnect,
     get mobAlert() {

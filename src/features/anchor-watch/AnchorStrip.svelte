@@ -9,9 +9,10 @@ interface Props {
   anchor: AnchorWatch;
   units: UnitsStore;
   onRaise: () => void;
+  onAcknowledge: () => void;
 }
 
-const { anchor, units, onRaise }: Props = $props();
+const { anchor, units, onRaise, onAcknowledge }: Props = $props();
 
 // Raise ends the watch and silences the alarm in one motion, so it arms a confirm step instead
 // of firing on a single tap; the arm times out back to plain Raise on its own.
@@ -46,7 +47,7 @@ const acked = $derived(anchor.dragging ? anchor.acknowledged : anchor.fixLostAck
             type="button"
             class="ack"
             disabled={!anchor.dragging && !anchor.fixLostAlarm}
-            onclick={() => anchor.acknowledge()}
+            onclick={onAcknowledge}
           >
             Acknowledge
           </button>

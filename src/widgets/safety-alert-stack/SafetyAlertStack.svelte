@@ -27,10 +27,12 @@ interface Props {
   units: UnitsStore;
   anchor: AnchorWatch;
   onAnchorRaise: () => void;
+  onAnchorAcknowledge: () => void;
   collision: CollisionAssessment;
   collisionMuted: boolean;
   lowKeyAlarms?: boolean;
   onToggleCollisionMute: () => void;
+  onCollisionAcknowledge: () => void;
   alarmSilenced: boolean;
   alarmSilenceRemainingSeconds: number;
   onClearAlarmSilence: () => void;
@@ -39,6 +41,7 @@ interface Props {
   mob: MobStore;
   onMobSteer: () => void;
   onMobCancel: () => void;
+  onMobAcknowledge: () => void;
   mobPublishWarning?: string;
   // The active navigation destination name, for the steer confirmation to say what it replaces.
   mobActiveCourse?: string;
@@ -46,6 +49,7 @@ interface Props {
   genericSounding: boolean;
   genericLocallyMuted: boolean;
   writeBlocked: boolean;
+  actionError?: string;
   onSilence?: (notification: ActiveNotification) => void;
   onAcknowledge?: (notification: ActiveNotification) => void;
   onMuteGenericHere: () => void;
@@ -56,10 +60,12 @@ const {
   units,
   anchor,
   onAnchorRaise,
+  onAnchorAcknowledge,
   collision,
   collisionMuted,
   lowKeyAlarms = false,
   onToggleCollisionMute,
+  onCollisionAcknowledge,
   alarmSilenced,
   alarmSilenceRemainingSeconds,
   onClearAlarmSilence,
@@ -67,12 +73,14 @@ const {
   mob,
   onMobSteer,
   onMobCancel,
+  onMobAcknowledge,
   mobPublishWarning,
   mobActiveCourse,
   genericAlarms,
   genericSounding,
   genericLocallyMuted,
   writeBlocked,
+  actionError,
   onSilence,
   onAcknowledge,
   onMuteGenericHere,
@@ -210,6 +218,7 @@ function chipDescription(condition: ChipCondition): string {
         {units}
         onSteer={onMobSteer}
         onCancel={onMobCancel}
+        onAcknowledge={onMobAcknowledge}
         publishWarning={mobPublishWarning}
         activeCourse={mobActiveCourse}
       />
@@ -218,10 +227,11 @@ function chipDescription(condition: ChipCondition): string {
         {collision}
         muted={collisionMuted}
         onToggleMute={onToggleCollisionMute}
+        onAcknowledge={onCollisionAcknowledge}
         onSelectContact={onSelectAisTarget}
       />
     {:else if stack.shownId === 'anchor'}
-      <AnchorStrip {anchor} {units} onRaise={onAnchorRaise} />
+      <AnchorStrip {anchor} {units} onRaise={onAnchorRaise} onAcknowledge={onAnchorAcknowledge} />
     {:else if stack.shownId === 'generic'}
       <AlarmStrip
         notifications={genericAlarms}
@@ -233,6 +243,9 @@ function chipDescription(condition: ChipCondition): string {
         onMuteHere={onMuteGenericHere}
         {onOpenAlarms}
       />
+    {/if}
+    {#if actionError}
+      <p class="alert-note" role="status">{actionError}</p>
     {/if}
   </div>
 {/if}

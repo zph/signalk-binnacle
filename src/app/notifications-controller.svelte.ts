@@ -8,6 +8,7 @@ import type { CollisionMute, GenericAlarm, LookoutAlarm } from '$features/lookou
 import {
   CollisionNotifier,
   isLowKeyAlarm,
+  NOTIFICATION_PATH,
   notificationGrade,
   notificationLabel,
   selectGenericAlarms,
@@ -21,6 +22,7 @@ import {
   acknowledgeNotification,
   fetchRaisedNotificationPaths,
   SELF_CONTEXT,
+  SK_PATHS,
   silenceNotification,
 } from '$shared/signalk';
 import { createCollisionNotificationPublisher } from './collision-notification-publisher';
@@ -70,6 +72,20 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
     publishDelta,
   });
   const collisionNotifier = new CollisionNotifier({ publish: collisionPublisher.publish });
+  let seenCollisionAck = '';
+  $effect(() => {
+    const notification = deps.notificationsStore
+      .list()
+      .find((item) => item.path === NOTIFICATION_PATH);
+    const acknowledged =
+      notification?.acknowledged === true
+        ? `${notification.id ?? notification.path}:${notification.acknowledgedAt ?? ''}`
+        : '';
+    if (acknowledged && acknowledged !== seenCollisionAck) {
+      untrack(() => deps.collision.acknowledge());
+    }
+    seenCollisionAck = acknowledged;
+  });
 
   function toggleCollisionMute(): void {
     deps.collisionMute.toggle();
@@ -102,6 +118,7 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
     failMessage: string,
     onStarted?: () => void,
     onFailed?: () => void,
+    onCompleted?: () => void,
   ): void {
     if (!notification.id) return;
     alarmActionError = undefined;
@@ -111,7 +128,9 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
     }
     onStarted?.();
     void action(deps.origin, deps.token(), notification.id).then((result) => {
-      if (result === 'access-denied') {
+      if (result === 'completed') {
+        onCompleted?.();
+      } else if (result === 'access-denied') {
         onFailed?.();
         alarmActionError =
           'Signal K refused this alarm action. Read and write access is being requested.';
@@ -144,6 +163,33 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
       () => deps.genericAlarm.muteNotificationHere(notification),
       () => deps.genericAlarm.unmuteNotificationHere(notification),
     );
+  }
+
+  function acknowledgeDedicated(id: string | undefined, acknowledgeHere: () => void): void {
+    if (!id || !deps.notificationsApi()) {
+      acknowledgeHere();
+      return;
+    }
+    runNotificationAction(
+      { id } as ActiveNotification,
+      acknowledgeNotification,
+      'Boat-wide acknowledgement is unavailable.',
+      'Could not acknowledge the alert boat-wide. It remains active.',
+      undefined,
+      undefined,
+      acknowledgeHere,
+    );
+  }
+
+  function onAcknowledgeCollision(): void {
+    acknowledgeDedicated(collisionPublisher.alertId, () => deps.collision.acknowledge());
+  }
+
+  function onAcknowledgeAnchor(): void {
+    const notification = deps.notificationsStore
+      .list()
+      .find((item) => item.path === SK_PATHS.anchorNotification);
+    acknowledgeDedicated(notification?.id, () => deps.anchor.acknowledge());
   }
 
   $effect(() => {
@@ -246,6 +292,8 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
     toggleCollisionMute,
     onSilenceNotification,
     onAcknowledgeNotification,
+    onAcknowledgeCollision,
+    onAcknowledgeAnchor,
     muteGenericHere,
     reconcileAfterReconnect,
     dispose: collisionPublisher.dispose,

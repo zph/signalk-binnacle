@@ -191,6 +191,40 @@ describe('MobStore', () => {
     expect(mob.acknowledged).toBe(false);
   });
 
+  it('uses server acknowledgement status for managed remote MOB alerts', () => {
+    const { store, mob } = setup();
+    store.applyFrame(
+      frame({
+        'notifications.mob.remote': {
+          id: 'mob-1',
+          state: 'emergency',
+          status: { acknowledged: false },
+        },
+      }),
+    );
+    expect(mob.acknowledged).toBe(false);
+    store.applyFrame(
+      frame({
+        'notifications.mob.remote': {
+          id: 'mob-1',
+          state: 'emergency',
+          status: { acknowledged: true },
+        },
+      }),
+    );
+    expect(mob.acknowledged).toBe(true);
+    store.applyFrame(
+      frame({
+        'notifications.mob.remote': {
+          id: 'mob-1',
+          state: 'emergency',
+          status: { acknowledged: false },
+        },
+      }),
+    );
+    expect(mob.acknowledged).toBe(false);
+  });
+
   it('re-arms when a remote alert arrives after the local MOB was acknowledged', () => {
     const { store, mob } = setup();
     store.applyFrame(frame({ 'navigation.position': BOAT }));
@@ -209,6 +243,17 @@ describe('MobStore', () => {
     );
     expect(mob.acknowledged).toBe(false);
     mob.acknowledge();
+    expect(mob.acknowledged).toBe(true);
+    store.applyFrame(
+      frame({
+        'notifications.mob.remote': {
+          id: 'remote',
+          state: 'emergency',
+          message: 'Man overboard',
+          status: { acknowledged: true },
+        },
+      }),
+    );
     expect(mob.acknowledged).toBe(true);
   });
 

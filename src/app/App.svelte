@@ -2157,6 +2157,8 @@ const alarmActionError = $derived(notificationsController.alarmActionError);
 const toggleCollisionMute = notificationsController.toggleCollisionMute;
 const onSilenceNotification = notificationsController.onSilenceNotification;
 const onAcknowledgeNotification = notificationsController.onAcknowledgeNotification;
+const onAcknowledgeCollision = notificationsController.onAcknowledgeCollision;
+const onAcknowledgeAnchor = notificationsController.onAcknowledgeAnchor;
 const muteGenericHere = notificationsController.muteGenericHere;
 
 // Helm radar health, shared by the status strip chip and the watch-handoff facts so the two can
@@ -4444,6 +4446,8 @@ const plotterActions = {
   onWeatherLayersReady: (apply: (settings: LayerSettings) => void) => (applyWeatherLayers = apply),
   onSilenceNotification,
   onAcknowledgeNotification,
+  onAcknowledgeCollision,
+  onAcknowledgeAnchor,
   muteGenericHere,
   onRouteCoverageReport,
   openAlarmsPanel: () => openPanel('alarms'),

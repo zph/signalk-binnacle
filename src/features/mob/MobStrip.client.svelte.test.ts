@@ -35,6 +35,7 @@ function mountStrip(activeCourse?: string) {
     activeCourse,
     onSteer: vi.fn(),
     onCancel: vi.fn(),
+    onAcknowledge: vi.fn(),
   });
   const target = document.createElement('div');
   document.body.append(target);

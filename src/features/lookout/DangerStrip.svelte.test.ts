@@ -10,7 +10,7 @@ function strip(contacts: DangerContact[], overrides: Record<string, unknown> = {
     escalating: false,
   } as unknown as CollisionAssessment;
   return render(DangerStrip, {
-    props: { collision, muted: false, onToggleMute: vi.fn(), ...overrides },
+    props: { collision, muted: false, onToggleMute: vi.fn(), onAcknowledge: vi.fn(), ...overrides },
   }).body;
 }
 

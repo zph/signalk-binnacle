@@ -297,11 +297,19 @@ export class AnchorWatch {
   // True while the navigator has silenced the current server drag grade. Client mode never reports
   // it: there, acknowledge clears the latch outright and the strip goes with it.
   get acknowledged(): boolean {
+    const notification = this.#raw(SK_PATHS.anchorNotification);
+    const status =
+      isRecord(notification) && isRecord(notification.status) ? notification.status : undefined;
+    const serverBacked =
+      isRecord(notification) &&
+      typeof notification.id === 'string' &&
+      typeof status?.acknowledged === 'boolean';
     return (
       this.mode === 'server' &&
       this.#serverDragging &&
-      this.#ackState !== undefined &&
-      this.#ackState === this.#notificationState
+      (serverBacked
+        ? status?.acknowledged === true
+        : this.#ackState !== undefined && this.#ackState === this.#notificationState)
     );
   }
 

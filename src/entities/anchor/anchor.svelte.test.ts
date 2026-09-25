@@ -390,6 +390,41 @@ describe('AnchorWatch (server mode)', () => {
     expect(anchor.acknowledged).toBe(false);
   });
 
+  it('uses server acknowledgement status for a managed anchor notification', () => {
+    const { store, anchor } = setup();
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': ANCHOR,
+        'notifications.navigation.anchor': {
+          id: 'anchor-1',
+          state: 'emergency',
+          status: { acknowledged: false },
+        },
+      }),
+    );
+    expect(anchor.acknowledged).toBe(false);
+    store.applyFrame(
+      frame({
+        'notifications.navigation.anchor': {
+          id: 'anchor-1',
+          state: 'emergency',
+          status: { acknowledged: true },
+        },
+      }),
+    );
+    expect(anchor.acknowledged).toBe(true);
+    store.applyFrame(
+      frame({
+        'notifications.navigation.anchor': {
+          id: 'anchor-1',
+          state: 'emergency',
+          status: { acknowledged: false },
+        },
+      }),
+    );
+    expect(anchor.acknowledged).toBe(false);
+  });
+
   it('drops a lingering local watch once the server watch appears', () => {
     const { store, anchor, fix } = setup();
     anchor.dropLocal(ANCHOR, 50);

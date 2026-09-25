@@ -314,6 +314,8 @@ interface FlatProps {
   toggleCollisionMute: () => void;
   onSilenceNotification: (notification: ActiveNotification) => void;
   onAcknowledgeNotification: (notification: ActiveNotification) => void;
+  onAcknowledgeCollision: () => void;
+  onAcknowledgeAnchor: () => void;
   muteGenericHere: () => void;
   // The latest route-coverage result from the Offline charts panel, threaded up so a watch-handoff
   // snapshot can state whether the corridor was checked.
@@ -451,6 +453,8 @@ type ActionKey =
   | 'onRouteCoverageReport'
   | 'onSilenceNotification'
   | 'onAcknowledgeNotification'
+  | 'onAcknowledgeCollision'
+  | 'onAcknowledgeAnchor'
   | 'muteGenericHere'
   | 'openAlarmsPanel'
   | 'selectPoi'
@@ -671,6 +675,8 @@ const {
   toggleCollisionMute,
   onSilenceNotification,
   onAcknowledgeNotification,
+  onAcknowledgeCollision,
+  onAcknowledgeAnchor,
   muteGenericHere,
   onRouteCoverageReport,
   openAlarmsPanel,
@@ -1192,10 +1198,12 @@ $effect(() => {
       {units}
       {anchor}
       onAnchorRaise={() => void anchorController.onRaise()}
+      onAnchorAcknowledge={onAcknowledgeAnchor}
       {collision}
       collisionMuted={collisionMute.active}
       {lowKeyAlarms}
       onToggleCollisionMute={toggleCollisionMute}
+      onCollisionAcknowledge={onAcknowledgeCollision}
       alarmSilenced={alarmSilence.active}
       alarmSilenceRemainingSeconds={alarmSilence.remainingSeconds}
       onClearAlarmSilence={alarmSilence.clear}
@@ -1203,6 +1211,7 @@ $effect(() => {
       {mob}
       onMobSteer={mobController.onSteer}
       onMobCancel={mobController.onCancel}
+      onMobAcknowledge={() => void mobController.onAcknowledge()}
       mobPublishWarning={mobController.mobPublishWarning}
       mobActiveCourse={courseGuidance.active
         ? (courseGuidance.nextPointName ?? 'the current destination')
@@ -1211,6 +1220,7 @@ $effect(() => {
       {genericSounding}
       {genericLocallyMuted}
       writeBlocked={auth.writeBlocked}
+      actionError={alarmActionError}
       onSilence={notificationsApi ? onSilenceNotification : undefined}
       onAcknowledge={notificationsApi ? onAcknowledgeNotification : undefined}
       onMuteGenericHere={muteGenericHere}

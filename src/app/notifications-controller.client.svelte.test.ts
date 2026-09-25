@@ -62,6 +62,8 @@ function setup(
   };
   const timeTravel = { active: options.timeTravelActive ?? false, exit: vi.fn() };
   const mob = { active: options.mobActive ?? false };
+  const collisionAcknowledge = vi.fn();
+  const anchorAcknowledge = vi.fn();
   const requestWriteAccess = vi.fn(async () => undefined);
   const controller = createNotificationsController({
     origin: 'http://sk',
@@ -74,10 +76,11 @@ function setup(
       assessment,
       suppressed: false,
       escalating: options.escalating ?? false,
+      acknowledge: collisionAcknowledge,
     } as never,
     collisionMute: collisionMute as never,
     lookoutAlarm: lookoutAlarm as never,
-    anchor: { watching: false } as never,
+    anchor: { watching: false, acknowledge: anchorAcknowledge } as never,
     notificationsStore: { list: () => options.notifications ?? [] } as never,
     companionStatus: { state: 'ready', down: false } as never,
     timeTravel: timeTravel as never,
@@ -90,6 +93,8 @@ function setup(
   return {
     client,
     collisionMute,
+    collisionAcknowledge,
+    anchorAcknowledge,
     controller,
     genericAlarm,
     lookoutAlarm,
@@ -256,6 +261,48 @@ describe('createNotificationsController', () => {
     });
 
     expect(test.genericAlarm.muteNotificationHere).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges a published collision notification through Signal K before muting locally', async () => {
+    const test = mount();
+    await vi.waitFor(() => expect(signalk.postNotification).toHaveBeenCalledOnce());
+    test.controller.onAcknowledgeCollision();
+    expect(test.collisionAcknowledge).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(test.collisionAcknowledge).toHaveBeenCalledOnce());
+    expect(signalk.acknowledgeNotification).toHaveBeenCalledWith('http://sk', 'token', 'alert-1');
+  });
+
+  it('honors a collision acknowledgement received from Signal K', () => {
+    const test = mount({
+      notifications: [
+        { path: 'notifications.navigation.collision', id: 'collision-1', acknowledged: true },
+      ],
+    });
+    expect(test.collisionAcknowledge).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a server-backed anchor alarm active when acknowledgement fails', async () => {
+    const test = mount({
+      notifications: [
+        { path: signalk.SK_PATHS.anchorNotification, id: 'anchor-1', state: 'alarm' },
+      ],
+    });
+    vi.mocked(signalk.acknowledgeNotification).mockResolvedValueOnce('failed');
+    test.controller.onAcknowledgeAnchor();
+    await vi.waitFor(() =>
+      expect(test.controller.alarmActionError).toContain('Could not acknowledge'),
+    );
+    expect(test.anchorAcknowledge).not.toHaveBeenCalled();
+    expect(signalk.acknowledgeNotification).toHaveBeenCalledWith('http://sk', 'token', 'anchor-1');
+  });
+
+  it('keeps local acknowledgement for a delta-only anchor notification', () => {
+    const test = mount({
+      notifications: [{ path: signalk.SK_PATHS.anchorNotification, state: 'alarm' }],
+    });
+    test.controller.onAcknowledgeAnchor();
+    expect(test.anchorAcknowledge).toHaveBeenCalledOnce();
+    expect(signalk.acknowledgeNotification).not.toHaveBeenCalled();
   });
 
   it('keeps a non-audible warning out of the assertive live region', () => {

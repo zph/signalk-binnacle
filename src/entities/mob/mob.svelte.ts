@@ -80,7 +80,7 @@ export class MobStore {
   #remoteNotifications = $derived.by<
     Array<{
       path: string;
-      value: { state?: unknown; position?: unknown; id?: unknown };
+      value: { state?: unknown; position?: unknown; id?: unknown; status?: unknown };
       activation: number;
     }>
   >(() => {
@@ -93,7 +93,7 @@ export class MobStore {
       if (!isSoundingNotification(raw)) continue;
       notifications.push({
         path,
-        value: raw as { state?: unknown; position?: unknown; id?: unknown },
+        value: raw as { state?: unknown; position?: unknown; id?: unknown; status?: unknown },
         activation: this.#store.cell(path).activation,
       });
       if (notifications.length === MAX_REMOTE_NOTIFICATIONS) break;
@@ -178,9 +178,16 @@ export class MobStore {
     const localAcknowledged = !this.#local || this.#localAcknowledged;
     const remoteAcknowledged =
       !this.#remoteActive ||
-      this.#remoteNotifications.every(
-        ({ path, activation }) => this.#remoteAcknowledgedActivations[path] === activation,
-      );
+      this.#remoteNotifications.every(({ path, value, activation }) => {
+        if (
+          typeof value.id === 'string' &&
+          isRecord(value.status) &&
+          typeof value.status.acknowledged === 'boolean'
+        ) {
+          return value.status.acknowledged;
+        }
+        return this.#remoteAcknowledgedActivations[path] === activation;
+      });
     return localAcknowledged && remoteAcknowledged;
   }
 

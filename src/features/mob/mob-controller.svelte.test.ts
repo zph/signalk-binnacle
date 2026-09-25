@@ -10,6 +10,7 @@ import { mobClearNotification, mobNotification } from './mob-notification';
 
 vi.mock('$shared/signalk', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$shared/signalk')>()),
+  acknowledgeNotification: vi.fn(),
   postMobNotification: vi.fn(),
   resolveNotification: vi.fn(),
 }));
@@ -74,6 +75,9 @@ function setup(overrides: SetupFlags = {}) {
     cancel: vi.fn(() => {
       mobState.active = false;
     }),
+    acknowledge: vi.fn(() => {
+      mobState.acknowledged = true;
+    }),
   };
   const mob = mobState as unknown as MobStore;
   const deps = makeDeps(mob, flags);
@@ -83,6 +87,26 @@ function setup(overrides: SetupFlags = {}) {
 
 describe('createMobController', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('acknowledges each server MOB before silencing this display', async () => {
+    const { controller, mobState } = setup();
+    mobState.remoteNotificationIds = ['first-id', 'second-id'];
+    vi.mocked(signalk.acknowledgeNotification).mockResolvedValue('completed');
+    await controller.onAcknowledge();
+    expect(signalk.acknowledgeNotification).toHaveBeenCalledTimes(2);
+    expect(signalk.acknowledgeNotification).toHaveBeenCalledWith('http://sk', 'token', 'first-id');
+    expect(signalk.acknowledgeNotification).toHaveBeenCalledWith('http://sk', 'token', 'second-id');
+    expect(mobState.acknowledge).toHaveBeenCalledOnce();
+  });
+
+  it('keeps MOB sounding if a server acknowledgement fails', async () => {
+    const { controller, mobState } = setup();
+    mobState.remoteNotificationIds = ['mob-id'];
+    vi.mocked(signalk.acknowledgeNotification).mockResolvedValue('failed');
+    await controller.onAcknowledge();
+    expect(mobState.acknowledge).not.toHaveBeenCalled();
+    expect(controller.mobPublishWarning).toContain('Could not acknowledge MOB boat-wide');
+  });
 
   it('resolves its v2 notification even while the real dynamic stream echo keeps MOB active', async () => {
     const post = deferred<string | undefined>();

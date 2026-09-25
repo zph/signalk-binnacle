@@ -20,6 +20,7 @@ function renderStrip(publishWarning?: string): string {
       publishWarning,
       onSteer: vi.fn(),
       onCancel: vi.fn(),
+      onAcknowledge: vi.fn(),
     },
   }).body;
 }

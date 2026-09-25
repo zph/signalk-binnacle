@@ -18,6 +18,7 @@ function renderStrip(overrides: Record<string, unknown>): string {
       } as unknown as AnchorWatch,
       units: { mode: 'metric' } as UnitsStore,
       onRaise: vi.fn(),
+      onAcknowledge: vi.fn(),
     },
   }).body;
 }
