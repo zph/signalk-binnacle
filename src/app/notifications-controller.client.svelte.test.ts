@@ -272,6 +272,24 @@ describe('createNotificationsController', () => {
     expect(signalk.acknowledgeNotification).toHaveBeenCalledWith('http://sk', 'token', 'alert-1');
   });
 
+  it('waits for a pending collision publish before acknowledging its server ID', async () => {
+    let completePost!: (id: string) => void;
+    vi.mocked(signalk.postNotification).mockReturnValueOnce(
+      new Promise((resolve) => {
+        completePost = resolve;
+      }),
+    );
+    const test = mount();
+    await vi.waitFor(() => expect(signalk.postNotification).toHaveBeenCalledOnce());
+    test.controller.onAcknowledgeCollision();
+    expect(signalk.acknowledgeNotification).not.toHaveBeenCalled();
+    completePost('late-id');
+    await vi.waitFor(() =>
+      expect(signalk.acknowledgeNotification).toHaveBeenCalledWith('http://sk', 'token', 'late-id'),
+    );
+    await vi.waitFor(() => expect(test.collisionAcknowledge).toHaveBeenCalledOnce());
+  });
+
   it('honors a collision acknowledgement received from Signal K', () => {
     const test = mount({
       notifications: [

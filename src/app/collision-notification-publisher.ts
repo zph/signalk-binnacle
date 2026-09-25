@@ -162,6 +162,9 @@ export function createCollisionNotificationPublisher(deps: CollisionNotification
 
   return {
     publish,
+    whenIdle(): Promise<void> {
+      return activeDrain ?? Promise.resolve();
+    },
     dispose(): void {
       disposed = true;
       pending = undefined;

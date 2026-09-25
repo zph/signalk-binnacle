@@ -182,7 +182,11 @@ export function createNotificationsController(deps: NotificationsControllerDeps)
   }
 
   function onAcknowledgeCollision(): void {
-    acknowledgeDedicated(collisionPublisher.alertId, () => deps.collision.acknowledge());
+    void collisionPublisher
+      .whenIdle()
+      .then(() =>
+        acknowledgeDedicated(collisionPublisher.alertId, () => deps.collision.acknowledge()),
+      );
   }
 
   function onAcknowledgeAnchor(): void {
