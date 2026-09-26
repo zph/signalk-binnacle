@@ -135,7 +135,14 @@ export class AnchorWatch {
 
   #serverStateStale = $derived.by<boolean>(() => {
     const cell = this.#store.cell(SK_PATHS.anchorPosition);
-    return isLatLon(cell.value) && predatesReconnect(cell, this.#store.generation);
+    const radiusCell = this.#store.cell(SK_PATHS.anchorMaxRadius);
+    return (
+      isLatLon(cell.value) &&
+      (this.#store.connection.phase !== 'open' ||
+        predatesReconnect(cell, this.#store.generation) ||
+        (asNumber(radiusCell.value) !== undefined &&
+          predatesReconnect(radiusCell, this.#store.generation)))
+    );
   });
 
   #notificationState = $derived.by<string | undefined>(() =>
@@ -184,13 +191,32 @@ export class AnchorWatch {
   }
 
   get position(): LatLon | undefined {
-    return this.mode === 'server' ? this.#serverPosition : undefined;
+    return this.mode === 'server' && !this.degraded ? this.#serverPosition : undefined;
+  }
+
+  // A read-only, in-memory copy of the last server position. It is never promoted to a new watch
+  // or used for browser-side drag detection during an outage.
+  get lastKnownPosition(): LatLon | undefined {
+    if (!this.degraded) return undefined;
+    const value = this.#raw(SK_PATHS.anchorPosition);
+    return isLatLon(value) ? value : undefined;
   }
 
   // The active watch radius in meters, or undefined when off (or when a server watch has not
   // published its radius yet, so no circle is drawn for it).
   get radiusMeters(): number | undefined {
-    return this.mode === 'server' ? this.#serverRadius : undefined;
+    return this.mode === 'server' && !this.degraded ? this.#serverRadius : undefined;
+  }
+
+  get lastKnownRadiusMeters(): number | undefined {
+    if (!this.degraded) return undefined;
+    return asNumber(this.#raw(SK_PATHS.anchorMaxRadius));
+  }
+
+  get lastKnownAt(): number | undefined {
+    if (!this.degraded) return undefined;
+    const epoch = this.#store.cell(SK_PATHS.anchorPosition).epoch;
+    return epoch > 0 ? epoch : undefined;
   }
 
   // The radius the next drop starts from: the last radius the navigator set, on any watch.
@@ -203,7 +229,7 @@ export class AnchorWatch {
   #distance = $derived.by<number | undefined>(() => {
     const anchor = this.position;
     const boat = this.#vessel.position;
-    if (!anchor || !boat || this.#vessel.positionStale) return undefined;
+    if (!anchor || !boat || this.#vessel.positionStale || this.degraded) return undefined;
     return haversineMeters(anchor.latitude, anchor.longitude, boat.latitude, boat.longitude);
   });
 

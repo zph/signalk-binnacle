@@ -120,8 +120,27 @@ describe('AnchorPanel', () => {
     const stale = renderPanel('metric', NO_DEPTH, NO_DEPTH, undefined, {
       anchor: { watching: true, mode: 'server', immediateDegradedCause: 'server-stale' },
     });
-    expect(stale).toContain('Anchor watch state is stale: reconnecting to the server.');
+    expect(stale).toContain('Last known server anchor only.');
     expect(stale).toContain('status--alarm');
+  });
+
+  it('shows cached server geometry as last known and disables watch actions', () => {
+    const stale = renderPanel('metric', NO_DEPTH, NO_DEPTH, undefined, {
+      anchor: {
+        watching: true,
+        mode: 'server',
+        degraded: true,
+        immediateDegradedCause: 'server-stale',
+        lastKnownPosition: { latitude: 37.8, longitude: -122.4 },
+        lastKnownRadiusMeters: 60,
+        lastKnownAt: 1_700_000_000_000,
+      },
+    });
+    expect(stale).toContain('Last reported anchor: 37.80000°');
+    expect(stale).toContain('-122.40000°');
+    expect(stale).toContain('These cached values are read-only');
+    expect(stale).toContain('>60</span>');
+    expect(stale).toMatch(/<button[^>]*disabled[^>]*>\s*<[^>]+>.*Raise anchor/s);
   });
 
   it('keeps the reconnect blip (degraded without a cause yet) off the status line', () => {

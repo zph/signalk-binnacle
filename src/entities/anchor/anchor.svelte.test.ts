@@ -85,11 +85,56 @@ describe('AnchorWatch (server mode)', () => {
     expect(anchor.mode).toBe('server');
     expect(anchor.position).toBeUndefined();
     expect(anchor.radiusMeters).toBeUndefined();
+    expect(anchor.lastKnownPosition).toEqual(ANCHOR);
+    expect(anchor.lastKnownRadiusMeters).toBe(60);
+    expect(anchor.lastKnownAt).toBeGreaterThan(0);
     expect(anchor.degraded).toBe(true);
     // Without a clock there is no grace window to wait out, so the cause reports immediately.
     expect(anchor.degradedCause).toBe('server-stale');
     // Keep the latched safety alarm visible while waiting for current server state.
     expect(anchor.dragging).toBe(true);
+  });
+
+  it('keeps server values read-only on disconnect and clears them after an explicit server raise', () => {
+    const { store, anchor, fix } = setup();
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': ANCHOR,
+        'navigation.anchor.maxRadius': 60,
+      }),
+    );
+    fix(INSIDE);
+    store.applyFrame({
+      ...frame({}),
+      connection: { phase: 'reconnecting', attempt: 1 },
+    });
+    expect(anchor.degraded).toBe(true);
+    expect(anchor.position).toBeUndefined();
+    expect(anchor.radiusMeters).toBeUndefined();
+    expect(anchor.distanceMeters).toBeUndefined();
+    expect(anchor.lastKnownPosition).toEqual(ANCHOR);
+    expect(anchor.lastKnownRadiusMeters).toBe(60);
+    expect(anchor.dragging).toBe(false);
+    store.applyFrame(frame({ 'navigation.anchor.position': null }));
+    expect(anchor.mode).toBe('off');
+    expect(anchor.lastKnownPosition).toBeUndefined();
+  });
+
+  it('does not call the watch current until both position and radius refresh after reconnect', () => {
+    const { store, anchor } = setup();
+    store.applyFrame({
+      ...frame({ 'navigation.anchor.position': ANCHOR, 'navigation.anchor.maxRadius': 60 }),
+      generation: 1,
+    });
+    store.applyFrame({ ...frame({}), generation: 2 });
+    store.applyFrame({ ...frame({ 'navigation.anchor.position': ANCHOR }), generation: 2 });
+    expect(anchor.degraded).toBe(true);
+    expect(anchor.position).toBeUndefined();
+    expect(anchor.lastKnownRadiusMeters).toBe(60);
+    store.applyFrame({ ...frame({ 'navigation.anchor.maxRadius': 60 }), generation: 2 });
+    expect(anchor.degraded).toBe(false);
+    expect(anchor.position).toEqual(ANCHOR);
+    expect(anchor.radiusMeters).toBe(60);
   });
 
   it('holds the reconnect stale blip out of degradedCause until it persists past the grace', () => {

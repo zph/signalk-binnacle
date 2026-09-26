@@ -56,17 +56,27 @@ const {
 
 const watching = $derived(anchor.watching);
 const distance = $derived(anchor.fixLost ? undefined : anchor.distanceMeters);
-const serverWritesBlocked = $derived(auth.writeBlocked && anchor.mode === 'server');
+const serverWritesBlocked = $derived(
+  (auth.writeBlocked || anchor.degraded) && anchor.mode === 'server',
+);
 const mode = $derived(units.mode);
 const unit = $derived(lengthUnit(mode));
 // The radius field deals in the display unit; the entity stays meters, so imperial entries
 // convert at the edges and round to whole display units.
 const toDisplayUnits = (meters: number) =>
   Math.round(mode === 'imperial' ? (metersToFeet(meters) ?? 0) : meters);
-const radiusDisplay = $derived(toDisplayUnits(anchor.radiusMeters ?? anchor.preferredRadiusMeters));
+const radiusDisplay = $derived(
+  toDisplayUnits(
+    anchor.radiusMeters ?? anchor.lastKnownRadiusMeters ?? anchor.preferredRadiusMeters,
+  ),
+);
 const minRadiusDisplay = $derived(toDisplayUnits(MIN_RADIUS_M));
 const distanceText = $derived(formatLengthOr(distance, mode, 0));
-const radiusText = $derived(watching ? formatLengthOr(anchor.radiusMeters, mode, 0) : PLACEHOLDER);
+const radiusText = $derived(
+  watching
+    ? formatLengthOr(anchor.radiusMeters ?? anchor.lastKnownRadiusMeters, mode, 0)
+    : PLACEHOLDER,
+);
 // Scope is reckoned against the water column, so the entity resolves this without the
 // keel-corrected path. A stale reading holds out the number rather than passing off an old
 // sounding as the depth the boat is lying in.
@@ -89,7 +99,7 @@ const immediateCause = $derived(anchor.immediateDegradedCause);
 const statusAlarm = $derived(anchor.dragging || immediateCause !== undefined);
 const statusLine = $derived.by(() => {
   if (immediateCause === 'server-stale') {
-    return 'Anchor watch state is stale: reconnecting to the server.';
+    return 'Last known server anchor only. Connection lost or state not refreshed; watch status is unconfirmed.';
   }
   if (anchor.fixLost)
     return 'GPS fix lost on this display. The server anchor watch remains active.';
@@ -170,6 +180,17 @@ function captureFromDistance(): void {
       <dd><span class="num">{depthText}</span><span class="unit">{unit}</span></dd>
     {/if}
   </dl>
+  {#if anchor.degraded && anchor.lastKnownPosition}
+    <p class="alert-note" role="status">
+      Last reported anchor: {anchor.lastKnownPosition.latitude.toFixed(5)}°,
+      {anchor.lastKnownPosition.longitude.toFixed(5)}°.
+      {#if anchor.lastKnownAt}
+        Reported {new Date(anchor.lastKnownAt).toLocaleString()}.
+      {/if}
+      These cached values are read-only; Binnacle cannot confirm the server watch during a
+      disconnect.
+    </p>
+  {/if}
   {#if depth.source === undefined && vessel.safetyDepth.source === 'keel'}
     <p class="muted-note">
       The sounder publishes keel depth only, which understates the water column the rode spans, so
@@ -243,8 +264,10 @@ function captureFromDistance(): void {
         : 'Waiting for a GPS fix to drop the anchor at.'}
     </p>
   {/if}
-  {#if watching}
+  {#if watching && !anchor.degraded}
     <p class="muted-note">Drag the anchor marker on the chart to correct the drop point.</p>
+  {:else if watching && anchor.degraded}
+    <p class="muted-note">The cached marker is read-only until the server reconnects.</p>
   {/if}
   {#if error}
     <p class="alert-note" role="alert">{error}</p>

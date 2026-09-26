@@ -44,7 +44,7 @@ describe('createAnchorController', () => {
 
   it('words a held server-stale window as a reconnect, never a GPS loss', () => {
     expect(controllerWith({ degradedCause: 'server-stale' }).anchorAlert).toBe(
-      'Anchor watch state is stale: reconnecting to the server.',
+      'Last known server anchor only. Connection lost or state not refreshed; watch status is unconfirmed.',
     );
   });
 
@@ -82,5 +82,27 @@ describe('createAnchorController', () => {
     expect(anchor.mode).toBe('off');
     expect(onAnchorLogMoment).not.toHaveBeenCalled();
     expect(controller.anchorError).toContain('do not rely on an alarm');
+  });
+
+  it('refuses to change a watch using only cached server state', async () => {
+    const fetch = stubFetch({ ok: true });
+    const anchor = {
+      mode: 'server',
+      watching: true,
+      degraded: true,
+      updateFix: vi.fn(),
+    } as unknown as AnchorWatch;
+    const controller = createAnchorController({
+      origin: 'http://sk',
+      getToken: () => undefined,
+      anchor,
+      vessel: { position: undefined, positionStale: false } as OwnVessel,
+      anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
+      serverHasAnchorApi: () => false,
+      writeBlocked: () => false,
+    });
+    await controller.onRaise();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(controller.anchorError).toContain('reconnect first');
   });
 });

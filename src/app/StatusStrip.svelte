@@ -275,18 +275,21 @@ const depthWatchPaused = $derived(
         </button>
       {/if}
       {#if anchor.watching}
-        <!-- Named by its content, never a masking label: the alarm cue ("Anchor no GPS", distance
-           over radius) must reach assistive tech; the open-panel action lives in the title. -->
+        <!-- A disconnected server's retained values must never look like current watch telemetry. -->
         <button
           type="button"
           class="readout anchor-chip chip-btn"
-          class:anchor-chip--alarm={anchor.dragging || anchor.fixLost}
-          title={anchor.fixLost
+          class:anchor-chip--alarm={anchor.dragging || anchor.fixLost || anchor.degraded}
+          title={anchor.degraded
+          ? 'Last known server anchor only. Watch status unconfirmed. Opens Anchor watch.'
+          : anchor.fixLost
           ? 'Anchor watch: no GPS fix, drag detection degraded. Opens Anchor watch.'
           : 'Anchor watch: distance from the anchor over the watch radius. Opens Anchor watch.'}
           onclick={onOpenAnchor}
         >
-          {#if anchor.fixLost}
+          {#if anchor.degraded}
+            Anchor <b>unconfirmed</b>
+          {:else if anchor.fixLost}
             Anchor <b>no GPS</b>
           {:else}
             Anchor <b class="num">{formatLengthOr(anchor.distanceMeters, units.mode, 0)}</b>/<b

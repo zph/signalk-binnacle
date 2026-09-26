@@ -66,7 +66,7 @@ export function createAnchorController(deps: AnchorControllerDeps) {
     if (anchor.retiredLocalWatch)
       return 'Previous browser-only anchor watch stopped. Set a server anchor watch before relying on an alarm.';
     if (cause === 'server-stale') {
-      return 'Anchor watch state is stale: reconnecting to the server.';
+      return 'Last known server anchor only. Connection lost or state not refreshed; watch status is unconfirmed.';
     }
     if (!anchor.dragging || anchor.acknowledged) return '';
     return 'Anchor alarm: the boat is dragging.';
@@ -117,6 +117,10 @@ export function createAnchorController(deps: AnchorControllerDeps) {
     }
     if (anchor.mode !== 'server') {
       anchorError = `Could not ${action}. No server anchor watch is active.`;
+      return false;
+    }
+    if (anchor.degraded) {
+      anchorError = `Could not ${action}. The last known server anchor is not current; reconnect first.`;
       return false;
     }
     if (!(await serverCall())) {

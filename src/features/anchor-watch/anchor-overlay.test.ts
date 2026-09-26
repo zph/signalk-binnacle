@@ -59,6 +59,30 @@ describe('anchor overlay', () => {
     expect(sourceFeatures(map, 'binnacle-anchor-point')).toHaveLength(1);
   });
 
+  it('keeps a muted, read-only last-known server anchor without a live rode line', async () => {
+    const { store, map, overlay, ctx } = setup();
+    await overlay.add(ctx);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 1, longitude: 2 },
+        'navigation.anchor.maxRadius': 50,
+        'navigation.position': { latitude: 1.001, longitude: 2 },
+      }),
+    );
+    overlay.sync(ctx);
+    store.applyFrame({
+      ...frame({}),
+      connection: { phase: 'reconnecting', attempt: 1 },
+    });
+    overlay.sync(ctx);
+    const shapes = sourceFeatures(map, 'binnacle-anchor-shapes');
+    const marker = sourceFeatures(map, 'binnacle-anchor-point');
+    expect(shapes.map((feature) => feature.geometry.type)).toEqual(['Polygon']);
+    expect(shapes[0]?.properties?.cached).toBe(true);
+    expect(marker[0]?.properties?.cached).toBe(true);
+    expect(marker[0]?.properties?.dragging).toBe(false);
+  });
+
   it('splits a rode line that crosses the antimeridian', async () => {
     const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);

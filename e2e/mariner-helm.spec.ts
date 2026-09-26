@@ -373,6 +373,29 @@ test('stream fixture feeds the worker: subscriptions arrive and deltas render', 
   expect(body.received.some((message) => Array.isArray(message.subscribe))).toBe(true);
 });
 
+test('a disconnected anchor shows only read-only cached server values', async ({ page }) => {
+  await openApp(page);
+  await sendDelta(page, [
+    ...OWN_FIX,
+    { path: 'navigation.anchor.position', value: { latitude: 27.7003, longitude: -82.7 } },
+    { path: 'navigation.anchor.maxRadius', value: 30 },
+  ]);
+  await page.getByRole('button', { name: 'Open supermenu' }).click();
+  const menu = page.getByRole('menu', { name: 'Supermenu' });
+  await menu.getByRole('menuitem', { name: 'Vessel' }).click();
+  await menu.getByRole('menuitem', { name: 'Anchor watch' }).click();
+  const panel = page.getByRole('complementary', { name: 'Anchor watch' });
+  await expect(panel).toContainText('Watching on the server.');
+  await fixturePost(page, 'close-streams');
+  await expect(panel).toContainText('Last known server anchor only.');
+  await expect(panel).toContainText('Last reported anchor: 27.70030°');
+  await expect(panel).toContainText('These cached values are read-only');
+  await expect(panel.getByLabel('Watch radius in meters')).toHaveValue('30');
+  await expect(panel.getByLabel('Watch radius in meters')).toBeDisabled();
+  await expect(panel).toContainText('The cached marker is read-only');
+  await expect(panel.getByRole('button', { name: 'Raise anchor' })).toBeDisabled();
+});
+
 test('the vessel wind rose stays on the boat and becomes bow-up with a heading-up chart', async ({
   page,
 }) => {

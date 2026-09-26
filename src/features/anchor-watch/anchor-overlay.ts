@@ -43,7 +43,7 @@ const FILL_OPACITY = 0.1;
 
 // Watch geometry in the selection accent; the alarm color takes over while dragging.
 function watchColor(paint: MapThemePaint): ExpressionSpecification {
-  return ['case', ['get', 'dragging'], paint.danger, paint.select];
+  return ['case', ['get', 'cached'], paint.label, ['get', 'dragging'], paint.danger, paint.select];
 }
 
 function shapeFeatures(
@@ -51,6 +51,7 @@ function shapeFeatures(
   radiusMeters: number | undefined,
   vessel: LatLon | undefined,
   dragging: boolean,
+  cached: boolean,
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
   if (anchor && radiusMeters !== undefined) {
@@ -60,26 +61,30 @@ function shapeFeatures(
         type: 'Polygon',
         coordinates: [geodesicCircleRing(anchor.latitude, anchor.longitude, radiusMeters)],
       },
-      properties: { dragging },
+      properties: { dragging, cached },
     });
   }
   if (anchor && vessel) {
     features.push({
       type: 'Feature',
       geometry: antimeridianLineGeometry([latLonToLonLat(anchor), latLonToLonLat(vessel)]),
-      properties: { dragging, rode: true },
+      properties: { dragging, cached, rode: true },
     });
   }
   return featureCollection(features);
 }
 
-function pointFeatures(anchor: LatLon | undefined, dragging: boolean): GeoJSON.FeatureCollection {
+function pointFeatures(
+  anchor: LatLon | undefined,
+  dragging: boolean,
+  cached: boolean,
+): GeoJSON.FeatureCollection {
   if (!anchor) return emptyFeatureCollection();
   return featureCollection([
     {
       type: 'Feature',
       geometry: { type: 'Point', coordinates: latLonToLonLat(anchor) },
-      properties: { dragging },
+      properties: { dragging, cached },
     },
   ]);
 }
@@ -90,7 +95,8 @@ export interface AnchorOverlay extends OverlayModule {
 
 // The on-chart anchor watch: the swing circle, the rode line from anchor to vessel, and a draggable
 // anchor marker. Dragging the marker previews locally and commits the new drop point through
-// onMoved once the pointer lifts (the app routes it to the server PUT or the local store).
+// onMoved once the pointer lifts (the app routes it to the server PUT). Cached geometry is
+// read-only, muted, and never connected to the moving vessel by a rode line.
 export function createAnchorOverlay(
   anchor: AnchorWatch,
   vessel: OwnVessel,
@@ -111,6 +117,7 @@ export function createAnchorOverlay(
   let lastVesselLon: number | undefined;
   let lastRadius: number | undefined;
   let lastDragging = false;
+  let lastCached = false;
   // add() can run again after a base-style swap; the map keeps its listeners across that, so the
   // drag handlers must only ever attach once.
   let handlersAttached = false;
@@ -120,7 +127,8 @@ export function createAnchorOverlay(
   // then block reattach, silently disabling anchor drag.
   let detachMarkerDrag: (() => void) | undefined;
 
-  const canInteract = (): boolean => overlayInteractive(visible, opacity, interactionsAllowed);
+  const canInteract = (): boolean =>
+    !anchor.degraded && overlayInteractive(visible, opacity, interactionsAllowed);
   const onPointerMove = (e: MapMouseEvent | MapTouchEvent): void => {
     if (!canInteract()) {
       cancelActiveDrag?.();
@@ -160,6 +168,7 @@ export function createAnchorOverlay(
           paint: {
             'line-color': watchColor(paint),
             'line-width': ['case', ['get', 'dragging'], 3, 2],
+            'line-opacity': ['case', ['get', 'cached'], 0.6, 1],
           },
         };
         map.addLayer(layer, before);
@@ -186,6 +195,7 @@ export function createAnchorOverlay(
           paint: {
             'circle-radius': 7,
             'circle-color': watchColor(paint),
+            'circle-opacity': ['case', ['get', 'cached'], 0.6, 1],
             'circle-stroke-color': paint.markerGlyph,
             'circle-stroke-width': 1.5,
           },
@@ -269,14 +279,15 @@ export function createAnchorOverlay(
     },
     sync(ctx) {
       if (!canInteract()) cancelActiveDrag?.();
-      const anchorPos = dragPreview ?? anchor.position;
+      const cached = anchor.degraded && anchor.lastKnownPosition !== undefined;
+      const anchorPos = dragPreview ?? anchor.position ?? anchor.lastKnownPosition;
       // With no anchor there is no rode line, so own-vessel updates cannot change either source.
       // Compare coordinates rather than object identity because Signal K delivers a fresh position
       // object for every report, including equal fixes. An identity check made an idle anchor watch
       // invalidate and repaint the whole MapLibre canvas on every overlay tick.
-      const vesselPos = anchorPos ? vessel.position : undefined;
-      const radius = anchor.radiusMeters;
-      const dragging = anchor.dragging;
+      const vesselPos = anchorPos && !cached ? vessel.position : undefined;
+      const radius = anchor.radiusMeters ?? anchor.lastKnownRadiusMeters;
+      const dragging = !cached && anchor.dragging;
       if (
         !needsRedraw &&
         anchorPos?.latitude === lastAnchorLat &&
@@ -284,7 +295,8 @@ export function createAnchorOverlay(
         vesselPos?.latitude === lastVesselLat &&
         vesselPos?.longitude === lastVesselLon &&
         radius === lastRadius &&
-        dragging === lastDragging
+        dragging === lastDragging &&
+        cached === lastCached
       ) {
         return;
       }
@@ -295,8 +307,13 @@ export function createAnchorOverlay(
       lastVesselLon = vesselPos?.longitude;
       lastRadius = radius;
       lastDragging = dragging;
-      setSourceData(ctx.map, SHAPE_SRC, shapeFeatures(anchorPos, radius, vesselPos, dragging));
-      setSourceData(ctx.map, POINT_SRC, pointFeatures(anchorPos, dragging));
+      lastCached = cached;
+      setSourceData(
+        ctx.map,
+        SHAPE_SRC,
+        shapeFeatures(anchorPos, radius, vesselPos, dragging, cached),
+      );
+      setSourceData(ctx.map, POINT_SRC, pointFeatures(anchorPos, dragging, cached));
     },
     setVisible(ctx, next) {
       visible = next;
