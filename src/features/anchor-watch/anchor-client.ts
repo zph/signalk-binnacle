@@ -3,8 +3,7 @@ import { postResource, putResource } from '$shared/signalk';
 
 // The HTTP client for the signalk-anchoralarm-plugin. Every call returns whether it succeeded and
 // never throws: a missing plugin, a 401, or a dead network all come back false, and the caller
-// degrades to the client-side watch (the closestApproach pattern). There is no separate presence
-// probe: the drop attempt itself is the detection.
+// leaves the watch off. There is no separate presence probe: the drop attempt itself is detection.
 
 const PLUGIN_BASE = '/plugins/anchoralarm';
 

@@ -95,7 +95,7 @@ const genericQuieted = $derived(
     (genericLocallyMuted || raisedGeneric.every((notification) => notification.silenced === true)),
 );
 
-// The default priority order: MOB, collision danger, anchor drag or lost protection, generic
+// The default priority order: MOB, collision danger, anchor drag, generic
 // emergency or alarm, collision warning; acknowledged conditions sort after all of them.
 const conditions = $derived<ChipCondition[]>([
   {
@@ -119,9 +119,9 @@ const conditions = $derived<ChipCondition[]>([
   },
   {
     id: 'anchor',
-    active: anchor.dragging || anchor.degradedCause === 'fix-lost',
+    active: anchor.dragging,
     rank: 2,
-    acknowledged: anchor.dragging ? anchor.acknowledged : anchor.fixLostAcknowledged,
+    acknowledged: anchor.acknowledged,
     label: 'Anchor',
     chipAria: 'Anchor alarm',
     grade: 'alarm',

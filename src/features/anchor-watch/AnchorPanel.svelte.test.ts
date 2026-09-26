@@ -95,7 +95,7 @@ describe('AnchorPanel', () => {
   it('offers the read/write request while server anchor changes are blocked', () => {
     const body = renderPanel('metric', NO_DEPTH, NO_DEPTH, blockedAuth(false));
 
-    expect(body).toContain('Server anchor changes need read and write access.');
+    expect(body).toContain('Anchor watch requires server read and write access.');
     expect(body).toContain('Request read and write access');
   });
 
@@ -105,18 +105,16 @@ describe('AnchorPanel', () => {
     );
   });
 
-  it('words the two degraded causes apart and alarms the status line for both', () => {
-    const fixLost = renderPanel('metric', NO_DEPTH, NO_DEPTH, undefined, {
+  it('warns when a previous browser-only watch was retired', () => {
+    const retired = renderPanel('metric', NO_DEPTH, NO_DEPTH, undefined, {
       anchor: {
-        watching: true,
-        mode: 'client',
-        fixLost: true,
-        immediateDegradedCause: 'fix-lost',
+        retiredLocalWatch: true,
       },
     });
-    expect(fixLost).toContain('Warning: GPS fix lost. Browser drag detection has stopped.');
-    expect(fixLost).toContain('status--alarm');
+    expect(retired).toContain('A previous browser-only anchor watch has been stopped.');
+  });
 
+  it('alarms the status line for stale server state', () => {
     // The panel words server-stale from the ungraced immediate cause, before the live region's
     // grace has held: the reassuring mode text must not stand in for untrusted geometry.
     const stale = renderPanel('metric', NO_DEPTH, NO_DEPTH, undefined, {

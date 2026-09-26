@@ -7,7 +7,7 @@ import { OwnVessel } from '$entities/vessel';
 import type { ReactiveClock } from '$shared/lib';
 import type { ConnectionPhase, SKFrame } from '$shared/signalk';
 import { SignalKStore } from '$shared/signalk';
-import { createFakeStorage } from '$shared/testing';
+import { createFakeStorage, createFrameFactory } from '$shared/testing';
 import StatusStrip from './StatusStrip.svelte';
 
 const clock: ReactiveClock = { now: Date.UTC(2026, 0, 1, 12, 0, 0) };
@@ -249,7 +249,15 @@ describe('StatusStrip depth alarm', () => {
 
   it('renders the anchor chip as a door to the panel, named by its live content', () => {
     const props = baseProps();
-    props.anchor.dropLocal({ latitude: 60, longitude: 24 }, 40);
+    const anchorStore = new SignalKStore();
+    const anchorVessel = new OwnVessel(anchorStore);
+    props.anchor = new AnchorWatch(anchorStore, anchorVessel, undefined, createFakeStorage());
+    anchorStore.applyFrame(
+      createFrameFactory()({
+        'navigation.anchor.position': { latitude: 60, longitude: 24 },
+        'navigation.anchor.maxRadius': 40,
+      }),
+    );
     const html = body({ ...props, onOpenAnchor: () => {} });
     const anchorAt = html.indexOf('anchor-chip');
     expect(html.slice(html.lastIndexOf('<', anchorAt), anchorAt)).toContain('<button');

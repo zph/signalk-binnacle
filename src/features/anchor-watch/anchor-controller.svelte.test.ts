@@ -1,15 +1,15 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AnchorDegradedCause, AnchorWatch } from '$entities/anchor';
 import type { OwnVessel } from '$entities/vessel';
 import type { GatedAlarm } from '$shared/audio';
+import { stubFetch } from '$shared/testing';
 import { createAnchorController } from './anchor-controller.svelte';
 
 interface AnchorFake {
   degradedCause: AnchorDegradedCause | undefined;
   dragging: boolean;
   acknowledged: boolean;
-  fixLostAlarm: boolean;
-  fixLostAcknowledged: boolean;
+  retiredLocalWatch: boolean;
 }
 
 function controllerWith(overrides: Partial<AnchorFake>) {
@@ -17,9 +17,8 @@ function controllerWith(overrides: Partial<AnchorFake>) {
     degradedCause: undefined,
     dragging: false,
     acknowledged: false,
-    fixLostAlarm: false,
-    fixLostAcknowledged: false,
-    mode: 'client',
+    retiredLocalWatch: false,
+    mode: 'off',
     updateFix: vi.fn(),
     ...overrides,
   } as unknown as AnchorWatch;
@@ -35,9 +34,11 @@ function controllerWith(overrides: Partial<AnchorFake>) {
 }
 
 describe('createAnchorController', () => {
-  it('announces a client fix loss as dead drag detection', () => {
-    expect(controllerWith({ degradedCause: 'fix-lost' }).anchorAlert).toBe(
-      'Anchor watch degraded: no GPS fix, so drag detection has stopped.',
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('announces a retired browser-only watch', () => {
+    expect(controllerWith({ retiredLocalWatch: true }).anchorAlert).toBe(
+      'Previous browser-only anchor watch stopped. Set a server anchor watch before relying on an alarm.',
     );
   });
 
@@ -53,5 +54,33 @@ describe('createAnchorController', () => {
     );
     expect(controllerWith({ dragging: true, acknowledged: true }).anchorAlert).toBe('');
     expect(controllerWith({}).anchorAlert).toBe('');
+  });
+
+  it('does not arm or log a browser watch when the server refuses a drop', async () => {
+    const fetch = stubFetch({ ok: false });
+    const onAnchorLogMoment = vi.fn();
+    const anchor = {
+      mode: 'off',
+      preferredRadiusMeters: 45,
+      updateFix: vi.fn(),
+    } as unknown as AnchorWatch;
+    const controller = createAnchorController({
+      origin: 'http://sk',
+      getToken: () => undefined,
+      anchor,
+      vessel: {
+        position: { latitude: 1, longitude: 2 },
+        positionStale: false,
+      } as OwnVessel,
+      anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
+      serverHasAnchorApi: () => false,
+      writeBlocked: () => false,
+      onAnchorLogMoment,
+    });
+    await controller.onDrop();
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(anchor.mode).toBe('off');
+    expect(onAnchorLogMoment).not.toHaveBeenCalled();
+    expect(controller.anchorError).toContain('do not rely on an alarm');
   });
 });

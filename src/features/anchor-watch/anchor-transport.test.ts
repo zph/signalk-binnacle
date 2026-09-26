@@ -45,10 +45,15 @@ describe('resolveAnchorTransport', () => {
     expect(mock.mock.calls.map((call) => call[0])).toEqual([`${API}/drop`]);
   });
 
-  it('standard drop still succeeds when only the radius call fails', async () => {
-    stubFetch((url) => ({ ok: !url.endsWith('/radius') }));
+  it('undoes a standard drop when its radius cannot be set', async () => {
+    const mock = stubFetch((url) => ({ ok: !url.endsWith('/radius') }));
     const transport = resolveAnchorTransport(BASE, () => undefined, { standardApiAvailable: true });
-    await expect(transport.drop(45)).resolves.toBe(true);
+    await expect(transport.drop(45)).resolves.toBe(false);
+    expect(mock.mock.calls.map((call) => call[0])).toEqual([
+      `${API}/drop`,
+      `${API}/radius`,
+      `${API}/raise`,
+    ]);
   });
 
   it('falls back to the plugin endpoints when the standard API is absent', async () => {

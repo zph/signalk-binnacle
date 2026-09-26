@@ -2297,7 +2297,6 @@ const emergencySafetyActive = $derived(
       collision.assessment.worst === 'danger' &&
       (!collision.suppressed || collision.escalating)) ||
     anchor.dragging ||
-    anchor.fixLostAlarm ||
     genericAlarms.some(
       (notification) => notification.state === 'emergency' || notification.state === 'alarm',
     ),

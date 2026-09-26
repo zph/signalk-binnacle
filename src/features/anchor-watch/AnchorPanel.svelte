@@ -78,7 +78,6 @@ const captureTitle = $derived(
 
 const MODE_STATUS: Record<AnchorMode, string> = {
   server: 'Watching on the server. The alarm keeps running when Binnacle is closed.',
-  client: 'Watching in this browser only. Keep Binnacle open for the alarm.',
   off: 'No anchor down.',
 };
 // The two degraded causes are worded apart: a held reconnect-stale window is not a GPS loss.
@@ -89,9 +88,6 @@ const MODE_STATUS: Record<AnchorMode, string> = {
 const immediateCause = $derived(anchor.immediateDegradedCause);
 const statusAlarm = $derived(anchor.dragging || immediateCause !== undefined);
 const statusLine = $derived.by(() => {
-  if (immediateCause === 'fix-lost') {
-    return 'Warning: GPS fix lost. Browser drag detection has stopped.';
-  }
   if (immediateCause === 'server-stale') {
     return 'Anchor watch state is stale: reconnecting to the server.';
   }
@@ -138,7 +134,7 @@ function captureFromDistance(): void {
     <!-- The app-wide banner offers the same request, but an open panel covers it on a phone, so the
          request stays one tap away from the block it explains. -->
     <WriteAccessNote
-      message="Server anchor changes need read and write access. A browser-only watch remains available when no server watch is active."
+      message="Anchor watch requires server read and write access. A browser-only alarm is not available."
       requesting={auth.upgrading}
       onRequest={() => void auth.requestWriteAccess()}
       outcome={auth.upgradeOutcome}
@@ -147,6 +143,12 @@ function captureFromDistance(): void {
   <p class="muted-note">
     Drop the anchor to start a drift alarm that sounds if the boat swings past the watch radius.
   </p>
+  {#if anchor.retiredLocalWatch}
+    <p class="alert-note" role="alert">
+      A previous browser-only anchor watch has been stopped. Start a server watch before relying on
+      an alarm.
+    </p>
+  {/if}
   {#if alarmAudioNote(audioState)}
     <!-- No role: the status-strip chip is the polite announcement surface for this condition. -->
     <p class="alert-note">{alarmAudioNote(audioState)}</p>
@@ -225,7 +227,7 @@ function captureFromDistance(): void {
         <button
           type="button"
           class="btn btn-primary"
-          disabled={busy || !vessel.position || vessel.positionStale}
+          disabled={busy || auth.writeBlocked || !vessel.position || vessel.positionStale}
           onclick={onDrop}
         >
           <Anchor size={16} aria-hidden="true" />

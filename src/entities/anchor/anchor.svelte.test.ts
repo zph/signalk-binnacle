@@ -3,14 +3,12 @@ import { OwnVessel } from '$entities/vessel';
 import { SignalKStore } from '$shared/signalk';
 import { createFakeStorage, createFrameFactory } from '$shared/testing';
 import { AnchorWatch } from './anchor.svelte';
-import { DEFAULT_RADIUS_M } from './anchor-geometry';
 
 const frame = createFrameFactory();
 
 // About 111 meters per 0.001 degree of latitude, so these fixes sit well outside a 50 m radius.
 const ANCHOR = { latitude: 0, longitude: 0 };
 const INSIDE = { latitude: 0.0002, longitude: 0 };
-const OUTSIDE = { latitude: 0.001, longitude: 0 };
 
 function setup(seed?: Record<string, string>) {
   const store = new SignalKStore();
@@ -23,265 +21,38 @@ function setup(seed?: Record<string, string>) {
   return { store, anchor, fix };
 }
 
-describe('AnchorWatch (client mode)', () => {
-  it('starts off, drops at a position, and raises clean', () => {
+describe('AnchorWatch (server-only)', () => {
+  it('starts off with no browser-only watch', () => {
     const { anchor } = setup();
     expect(anchor.mode).toBe('off');
-    anchor.dropLocal(ANCHOR, 50);
-    expect(anchor.mode).toBe('client');
-    expect(anchor.position).toEqual(ANCHOR);
-    expect(anchor.radiusMeters).toBe(50);
-    anchor.raiseLocal();
-    expect(anchor.mode).toBe('off');
-    expect(anchor.position).toBeUndefined();
+    expect(anchor.watching).toBe(false);
   });
 
-  it('reports the live distance from the anchor to the boat', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    expect(anchor.distanceMeters).toBeCloseTo(111.19, 0);
-  });
-
-  it('reports fixLost and degraded when the fix goes stale during a client watch', () => {
-    const store = new SignalKStore();
-    const clock = $state({ now: 100_000 });
-    const vessel = new OwnVessel(store, clock);
-    const anchor = new AnchorWatch(store, vessel, undefined, createFakeStorage());
-    // A local frame factory aligned with the clock, so the fix starts fresh, not already stale.
-    const freshFrame = createFrameFactory(99_000);
-    store.applyFrame(freshFrame({ 'navigation.position': INSIDE }));
-    anchor.dropLocal(ANCHOR, 50);
-    expect(anchor.fixLost).toBe(false);
-    expect(anchor.degraded).toBe(false);
-    // The fix dropout passes the staleness window: client drag detection is silently dead.
-    clock.now += 60_000;
-    expect(anchor.fixLost).toBe(true);
-    expect(anchor.degraded).toBe(true);
-  });
-
-  it('sounds the fix-lost alarm after the grace and holds an acknowledge until the fix returns', () => {
-    const store = new SignalKStore();
-    const clock = $state({ now: 100_000 });
-    const vessel = new OwnVessel(store, clock);
-    const anchor = new AnchorWatch(store, vessel, clock, createFakeStorage());
-    store.applyFrame(createFrameFactory(99_000)({ 'navigation.position': INSIDE }));
-    anchor.dropLocal(ANCHOR, 50);
-    anchor.updateFix();
-    expect(anchor.degradedCause).toBeUndefined();
-    expect(anchor.fixLostAlarm).toBe(false);
-
-    // The fix dropout passes the staleness window: the cause reports at once, the tone waits.
-    clock.now += 60_000;
-    anchor.updateFix();
-    expect(anchor.degradedCause).toBe('fix-lost');
-    expect(anchor.fixLostAlarm).toBe(false);
-    clock.now += 30_000;
-    expect(anchor.fixLostAlarm).toBe(true);
-    expect(anchor.fixLostAcknowledged).toBe(false);
-
-    // Acknowledge silences the episode for as long as the loss continues.
-    anchor.acknowledge();
-    expect(anchor.fixLostAcknowledged).toBe(true);
-    clock.now += 60_000;
-    expect(anchor.fixLostAcknowledged).toBe(true);
-
-    // A single returning fix does not end the episode: the next dropout is the struggling
-    // receiver this alarm exists for, so the tone re-arms immediately instead of waiting out a
-    // fresh grace, and the acknowledge given for this episode keeps being honored.
-    store.applyFrame(createFrameFactory(clock.now - 1_000)({ 'navigation.position': INSIDE }));
-    anchor.updateFix();
-    expect(anchor.degradedCause).toBeUndefined();
-    expect(anchor.fixLostAcknowledged).toBe(false);
-    clock.now += 60_000;
-    anchor.updateFix();
-    expect(anchor.degradedCause).toBe('fix-lost');
-    expect(anchor.fixLostAlarm).toBe(true);
-    expect(anchor.fixLostAcknowledged).toBe(true);
-
-    // A recovery that holds past the recovery window truly ends the episode: the acknowledge
-    // re-arms and the next loss waits out the full grace again.
-    for (let i = 0; i < 4; i += 1) {
-      clock.now += 10_000;
-      store.applyFrame(createFrameFactory(clock.now - 1_000)({ 'navigation.position': INSIDE }));
-      anchor.updateFix();
-    }
-    expect(anchor.degradedCause).toBeUndefined();
-    clock.now += 60_000;
-    anchor.updateFix();
-    expect(anchor.degradedCause).toBe('fix-lost');
-    expect(anchor.fixLostAlarm).toBe(false);
-    clock.now += 30_000;
-    expect(anchor.fixLostAlarm).toBe(true);
-    expect(anchor.fixLostAcknowledged).toBe(false);
-  });
-
-  it('ignores an acknowledge tapped before the fix-lost tone has armed', () => {
-    const store = new SignalKStore();
-    const clock = $state({ now: 100_000 });
-    const vessel = new OwnVessel(store, clock);
-    const anchor = new AnchorWatch(store, vessel, clock, createFakeStorage());
-    store.applyFrame(createFrameFactory(99_000)({ 'navigation.position': INSIDE }));
-    anchor.dropLocal(ANCHOR, 50);
-    anchor.updateFix();
-
-    // The strip appears with the cause, well before the tone: a tap here must not silently
-    // disarm the alarm the grace is still counting toward.
-    clock.now += 60_000;
-    anchor.updateFix();
-    expect(anchor.degradedCause).toBe('fix-lost');
-    expect(anchor.fixLostAlarm).toBe(false);
-    anchor.acknowledge();
-    expect(anchor.fixLostAcknowledged).toBe(false);
-    clock.now += 30_000;
-    expect(anchor.fixLostAlarm).toBe(true);
-    expect(anchor.fixLostAcknowledged).toBe(false);
-
-    // Once sounding, the acknowledge lands.
-    anchor.acknowledge();
-    expect(anchor.fixLostAcknowledged).toBe(true);
-  });
-
-  it('latches dragging after three consecutive fixes outside the radius', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(false);
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(true);
-  });
-
-  it('does not latch on scattered breaches separated by inside fixes', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    fix(INSIDE);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(false);
-  });
-
-  it('keeps the latch when the boat swings back inside, until acknowledged', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    fix(INSIDE);
-    expect(anchor.dragging).toBe(true);
-    anchor.acknowledge();
-    expect(anchor.dragging).toBe(false);
-  });
-
-  it('re-latches after an acknowledge if the boat keeps dragging', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    anchor.acknowledge();
-    expect(anchor.dragging).toBe(false);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(true);
-  });
-
-  it('a radius change restarts the breach window', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    anchor.setRadiusLocal(60);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(false);
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(true);
-  });
-
-  it('persists the watch (including the latch) and restores it on construction', () => {
-    const storage = createFakeStorage();
-    const store = new SignalKStore();
-    const vessel = new OwnVessel(store);
-    const first = new AnchorWatch(store, vessel, undefined, storage);
-    first.dropLocal(ANCHOR, 42);
-    const restored = new AnchorWatch(new SignalKStore(), vessel, undefined, storage);
-    expect(restored.mode).toBe('client');
-    expect(restored.position).toEqual(ANCHOR);
-    expect(restored.radiusMeters).toBe(42);
-  });
-
-  it('rejects a corrupted persisted watch', () => {
+  it('retires an old browser-only watch without promoting its coordinates', () => {
     const storage = createFakeStorage({
       'binnacle-custom:anchor-watch': JSON.stringify({
-        position: { latitude: 'x' },
-        radiusMeters: -1,
-      }),
-    });
-    const store = new SignalKStore();
-    const anchor = new AnchorWatch(store, new OwnVessel(store), undefined, storage);
-    expect(anchor.mode).toBe('off');
-  });
-
-  it('drops unknown persisted properties instead of re-persisting them forever', () => {
-    const storage = createFakeStorage({
-      'binnacle-custom:anchor-watch': JSON.stringify({
-        position: { latitude: 1, longitude: 2, altitude: 9 },
-        radiusMeters: 60,
+        position: ANCHOR,
+        radiusMeters: 50,
         dragging: false,
-        legacy: true,
       }),
     });
     const store = new SignalKStore();
     const anchor = new AnchorWatch(store, new OwnVessel(store), undefined, storage);
-    anchor.setRadiusLocal(70); // any local change re-persists the watch
-    expect(JSON.parse(storage.data.get('binnacle-custom:anchor-watch') ?? 'null')).toEqual({
-      position: { latitude: 1, longitude: 2 },
-      radiusMeters: 70,
-      dragging: false,
-    });
+    expect(anchor.mode).toBe('off');
+    expect(anchor.retiredLocalWatch).toBe(true);
+    expect(storage.getItem('binnacle-custom:anchor-watch')).not.toContain('radiusMeters');
+    store.applyFrame(frame({ 'navigation.anchor.position': ANCHOR }));
+    anchor.updateFix();
+    expect(anchor.retiredLocalWatch).toBe(false);
+    expect(anchor.mode).toBe('server');
   });
 
-  it('clamps the radius to the minimum and ignores a non-finite one', () => {
+  it('keeps the preferred radius as a local setting, never as an active watch', () => {
     const { anchor } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    anchor.setRadiusLocal(2);
-    expect(anchor.radiusMeters).toBe(10);
-    anchor.setRadiusLocal(Number.NaN);
-    expect(anchor.radiusMeters).toBe(10);
-  });
-
-  it('clamps runtime and preferred radii to the persisted maximum', () => {
-    const { anchor } = setup();
-    expect(() => anchor.dropLocal(ANCHOR, 2_000_000)).not.toThrow();
-    expect(anchor.radiusMeters).toBe(1_000_000);
-    expect(() => anchor.setRadiusLocal(3_000_000)).not.toThrow();
-    expect(anchor.radiusMeters).toBe(1_000_000);
-    expect(() => anchor.rememberRadius(4_000_000)).not.toThrow();
-    expect(anchor.preferredRadiusMeters).toBe(1_000_000);
-  });
-
-  it('remembers the preferred radius for the next drop', () => {
-    const { anchor } = setup();
-    expect(anchor.preferredRadiusMeters).toBe(DEFAULT_RADIUS_M);
-    anchor.rememberRadius(75);
-    expect(anchor.preferredRadiusMeters).toBe(75);
-    anchor.dropLocal(ANCHOR);
-    expect(anchor.radiusMeters).toBe(75);
-  });
-
-  it('moving the anchor keeps the watch and restarts detection', () => {
-    const { anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
-    fix(OUTSIDE);
-    fix(OUTSIDE);
-    anchor.movePositionLocal({ latitude: 0.001, longitude: 0 });
-    expect(anchor.position).toEqual({ latitude: 0.001, longitude: 0 });
-    fix(OUTSIDE);
-    expect(anchor.dragging).toBe(false);
+    anchor.rememberRadius(70);
+    expect(anchor.preferredRadiusMeters).toBe(70);
+    expect(anchor.radiusMeters).toBeUndefined();
+    expect(anchor.watching).toBe(false);
   });
 });
 
@@ -425,9 +196,8 @@ describe('AnchorWatch (server mode)', () => {
     expect(anchor.acknowledged).toBe(false);
   });
 
-  it('drops a lingering local watch once the server watch appears', () => {
+  it('does not retain a watch after the server raises its anchor', () => {
     const { store, anchor, fix } = setup();
-    anchor.dropLocal(ANCHOR, 50);
     store.applyFrame(frame({ 'navigation.anchor.position': ANCHOR }));
     fix(INSIDE);
     store.applyFrame(frame({ 'navigation.anchor.position': null }));

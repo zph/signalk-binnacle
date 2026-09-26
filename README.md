@@ -270,9 +270,9 @@ Binnacle ships its full feature set as a Signal K webapp:
   stated beside the alarms themselves, where any tap restores it.
 - **Anchor watch:** drop the anchor at the boat, set the swing radius (or capture it from the live
   distance), and get a drag alarm that latches until acknowledged. It drives the
-  signalk-anchoralarm-plugin when installed (so the alarm keeps running with the browser closed) and
-  falls back to a fully in-browser watch when it is not, with a draggable drop-point marker on the
-  chart.
+  server Anchor API or signalk-anchoralarm-plugin (so the alarm keeps running with the browser
+  closed). Without a working server watch, Binnacle reports the failure and does not arm a
+  browser-only alarm. The chart has a draggable drop-point marker for an active watch.
 - **Man overboard:** an always-visible MOB button in the top bar with a confirm pop-out. Confirming
   marks the spot, publishes the boat-wide Signal K alarm, and raises a recovery strip with live
   bearing, range, and elapsed time, plus an opt-in **Steer to MOB** handoff to the course system. An

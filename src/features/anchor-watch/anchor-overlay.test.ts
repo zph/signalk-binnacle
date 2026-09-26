@@ -44,9 +44,14 @@ describe('anchor overlay', () => {
   });
 
   it('renders the swing circle, rode line, and marker for a watch', async () => {
-    const { store, anchor, map, overlay, ctx } = setup();
+    const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);
-    anchor.dropLocal({ latitude: 0, longitude: 0 }, 50);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 0, longitude: 0 },
+        'navigation.anchor.maxRadius': 50,
+      }),
+    );
     store.applyFrame(frame({ 'navigation.position': { latitude: 0.0002, longitude: 0 } }));
     overlay.sync(ctx);
     const shapes = sourceFeatures(map, 'binnacle-anchor-shapes');
@@ -55,9 +60,14 @@ describe('anchor overlay', () => {
   });
 
   it('splits a rode line that crosses the antimeridian', async () => {
-    const { store, anchor, map, overlay, ctx } = setup();
+    const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);
-    anchor.dropLocal({ latitude: 10, longitude: 179 }, 50);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 10, longitude: 179 },
+        'navigation.anchor.maxRadius': 50,
+      }),
+    );
     store.applyFrame(frame({ 'navigation.position': { latitude: 12, longitude: -179 } }));
     overlay.sync(ctx);
 
@@ -68,24 +78,34 @@ describe('anchor overlay', () => {
   });
 
   it('skips the redraw when nothing changed, and clears after a raise', async () => {
-    const { anchor, map, overlay, ctx } = setup();
+    const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);
-    anchor.dropLocal({ latitude: 0, longitude: 0 }, 50);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 0, longitude: 0 },
+        'navigation.anchor.maxRadius': 50,
+      }),
+    );
     overlay.sync(ctx);
     const source = map.sources.get('binnacle-anchor-shapes');
     if (!source) throw new Error('missing source');
     const before = source.data;
     overlay.sync(ctx);
     expect(source.data).toBe(before);
-    anchor.raiseLocal();
+    store.applyFrame(frame({ 'navigation.anchor.position': null }));
     overlay.sync(ctx);
     expect(sourceFeatures(map, 'binnacle-anchor-shapes')).toHaveLength(0);
   });
 
   it('does not repaint for a new position object with unchanged coordinates', async () => {
-    const { store, anchor, map, overlay, ctx } = setup();
+    const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);
-    anchor.dropLocal({ latitude: 1, longitude: 2 }, 50);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 1, longitude: 2 },
+        'navigation.anchor.maxRadius': 50,
+      }),
+    );
     store.applyFrame(frame({ 'navigation.position': { latitude: 1.001, longitude: 2.001 } }));
     overlay.sync(ctx);
     const shapeSource = map.sources.get('binnacle-anchor-shapes');
@@ -102,9 +122,14 @@ describe('anchor overlay', () => {
   });
 
   it('does not upload GeoJSON during a long unchanged Signal K stream', async () => {
-    const { store, anchor, map, overlay, ctx } = setup();
+    const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);
-    anchor.dropLocal({ latitude: 1, longitude: 2 }, 50);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 1, longitude: 2 },
+        'navigation.anchor.maxRadius': 50,
+      }),
+    );
     store.applyFrame(frame({ 'navigation.position': { latitude: 1.001, longitude: 2.001 } }));
     overlay.sync(ctx);
     const shapeSource = map.sources.get('binnacle-anchor-shapes');
@@ -124,15 +149,21 @@ describe('anchor overlay', () => {
     expect(setPointData).not.toHaveBeenCalled();
   });
 
-  it('marks the features as dragging once the watch latches', async () => {
-    const { store, anchor, map, overlay, ctx } = setup();
+  it('marks the features as dragging when the server raises a drag notification', async () => {
+    const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);
-    anchor.dropLocal({ latitude: 0, longitude: 0 }, 50);
-    const outside = { latitude: 0.001, longitude: 0 };
-    for (let i = 0; i < 3; i += 1) {
-      store.applyFrame(frame({ 'navigation.position': outside }));
-      anchor.updateFix();
-    }
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 0, longitude: 0 },
+        'navigation.anchor.maxRadius': 50,
+      }),
+    );
+    store.applyFrame(
+      frame({
+        'navigation.position': { latitude: 0.001, longitude: 0 },
+        'notifications.navigation.anchor': { state: 'emergency', message: 'dragging' },
+      }),
+    );
     overlay.sync(ctx);
     expect(sourceFeatures(map, 'binnacle-anchor-point')[0]?.properties?.dragging).toBe(true);
   });
@@ -221,7 +252,12 @@ async function dragSetup(interactionsAllowed: () => boolean = () => true) {
   const store = new SignalKStore();
   const vessel = new OwnVessel(store);
   const anchor = new AnchorWatch(store, vessel, undefined, createFakeStorage());
-  anchor.dropLocal({ latitude: 0, longitude: 0 }, 50);
+  store.applyFrame(
+    frame({
+      'navigation.anchor.position': { latitude: 0, longitude: 0 },
+      'navigation.anchor.maxRadius': 50,
+    }),
+  );
   const onMoved = vi.fn();
   const overlay = createAnchorOverlay(anchor, vessel, onMoved, interactionsAllowed);
   const map = eventfulMap();
