@@ -437,7 +437,7 @@ async function probeHistoryProviders(
 // engine, NMEA2000, autopilot, and plugin alarms all surface without Binnacle knowing any of them.
 const notificationsStore = new NotificationsStore(store);
 
-// The anchor watch: server-driven when the anchoralarm plugin answers, client-side otherwise. The
+// The anchor watch: server-driven only through the anchoralarm plugin. The
 // drag alarm mirrors the collision split: an audible tone here, the strip and live region below.
 const anchor = new AnchorWatch(store, vessel, clock);
 const anchorAlarm = new GatedAlarm(
@@ -3593,17 +3593,15 @@ const mobController = createMobController({
 });
 
 // The anchor-watch orchestration: the position-fix and drag-alarm effects, the anchor live-region
-// string, the resolved transport, and the drop, raise, set-radius, and move handlers all live in the
-// controller; the host wires its handlers to the anchor panel and chart and reads
-// anchorController.anchorError and .anchorAlert. The reactive inputs (token, serverHasAnchorApi) are
-// getters so the transport reselects as access and features resolve.
+// string, and the plugin-only drop, raise, set-radius, and move handlers live in the controller.
+// The host wires its handlers to the anchor panel and chart and reads the controller's error and
+// alert. The token getter reads the latest access state for every plugin command.
 const anchorController = createAnchorController({
   origin,
   getToken: () => chartsToken,
   anchor,
   vessel,
   anchorAlarm,
-  serverHasAnchorApi: () => serverFeatures?.apis.has('anchor') ?? false,
   writeBlocked: () => auth.writeBlocked,
   onAnchorLogMoment: (kind, radiusMeters) =>
     logbook.offerEntry(logbookAnchorSuggestion(kind, radiusMeters)),

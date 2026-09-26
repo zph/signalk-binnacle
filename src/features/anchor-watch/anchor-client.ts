@@ -1,5 +1,5 @@
 import type { LatLon } from '$shared/geo';
-import { postResource, putResource } from '$shared/signalk';
+import { postResource } from '$shared/signalk';
 
 // The HTTP client for the signalk-anchoralarm-plugin. Every call returns whether it succeeded and
 // never throws: a missing plugin, a 401, or a dead network all come back false, and the caller
@@ -7,12 +7,9 @@ import { postResource, putResource } from '$shared/signalk';
 
 const PLUGIN_BASE = '/plugins/anchoralarm';
 
-// POST an anchor command under the degrade contract above. A body is JSON-encoded when given; the
-// standard Anchor API's drop and raise take none, so those calls send a bare POST. Shared with the
-// standard-API client in anchor-api-client.ts. Routes through postResource so a read-only token's
-// 401/403 reaches the write-outcome listener and raises the read-only banner, rather than being
-// silently absorbed as a plugin-absent degrade.
-export function postAnchorCommand(
+// Routes through postResource so a read-only token's 401/403 reaches the write-outcome listener
+// rather than being silently absorbed as a plugin-absent failure.
+function postAnchorCommand(
   url: string,
   token: string | undefined,
   body?: unknown,
@@ -42,14 +39,13 @@ export function raiseServerAnchor(base: string, token: string | undefined): Prom
   return postAnchorCommand(`${base}${PLUGIN_BASE}/raiseAnchor`, token);
 }
 
-// Correct the drop point after a drag-to-adjust on the chart, via the plugin's PUT handler on the
-// standard path.
-export function putServerAnchorPosition(
+// Correct the drop point through the plugin's own command endpoint.
+export function setServerAnchorPosition(
   base: string,
   token: string | undefined,
   position: LatLon,
 ): Promise<boolean> {
-  return putResource(`${base}/signalk/v1/api/vessels/self/navigation/anchor/position`, token, {
-    value: { latitude: position.latitude, longitude: position.longitude },
+  return postAnchorCommand(`${base}${PLUGIN_BASE}/setAnchorPosition`, token, {
+    position: { latitude: position.latitude, longitude: position.longitude },
   });
 }

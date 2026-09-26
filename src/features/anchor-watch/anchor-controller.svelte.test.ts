@@ -28,7 +28,6 @@ function controllerWith(overrides: Partial<AnchorFake>) {
     anchor,
     vessel: { position: undefined, positionStale: false } as unknown as OwnVessel,
     anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
-    serverHasAnchorApi: () => false,
     writeBlocked: () => false,
   });
 }
@@ -73,7 +72,6 @@ describe('createAnchorController', () => {
         positionStale: false,
       } as OwnVessel,
       anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
-      serverHasAnchorApi: () => false,
       writeBlocked: () => false,
       onAnchorLogMoment,
     });
@@ -98,7 +96,6 @@ describe('createAnchorController', () => {
       anchor,
       vessel: { position: undefined, positionStale: false } as OwnVessel,
       anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
-      serverHasAnchorApi: () => false,
       writeBlocked: () => false,
     });
     await controller.onRaise();

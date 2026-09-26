@@ -270,7 +270,7 @@ Binnacle ships its full feature set as a Signal K webapp:
   stated beside the alarms themselves, where any tap restores it.
 - **Anchor watch:** drop the anchor at the boat, set the swing radius (or capture it from the live
   distance), and get a drag alarm that latches until acknowledged. It drives the
-  server Anchor API or signalk-anchoralarm-plugin (so the alarm keeps running with the browser
+  signalk-anchoralarm-plugin (so the alarm keeps running with the browser
   closed). Without a working server watch, Binnacle reports the failure and does not arm a
   browser-only alarm. During a disconnect, the last server-reported anchor point and radius stay
   visible as read-only, unconfirmed values. Binnacle does not calculate a drag alarm from that

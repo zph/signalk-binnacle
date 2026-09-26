@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectBearerAuth, stubFetch } from '$shared/testing';
 import {
   dropAnchorOnServer,
-  putServerAnchorPosition,
   raiseServerAnchor,
+  setServerAnchorPosition,
   setServerRadius,
 } from './anchor-client';
 
@@ -35,16 +35,16 @@ describe('anchor server client', () => {
     ]);
   });
 
-  it('moves the anchor via a PUT on the standard path', async () => {
+  it('moves the anchor through the plugin endpoint', async () => {
     const mock = stubFetch({ ok: true });
     await expect(
-      putServerAnchorPosition(BASE, 'tok', { latitude: 1.5, longitude: -2.5 }),
+      setServerAnchorPosition(BASE, 'tok', { latitude: 1.5, longitude: -2.5 }),
     ).resolves.toBe(true);
     const [url, init] = mock.mock.calls[0];
-    expect(url).toBe(`${BASE}/signalk/v1/api/vessels/self/navigation/anchor/position`);
-    expect(init?.method).toBe('PUT');
+    expect(url).toBe(`${BASE}/plugins/anchoralarm/setAnchorPosition`);
+    expect(init?.method).toBe('POST');
     expect(JSON.parse(init?.body as string)).toEqual({
-      value: { latitude: 1.5, longitude: -2.5 },
+      position: { latitude: 1.5, longitude: -2.5 },
     });
   });
 
