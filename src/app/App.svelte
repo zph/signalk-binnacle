@@ -71,7 +71,11 @@ import { WaypointsStore } from '$entities/waypoint';
 import { WeatherStore } from '$entities/weather';
 import { AIS_OVERLAY_ID, type AisNameMode, type AisVesselKindMode } from '$features/ais-layer';
 import { loadAisListPanel } from '$features/ais-list';
-import { ANCHOR_TONE, createAnchorController } from '$features/anchor-watch';
+import {
+  ANCHOR_TONE,
+  createAnchorController,
+  createPluginAnchorCommands,
+} from '$features/anchor-watch';
 import { createAutopilotController } from '$features/autopilot';
 import { createUserChartsController } from '$features/charts';
 import {
@@ -3592,13 +3596,11 @@ const mobController = createMobController({
   goTo: (position) => routeController.onGoToHere(position),
 });
 
-// The anchor-watch orchestration: the position-fix and drag-alarm effects, the anchor live-region
-// string, and the plugin-only drop, raise, set-radius, and move handlers live in the controller.
-// The host wires its handlers to the anchor panel and chart and reads the controller's error and
-// alert. The token getter reads the latest access state for every plugin command.
+// Anchor controls use the plugin adapter today. A future native API adapter can implement the same
+// command contract without changing the controller or the panel.
+const anchorCommands = createPluginAnchorCommands(origin, () => chartsToken);
 const anchorController = createAnchorController({
-  origin,
-  getToken: () => chartsToken,
+  commands: anchorCommands,
   anchor,
   vessel,
   anchorAlarm,

@@ -2,8 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AnchorDegradedCause, AnchorWatch } from '$entities/anchor';
 import type { OwnVessel } from '$entities/vessel';
 import type { GatedAlarm } from '$shared/audio';
-import { stubFetch } from '$shared/testing';
+import type { AnchorCommands } from './anchor-commands';
 import { createAnchorController } from './anchor-controller.svelte';
+
+function commands(): AnchorCommands {
+  return {
+    drop: vi.fn().mockResolvedValue(false),
+    raise: vi.fn().mockResolvedValue(false),
+    setRadius: vi.fn().mockResolvedValue(false),
+    setPosition: vi.fn().mockResolvedValue(false),
+  };
+}
 
 interface AnchorFake {
   degradedCause: AnchorDegradedCause | undefined;
@@ -23,8 +32,7 @@ function controllerWith(overrides: Partial<AnchorFake>) {
     ...overrides,
   } as unknown as AnchorWatch;
   return createAnchorController({
-    origin: 'http://sk',
-    getToken: () => undefined,
+    commands: commands(),
     anchor,
     vessel: { position: undefined, positionStale: false } as unknown as OwnVessel,
     anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
@@ -33,7 +41,7 @@ function controllerWith(overrides: Partial<AnchorFake>) {
 }
 
 describe('createAnchorController', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => vi.clearAllMocks());
 
   it('announces a retired browser-only watch', () => {
     expect(controllerWith({ retiredLocalWatch: true }).anchorAlert).toBe(
@@ -56,7 +64,7 @@ describe('createAnchorController', () => {
   });
 
   it('does not arm or log a browser watch when the server refuses a drop', async () => {
-    const fetch = stubFetch({ ok: false });
+    const server = commands();
     const onAnchorLogMoment = vi.fn();
     const anchor = {
       mode: 'off',
@@ -64,8 +72,7 @@ describe('createAnchorController', () => {
       updateFix: vi.fn(),
     } as unknown as AnchorWatch;
     const controller = createAnchorController({
-      origin: 'http://sk',
-      getToken: () => undefined,
+      commands: server,
       anchor,
       vessel: {
         position: { latitude: 1, longitude: 2 },
@@ -76,14 +83,14 @@ describe('createAnchorController', () => {
       onAnchorLogMoment,
     });
     await controller.onDrop();
-    expect(fetch).toHaveBeenCalledOnce();
+    expect(server.drop).toHaveBeenCalledExactlyOnceWith(45);
     expect(anchor.mode).toBe('off');
     expect(onAnchorLogMoment).not.toHaveBeenCalled();
     expect(controller.anchorError).toContain('do not rely on an alarm');
   });
 
   it('refuses to change a watch using only cached server state', async () => {
-    const fetch = stubFetch({ ok: true });
+    const server = commands();
     const anchor = {
       mode: 'server',
       watching: true,
@@ -91,15 +98,48 @@ describe('createAnchorController', () => {
       updateFix: vi.fn(),
     } as unknown as AnchorWatch;
     const controller = createAnchorController({
-      origin: 'http://sk',
-      getToken: () => undefined,
+      commands: server,
       anchor,
       vessel: { position: undefined, positionStale: false } as OwnVessel,
       anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
       writeBlocked: () => false,
     });
     await controller.onRaise();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(server.raise).not.toHaveBeenCalled();
     expect(controller.anchorError).toContain('reconnect first');
+  });
+
+  it('uses the injected commands for an active server watch', async () => {
+    const server = commands();
+    vi.mocked(server.raise).mockResolvedValue(true);
+    vi.mocked(server.setRadius).mockResolvedValue(true);
+    vi.mocked(server.setPosition).mockResolvedValue(true);
+    const rememberRadius = vi.fn();
+    const anchor = {
+      mode: 'server',
+      watching: true,
+      degraded: false,
+      updateFix: vi.fn(),
+      rememberRadius,
+    } as unknown as AnchorWatch;
+    const controller = createAnchorController({
+      commands: server,
+      anchor,
+      vessel: { position: undefined, positionStale: false } as OwnVessel,
+      anchorAlarm: { update: vi.fn() } as unknown as GatedAlarm,
+      writeBlocked: () => false,
+    });
+
+    await controller.onSetRadius(60);
+    await controller.onAnchorMoved({ latitude: 1.5, longitude: -2.5 });
+    await controller.onRaise();
+
+    expect(server.setRadius).toHaveBeenCalledExactlyOnceWith(60);
+    expect(server.setPosition).toHaveBeenCalledExactlyOnceWith({
+      latitude: 1.5,
+      longitude: -2.5,
+    });
+    expect(server.raise).toHaveBeenCalledOnce();
+    expect(rememberRadius).toHaveBeenCalledExactlyOnceWith(60);
   });
 });

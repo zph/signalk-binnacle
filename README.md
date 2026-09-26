@@ -275,6 +275,8 @@ Binnacle ships its full feature set as a Signal K webapp:
   browser-only alarm. During a disconnect, the last server-reported anchor point and radius stay
   visible as read-only, unconfirmed values. Binnacle does not calculate a drag alarm from that
   cache. The chart has a draggable drop-point marker only for a current server watch.
+  Anchor commands use a backend interface: the plugin is the only adapter today, while the Signal K
+  data paths and server notification remain the source of watch and alarm state.
 - **Man overboard:** an always-visible MOB button in the top bar with a confirm pop-out. Confirming
   marks the spot, publishes the boat-wide Signal K alarm, and raises a recovery strip with live
   bearing, range, and elapsed time, plus an opt-in **Steer to MOB** handoff to the course system. An

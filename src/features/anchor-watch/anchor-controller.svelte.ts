@@ -4,19 +4,10 @@ import type { GatedAlarm } from '$shared/audio';
 import type { LatLon } from '$shared/geo';
 import { createBusyGate } from '$shared/lib';
 import { shouldSoundAnchorAlarm } from './anchor-alarm';
-import {
-  dropAnchorOnServer,
-  raiseServerAnchor,
-  setServerAnchorPosition,
-  setServerRadius,
-} from './anchor-client';
+import type { AnchorCommands } from './anchor-commands';
 
 export interface AnchorControllerDeps {
-  // The Signal K server origin, captured once for the page lifetime.
-  origin: string;
-  // The Signal K auth token, when one is configured. A getter so a token that arrives or changes
-  // mid-session is read live by the transport, not frozen at construction.
-  getToken: () => string | undefined;
+  commands: AnchorCommands;
   // The anchor watch, a stable instance passed by reference.
   anchor: AnchorWatch;
   // The own vessel, a stable instance passed by reference; the drop reads its live position.
@@ -28,11 +19,8 @@ export interface AnchorControllerDeps {
   writeBlocked: () => boolean;
 }
 
-// The anchor watch orchestration is server-driven. Owns the anchor error shown until the next action, the resolved
-// transport, the action chain, the anchor live-region string, and the two anchor effects (the
-// position-fix update and the drag alarm). The host wires onDrop, onRaise, onSetRadius, and
-// onAnchorMoved to the panel and chart, reads anchorError into the panel, and reads anchorAlert into
-// LiveRegions.
+// The anchor watch orchestration is server-driven. The injected commands own the server-specific
+// URLs and request bodies; this controller owns safety gating, feedback, and alarm presentation.
 export function createAnchorController(deps: AnchorControllerDeps) {
   const { anchor, vessel, anchorAlarm } = deps;
 
@@ -84,18 +72,18 @@ export function createAnchorController(deps: AnchorControllerDeps) {
         'Could not drop the anchor. Server write access is required; no watch was started.';
       return;
     }
-    // A successful plugin drop hands the watch to the server. A missing or disabled plugin never
+    // A successful command hands the watch to the server. A missing or disabled backend never
     // becomes a browser-only watch.
-    if (await dropAnchorOnServer(deps.origin, deps.getToken(), radius)) {
+    if (await deps.commands.drop(radius)) {
       deps.onAnchorLogMoment?.('dropped', radius);
       return;
     }
     anchorError =
-      'Could not confirm a server anchor watch. Check the connection and anchor-alarm plugin; do not rely on an alarm.';
+      'Could not confirm a server anchor watch. Check the connection and anchor service; do not rely on an alarm.';
   }
   const onDrop = withBusy(performDrop);
 
-  // Route an anchor action by mode. In server mode the plugin call must succeed; a failure is
+  // Route an anchor action by mode. In server mode the command must succeed; a failure is
   // surfaced, never papered over with a local-only change.
   async function performAnchorAction(
     serverCall: () => Promise<boolean>,
@@ -124,10 +112,7 @@ export function createAnchorController(deps: AnchorControllerDeps) {
 
   async function onRaise(): Promise<void> {
     const wasWatching = anchor.watching;
-    const raised = await anchorAction(
-      () => raiseServerAnchor(deps.origin, deps.getToken()),
-      'raise the anchor',
-    );
+    const raised = await anchorAction(() => deps.commands.raise(), 'raise the anchor');
     // Only a raise that actually ended a watch is worth a log line.
     if (wasWatching && raised) deps.onAnchorLogMoment?.('raised');
   }
@@ -137,19 +122,15 @@ export function createAnchorController(deps: AnchorControllerDeps) {
       anchor.rememberRadius(meters);
       return Promise.resolve();
     }
-    return anchorAction(
-      () => setServerRadius(deps.origin, deps.getToken(), meters),
-      'set the radius',
-    ).then((set) => {
+    return anchorAction(() => deps.commands.setRadius(meters), 'set the radius').then((set) => {
       if (set) anchor.rememberRadius(meters);
     });
   }
 
   function onAnchorMoved(position: LatLon): Promise<void> {
-    return anchorAction(
-      () => setServerAnchorPosition(deps.origin, deps.getToken(), position),
-      'move the anchor',
-    ).then(() => {});
+    return anchorAction(() => deps.commands.setPosition(position), 'move the anchor').then(
+      () => {},
+    );
   }
 
   return {
