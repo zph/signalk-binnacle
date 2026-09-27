@@ -77,7 +77,7 @@ describe('TracksPanel', () => {
     expect(body).not.toContain('Recording locally');
   });
 
-  it('shows daily portion speed, wind angle, and duration', () => {
+  it('shows daily portion speed, wind conditions, and duration', () => {
     const body = renderPanel({
       historyProviderState: 'available',
       settings: new PersistedValue('tracks-panel-trip-test', {
@@ -99,6 +99,9 @@ describe('TracksPanel', () => {
               endedAt: 3660_000,
               durationSeconds: 3660,
               averageSpeedMps: 2,
+              averageWindSpeedMps: 6,
+              averageWindDirectionRad: Math.PI / 4,
+              windReference: 'true',
               averageWindAngleRad: -Math.PI / 4,
               labelPosition: { latitude: 1, longitude: 2 },
             },
@@ -119,7 +122,11 @@ describe('TracksPanel', () => {
 
     expect(body).toContain('Average speed');
     expect(body).toContain('3.9');
-    expect(body).toContain('Average wind angle');
+    expect(body).toContain('Average true wind');
+    expect(body).toContain('11.7');
+    expect(body).toContain('Average wind direction');
+    expect(body).toContain('045');
+    expect(body).toContain('Average apparent angle');
     expect(body).toContain('P 45');
     expect(body).toContain('1h 01m');
   });

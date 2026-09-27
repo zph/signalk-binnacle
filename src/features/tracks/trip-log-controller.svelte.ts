@@ -1,7 +1,7 @@
+import { nearestBySorted } from '$shared/lib';
 import type { PersistedValue, TrackSettings } from '$shared/settings';
 import { trackStopDurationMinutes, trackStopSpeedKnots, tripLogEnabled } from '$shared/settings';
 import {
-  columnIndex,
   fetchHistoryValuesAcrossProviders,
   type HistoryProviders,
   type HistoryValues,
@@ -30,14 +30,59 @@ function dateRange(date: string): { from: string; to: string } | undefined {
   return { from: from.toISOString(), to: new Date(to.getTime() - 1).toISOString() };
 }
 
-function mergeWindValues(required: HistoryValues, wind: HistoryValues): HistoryValues {
-  const windIndex = columnIndex(wind, SK_PATHS.windAngleApparent);
-  if (windIndex < 0) return required;
-  const windByTimestamp = new Map(wind.rows.map((row) => [row[0], row[windIndex + 1]] as const));
+const OPTIONAL_WIND_PATHS = [
+  SK_PATHS.windSpeedOverGround,
+  SK_PATHS.windSpeedTrue,
+  SK_PATHS.windSpeedApparent,
+  SK_PATHS.windDirectionTrue,
+  SK_PATHS.windAngleApparent,
+  SK_PATHS.headingTrue,
+] as const;
+
+interface OptionalSample {
+  time: number;
+  value: unknown;
+}
+
+function optionalSamples(values: HistoryValues, column: number): OptionalSample[] {
+  return values.rows
+    .flatMap((row) => {
+      const time = Date.parse(row[0]);
+      return Number.isFinite(time) ? [{ time, value: row[column + 1] }] : [];
+    })
+    .sort((left, right) => left.time - right.time);
+}
+
+function mergeOptionalValues(
+  required: HistoryValues,
+  optionals: readonly HistoryValues[],
+): HistoryValues {
+  const columns: HistoryValues['columns'][number][] = [];
+  const series: OptionalSample[][] = [];
+  for (const values of optionals) {
+    const column = values.columns.length === 1 ? 0 : -1;
+    if (column < 0 || columns.some((candidate) => candidate.path === values.columns[column].path)) {
+      continue;
+    }
+    columns.push(values.columns[column]);
+    series.push(optionalSamples(values, column));
+  }
   return {
     ...required,
-    columns: [...required.columns, wind.columns[windIndex]],
-    rows: required.rows.map((row) => [...row, windByTimestamp.get(row[0]) ?? null]),
+    columns: [...required.columns, ...columns],
+    rows: required.rows.map((row) => {
+      const timestamp = Date.parse(row[0]);
+      return [
+        ...row,
+        ...series.map((samples) => {
+          if (!Number.isFinite(timestamp)) return null;
+          const nearest = nearestBySorted(samples, (sample) => sample.time, timestamp);
+          return nearest && Math.abs(nearest.time - timestamp) <= DAY_RESOLUTION_SECONDS * 1000
+            ? (nearest.value ?? null)
+            : null;
+        }),
+      ];
+    }),
   };
 }
 
@@ -83,12 +128,17 @@ export function createTripLogController(deps: Deps) {
     const stopMinutes = trackStopDurationMinutes(deps.settings.value);
     const withoutWind = buildTripDay(date, required.values, speed, stopMinutes);
     if (!withoutWind.hasTravel) return withoutWind;
-    const wind = await fetchValues(deps.origin, deps.getToken(), providers, {
-      ...query,
-      paths: [SK_PATHS.windAngleApparent],
-    });
-    return wind
-      ? buildTripDay(date, mergeWindValues(required.values, wind.values), speed, stopMinutes)
+    // Query optional wind paths independently. Some InfluxDB providers reject a multi-series
+    // request when sparse paths produce different bucket counts. One failed sensor must not hide
+    // the other historical conditions or the required track.
+    const wind = await Promise.all(
+      OPTIONAL_WIND_PATHS.map((path) =>
+        fetchValues(deps.origin, deps.getToken(), providers, { ...query, paths: [path] }),
+      ),
+    );
+    const accepted = wind.flatMap((result) => (result ? [result.values] : []));
+    return accepted.length > 0
+      ? buildTripDay(date, mergeOptionalValues(required.values, accepted), speed, stopMinutes)
       : withoutWind;
   }
 

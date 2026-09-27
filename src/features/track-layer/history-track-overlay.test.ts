@@ -52,9 +52,27 @@ describe('createHistoryTrackOverlay', () => {
         portions: [
           {
             points: [
-              { position: { latitude: 10, longitude: 179 } },
-              { position: { latitude: 12, longitude: -179 } },
+              {
+                position: { latitude: 10, longitude: 179 },
+                timestamp: 0,
+                speedMps: 2,
+                windSpeedMps: 5,
+                windDirectionRad: 0,
+                windReference: 'true',
+              },
+              {
+                position: { latitude: 12, longitude: -179 },
+                timestamp: 60_000,
+                speedMps: 2,
+                windSpeedMps: 6,
+                windDirectionRad: Math.PI / 2,
+                windReference: 'true',
+              },
             ],
+            id: 'portion',
+            startedAt: 0,
+            endedAt: 60_000,
+            averageSpeedMps: 2,
             durationSeconds: 60,
             labelPosition: { latitude: 12, longitude: -179 },
           },
@@ -82,6 +100,10 @@ describe('createHistoryTrackOverlay', () => {
       kind: 'duration',
       label: '1 min',
     });
+    const features = sourceFeatures(map, 'binnacle-track-history');
+    expect(features.filter((feature) => feature.properties?.kind === 'annotation')).toHaveLength(2);
+    expect(features.filter((feature) => feature.properties?.kind === 'wind-barb')).toHaveLength(2);
+    expect(map.handlerCount('click', 'binnacle-track-history-annotation-hits')).toBe(1);
   });
 
   it('hides during time travel without changing its accepted visibility', async () => {

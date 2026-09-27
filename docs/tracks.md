@@ -13,10 +13,18 @@ found in the preceding 366 days. The Tracks button is fixed in the bottom toolba
 a direct **Enable trip log** or **Disable trip log** action.
 
 The date field selects an exact day, and the arrow buttons move one day backward or forward. Forward
-navigation stops at today. The map draws each travel portion with repeated direction marks. A small tag
-on the line gives its duration, and the Tracks panel lists average speed and circularly averaged apparent
-wind angle for the same portion. Missing wind history leaves the wind angle blank without hiding the
-position and speed summary.
+navigation stops at today. The map draws each travel portion with repeated travel direction marks. It
+also places a bounded set of local timestamps along the path, with wind speed, wind direction, and speed
+over ground sampled at each position. Wind barbs show direction and speed without filling
+the chart with permanent labels. Select or tap a sample to see its exact date, time, wind, and travel
+speed. The number of samples adapts to the chart width, so phone and desktop layouts remain readable.
+
+A small tag on the line gives each portion's duration. The Tracks panel lists average travel speed,
+average wind speed and direction, and circularly averaged apparent wind angle for the same portion.
+Binnacle prefers water- or ground-referenced true wind history. If the server only retains apparent wind
+angle and vessel heading, it derives the absolute wind direction from those values and marks the speed
+as apparent. Missing wind fields leave only those readings blank without hiding the position, timestamp,
+or travel-speed summary.
 
 A stop is a continuous run below the configured speed threshold for more than the configured duration.
 The defaults are 0.15 kn and five minutes. Missing samples do not bridge a stop, and gaps longer than 15

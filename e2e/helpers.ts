@@ -12,15 +12,25 @@ export async function stubVesselsSelf(page: Page): Promise<void> {
   );
 }
 
-// Open the app menu and activate one of its tiles. Scoped to the launcher, because a menu label
-// usually also names a bar pill or a panel heading, and an unscoped match picks whichever the DOM
-// happens to hold first.
+const SUPERMENU_CATEGORY: Readonly<Record<string, string>> = {
+  'Data trends': 'Weather',
+  Forecast: 'Weather',
+  'Instrument dock': 'Vessel',
+  'Layers and charts': 'Chart',
+  Playback: 'System',
+  Routes: 'Navigate',
+  Tracks: 'Vessel',
+  Waypoints: 'Navigate',
+};
+
+// Open the two-level supermenu and activate one of its actions. Scope both choices to the menu,
+// because an action label usually also names a bar button or panel heading elsewhere in the shell.
 export async function openMenuItem(page: Page, itemName: string): Promise<void> {
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page
-    .locator('#app-menu-launcher')
-    .getByRole('button', { name: itemName, exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Open supermenu', exact: true }).click();
+  const menu = page.getByRole('menu', { name: 'Supermenu' });
+  const category = SUPERMENU_CATEGORY[itemName];
+  if (category) await menu.getByRole('menuitem', { name: category, exact: true }).click();
+  await menu.getByRole('menuitem', { name: itemName, exact: true }).click();
 }
 
 // Pane chrome is intentionally absent so every vertical pixel is available to instruments. Open

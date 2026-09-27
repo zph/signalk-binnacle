@@ -1,9 +1,9 @@
 /* Third-party widget theming (MapLibre attribution); coupled to vendor class names. */
 
-/* Conditions details use MapLibre's anchored popup so hover, mouse click, and touch tap all point
-   back to the exact forecast sample. The content is built with textContent, while this vendor-scoped
-   skin keeps the surface consistent across day, dusk, and night-red. */
-.maplibregl-popup:has(.conditions-popup) .maplibregl-popup-content {
+/* Map readings use MapLibre's anchored popup so mouse clicks and touch taps point back to the exact
+   sample. Content is built with textContent, while this vendor-scoped skin keeps the surface
+   consistent across day, dusk, and night-red. */
+.maplibregl-popup:has(.map-reading-popup) .maplibregl-popup-content {
   min-inline-size: min(19rem, calc(100vw - var(--space-6)));
   padding: var(--space-3);
   border: 1px solid var(--border);
@@ -12,29 +12,29 @@
   color: var(--text);
   box-shadow: var(--shadow-overlay);
 }
-.maplibregl-popup-anchor-top:has(.conditions-popup) .maplibregl-popup-tip,
-.maplibregl-popup-anchor-top-left:has(.conditions-popup) .maplibregl-popup-tip,
-.maplibregl-popup-anchor-top-right:has(.conditions-popup) .maplibregl-popup-tip {
+.maplibregl-popup-anchor-top:has(.map-reading-popup) .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-left:has(.map-reading-popup) .maplibregl-popup-tip,
+.maplibregl-popup-anchor-top-right:has(.map-reading-popup) .maplibregl-popup-tip {
   border-block-end-color: var(--surface-overlay);
 }
-.maplibregl-popup-anchor-bottom:has(.conditions-popup) .maplibregl-popup-tip,
-.maplibregl-popup-anchor-bottom-left:has(.conditions-popup) .maplibregl-popup-tip,
-.maplibregl-popup-anchor-bottom-right:has(.conditions-popup) .maplibregl-popup-tip {
+.maplibregl-popup-anchor-bottom:has(.map-reading-popup) .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-left:has(.map-reading-popup) .maplibregl-popup-tip,
+.maplibregl-popup-anchor-bottom-right:has(.map-reading-popup) .maplibregl-popup-tip {
   border-block-start-color: var(--surface-overlay);
 }
-.maplibregl-popup-anchor-left:has(.conditions-popup) .maplibregl-popup-tip {
+.maplibregl-popup-anchor-left:has(.map-reading-popup) .maplibregl-popup-tip {
   border-inline-end-color: var(--surface-overlay);
 }
-.maplibregl-popup-anchor-right:has(.conditions-popup) .maplibregl-popup-tip {
+.maplibregl-popup-anchor-right:has(.map-reading-popup) .maplibregl-popup-tip {
   border-inline-start-color: var(--surface-overlay);
 }
-.maplibregl-popup:has(.conditions-popup) .maplibregl-popup-close-button {
+.maplibregl-popup:has(.map-reading-popup) .maplibregl-popup-close-button {
   inline-size: var(--control-size);
   block-size: var(--control-size);
   color: var(--text-muted);
   font-size: var(--text-lg);
 }
-.conditions-popup {
+.map-reading-popup {
   border-inline-start: 3px solid var(--select);
   padding-inline-start: var(--space-2);
 }
@@ -44,11 +44,12 @@
 .conditions-popup--hazard {
   border-inline-start-color: var(--alarm);
 }
-.conditions-popup__title {
+.map-reading-popup__title {
   margin: 0;
   padding-inline-end: var(--control-size);
   font-size: var(--text-sm);
 }
+.map-reading-popup__summary,
 .conditions-popup__summary,
 .conditions-popup__related,
 .conditions-popup__meta,
@@ -60,21 +61,21 @@
 .conditions-popup__related,
 .conditions-popup__meta,
 .conditions-popup__advisory,
-.conditions-popup__label {
+.map-reading-popup__label {
   color: var(--text-muted);
 }
-.conditions-popup__readings {
+.map-reading-popup__readings {
   display: grid;
   gap: var(--space-1);
   margin-block-start: var(--space-2);
 }
-.conditions-popup__reading {
+.map-reading-popup__reading {
   display: grid;
   grid-template-columns: 4.5rem minmax(0, 1fr);
   gap: var(--space-2);
   font-size: var(--text-xs);
 }
-.conditions-popup__value {
+.map-reading-popup__value {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }

@@ -1,7 +1,7 @@
 import { createRetryableLazyUiLoader } from '$shared/lib';
 
 export { createTrackController } from './track-controller.svelte';
-export type { TripDay, TripPortion, TripStop } from './trip-log';
+export type { TripDay, TripPoint, TripPortion, TripStop } from './trip-log';
 export { createTripLogController, type TripLogController } from './trip-log-controller.svelte';
 
 const tracksPanelLoader = createRetryableLazyUiLoader(() => import('./TracksPanel.svelte'), {

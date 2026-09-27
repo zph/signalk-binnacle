@@ -89,12 +89,12 @@ function appendText(parent: HTMLElement, className: string, text: string): void 
 function appendReading(parent: HTMLElement, label: string, value: string): void {
   if (!value) return;
   const row = document.createElement('div');
-  row.className = 'conditions-popup__reading';
+  row.className = 'map-reading-popup__reading';
   const term = document.createElement('span');
-  term.className = 'conditions-popup__label';
+  term.className = 'map-reading-popup__label';
   term.textContent = label;
   const reading = document.createElement('span');
-  reading.className = 'conditions-popup__value';
+  reading.className = 'map-reading-popup__value';
   reading.textContent = value;
   row.append(term, reading);
   parent.append(row);
@@ -102,10 +102,10 @@ function appendReading(parent: HTMLElement, label: string, value: string): void 
 
 function popupContent(properties: ConditionFeatureProperties): HTMLElement {
   const root = document.createElement('section');
-  root.className = `conditions-popup conditions-popup--${properties.severity}`;
+  root.className = `map-reading-popup conditions-popup conditions-popup--${properties.severity}`;
   root.setAttribute('aria-label', `${properties.title} marine condition`);
   const heading = document.createElement('h3');
-  heading.className = 'conditions-popup__title';
+  heading.className = 'map-reading-popup__title';
   heading.textContent = properties.title;
   root.append(heading);
   appendText(root, 'conditions-popup__summary', properties.summary);
@@ -113,7 +113,7 @@ function popupContent(properties: ConditionFeatureProperties): HTMLElement {
     appendText(root, 'conditions-popup__related', `Also indicated: ${properties.related}.`);
   }
   const readings = document.createElement('div');
-  readings.className = 'conditions-popup__readings';
+  readings.className = 'map-reading-popup__readings';
   appendReading(readings, 'Wind', properties.wind);
   appendReading(readings, 'Gust', properties.gust);
   appendReading(readings, 'Waves', properties.waves);

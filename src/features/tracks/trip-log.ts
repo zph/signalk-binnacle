@@ -15,6 +15,11 @@ export interface TripStop {
 export interface TripPoint {
   position: LatLon;
   timestamp: number;
+  speedMps: number;
+  windSpeedMps?: number;
+  windDirectionRad?: number;
+  windAngleApparentRad?: number;
+  windReference?: 'true' | 'apparent';
 }
 
 export interface TripPortion {
@@ -24,7 +29,10 @@ export interface TripPortion {
   endedAt: number;
   durationSeconds: number;
   averageSpeedMps: number;
+  averageWindSpeedMps?: number;
+  averageWindDirectionRad?: number;
   averageWindAngleRad?: number;
+  windReference?: 'true' | 'apparent';
   labelPosition: LatLon;
 }
 
@@ -35,10 +43,7 @@ export interface TripDay {
   hasTravel: boolean;
 }
 
-interface Sample extends TripPoint {
-  speedMps: number;
-  windAngleRad?: number;
-}
+type Sample = TripPoint;
 
 function circularAverage(values: readonly number[]): number | undefined {
   if (values.length === 0) return undefined;
@@ -56,7 +61,12 @@ export function buildTripDay(
 ): TripDay {
   const positionIndex = columnIndex(values, SK_PATHS.position);
   const speedIndex = columnIndex(values, SK_PATHS.speedOverGround);
-  const windIndex = columnIndex(values, SK_PATHS.windAngleApparent);
+  const windSpeedOverGroundIndex = columnIndex(values, SK_PATHS.windSpeedOverGround);
+  const windSpeedTrueIndex = columnIndex(values, SK_PATHS.windSpeedTrue);
+  const windSpeedApparentIndex = columnIndex(values, SK_PATHS.windSpeedApparent);
+  const windDirectionIndex = columnIndex(values, SK_PATHS.windDirectionTrue);
+  const windAngleIndex = columnIndex(values, SK_PATHS.windAngleApparent);
+  const headingIndex = columnIndex(values, SK_PATHS.headingTrue);
   const thresholdMps = knotsToMetersPerSecond(speedKnots);
   const samples: Sample[] = [];
   if (positionIndex < 0 || speedIndex < 0)
@@ -66,10 +76,36 @@ export function buildTripDay(
     const position = positionFromHistoryRow(row, positionIndex);
     const speedMps = asNumber(row[speedIndex + 1]);
     const timestamp = Date.parse(row[0]);
-    const windAngleRad = windIndex < 0 ? undefined : asNumber(row[windIndex + 1]);
+    const windSpeed = [
+      { index: windSpeedOverGroundIndex, reference: 'true' as const },
+      { index: windSpeedTrueIndex, reference: 'true' as const },
+      { index: windSpeedApparentIndex, reference: 'apparent' as const },
+    ].find(({ index }) => {
+      const value = index < 0 ? undefined : asNumber(row[index + 1]);
+      return value !== undefined && value >= 0;
+    });
+    const windSpeedMps =
+      windSpeed && windSpeed.index >= 0 ? asNumber(row[windSpeed.index + 1]) : undefined;
+    const windAngleApparentRad = windAngleIndex < 0 ? undefined : asNumber(row[windAngleIndex + 1]);
+    const headingRad = headingIndex < 0 ? undefined : asNumber(row[headingIndex + 1]);
+    const directWindDirection =
+      windDirectionIndex < 0 ? undefined : asNumber(row[windDirectionIndex + 1]);
+    const windDirectionRad =
+      directWindDirection ??
+      (headingRad === undefined || windAngleApparentRad === undefined
+        ? undefined
+        : (headingRad + windAngleApparentRad + Math.PI * 2) % (Math.PI * 2));
     if (!position || speedMps === undefined || speedMps < 0 || !Number.isFinite(timestamp))
       continue;
-    samples.push({ position, speedMps, timestamp, windAngleRad });
+    samples.push({
+      position,
+      speedMps,
+      timestamp,
+      windSpeedMps,
+      windDirectionRad,
+      windAngleApparentRad,
+      windReference: windSpeed?.reference,
+    });
   }
   samples.sort((a, b) => a.timestamp - b.timestamp);
 
@@ -117,16 +153,34 @@ export function buildTripDay(
     const endedAt = group[group.length - 1].timestamp;
     portions.push({
       id: `${date}-${startedAt}`,
-      points: group.map(({ position, timestamp }) => ({ position, timestamp })),
+      points: group.map((sample) => ({ ...sample })),
       startedAt,
       endedAt,
       durationSeconds: (endedAt - startedAt) / 1000,
       averageSpeedMps: underway.reduce((sum, sample) => sum + sample.speedMps, 0) / underway.length,
-      averageWindAngleRad: circularAverage(
+      averageWindSpeedMps: (() => {
+        const speeds = underway.flatMap((sample) =>
+          sample.windSpeedMps === undefined ? [] : [sample.windSpeedMps],
+        );
+        return speeds.length > 0
+          ? speeds.reduce((sum, value) => sum + value, 0) / speeds.length
+          : undefined;
+      })(),
+      averageWindDirectionRad: circularAverage(
         underway.flatMap((sample) =>
-          sample.windAngleRad === undefined ? [] : [sample.windAngleRad],
+          sample.windDirectionRad === undefined ? [] : [sample.windDirectionRad],
         ),
       ),
+      averageWindAngleRad: circularAverage(
+        underway.flatMap((sample) =>
+          sample.windAngleApparentRad === undefined ? [] : [sample.windAngleApparentRad],
+        ),
+      ),
+      windReference: underway.some((sample) => sample.windReference === 'true')
+        ? 'true'
+        : underway.some((sample) => sample.windReference === 'apparent')
+          ? 'apparent'
+          : undefined,
       labelPosition: group[Math.floor(group.length / 2)].position,
     });
     group = [];

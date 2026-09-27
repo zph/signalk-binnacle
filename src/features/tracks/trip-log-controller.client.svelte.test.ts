@@ -103,7 +103,15 @@ describe('createTripLogController', () => {
     expect(controller.selectedDate).toBe(TODAY);
     expect(controller.day?.hasTravel).toBe(true);
     expect(controller.day?.portions[0]?.averageWindAngleRad).toBeCloseTo(0.2);
-    expect(fetchValues).toHaveBeenCalledTimes(2);
+    expect(fetchValues).toHaveBeenCalledTimes(7);
+    expect(fetchValues.mock.calls.slice(1).map(([, , , query]) => query.paths[0])).toEqual([
+      SK_PATHS.windSpeedOverGround,
+      SK_PATHS.windSpeedTrue,
+      SK_PATHS.windSpeedApparent,
+      SK_PATHS.windDirectionTrue,
+      SK_PATHS.windAngleApparent,
+      SK_PATHS.headingTrue,
+    ]);
   });
 
   it('falls back from an idle current day to the latest day with travel', async () => {
@@ -137,7 +145,7 @@ describe('createTripLogController', () => {
 
     expect(controller.selectedDate).toBe(EARLIER);
     expect(controller.day?.hasTravel).toBe(true);
-    expect(queries).toHaveLength(4);
+    expect(queries).toHaveLength(9);
     expect(queries[0]).toMatchObject({
       paths: [SK_PATHS.position, SK_PATHS.speedOverGround],
       resolutionSeconds: 60,
@@ -148,6 +156,13 @@ describe('createTripLogController', () => {
       resolutionSeconds: 15 * 60,
     });
     expect(queries[2].from?.slice(0, 10)).toBe(EARLIER);
-    expect(queries[3]).toMatchObject({ paths: [SK_PATHS.windAngleApparent] });
+    expect(queries.slice(3).map((query) => query.paths[0])).toEqual([
+      SK_PATHS.windSpeedOverGround,
+      SK_PATHS.windSpeedTrue,
+      SK_PATHS.windSpeedApparent,
+      SK_PATHS.windDirectionTrue,
+      SK_PATHS.windAngleApparent,
+      SK_PATHS.headingTrue,
+    ]);
   });
 });

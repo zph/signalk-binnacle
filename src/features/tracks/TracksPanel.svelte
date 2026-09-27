@@ -16,6 +16,7 @@ import {
   type TrackRecorder,
 } from '$entities/track';
 import {
+  formatBearingOr,
   formatDuration,
   formatKnots,
   formatNm,
@@ -350,7 +351,25 @@ function setStopDurationMinutes(value: number): void {
                   <dd><span class="num">{formatKnots(portion.averageSpeedMps)}</span> kn</dd>
                 </div>
                 <div>
-                  <dt>Average wind angle</dt>
+                  <dt>
+                    {portion.windReference === 'apparent' ? 'Average apparent wind' : 'Average true wind'}
+                  </dt>
+                  <dd>
+                    <span class="num"
+                      >{portion.averageWindSpeedMps === undefined ? PLACEHOLDER : formatKnots(portion.averageWindSpeedMps)}</span
+                    >
+                    {portion.averageWindSpeedMps === undefined ? '' : ' kn'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Average wind direction</dt>
+                  <dd>
+                    <span class="num">{formatBearingOr(portion.averageWindDirectionRad)}</span>
+                    {portion.averageWindDirectionRad === undefined ? '' : '°T'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Average apparent angle</dt>
                   <dd>
                     <span class="num">{formatSignedAngleOr(portion.averageWindAngleRad)}</span>
                     {portion.averageWindAngleRad === undefined ? '' : '°'}
