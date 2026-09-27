@@ -14,6 +14,8 @@ function fakeController(overrides: Partial<AutopilotController> = {}): Autopilot
     adjustTarget: vi.fn(),
     tack: vi.fn(async () => undefined),
     gybe: vi.fn(async () => undefined),
+    followCourse: vi.fn(async () => undefined),
+    advanceCourse: vi.fn(async () => undefined),
     clearCommandError: vi.fn(),
     dispose: vi.fn(),
     availability: 'available',
@@ -26,6 +28,8 @@ function fakeController(overrides: Partial<AutopilotController> = {}): Autopilot
     engaged: true,
     modes: ['compass', 'gps', 'wind'],
     availableActionIds: new Set(['tack']),
+    courseActive: true,
+    courseCanAdvance: true,
     chip: { kind: 'engaged', mode: 'compass', targetRad: 1.5, windMode: false },
     hydrating: false,
     busy: false,
@@ -128,6 +132,30 @@ describe('AutopilotPanel', () => {
     expect(html).toContain('GPS');
     expect(html).toContain('Wind');
     expect(html).toContain('aria-pressed="true"');
+  });
+
+  it('offers provider-supported route steering and explains that recorded tracks are not routes', () => {
+    const html = renderPanel(
+      fakeController({
+        availableActionIds: new Set(['courseCurrentPoint', 'courseNextPoint']),
+      }),
+    );
+    expect(html).toContain('Route steering');
+    expect(html).toContain('Follow active course');
+    expect(html).toContain('Advance to next waypoint');
+    expect(html).toContain('Recorded Tracks are breadcrumbs and cannot be followed');
+  });
+
+  it('disables route steering without an active course and next waypoint', () => {
+    const html = renderPanel(
+      fakeController({
+        availableActionIds: new Set(['courseCurrentPoint', 'courseNextPoint']),
+        courseActive: false,
+        courseCanAdvance: false,
+      }),
+    );
+    expect(html).toContain('disabled="">Follow active course');
+    expect(html).toContain('disabled="">Advance to next waypoint');
   });
 
   it('shows a device picker only when several pilots are registered', () => {

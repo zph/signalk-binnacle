@@ -11,10 +11,12 @@ import {
   type AutopilotDevice,
   type AutopilotInfo,
   adjustAutopilotTarget,
+  advanceAutopilotCourse,
   discoverAutopilots,
   disengageAutopilot,
   engageAutopilot,
   fetchAutopilotInfo,
+  followAutopilotCourse,
   gybeAutopilot,
   setAutopilotMode,
   type TackDirection,
@@ -46,7 +48,14 @@ export type AutopilotPanelAvailability = 'unknown' | AutopilotAvailability;
 export function autopilotModeLabel(name: string): string {
   return name.length <= 3 ? name.toUpperCase() : capitalize(name);
 }
-export type AutopilotPendingCommand = 'engage' | 'disengage' | 'mode' | 'tack' | 'gybe';
+export type AutopilotPendingCommand =
+  | 'engage'
+  | 'disengage'
+  | 'mode'
+  | 'tack'
+  | 'gybe'
+  | 'follow-course'
+  | 'next-waypoint';
 
 // What the chip renders. hidden is the no-autopilot degrade (the panel keeps the discoverable
 // landing); lost is the degraded treatment for a provider that vanished or stopped answering
@@ -66,6 +75,8 @@ export interface AutopilotDeps {
   apiAdvertised: () => boolean | undefined;
   writeBlocked: () => boolean;
   requestWriteAccess: () => Promise<void>;
+  courseActive: () => boolean;
+  courseCanAdvance: () => boolean;
   store: SignalKStore;
 }
 
@@ -447,6 +458,59 @@ export function createAutopilotController(deps: AutopilotDeps) {
     )();
   }
 
+  function followCourse(): Promise<void> {
+    if (!deps.courseActive()) {
+      commandError =
+        'No active course is available to follow. Start a route or navigate to a mark first.';
+      return Promise.resolve();
+    }
+    if (!availableActionIds.has('courseCurrentPoint')) return Promise.resolve();
+    return makeCommand(
+      'follow-course',
+      'Read-only access: route steering was not started. Request read and write access to command the autopilot.',
+      async (deviceId) => {
+        const outcome = await followAutopilotCourse(origin, deps.getToken(), deviceId);
+        if (
+          !accepted(
+            outcome,
+            'Signal K refused route steering. Read and write access is being requested.',
+            'Could not reach the autopilot to start route steering. Check the connection.',
+          )
+        ) {
+          return false;
+        }
+        applyAccepted(deviceId, { engaged: true });
+        return true;
+      },
+    )();
+  }
+
+  function advanceCourse(): Promise<void> {
+    if (!deps.courseActive() || !deps.courseCanAdvance()) {
+      commandError = 'The active course has no next waypoint to advance to.';
+      return Promise.resolve();
+    }
+    if (!availableActionIds.has('courseNextPoint')) return Promise.resolve();
+    return makeCommand(
+      'next-waypoint',
+      'Read-only access: the waypoint was not advanced. Request read and write access to command the autopilot.',
+      async (deviceId) => {
+        const outcome = await advanceAutopilotCourse(origin, deps.getToken(), deviceId);
+        if (
+          !accepted(
+            outcome,
+            'Signal K refused the next-waypoint command. Read and write access is being requested.',
+            'Could not reach the autopilot to advance the waypoint. Check the connection.',
+          )
+        ) {
+          return false;
+        }
+        void hydrateInfo(deviceId, true);
+        return true;
+      },
+    )();
+  }
+
   return {
     rehydrate,
     selectDevice,
@@ -456,6 +520,8 @@ export function createAutopilotController(deps: AutopilotDeps) {
     adjustTarget,
     tack: (direction: TackDirection) => maneuver('tack', direction),
     gybe: (direction: TackDirection) => maneuver('gybe', direction),
+    followCourse,
+    advanceCourse,
     clearCommandError(): void {
       commandError = null;
     },
@@ -495,6 +561,12 @@ export function createAutopilotController(deps: AutopilotDeps) {
     },
     get availableActionIds() {
       return availableActionIds;
+    },
+    get courseActive() {
+      return deps.courseActive();
+    },
+    get courseCanAdvance() {
+      return deps.courseCanAdvance();
     },
     get chip() {
       return chip;

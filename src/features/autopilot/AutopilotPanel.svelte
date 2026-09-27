@@ -24,6 +24,8 @@ const arms = {
   tackStarboard: new ConfirmArm(),
   gybePort: new ConfirmArm(),
   gybeStarboard: new ConfirmArm(),
+  followCourse: new ConfirmArm(),
+  nextWaypoint: new ConfirmArm(),
 };
 onDestroy(() => {
   for (const arm of Object.values(arms)) arm.disarm();
@@ -60,6 +62,8 @@ const targetText = $derived.by(() => {
 
 const canTack = $derived(controller.availableActionIds.has('tack'));
 const canGybe = $derived(controller.availableActionIds.has('gybe'));
+const canFollowCourse = $derived(controller.availableActionIds.has('courseCurrentPoint'));
+const canAdvanceCourse = $derived(controller.availableActionIds.has('courseNextPoint'));
 
 function nudge(degrees: number): void {
   controller.adjustTarget(degrees * DEG_TO_RAD);
@@ -314,6 +318,44 @@ const NUDGES = [
             </button>
           </div>
         {/if}
+      </section>
+    {/if}
+
+    {#if canFollowCourse || canAdvanceCourse}
+      <section class="panel-section" aria-label="Route steering">
+        <h3 class="caps-label">Route steering</h3>
+        {#if canFollowCourse}
+          <button
+            type="button"
+            class="btn btn-primary"
+            disabled={commandDisabled || !controller.courseActive}
+            onclick={() => tapArmed('followCourse', () => void controller.followCourse())}
+          >
+            {controller.pendingCommand === 'follow-course'
+              ? 'Starting route steering…'
+              : arms.followCourse.armed
+                ? 'Tap again: autopilot may turn'
+                : 'Follow active course'}
+          </button>
+        {/if}
+        {#if canAdvanceCourse}
+          <button
+            type="button"
+            class="btn"
+            disabled={commandDisabled || !controller.courseCanAdvance}
+            onclick={() => tapArmed('nextWaypoint', () => void controller.advanceCourse())}
+          >
+            {controller.pendingCommand === 'next-waypoint'
+              ? 'Advancing waypoint…'
+              : arms.nextWaypoint.armed
+                ? 'Tap again to advance waypoint'
+                : 'Advance to next waypoint'}
+          </button>
+        {/if}
+        <p class="muted-note muted-note--xs">
+          Uses the active Signal K route or destination. Recorded Tracks are breadcrumbs and cannot
+          be followed.
+        </p>
       </section>
     {/if}
   {/if}

@@ -3,10 +3,12 @@ import { expectBearerAuth, stubFetch } from '$shared/testing';
 import {
   AUTOPILOTS_PATH,
   adjustAutopilotTarget,
+  advanceAutopilotCourse,
   discoverAutopilots,
   disengageAutopilot,
   engageAutopilot,
   fetchAutopilotInfo,
+  followAutopilotCourse,
   gybeAutopilot,
   setAutopilotMode,
   tackAutopilot,
@@ -174,6 +176,17 @@ describe('command writes', () => {
     mock = stubFetch({ ok: true, body: { state: 'COMPLETED' } });
     await gybeAutopilot('', undefined, 'p', 'starboard');
     expect(mock.mock.calls[0][0]).toBe(`${AUTOPILOTS_PATH}/p/gybe/starboard`);
+  });
+
+  it('POSTs the route-following actions to their standard endpoints', async () => {
+    let mock = stubFetch({ ok: true, body: { state: 'COMPLETED' } });
+    await followAutopilotCourse('', undefined, 'p');
+    expect(mock.mock.calls[0][0]).toBe(`${AUTOPILOTS_PATH}/p/courseCurrentPoint`);
+    expect(mock.mock.calls[0][1]?.method).toBe('POST');
+    mock = stubFetch({ ok: true, body: { state: 'COMPLETED' } });
+    await advanceAutopilotCourse('', undefined, 'p');
+    expect(mock.mock.calls[0][0]).toBe(`${AUTOPILOTS_PATH}/p/courseNextPoint`);
+    expect(mock.mock.calls[0][1]?.method).toBe('POST');
   });
 
   it('maps the write grammar to outcomes: 403 refusal, 404 unavailable, network failed', async () => {

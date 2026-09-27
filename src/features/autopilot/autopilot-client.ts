@@ -282,3 +282,27 @@ export async function gybeAutopilot(
     await sendJson(`${deviceUrl(origin, deviceId)}/gybe/${direction}`, token, 'POST'),
   );
 }
+
+// Ask the provider to select its route/GPS mode, load the current Signal K course point, and
+// engage. Providers advertise courseCurrentPoint only while they can perform this operation.
+export async function followAutopilotCourse(
+  origin: string,
+  token: string | undefined,
+  deviceId: string,
+): Promise<ResourceMutationResult> {
+  return mutationResultFor(
+    await sendJson(`${deviceUrl(origin, deviceId)}/courseCurrentPoint`, token, 'POST'),
+  );
+}
+
+// Advance the pilot to the next point of the active route. This remains distinct from the Course
+// API's route editor: only providers that advertise courseNextPoint receive the command.
+export async function advanceAutopilotCourse(
+  origin: string,
+  token: string | undefined,
+  deviceId: string,
+): Promise<ResourceMutationResult> {
+  return mutationResultFor(
+    await sendJson(`${deviceUrl(origin, deviceId)}/courseNextPoint`, token, 'POST'),
+  );
+}

@@ -103,6 +103,14 @@ source, and surrounding traffic before relying on it.
   use. GPX imports
   accept at most 5 MB, 100 encountered routes, and 10,000 encountered route points. Malformed
   coordinates are skipped, but their records still count toward the limits.
+- **Autopilot** discovers devices through the Signal K v2 Autopilot API and shows the selected
+  pilot's live state, mode, target, and engaged status. It offers confirmed engage, disengage, tack,
+  gybe, and active-course steering commands, target nudges, and provider-declared mode choices.
+  When supported, Follow active course asks the pilot to select its route or GPS mode, use the
+  current Signal K destination, and engage; Advance to next waypoint remains separately confirmed.
+  Both route controls require a live active course and appear only when the provider advertises the
+  matching operation. Recorded Tracks remain historical breadcrumbs and are never sent to the
+  pilot as a route.
 - **Waypoints** loads standard Signal K waypoint resources, supports chart drops, edits, deletes,
   location, and confirmed navigation. Navigation sends the waypoint's resource reference so the
   destination name reaches the navigation strip and other stations. The panel searches name and

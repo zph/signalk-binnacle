@@ -2390,6 +2390,8 @@ const autopilot = createAutopilotController({
     serverFeatures === undefined ? undefined : serverFeatures.apis.has('autopilot'),
   writeBlocked: () => auth.writeBlocked,
   requestWriteAccess: () => auth.requestWriteAccess(),
+  courseActive: () => courseGuidance.active,
+  courseCanAdvance: () => courseGuidance.canAdvanceRoute,
   store,
 });
 

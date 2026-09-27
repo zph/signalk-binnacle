@@ -19,6 +19,8 @@ function mountPanel(overrides: Partial<AutopilotController> = {}) {
     adjustTarget: vi.fn(),
     tack: vi.fn(async () => undefined),
     gybe: vi.fn(async () => undefined),
+    followCourse: vi.fn(async () => undefined),
+    advanceCourse: vi.fn(async () => undefined),
     clearCommandError: vi.fn(),
     dispose: vi.fn(),
     availability: 'available',
@@ -31,6 +33,8 @@ function mountPanel(overrides: Partial<AutopilotController> = {}) {
     engaged: false,
     modes: ['compass', 'gps', 'wind'],
     availableActionIds: new Set(['tack']),
+    courseActive: true,
+    courseCanAdvance: true,
     chip: { kind: 'standby' },
     hydrating: false,
     busy: false,
@@ -148,5 +152,17 @@ describe('AutopilotPanel armed commands', () => {
       'button[aria-label="Ten degrees to port"]',
     );
     expect(port10?.disabled).toBe(true);
+  });
+
+  it('requires a confirming second tap before starting route steering', () => {
+    const harness = mountPanel({
+      availableActionIds: new Set(['courseCurrentPoint']),
+    });
+    harness.button(/Follow active course/).click();
+    flushSync();
+    expect(harness.controller.followCourse).not.toHaveBeenCalled();
+    harness.button(/Tap again: autopilot may turn/).click();
+    flushSync();
+    expect(harness.controller.followCourse).toHaveBeenCalledTimes(1);
   });
 });

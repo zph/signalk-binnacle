@@ -8,6 +8,10 @@ All notable changes to Binnacle are documented here. The format follows
 
 ### Added
 
+- Autopilot route steering can now follow the active Signal K route or destination and advance to
+  the next waypoint when the connected provider advertises those operations. Both commands require
+  a second confirming tap and reject a missing or completed course before sending a helm order.
+
 - The daily trip log now annotates the historical path with a screen-aware set of local timestamps,
   wind barbs, wind speed, wind direction, and speed over ground. Every 60-second track leg is
   selectable for that minute's exact conditions, while each trip portion summarizes its average

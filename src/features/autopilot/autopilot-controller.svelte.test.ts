@@ -56,6 +56,8 @@ function makeController(overrides: Partial<AutopilotDeps> = {}) {
     apiAdvertised: () => true,
     writeBlocked: () => false,
     requestWriteAccess,
+    courseActive: () => true,
+    courseCanAdvance: () => true,
     store,
     ...overrides,
   });
@@ -247,6 +249,8 @@ describe('commands', () => {
     expect(controller.commandError).toContain('Read-only access');
     controller.adjustTarget(0.1);
     await controller.tack('port');
+    await controller.followCourse();
+    await controller.advanceCourse();
     expect(mock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(
       writesBefore,
     );
@@ -345,5 +349,60 @@ describe('commands', () => {
       expect(controller.adjustBusy).toBe(false);
     });
     expect(controller.target).toBeCloseTo(1.6);
+  });
+
+  it('starts route steering and advances a waypoint only when the provider advertises each action', async () => {
+    let following = false;
+    const mock = stubRoutes({
+      command: (url) => {
+        if (url.endsWith('/courseCurrentPoint')) following = true;
+        return json({ state: 'COMPLETED' });
+      },
+      info: () =>
+        json({
+          ...INFO,
+          engaged: following,
+          state: following ? 'auto' : 'standby',
+          options: {
+            ...INFO.options,
+            actions: [
+              { id: 'courseCurrentPoint', name: 'Follow course', available: true },
+              { id: 'courseNextPoint', name: 'Next waypoint', available: true },
+            ],
+          },
+        }),
+    });
+    const { controller } = makeController();
+    await controller.rehydrate();
+    await controller.followCourse();
+    await controller.advanceCourse();
+    expect(mock.mock.calls.some(([url]) => String(url).endsWith('/courseCurrentPoint'))).toBe(true);
+    expect(mock.mock.calls.some(([url]) => String(url).endsWith('/courseNextPoint'))).toBe(true);
+    expect(controller.engaged).toBe(true);
+  });
+
+  it('rejects route commands at the action boundary when no usable course is active', async () => {
+    const mock = stubRoutes({
+      info: () =>
+        json({
+          ...INFO,
+          options: {
+            ...INFO.options,
+            actions: [
+              { id: 'courseCurrentPoint', name: 'Follow course', available: true },
+              { id: 'courseNextPoint', name: 'Next waypoint', available: true },
+            ],
+          },
+        }),
+    });
+    const { controller } = makeController({
+      courseActive: () => false,
+      courseCanAdvance: () => false,
+    });
+    await controller.rehydrate();
+    await controller.followCourse();
+    await controller.advanceCourse();
+    expect(controller.commandError).toContain('no next waypoint');
+    expect(mock.mock.calls.some(([url]) => String(url).includes('/course'))).toBe(false);
   });
 });
