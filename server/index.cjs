@@ -3,6 +3,10 @@
 const { mkdirSync } = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
+const {
+  PATH: ANCHOR_CLEARANCE_PATH,
+  createAnchorClearancePublisher,
+} = require('./anchor-clearance.cjs');
 
 const MAX_CPA_METERS = 1_852_000;
 const MAX_TCPA_SECONDS = 7 * 24 * 60 * 60;
@@ -382,6 +386,7 @@ module.exports = function createBinnaclePlugin(app) {
   let storedAlarmLocation;
   let saveQueue = Promise.resolve();
   let noaaCache = createNoaaCache();
+  const anchorClearance = createAnchorClearancePublisher(app);
 
   function start(options) {
     noaaCache.clear();
@@ -412,6 +417,19 @@ module.exports = function createBinnaclePlugin(app) {
         ? 'Alarm settings stored'
         : 'Ready to store alarm settings',
     );
+    if (app.setDefaultMetadata) {
+      void app
+        .setDefaultMetadata(ANCHOR_CLEARANCE_PATH, {
+          units: 'm',
+          displayName: 'Anchor watch boundary clearance',
+          description:
+            'Signed distance from the GPS position to the nearest anchor watch boundary. Positive inside, negative outside.',
+        })
+        .catch((error) =>
+          app.error?.(`Unable to register anchor clearance metadata: ${errorMessage(error)}`),
+        );
+    }
+    anchorClearance.start();
   }
 
   function save(update) {
@@ -445,6 +463,7 @@ module.exports = function createBinnaclePlugin(app) {
     schema,
     start,
     stop() {
+      anchorClearance.stop();
       noaaCache.clear();
     },
     registerWithRouter(router) {

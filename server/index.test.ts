@@ -10,6 +10,10 @@ const createPlugin = require('./index.cjs') as (app: AppStub) => PluginStub;
 interface AppStub {
   error: ReturnType<typeof vi.fn>;
   getDataDirPath?: () => string;
+  handleMessage: ReturnType<typeof vi.fn>;
+  subscriptionmanager: {
+    subscribe: ReturnType<typeof vi.fn>;
+  };
   savePluginOptions: (
     options: object,
     callback: (error: NodeJS.ErrnoException | null) => void,
@@ -62,6 +66,8 @@ function harness(
   const app: AppStub = {
     error: vi.fn(),
     getDataDirPath: dataDirectory ? () => dataDirectory : undefined,
+    handleMessage: vi.fn(),
+    subscriptionmanager: { subscribe: vi.fn() },
     savePluginOptions: savePluginOptions ?? vi.fn((_options, callback) => callback(null)),
     setPluginError: vi.fn(),
     setPluginStatus: vi.fn(),

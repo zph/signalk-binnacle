@@ -277,7 +277,11 @@ Binnacle ships its full feature set as a Signal K webapp:
   read-only, unconfirmed values. Binnacle does not calculate a drag alarm from that cache. The chart
   has a draggable drop-point marker only for a current server watch. Anchor commands use a backend
   interface; the Signal K paths and server notification remain the authority for watch and alarm
-  state. Do not enable Hoekens and another anchor-alarm engine together.
+  state. Binnacle's server plugin publishes `navigation.anchor.distanceToWatchBoundary` in meters:
+  positive inside the zone, zero on its edge, and negative outside. It clears the value when the
+  watch is off, the fix is stale, or the geometry is unavailable. This metric is advisory and does
+  not replace Hoekens's `notifications.navigation.anchor` alarm. Do not enable Hoekens and another
+  anchor-alarm engine together.
 - **Man overboard:** an always-visible MOB button in the top bar with a confirm pop-out. Confirming
   marks the spot, publishes the boat-wide Signal K alarm, and raises a recovery strip with live
   bearing, range, and elapsed time, plus an opt-in **Steer to MOB** handoff to the course system. An

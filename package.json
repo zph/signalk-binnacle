@@ -68,7 +68,7 @@
   },
   "files": [
     "public/",
-    "server/index.cjs",
+    "server/*.cjs",
     "!public/**/*.map",
     "README.md",
     "LICENSE",
