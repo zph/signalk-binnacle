@@ -3,6 +3,7 @@ import type { TripPoint, TripPortion } from '$features/tracks';
 import {
   annotationCapacity,
   annotationFor,
+  minuteSegments,
   selectAnnotationPoints,
   windBarbGeometry,
 } from './history-track-annotations';
@@ -57,6 +58,17 @@ describe('history track annotations', () => {
     expect(annotation.conditionsLabel).toContain('TWS 14.0 kn');
     expect(annotation.conditionsLabel).toContain('SOG 6.0 kn');
     expect(annotation.detailLabel).toContain('Wind 090°T');
+  });
+
+  it('makes every recorded minute leg independently selectable without crossing portions', () => {
+    const first = [point(0), point(1), point(2)];
+    const second = [point(3), point(4)];
+    const segments = minuteSegments([portion(first), portion(second)]);
+    expect(segments).toEqual([
+      { start: first[0], end: first[1] },
+      { start: first[1], end: first[2] },
+      { start: second[0], end: second[1] },
+    ]);
   });
 
   it('builds a staff and five-knot feathers toward the wind source', () => {

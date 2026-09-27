@@ -15,6 +15,30 @@ const TRIP_POSITIONS = [
   { latitude: 37.817, longitude: -122.363 },
 ] as const;
 
+function projectMapPoint(
+  point: { latitude: number; longitude: number },
+  center: { latitude: number; longitude: number },
+  zoom: number,
+  viewport: { width: number; height: number },
+): { x: number; y: number } {
+  const worldSize = 512 * 2 ** zoom;
+  const worldPoint = (position: { latitude: number; longitude: number }) => {
+    const latitudeRadians = (position.latitude * Math.PI) / 180;
+    return {
+      x: ((position.longitude + 180) / 360) * worldSize,
+      y:
+        ((1 - Math.log(Math.tan(latitudeRadians) + 1 / Math.cos(latitudeRadians)) / Math.PI) / 2) *
+        worldSize,
+    };
+  };
+  const projectedPoint = worldPoint(point);
+  const projectedCenter = worldPoint(center);
+  return {
+    x: viewport.width / 2 + projectedPoint.x - projectedCenter.x,
+    y: viewport.height / 2 + projectedPoint.y - projectedCenter.y,
+  };
+}
+
 async function stubTripHistory(page: Page): Promise<void> {
   await page.route(/\/signalk\/v2\/api\/history\/_providers$/, (route) =>
     route.fulfill({
@@ -43,7 +67,7 @@ async function stubTripHistory(page: Page): Promise<void> {
       return null;
     };
     const data = TRIP_POSITIONS.map((_, index) => [
-      new Date(start.getTime() + index * 12 * 60_000).toISOString(),
+      new Date(start.getTime() + index * 60_000).toISOString(),
       ...columns.map((column) => valueFor(column.path, index)),
     ]);
     await route.fulfill({
@@ -141,4 +165,29 @@ test('daily trip history shows wind and travel summaries for the selected day', 
   await expect(panel.getByText('Average apparent angle')).toBeVisible();
   await expect(panel.getByRole('checkbox', { name: 'Show on chart' })).toBeChecked();
   await expectNoHorizontalOverflow(panel);
+
+  const canvas = page.locator('.maplibregl-canvas');
+  await expect(canvas).toBeVisible();
+  const canvasBox = await canvas.boundingBox();
+  if (!canvasBox) throw new Error('Map canvas has no bounds');
+  const segmentMidpoint = {
+    latitude: (TRIP_POSITIONS[4].latitude + TRIP_POSITIONS[5].latitude) / 2,
+    longitude: (TRIP_POSITIONS[4].longitude + TRIP_POSITIONS[5].longitude) / 2,
+  };
+  const clickPosition = projectMapPoint(
+    segmentMidpoint,
+    { latitude: 37.806, longitude: -122.405 },
+    12,
+    canvasBox,
+  );
+  await expect(async () => {
+    await canvas.click({ position: clickPosition });
+    await expect(page.getByLabel('Trip history minute')).toBeVisible({ timeout: 500 });
+  }).toPass({ timeout: 10_000 });
+
+  const minuteDetails = page.getByLabel('Trip history minute');
+  await expect(minuteDetails).toContainText('08:16');
+  await expect(minuteDetails).toContainText('SOG');
+  await expect(minuteDetails).toContainText('TWS');
+  await expect(minuteDetails).toContainText('Wind');
 });

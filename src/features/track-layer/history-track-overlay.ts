@@ -24,6 +24,7 @@ import { type PersistedValue, type TrackSettings, tripLogEnabled } from '$shared
 import {
   annotationCapacity,
   annotationFor,
+  minuteSegments,
   selectAnnotationPoints,
   windBarbGeometry,
 } from './history-track-annotations';
@@ -36,7 +37,7 @@ const STOP_LAYER_ID = 'binnacle-track-history-stops';
 const STOP_LABEL_LAYER_ID = 'binnacle-track-history-stop-labels';
 const WIND_BARB_LAYER_ID = 'binnacle-track-history-wind-barbs';
 const ANNOTATION_LAYER_ID = 'binnacle-track-history-annotations';
-const ANNOTATION_HIT_LAYER_ID = 'binnacle-track-history-annotation-hits';
+const MINUTE_HIT_LAYER_ID = 'binnacle-track-history-minute-hits';
 const LAYER_IDS = [
   LAYER_ID,
   DIRECTION_LAYER_ID,
@@ -45,7 +46,7 @@ const LAYER_IDS = [
   STOP_LABEL_LAYER_ID,
   WIND_BARB_LAYER_ID,
   ANNOTATION_LAYER_ID,
-  ANNOTATION_HIT_LAYER_ID,
+  MINUTE_HIT_LAYER_ID,
 ];
 const BAND = 'track';
 const LINE_OPACITY = 0.72;
@@ -78,16 +79,17 @@ export function createHistoryTrackOverlay(
   let moveListener: (() => void) | undefined;
   let detailPopup: Popup | undefined;
   let attachedContext: OverlayContext | undefined;
+  let samplesByTimestamp = new Map<number, TripPortion['points'][number]>();
   const canInteract = () =>
     overlayInteractive(visible && tripLogEnabled(settings.value), opacity, () => !reviewActive());
 
   function popupContent(detail: string): HTMLElement {
     const root = document.createElement('section');
     root.className = 'map-reading-popup';
-    root.setAttribute('aria-label', 'Trip history sample');
+    root.setAttribute('aria-label', 'Trip history minute');
     const heading = document.createElement('h3');
     heading.className = 'map-reading-popup__title';
-    heading.textContent = 'Trip sample';
+    heading.textContent = 'Trip minute';
     const reading = document.createElement('p');
     reading.className = 'map-reading-popup__value map-reading-popup__summary';
     reading.textContent = detail;
@@ -96,19 +98,20 @@ export function createHistoryTrackOverlay(
   }
 
   const hitHandlers = createLayerHitHandlers(
-    ANNOTATION_HIT_LAYER_ID,
+    MINUTE_HIT_LAYER_ID,
     (event) => {
       const feature = event.features?.[0];
-      if (!attachedContext || feature?.geometry.type !== 'Point') return false;
-      const detail = feature.properties?.detail;
-      const coordinates = feature.geometry.coordinates;
+      const timestamp = feature?.properties?.timestamp;
+      const sample = typeof timestamp === 'number' ? samplesByTimestamp.get(timestamp) : undefined;
       if (
-        typeof detail !== 'string' ||
-        !Number.isFinite(coordinates[0]) ||
-        !Number.isFinite(coordinates[1])
+        !attachedContext ||
+        !sample ||
+        !Number.isFinite(event.lngLat.lng) ||
+        !Number.isFinite(event.lngLat.lat)
       ) {
         return false;
       }
+      const detail = annotationFor(sample).detailLabel;
       detailPopup?.remove();
       detailPopup = new Popup({
         closeButton: true,
@@ -116,7 +119,7 @@ export function createHistoryTrackOverlay(
         offset: 18,
         maxWidth: '22rem',
       })
-        .setLngLat([coordinates[0], coordinates[1]])
+        .setLngLat([event.lngLat.lng, event.lngLat.lat])
         .setDOMContent(popupContent(detail.slice(0, 300)))
         .addTo(attachedContext.map);
       return true;
@@ -139,6 +142,11 @@ export function createHistoryTrackOverlay(
   function render(ctx: OverlayContext): void {
     const day = tripLog.day;
     const features: GeoJSON.Feature[] = [];
+    samplesByTimestamp = new Map(
+      (day?.portions ?? []).flatMap((portion) =>
+        portion.points.map((point) => [point.timestamp, point] as const),
+      ),
+    );
     for (const portion of day?.portions ?? []) {
       features.push({
         type: 'Feature',
@@ -158,6 +166,16 @@ export function createHistoryTrackOverlay(
         type: 'Feature',
         geometry: { type: 'Point', coordinates: latLonToLonLat(stop.position) },
         properties: { kind: 'stop', label: formatDuration(stop.durationSeconds) },
+      });
+    }
+    for (const segment of minuteSegments(day?.portions ?? [])) {
+      features.push({
+        type: 'Feature',
+        geometry: antimeridianLineGeometry([
+          latLonToLonLat(segment.start.position),
+          latLonToLonLat(segment.end.position),
+        ]),
+        properties: { kind: 'minute-segment', timestamp: segment.start.timestamp },
       });
     }
     const width = ctx.map.getCanvas().getBoundingClientRect().width;
@@ -190,7 +208,7 @@ export function createHistoryTrackOverlay(
   return {
     id: 'track-history',
     title: 'Trip log',
-    description: 'Daily travel with timestamps, wind, speed, direction, portions, and stops.',
+    description: 'Daily travel with clickable minute conditions, timestamps, direction, and stops.',
     band: BAND,
     supportsOpacity: true,
     defaultVisible: true,
@@ -332,13 +350,14 @@ export function createHistoryTrackOverlay(
         };
         ctx.map.addLayer(layer, ctx.beforeIdFor(BAND));
       }
-      if (!ctx.map.getLayer(ANNOTATION_HIT_LAYER_ID)) {
-        const layer: CircleLayerSpecification = {
-          id: ANNOTATION_HIT_LAYER_ID,
-          type: 'circle',
+      if (!ctx.map.getLayer(MINUTE_HIT_LAYER_ID)) {
+        const layer: LineLayerSpecification = {
+          id: MINUTE_HIT_LAYER_ID,
+          type: 'line',
           source: SOURCE_ID,
-          filter: ['==', ['get', 'kind'], 'annotation'],
-          paint: { 'circle-radius': 22, 'circle-color': 'rgba(0,0,0,0.01)' },
+          filter: ['==', ['get', 'kind'], 'minute-segment'],
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-width': 32, 'line-color': 'rgba(0,0,0,0.01)' },
         };
         ctx.map.addLayer(layer, ctx.beforeIdFor(BAND));
       }
@@ -415,6 +434,7 @@ export function createHistoryTrackOverlay(
       }
       moveListener = undefined;
       attachedContext = undefined;
+      samplesByTimestamp = new Map();
       removeLayersAndSources(ctx.map, [...LAYER_IDS].reverse(), [SOURCE_ID]);
     },
   };

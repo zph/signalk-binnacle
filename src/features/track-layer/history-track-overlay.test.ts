@@ -103,7 +103,10 @@ describe('createHistoryTrackOverlay', () => {
     const features = sourceFeatures(map, 'binnacle-track-history');
     expect(features.filter((feature) => feature.properties?.kind === 'annotation')).toHaveLength(2);
     expect(features.filter((feature) => feature.properties?.kind === 'wind-barb')).toHaveLength(2);
-    expect(map.handlerCount('click', 'binnacle-track-history-annotation-hits')).toBe(1);
+    expect(features.filter((feature) => feature.properties?.kind === 'minute-segment')).toEqual([
+      expect.objectContaining({ properties: { kind: 'minute-segment', timestamp: 0 } }),
+    ]);
+    expect(map.handlerCount('click', 'binnacle-track-history-minute-hits')).toBe(1);
   });
 
   it('hides during time travel without changing its accepted visibility', async () => {

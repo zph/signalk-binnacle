@@ -16,8 +16,9 @@ The date field selects an exact day, and the arrow buttons move one day backward
 navigation stops at today. The map draws each travel portion with repeated travel direction marks. It
 also places a bounded set of local timestamps along the path, with wind speed, wind direction, and speed
 over ground sampled at each position. Wind barbs show direction and speed without filling
-the chart with permanent labels. Select or tap a sample to see its exact date, time, wind, and travel
-speed. The number of samples adapts to the chart width, so phone and desktop layouts remain readable.
+the chart with permanent labels. Every 60-second track leg is selectable. Select or tap anywhere on
+a leg to read that minute's exact date, time, wind, and travel speed from the loaded history. The
+number of permanent labels adapts to the chart width, so phone and desktop layouts remain readable.
 
 A small tag on the line gives each portion's duration. The Tracks panel lists average travel speed,
 average wind speed and direction, and circularly averaged apparent wind angle for the same portion.

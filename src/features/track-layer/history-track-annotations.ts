@@ -13,6 +13,20 @@ export interface HistoryTrackAnnotation extends TripPoint {
   detailLabel: string;
 }
 
+export interface HistoryTrackMinuteSegment {
+  start: TripPoint;
+  end: TripPoint;
+}
+
+export function minuteSegments(portions: readonly TripPortion[]): HistoryTrackMinuteSegment[] {
+  return portions.flatMap((portion) =>
+    portion.points.slice(0, -1).map((start, index) => ({
+      start,
+      end: portion.points[index + 1],
+    })),
+  );
+}
+
 function uniqueByTimestamp(points: readonly TripPoint[]): TripPoint[] {
   return [...new Map(points.map((point) => [point.timestamp, point])).values()].sort(
     (left, right) => left.timestamp - right.timestamp,

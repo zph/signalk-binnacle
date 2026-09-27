@@ -9,8 +9,9 @@ All notable changes to Binnacle are documented here. The format follows
 ### Added
 
 - The daily trip log now annotates the historical path with a screen-aware set of local timestamps,
-  wind barbs, wind speed, wind direction, and speed over ground. Selecting a sample shows its exact
-  conditions, while each trip portion summarizes its average wind and travel speed.
+  wind barbs, wind speed, wind direction, and speed over ground. Every 60-second track leg is
+  selectable for that minute's exact conditions, while each trip portion summarizes its average
+  wind and travel speed.
 
 - ENC facets for kelp, seabed composition, moorings and berths, overhead hazards, survey quality,
   and coverage. Clearance labels distinguish charted safe, closed, and open values and follow
