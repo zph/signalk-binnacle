@@ -123,5 +123,5 @@ which does see template usage, is the real backstop.
 - Do not revert user changes unless explicitly asked.
 - Keep scratch files in `tmp/`.
 - Never force-push from this workspace. A force-push is never acceptable.
-- Never push to GitHub from this workspace. Commit, deploy, publish, or complete workflows without
-  pushing, even when asked to push.
+- Push only when the user explicitly asks. Push exclusively to the configured `origin` fork at
+  `https://github.com/zph/signalk-binnacle.git`; never push to `upstream` or any other remote.
