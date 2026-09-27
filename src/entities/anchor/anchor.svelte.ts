@@ -17,6 +17,7 @@ import {
   SK_PATHS,
 } from '$shared/signalk';
 import { DEFAULT_RADIUS_M, MIN_RADIUS_M } from './anchor-geometry';
+import { type AnchorZone, parseAnchorZone } from './anchor-zone';
 // The anchor watch is never browser-only. A server position on the stream is the sole active mode.
 export type AnchorMode = 'off' | 'server';
 export type AnchorDegradedCause = 'server-stale';
@@ -120,6 +121,7 @@ export class AnchorWatch {
     store.ensureCells([
       SK_PATHS.anchorPosition,
       SK_PATHS.anchorMaxRadius,
+      SK_PATHS.anchorWatchZone,
       SK_PATHS.anchorNotification,
     ]);
   }
@@ -133,15 +135,22 @@ export class AnchorWatch {
     asNumber(this.#currentRaw(SK_PATHS.anchorMaxRadius)),
   );
 
+  #serverZone = $derived.by<AnchorZone | undefined>(() =>
+    parseAnchorZone(this.#currentRaw(SK_PATHS.anchorWatchZone)),
+  );
+
   #serverStateStale = $derived.by<boolean>(() => {
     const cell = this.#store.cell(SK_PATHS.anchorPosition);
     const radiusCell = this.#store.cell(SK_PATHS.anchorMaxRadius);
+    const zoneCell = this.#store.cell(SK_PATHS.anchorWatchZone);
     return (
       isLatLon(cell.value) &&
       (this.#store.connection.phase !== 'open' ||
         predatesReconnect(cell, this.#store.generation) ||
         (asNumber(radiusCell.value) !== undefined &&
-          predatesReconnect(radiusCell, this.#store.generation)))
+          predatesReconnect(radiusCell, this.#store.generation)) ||
+        (parseAnchorZone(zoneCell.value) !== undefined &&
+          predatesReconnect(zoneCell, this.#store.generation)))
     );
   });
 
@@ -206,6 +215,24 @@ export class AnchorWatch {
   // published its radius yet, so no circle is drawn for it).
   get radiusMeters(): number | undefined {
     return this.mode === 'server' && !this.degraded ? this.#serverRadius : undefined;
+  }
+
+  get zone(): AnchorZone | undefined {
+    if (this.mode !== 'server' || this.degraded) return undefined;
+    return (
+      this.#serverZone ??
+      (this.#serverRadius ? { type: 'circle', radius: this.#serverRadius } : undefined)
+    );
+  }
+
+  get lastKnownZone(): AnchorZone | undefined {
+    if (!this.degraded) return undefined;
+    return (
+      parseAnchorZone(this.#raw(SK_PATHS.anchorWatchZone)) ??
+      (this.lastKnownRadiusMeters
+        ? { type: 'circle', radius: this.lastKnownRadiusMeters }
+        : undefined)
+    );
   }
 
   get lastKnownRadiusMeters(): number | undefined {

@@ -55,6 +55,8 @@ const {
 }: Props = $props();
 
 const watching = $derived(anchor.watching);
+const zone = $derived(anchor.zone ?? anchor.lastKnownZone);
+const circularZone = $derived(!zone || zone.type === 'circle');
 const distance = $derived(anchor.fixLost ? undefined : anchor.distanceMeters);
 const serverWritesBlocked = $derived(
   (auth.writeBlocked || anchor.degraded) && anchor.mode === 'server',
@@ -73,8 +75,8 @@ const radiusDisplay = $derived(
 const minRadiusDisplay = $derived(toDisplayUnits(MIN_RADIUS_M));
 const distanceText = $derived(formatLengthOr(distance, mode, 0));
 const radiusText = $derived(
-  watching
-    ? formatLengthOr(anchor.radiusMeters ?? anchor.lastKnownRadiusMeters, mode, 0)
+  watching && zone?.type !== 'polygon'
+    ? formatLengthOr(zone?.radius ?? anchor.radiusMeters ?? anchor.lastKnownRadiusMeters, mode, 0)
     : PLACEHOLDER,
 );
 // Scope is reckoned against the water column, so the entity resolves this without the
@@ -103,7 +105,7 @@ const statusLine = $derived.by(() => {
   }
   if (anchor.fixLost)
     return 'GPS fix lost on this display. The server anchor watch remains active.';
-  if (anchor.dragging) return 'Anchor dragging: the boat is outside the watch radius.';
+  if (anchor.dragging) return 'Anchor dragging: the boat is outside the watch boundary.';
   return MODE_STATUS[anchor.mode];
 });
 
@@ -151,7 +153,8 @@ function captureFromDistance(): void {
     />
   {/if}
   <p class="muted-note">
-    Drop the anchor to start a drift alarm that sounds if the boat swings past the watch radius.
+    Drop the anchor to start a server drift alarm. Set a circle, sector, or free-form polygon in
+    Hoekens Anchor Alarm.
   </p>
   {#if anchor.retiredLocalWatch}
     <p class="alert-note" role="alert">
@@ -173,8 +176,16 @@ function captureFromDistance(): void {
   <dl class="stat-grid">
     <dt>From anchor</dt>
     <dd><span class="num">{distanceText}</span><span class="unit">{unit}</span></dd>
-    <dt>Radius</dt>
-    <dd><span class="num">{radiusText}</span><span class="unit">{unit}</span></dd>
+    <dt>
+      {zone?.type === 'sector' ? 'Sector radius' : zone?.type === 'polygon' ? 'Boundary' : 'Radius'}
+    </dt>
+    <dd>
+      {#if zone?.type === 'polygon'}
+        Polygon
+      {:else}
+        <span class="num">{radiusText}</span><span class="unit">{unit}</span>
+      {/if}
+    </dd>
     {#if depth.source}
       <dt title={DEPTH_SOURCE_TITLES[depth.source]}>Depth ({DEPTH_SOURCE_LABELS[depth.source]})</dt>
       <dd><span class="num">{depthText}</span><span class="unit">{unit}</span></dd>
@@ -197,27 +208,38 @@ function captureFromDistance(): void {
       no depth shows here.
     </p>
   {/if}
-  <UnitField
-    label="Watch radius"
-    {unit}
-    min={minRadiusDisplay}
-    step={1}
-    ariaLabel={`Watch radius in ${mode === 'imperial' ? 'feet' : 'meters'}`}
-    value={radiusDisplay}
-    disabled={busy || serverWritesBlocked}
-    onCommit={commitRadius}
-  />
-  <p class="muted-note">The alarm sounds if the boat drifts further than this from the anchor.</p>
-  <button
-    type="button"
-    class="btn btn-ghost"
-    disabled={busy || serverWritesBlocked || !watching || distance == null}
-    title={captureTitle}
-    onclick={captureFromDistance}
-  >
-    <Crosshair size={16} aria-hidden="true" />
-    Set radius to current swing
-  </button>
+  {#if circularZone}
+    <UnitField
+      label="Watch radius"
+      {unit}
+      min={minRadiusDisplay}
+      step={1}
+      ariaLabel={`Watch radius in ${mode === 'imperial' ? 'feet' : 'meters'}`}
+      value={radiusDisplay}
+      disabled={busy || serverWritesBlocked}
+      onCommit={commitRadius}
+    />
+    <p class="muted-note">The alarm sounds if the boat drifts further than this from the anchor.</p>
+    <button
+      type="button"
+      class="btn btn-ghost"
+      disabled={busy || serverWritesBlocked || !watching || distance == null}
+      title={captureTitle}
+      onclick={captureFromDistance}
+    >
+      <Crosshair size={16} aria-hidden="true" />
+      Set radius to current swing
+    </button>
+  {/if}
+  <a class="btn btn-ghost" href="/hoekens-anchor-alarm/" target="_blank" rel="noopener noreferrer">
+    Edit watch boundary in Hoekens
+  </a>
+  {#if zone?.type === 'sector' || zone?.type === 'polygon'}
+    <p class="muted-note">
+      The server owns this {zone.type} boundary. Edit it in Hoekens; Binnacle will show the updated
+      shape when Signal K publishes it.
+    </p>
+  {/if}
   {#if watching && raiseArmed}
     <InlineConfirm
       question="Raise the anchor and end the watch?"

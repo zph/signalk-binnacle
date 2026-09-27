@@ -28,6 +28,7 @@ export const SK_PATHS = {
   attitude: 'navigation.attitude',
   anchorPosition: 'navigation.anchor.position',
   anchorMaxRadius: 'navigation.anchor.maxRadius',
+  anchorWatchZone: 'navigation.anchor.watchZone',
   anchorNotification: 'notifications.navigation.anchor',
   mobNotification: 'notifications.mob',
   // Wildcard subscription so every raised notification (any producer) reaches the store mirror.

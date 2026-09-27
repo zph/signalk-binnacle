@@ -1,18 +1,18 @@
+import type { AnchorZone } from '$entities/anchor';
 import type { LatLon } from '$shared/geo';
 import {
   dropAnchorOnServer,
   raiseServerAnchor,
   setServerAnchorPosition,
-  setServerRadius,
+  setServerZone,
 } from './anchor-client';
 
 // A command succeeds only when the server accepts it. The live Signal K paths and notification
 // remain the authority for whether a watch is actually active or alarming.
 export interface AnchorCommands {
-  drop(radiusMeters: number): Promise<boolean>;
+  drop(position: LatLon, zone: AnchorZone): Promise<boolean>;
   raise(): Promise<boolean>;
-  setRadius(radiusMeters: number): Promise<boolean>;
-  setPosition(position: LatLon): Promise<boolean>;
+  setZone(zone: AnchorZone, position?: LatLon): Promise<boolean>;
 }
 
 export function createPluginAnchorCommands(
@@ -20,9 +20,11 @@ export function createPluginAnchorCommands(
   getToken: () => string | undefined,
 ): AnchorCommands {
   return {
-    drop: (radiusMeters) => dropAnchorOnServer(origin, getToken(), radiusMeters),
+    drop: (position, zone) => dropAnchorOnServer(origin, getToken(), position, zone),
     raise: () => raiseServerAnchor(origin, getToken()),
-    setRadius: (radiusMeters) => setServerRadius(origin, getToken(), radiusMeters),
-    setPosition: (position) => setServerAnchorPosition(origin, getToken(), position),
+    setZone: (zone, position) =>
+      position
+        ? setServerAnchorPosition(origin, getToken(), position, zone)
+        : setServerZone(origin, getToken(), zone),
   };
 }

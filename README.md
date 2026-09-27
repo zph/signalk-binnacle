@@ -268,15 +268,16 @@ Binnacle ships its full feature set as a Signal K webapp:
   collision danger interleave at the top, lower alarms rotate with bounded reminders so none is
   hidden, courtesy tones like arrival yield to real alarms, and blocked or failed alarm audio is
   stated beside the alarms themselves, where any tap restores it.
-- **Anchor watch:** drop the anchor at the boat, set the swing radius (or capture it from the live
-  distance), and get a drag alarm that latches until acknowledged. It drives the
-  signalk-anchoralarm-plugin (so the alarm keeps running with the browser
-  closed). Without a working server watch, Binnacle reports the failure and does not arm a
-  browser-only alarm. During a disconnect, the last server-reported anchor point and radius stay
-  visible as read-only, unconfirmed values. Binnacle does not calculate a drag alarm from that
-  cache. The chart has a draggable drop-point marker only for a current server watch.
-  Anchor commands use a backend interface: the plugin is the only adapter today, while the Signal K
-  data paths and server notification remain the source of watch and alarm state.
+- **Anchor watch:** Hoekens Anchor Alarm is required for server-side watches. Binnacle drops a
+  circular watch at the boat, and its panel links to Hoekens's editor for circular, sector, and
+  free-form polygon boundaries. The chart draws the server-published `navigation.anchor.watchZone`
+  rather than assuming every watch is a circle. The alarm keeps running with Binnacle closed.
+  Without a working server watch, Binnacle reports the failure and does not arm a browser-only
+  alarm. During a disconnect, the last server-reported position and boundary stay visible as
+  read-only, unconfirmed values. Binnacle does not calculate a drag alarm from that cache. The chart
+  has a draggable drop-point marker only for a current server watch. Anchor commands use a backend
+  interface; the Signal K paths and server notification remain the authority for watch and alarm
+  state. Do not enable Hoekens and another anchor-alarm engine together.
 - **Man overboard:** an always-visible MOB button in the top bar with a confirm pop-out. Confirming
   marks the spot, publishes the boat-wide Signal K alarm, and raises a recovery strip with live
   bearing, range, and elapsed time, plus an opt-in **Steer to MOB** handoff to the course system. An

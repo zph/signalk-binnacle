@@ -74,7 +74,7 @@ export function createAnchorController(deps: AnchorControllerDeps) {
     }
     // A successful command hands the watch to the server. A missing or disabled backend never
     // becomes a browser-only watch.
-    if (await deps.commands.drop(radius)) {
+    if (await deps.commands.drop(position, { type: 'circle', radius })) {
       deps.onAnchorLogMoment?.('dropped', radius);
       return;
     }
@@ -122,13 +122,25 @@ export function createAnchorController(deps: AnchorControllerDeps) {
       anchor.rememberRadius(meters);
       return Promise.resolve();
     }
-    return anchorAction(() => deps.commands.setRadius(meters), 'set the radius').then((set) => {
+    if (anchor.zone?.type !== 'circle') {
+      anchorError = 'Edit the non-circular watch boundary in Hoekens Anchor Alarm.';
+      return Promise.resolve();
+    }
+    return anchorAction(
+      () => deps.commands.setZone({ type: 'circle', radius: meters }),
+      'set the radius',
+    ).then((set) => {
       if (set) anchor.rememberRadius(meters);
     });
   }
 
   function onAnchorMoved(position: LatLon): Promise<void> {
-    return anchorAction(() => deps.commands.setPosition(position), 'move the anchor').then(
+    const zone = anchor.zone;
+    if (!zone) {
+      anchorError = 'Could not move the anchor. The server watch boundary is unavailable.';
+      return Promise.resolve();
+    }
+    return anchorAction(() => deps.commands.setZone(zone, position), 'move the anchor').then(
       () => {},
     );
   }

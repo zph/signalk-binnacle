@@ -8,7 +8,7 @@ import type {
   MapMouseEvent,
   MapTouchEvent,
 } from 'maplibre-gl';
-import type { AnchorWatch } from '$entities/anchor';
+import type { AnchorWatch, AnchorZone } from '$entities/anchor';
 import type { OwnVessel } from '$entities/vessel';
 import { type LatLon, latLonToLonLat } from '$shared/geo';
 import {
@@ -25,7 +25,7 @@ import {
   setLayersVisibility,
   setSourceData,
 } from '$shared/map';
-import { geodesicCircleRing } from '$shared/nav';
+import { geodesicCircleRing, geodesicDestination } from '$shared/nav';
 
 const SHAPE_SRC = 'binnacle-anchor-shapes';
 const POINT_SRC = 'binnacle-anchor-point';
@@ -46,20 +46,51 @@ function watchColor(paint: MapThemePaint): ExpressionSpecification {
   return ['case', ['get', 'cached'], paint.label, ['get', 'dragging'], paint.danger, paint.select];
 }
 
+function zoneRing(anchor: LatLon, zone: AnchorZone): [number, number][] {
+  if (zone.type === 'circle') {
+    return geodesicCircleRing(anchor.latitude, anchor.longitude, zone.radius);
+  }
+  if (zone.type === 'polygon') {
+    const points = zone.vertices.map((vertex) =>
+      geodesicDestination(
+        anchor.latitude,
+        anchor.longitude,
+        (vertex.bearing * Math.PI) / 180,
+        vertex.distance,
+      ),
+    );
+    return [...points, points[0]];
+  }
+  const sweep = (zone.endAngle - zone.startAngle + 360) % 360;
+  const count = Math.max(8, Math.ceil(sweep / 5));
+  const points: [number, number][] = [latLonToLonLat(anchor)];
+  for (let step = 0; step <= count; step += 1) {
+    points.push(
+      geodesicDestination(
+        anchor.latitude,
+        anchor.longitude,
+        ((zone.startAngle + (sweep * step) / count) * Math.PI) / 180,
+        zone.radius,
+      ),
+    );
+  }
+  return [...points, points[0]];
+}
+
 function shapeFeatures(
   anchor: LatLon | undefined,
-  radiusMeters: number | undefined,
+  zone: AnchorZone | undefined,
   vessel: LatLon | undefined,
   dragging: boolean,
   cached: boolean,
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
-  if (anchor && radiusMeters !== undefined) {
+  if (anchor && zone) {
     features.push({
       type: 'Feature',
       geometry: {
         type: 'Polygon',
-        coordinates: [geodesicCircleRing(anchor.latitude, anchor.longitude, radiusMeters)],
+        coordinates: [zoneRing(anchor, zone)],
       },
       properties: { dragging, cached },
     });
@@ -93,7 +124,7 @@ export interface AnchorOverlay extends OverlayModule {
   sync(ctx: OverlayContext): void;
 }
 
-// The on-chart anchor watch: the swing circle, the rode line from anchor to vessel, and a draggable
+// The on-chart anchor watch: the server watch zone, rode line, and a draggable
 // anchor marker. Dragging the marker previews locally and commits the new drop point through
 // onMoved once the pointer lifts (the app routes it to the server PUT). Cached geometry is
 // read-only, muted, and never connected to the moving vessel by a rode line.
@@ -115,7 +146,7 @@ export function createAnchorOverlay(
   let lastAnchorLon: number | undefined;
   let lastVesselLat: number | undefined;
   let lastVesselLon: number | undefined;
-  let lastRadius: number | undefined;
+  let lastZoneKey: string | undefined;
   let lastDragging = false;
   let lastCached = false;
   // add() can run again after a base-style swap; the map keeps its listeners across that, so the
@@ -141,7 +172,7 @@ export function createAnchorOverlay(
   return {
     id: ANCHOR_OVERLAY_ID,
     title: 'Anchor watch',
-    description: 'The set anchor point and its drag-alarm circle.',
+    description: 'The set anchor point and its server-defined watch boundary.',
     band: BAND,
     supportsOpacity: true,
     layerIds: LAYERS,
@@ -286,7 +317,8 @@ export function createAnchorOverlay(
       // object for every report, including equal fixes. An identity check made an idle anchor watch
       // invalidate and repaint the whole MapLibre canvas on every overlay tick.
       const vesselPos = anchorPos && !cached ? vessel.position : undefined;
-      const radius = anchor.radiusMeters ?? anchor.lastKnownRadiusMeters;
+      const zone = anchor.zone ?? anchor.lastKnownZone;
+      const zoneKey = zone ? JSON.stringify(zone) : undefined;
       const dragging = !cached && anchor.dragging;
       if (
         !needsRedraw &&
@@ -294,7 +326,7 @@ export function createAnchorOverlay(
         anchorPos?.longitude === lastAnchorLon &&
         vesselPos?.latitude === lastVesselLat &&
         vesselPos?.longitude === lastVesselLon &&
-        radius === lastRadius &&
+        zoneKey === lastZoneKey &&
         dragging === lastDragging &&
         cached === lastCached
       ) {
@@ -305,13 +337,13 @@ export function createAnchorOverlay(
       lastAnchorLon = anchorPos?.longitude;
       lastVesselLat = vesselPos?.latitude;
       lastVesselLon = vesselPos?.longitude;
-      lastRadius = radius;
+      lastZoneKey = zoneKey;
       lastDragging = dragging;
       lastCached = cached;
       setSourceData(
         ctx.map,
         SHAPE_SRC,
-        shapeFeatures(anchorPos, radius, vesselPos, dragging, cached),
+        shapeFeatures(anchorPos, zone, vesselPos, dragging, cached),
       );
       setSourceData(ctx.map, POINT_SRC, pointFeatures(anchorPos, dragging, cached));
     },

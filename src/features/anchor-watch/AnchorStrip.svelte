@@ -48,10 +48,15 @@ const acked = $derived(anchor.acknowledged);
         Off anchor <b>{formatLengthOr(anchor.distanceMeters, units.mode, 0)}</b>
         {lengthUnit(units.mode)}
       </span>
-      <span class="metric">
-        Radius <b>{formatLengthOr(anchor.radiusMeters, units.mode, 0)}</b>
-        {lengthUnit(units.mode)}
-      </span>
+      {#if anchor.zone?.type === 'polygon'}
+        <span class="metric">Boundary <b>Polygon</b></span>
+      {:else}
+        <span class="metric">
+          {anchor.zone?.type === 'sector' ? 'Sector' : 'Radius'}
+          <b>{formatLengthOr(anchor.zone?.radius ?? anchor.radiusMeters, units.mode, 0)}</b>
+          {lengthUnit(units.mode)}
+        </span>
+      {/if}
     </div>
   </aside>
 {/if}

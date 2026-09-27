@@ -177,11 +177,12 @@ source, and surrounding traffic before relying on it.
   rectangles have atomic form and chart editors, and Open overlay settings moves directly to the
   Overlays view. See
   [Marine radar](marine-radar.md).
-- **Anchor watch** uses signalk-anchoralarm-plugin for all watch controls and drag detection. A
-  fresh GPS fix is required to drop. Without the plugin, Binnacle cannot arm an anchor watch and
-  never substitutes a browser-only alarm. During a disconnect, the last server position and radius
-  remain visible as read-only, unconfirmed values. Plugin controls require write access, and
-  conflicting actions are locked until completion.
+- **Anchor watch** uses Hoekens Anchor Alarm for all watch controls and drag detection. A fresh GPS
+  fix is required to drop. Circle, sector, and polygon boundaries come from the server's watch zone;
+  the panel opens Hoekens's map editor for free-form boundary changes. Without the plugin, Binnacle
+  cannot arm a watch and never substitutes a browser-only alarm. During a disconnect, the last
+  server position and boundary remain visible as read-only, unconfirmed values. Plugin controls
+  require write access, and conflicting actions are locked until completion.
 - **Man overboard** raises the boat-wide alarm through the Notifications API with a v1 delta
   fallback. A raise or clear lost to a closed socket is replayed on reconnect, the MOB strip warns
   when the boat-wide alarm may not have reached the server, and the confirm dialog qualifies its

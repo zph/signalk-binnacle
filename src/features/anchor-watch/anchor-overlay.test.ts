@@ -59,6 +59,31 @@ describe('anchor overlay', () => {
     expect(sourceFeatures(map, 'binnacle-anchor-point')).toHaveLength(1);
   });
 
+  it('renders a non-circular server boundary instead of inventing a circle', async () => {
+    const { store, map, overlay, ctx } = setup();
+    await overlay.add(ctx);
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': { latitude: 0, longitude: 0 },
+        'navigation.anchor.maxRadius': null,
+        'navigation.anchor.watchZone': {
+          type: 'polygon',
+          vertices: [
+            { bearing: 0, distance: 20 },
+            { bearing: 120, distance: 30 },
+            { bearing: 240, distance: 40 },
+          ],
+        },
+      }),
+    );
+    overlay.sync(ctx);
+    const shapes = sourceFeatures(map, 'binnacle-anchor-shapes');
+    const polygon = shapes.find((feature) => feature.geometry.type === 'Polygon');
+    expect(polygon?.geometry.type).toBe('Polygon');
+    if (polygon?.geometry.type !== 'Polygon') throw new Error('missing polygon');
+    expect(polygon.geometry.coordinates[0]).toHaveLength(4);
+  });
+
   it('keeps a muted, read-only last-known server anchor without a live rode line', async () => {
     const { store, map, overlay, ctx } = setup();
     await overlay.add(ctx);

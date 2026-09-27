@@ -70,6 +70,7 @@ const SUBSCRIPTIONS = [
   { path: SK_PATHS.callsignVhf, policy: 'instant' as const, minPeriod: 5000 },
   { path: SK_PATHS.anchorPosition, policy: 'instant' as const, minPeriod: 1000 },
   { path: SK_PATHS.anchorMaxRadius, policy: 'instant' as const, minPeriod: 1000 },
+  { path: SK_PATHS.anchorWatchZone, policy: 'instant' as const, minPeriod: 1000 },
   { path: SK_PATHS.allNotifications, policy: 'instant' as const, minPeriod: 1000 },
   {
     path: SK_PATHS.position,

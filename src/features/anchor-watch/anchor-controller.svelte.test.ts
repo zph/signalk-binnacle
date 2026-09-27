@@ -9,8 +9,7 @@ function commands(): AnchorCommands {
   return {
     drop: vi.fn().mockResolvedValue(false),
     raise: vi.fn().mockResolvedValue(false),
-    setRadius: vi.fn().mockResolvedValue(false),
-    setPosition: vi.fn().mockResolvedValue(false),
+    setZone: vi.fn().mockResolvedValue(false),
   };
 }
 
@@ -83,7 +82,10 @@ describe('createAnchorController', () => {
       onAnchorLogMoment,
     });
     await controller.onDrop();
-    expect(server.drop).toHaveBeenCalledExactlyOnceWith(45);
+    expect(server.drop).toHaveBeenCalledExactlyOnceWith(
+      { latitude: 1, longitude: 2 },
+      { type: 'circle', radius: 45 },
+    );
     expect(anchor.mode).toBe('off');
     expect(onAnchorLogMoment).not.toHaveBeenCalled();
     expect(controller.anchorError).toContain('do not rely on an alarm');
@@ -112,13 +114,13 @@ describe('createAnchorController', () => {
   it('uses the injected commands for an active server watch', async () => {
     const server = commands();
     vi.mocked(server.raise).mockResolvedValue(true);
-    vi.mocked(server.setRadius).mockResolvedValue(true);
-    vi.mocked(server.setPosition).mockResolvedValue(true);
+    vi.mocked(server.setZone).mockResolvedValue(true);
     const rememberRadius = vi.fn();
     const anchor = {
       mode: 'server',
       watching: true,
       degraded: false,
+      zone: { type: 'circle', radius: 45 },
       updateFix: vi.fn(),
       rememberRadius,
     } as unknown as AnchorWatch;
@@ -134,11 +136,15 @@ describe('createAnchorController', () => {
     await controller.onAnchorMoved({ latitude: 1.5, longitude: -2.5 });
     await controller.onRaise();
 
-    expect(server.setRadius).toHaveBeenCalledExactlyOnceWith(60);
-    expect(server.setPosition).toHaveBeenCalledExactlyOnceWith({
-      latitude: 1.5,
-      longitude: -2.5,
-    });
+    expect(server.setZone).toHaveBeenNthCalledWith(1, { type: 'circle', radius: 60 });
+    expect(server.setZone).toHaveBeenNthCalledWith(
+      2,
+      { type: 'circle', radius: 45 },
+      {
+        latitude: 1.5,
+        longitude: -2.5,
+      },
+    );
     expect(server.raise).toHaveBeenCalledOnce();
     expect(rememberRadius).toHaveBeenCalledExactlyOnceWith(60);
   });

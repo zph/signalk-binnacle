@@ -1,11 +1,10 @@
+import type { AnchorZone } from '$entities/anchor';
 import type { LatLon } from '$shared/geo';
 import { postResource } from '$shared/signalk';
 
-// The HTTP client for the signalk-anchoralarm-plugin. Every call returns whether it succeeded and
-// never throws: a missing plugin, a 401, or a dead network all come back false, and the caller
-// leaves the watch off. There is no separate presence probe: the drop attempt itself is detection.
+// Hoekens owns the watch. Commands never fall back to a browser-only alarm.
 
-const PLUGIN_BASE = '/plugins/anchoralarm';
+const PLUGIN_BASE = '/plugins/hoekens-anchor-alarm';
 
 // Routes through postResource so a read-only token's 401/403 reaches the write-outcome listener
 // rather than being silently absorbed as a plugin-absent failure.
@@ -22,17 +21,22 @@ function postAnchorCommand(
 export function dropAnchorOnServer(
   base: string,
   token: string | undefined,
-  radiusMeters: number,
+  position: LatLon,
+  zone: AnchorZone,
 ): Promise<boolean> {
-  return postAnchorCommand(`${base}${PLUGIN_BASE}/dropAnchor`, token, { radius: radiusMeters });
+  return postAnchorCommand(`${base}${PLUGIN_BASE}/dropAnchor`, token, { position, zone });
 }
 
-export function setServerRadius(
+export function setServerZone(
   base: string,
   token: string | undefined,
-  radiusMeters: number,
+  zone: AnchorZone,
+  position?: LatLon,
 ): Promise<boolean> {
-  return postAnchorCommand(`${base}${PLUGIN_BASE}/setRadius`, token, { radius: radiusMeters });
+  return postAnchorCommand(`${base}${PLUGIN_BASE}/setZone`, token, {
+    zone,
+    ...(position ? { position } : {}),
+  });
 }
 
 export function raiseServerAnchor(base: string, token: string | undefined): Promise<boolean> {
@@ -44,8 +48,7 @@ export function setServerAnchorPosition(
   base: string,
   token: string | undefined,
   position: LatLon,
+  zone: AnchorZone,
 ): Promise<boolean> {
-  return postAnchorCommand(`${base}${PLUGIN_BASE}/setAnchorPosition`, token, {
-    position: { latitude: position.latitude, longitude: position.longitude },
-  });
+  return setServerZone(base, token, zone, position);
 }

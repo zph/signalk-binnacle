@@ -68,6 +68,31 @@ describe('AnchorWatch (server mode)', () => {
     expect(anchor.mode).toBe('server');
     expect(anchor.position).toEqual(ANCHOR);
     expect(anchor.radiusMeters).toBe(60);
+    expect(anchor.zone).toEqual({ type: 'circle', radius: 60 });
+  });
+
+  it('uses Hoekens watchZone when maxRadius is null for a polygon', () => {
+    const { store, anchor } = setup();
+    const zone = {
+      type: 'polygon',
+      vertices: [
+        { bearing: 0, distance: 20 },
+        { bearing: 120, distance: 30 },
+        { bearing: 240, distance: 40 },
+      ],
+    };
+    store.applyFrame(
+      frame({
+        'navigation.anchor.position': ANCHOR,
+        'navigation.anchor.maxRadius': null,
+        'navigation.anchor.watchZone': zone,
+      }),
+    );
+    expect(anchor.zone).toEqual(zone);
+    expect(anchor.radiusMeters).toBeUndefined();
+    store.applyFrame({ ...frame({}), connection: { phase: 'reconnecting', attempt: 1 } });
+    expect(anchor.zone).toBeUndefined();
+    expect(anchor.lastKnownZone).toEqual(zone);
   });
 
   it('does not present retained server geometry as current after reconnect', () => {

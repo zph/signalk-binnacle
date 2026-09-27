@@ -284,7 +284,7 @@ const depthWatchPaused = $derived(
           ? 'Last known server anchor only. Watch status unconfirmed. Opens Anchor watch.'
           : anchor.fixLost
           ? 'Anchor watch: no GPS fix, drag detection degraded. Opens Anchor watch.'
-          : 'Anchor watch: distance from the anchor over the watch radius. Opens Anchor watch.'}
+          : 'Anchor watch: distance from the anchor and server watch boundary. Opens Anchor watch.'}
           onclick={onOpenAnchor}
         >
           {#if anchor.degraded}
@@ -292,11 +292,20 @@ const depthWatchPaused = $derived(
           {:else if anchor.fixLost}
             Anchor <b>no GPS</b>
           {:else}
-            Anchor <b class="num">{formatLengthOr(anchor.distanceMeters, units.mode, 0)}</b>/<b
-              class="num"
-              >{formatLengthOr(anchor.radiusMeters, units.mode, 0)}</b
-            >
+            Anchor <b class="num">{formatLengthOr(anchor.distanceMeters, units.mode, 0)}</b>
             {lengthUnit(units.mode)}
+            {#if anchor.zone?.type === 'polygon'}
+              / polygon
+            {:else}
+              /
+              <b class="num"
+                >{formatLengthOr(anchor.zone?.radius ?? anchor.radiusMeters, units.mode, 0)}</b
+              >
+              {lengthUnit(units.mode)}
+              {#if anchor.zone?.type === 'sector'}
+                sector
+              {/if}
+            {/if}
           {/if}
         </button>
       {/if}

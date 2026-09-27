@@ -58,6 +58,7 @@
       "./screenshots/05-routes.png"
     ],
     "recommends": [
+      "hoekens-anchor-alarm",
       "signalk-chart-locker",
       "signalk-crows-nest",
       "signalk-distance-to-shore",

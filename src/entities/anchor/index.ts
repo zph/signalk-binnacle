@@ -5,3 +5,4 @@ export {
   capturedRadius,
   MIN_RADIUS_M,
 } from './anchor-geometry';
+export { type AnchorZone, parseAnchorZone } from './anchor-zone';

@@ -32,6 +32,9 @@ for (const [device, width, height] of [
     await expect(panel).toContainText('A previous browser-only anchor watch has been stopped.');
     await expect(panel).toContainText('No anchor down.');
     await expect(panel).not.toContainText('Watching in this browser only.');
+    await expect(
+      panel.getByRole('link', { name: 'Edit watch boundary in Hoekens' }),
+    ).toHaveAttribute('href', '/hoekens-anchor-alarm/');
     await expect
       .poll(() => page.evaluate(() => localStorage.getItem('binnacle-custom:anchor-watch')))
       .toBe('null');

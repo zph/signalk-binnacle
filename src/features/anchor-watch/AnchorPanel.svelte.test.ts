@@ -65,6 +65,26 @@ describe('AnchorPanel', () => {
     expect(renderPanel('imperial')).toContain('aria-label="Watch radius in feet"');
   });
 
+  it('shows the server polygon and offers its editor without a misleading radius control', () => {
+    const html = renderPanel('metric', NO_DEPTH, NO_DEPTH, undefined, {
+      anchor: {
+        watching: true,
+        mode: 'server',
+        zone: {
+          type: 'polygon',
+          vertices: [
+            { bearing: 0, distance: 20 },
+            { bearing: 120, distance: 30 },
+            { bearing: 240, distance: 40 },
+          ],
+        },
+      },
+    });
+    expect(html).toContain('Polygon');
+    expect(html).toContain('/hoekens-anchor-alarm/');
+    expect(html).not.toContain('aria-label="Watch radius in meters"');
+  });
+
   it('names the depth reference beside the reading', () => {
     const html = renderPanel('metric', {
       meters: 9,
