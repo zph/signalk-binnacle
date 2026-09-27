@@ -10,6 +10,64 @@ export type AnchorZone =
   | { type: 'sector'; radius: number; startAngle: number; endAngle: number }
   | { type: 'polygon'; vertices: AnchorVertex[] };
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+function polarPoint(bearing: number, distance: number): Point {
+  return { x: Math.sin(bearing) * distance, y: Math.cos(bearing) * distance };
+}
+
+// The boat and Hoekens vertices share a local anchor-centered plane. Measure to edges,
+// because the closest point on a border often lies between its vertices.
+export function distanceToZoneBoundaryMeters(
+  zone: AnchorZone,
+  boatDistance: number,
+  boatBearingRad: number,
+): number {
+  if (zone.type === 'circle') return Math.abs(zone.radius - boatDistance);
+  const points =
+    zone.type === 'polygon'
+      ? zone.vertices.map(({ bearing, distance }) =>
+          polarPoint((bearing * Math.PI) / 180, distance),
+        )
+      : sectorPoints(zone);
+  const boat = polarPoint(boatBearingRad, boatDistance);
+  let nearest = Infinity;
+  for (let index = 0; index < points.length; index += 1) {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const fraction =
+      lengthSquared === 0
+        ? 0
+        : Math.max(
+            0,
+            Math.min(1, ((boat.x - start.x) * dx + (boat.y - start.y) * dy) / lengthSquared),
+          );
+    nearest = Math.min(
+      nearest,
+      Math.hypot(start.x + fraction * dx - boat.x, start.y + fraction * dy - boat.y),
+    );
+  }
+  return nearest;
+}
+
+function sectorPoints(zone: Extract<AnchorZone, { type: 'sector' }>): Point[] {
+  const sweep = (zone.endAngle - zone.startAngle + 360) % 360;
+  const count = Math.max(8, Math.ceil(sweep / 5));
+  const points: Point[] = [{ x: 0, y: 0 }];
+  for (let step = 0; step <= count; step += 1) {
+    points.push(
+      polarPoint(((zone.startAngle + (sweep * step) / count) * Math.PI) / 180, zone.radius),
+    );
+  }
+  return points;
+}
+
 const MAX_RADIUS_M = 1_000_000;
 
 function validDistance(value: unknown): value is number {

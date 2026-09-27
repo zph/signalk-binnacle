@@ -72,7 +72,7 @@ describe('AnchorWatch (server mode)', () => {
   });
 
   it('uses Hoekens watchZone when maxRadius is null for a polygon', () => {
-    const { store, anchor } = setup();
+    const { store, anchor, fix } = setup();
     const zone = {
       type: 'polygon',
       vertices: [
@@ -89,10 +89,25 @@ describe('AnchorWatch (server mode)', () => {
       }),
     );
     expect(anchor.zone).toEqual(zone);
+    fix(ANCHOR);
+    const originalBoundaryDistance = anchor.boundaryDistanceMeters;
+    expect(originalBoundaryDistance).toBeGreaterThan(0);
     expect(anchor.radiusMeters).toBeUndefined();
+    store.applyFrame(
+      frame({
+        'navigation.anchor.watchZone': {
+          ...zone,
+          vertices: zone.vertices.map((vertex) => ({ ...vertex, distance: vertex.distance * 2 })),
+        },
+      }),
+    );
+    expect(anchor.boundaryDistanceMeters).toBeCloseTo((originalBoundaryDistance ?? 0) * 2);
+    fix(INSIDE);
+    expect(anchor.boundaryDistanceMeters).not.toBeCloseTo((originalBoundaryDistance ?? 0) * 2);
     store.applyFrame({ ...frame({}), connection: { phase: 'reconnecting', attempt: 1 } });
     expect(anchor.zone).toBeUndefined();
-    expect(anchor.lastKnownZone).toEqual(zone);
+    expect(anchor.boundaryDistanceMeters).toBeUndefined();
+    expect(anchor.lastKnownZone?.type).toBe('polygon');
   });
 
   it('does not present retained server geometry as current after reconnect', () => {

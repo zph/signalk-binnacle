@@ -74,6 +74,9 @@ const radiusDisplay = $derived(
 );
 const minRadiusDisplay = $derived(toDisplayUnits(MIN_RADIUS_M));
 const distanceText = $derived(formatLengthOr(distance, mode, 0));
+const boundaryDistanceText = $derived(
+  formatLengthOr(anchor.fixLost ? undefined : anchor.boundaryDistanceMeters, mode, 0),
+);
 const radiusText = $derived(
   watching && zone?.type !== 'polygon'
     ? formatLengthOr(zone?.radius ?? anchor.radiusMeters ?? anchor.lastKnownRadiusMeters, mode, 0)
@@ -174,14 +177,18 @@ function captureFromDistance(): void {
     {statusLine}
   </p>
   <dl class="stat-grid">
-    <dt>From anchor</dt>
+    <dt>Boat from anchor</dt>
     <dd><span class="num">{distanceText}</span><span class="unit">{unit}</span></dd>
+    {#if zone}
+      <dt>Boat to boundary</dt>
+      <dd><span class="num">{boundaryDistanceText}</span><span class="unit">{unit}</span></dd>
+    {/if}
     <dt>
       {zone?.type === 'sector' ? 'Sector radius' : zone?.type === 'polygon' ? 'Boundary' : 'Radius'}
     </dt>
     <dd>
       {#if zone?.type === 'polygon'}
-        Polygon
+        <span class="num">Polygon</span><span class="unit"></span>
       {:else}
         <span class="num">{radiusText}</span><span class="unit">{unit}</span>
       {/if}

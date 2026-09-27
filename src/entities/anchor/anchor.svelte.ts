@@ -1,7 +1,7 @@
 import type { OwnVessel } from '$entities/vessel';
 import { asNumber, isLatLon, type LatLon } from '$shared/geo';
 import { HeldFlag, isFiniteNumber, isRecord, type ReactiveClock } from '$shared/lib';
-import { haversineMeters } from '$shared/nav';
+import { haversineMeters, rhumbBearingRad } from '$shared/nav';
 import { binnacleStorageKey } from '$shared/persistence';
 import {
   boundedNumberPersistedCodec,
@@ -17,7 +17,7 @@ import {
   SK_PATHS,
 } from '$shared/signalk';
 import { DEFAULT_RADIUS_M, MIN_RADIUS_M } from './anchor-geometry';
-import { type AnchorZone, parseAnchorZone } from './anchor-zone';
+import { type AnchorZone, distanceToZoneBoundaryMeters, parseAnchorZone } from './anchor-zone';
 // The anchor watch is never browser-only. A server position on the stream is the sole active mode.
 export type AnchorMode = 'off' | 'server';
 export type AnchorDegradedCause = 'server-stale';
@@ -262,6 +262,21 @@ export class AnchorWatch {
 
   get distanceMeters(): number | undefined {
     return this.#distance;
+  }
+
+  // Distance from the current boat fix to the closest watch boundary. The live zone and
+  // boat fix both invalidate this value; cached geometry never supplies a live clearance.
+  #boundaryDistance = $derived.by<number | undefined>(() => {
+    const zone = this.zone;
+    const anchor = this.position;
+    const boat = this.#vessel.position;
+    const boatDistance = this.#distance;
+    if (!zone || !anchor || !boat || boatDistance === undefined) return undefined;
+    return distanceToZoneBoundaryMeters(zone, boatDistance, rhumbBearingRad(anchor, boat));
+  });
+
+  get boundaryDistanceMeters(): number | undefined {
+    return this.#boundaryDistance;
   }
 
   get dragging(): boolean {

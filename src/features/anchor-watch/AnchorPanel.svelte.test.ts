@@ -78,9 +78,16 @@ describe('AnchorPanel', () => {
             { bearing: 240, distance: 40 },
           ],
         },
+        distanceMeters: 0,
+        boundaryDistanceMeters: 12.5,
       },
     });
     expect(html).toContain('Polygon');
+    expect(html).toContain('Boat from anchor');
+    expect(html).toContain('Boat to boundary');
+    expect(html).toContain('<span class="num">Polygon</span><span class="unit"></span>');
+    expect(html).toContain('>0</span>');
+    expect(html).toContain('>13</span>');
     expect(html).toContain('/hoekens-anchor-alarm/');
     expect(html).not.toContain('aria-label="Watch radius in meters"');
   });
